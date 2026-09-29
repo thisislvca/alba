@@ -1,0 +1,534 @@
+{
+  "records": [
+    {
+      "recordName": "master-webp",
+      "recordType": "CPLMaster",
+      "fields": {
+        "itemType": {
+          "value": "org.webmproject.webp",
+          "type": "STRING"
+        },
+        "filenameEnc": {
+          "value": "d2VicC53ZWJw",
+          "type": "STRING"
+        },
+        "resOriginalRes": {
+          "value": {
+            "size": 5760,
+            "downloadURL": "https://cws.icloud-content.com/fixture/webp/resOriginalRes"
+          },
+          "type": "ASSETID"
+        },
+        "resJPEGThumbHeight": {
+          "value": 360,
+          "type": "INT64"
+        },
+        "resJPEGThumbWidth": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resOriginalWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resJPEGThumbFileType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "resJPEGThumbRes": {
+          "value": {
+            "size": 25695,
+            "downloadURL": "https://cws.icloud-content.com/fixture/webp/resJPEGThumbRes"
+          },
+          "type": "ASSETID"
+        },
+        "resOriginalFileType": {
+          "value": "org.webmproject.webp",
+          "type": "STRING"
+        },
+        "resOriginalHeight": {
+          "value": 480,
+          "type": "INT64"
+        }
+      }
+    },
+    {
+      "recordName": "master-hevc",
+      "recordType": "CPLMaster",
+      "fields": {
+        "itemType": {
+          "value": "com.apple.quicktime-movie",
+          "type": "STRING"
+        },
+        "filenameEnc": {
+          "value": "aGV2Yy5tb3Y=",
+          "type": "STRING"
+        },
+        "resVidSmallHeight": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resJPEGMedFileType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "resJPEGThumbWidth": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resOriginalWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resVidMedFileType": {
+          "value": "public.mpeg-4",
+          "type": "STRING"
+        },
+        "resJPEGMedWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resVidMedRes": {
+          "value": {
+            "size": 94804,
+            "downloadURL": "https://cws.icloud-content.com/fixture/hevc/resVidMedRes"
+          },
+          "type": "ASSETID"
+        },
+        "resOriginalHeight": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resVidMedWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resJPEGMedRes": {
+          "value": {
+            "size": 37327,
+            "downloadURL": "https://cws.icloud-content.com/fixture/hevc/resJPEGMedRes"
+          },
+          "type": "ASSETID"
+        },
+        "resJPEGMedHeight": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resOriginalRes": {
+          "value": {
+            "size": 31804,
+            "downloadURL": "https://cws.icloud-content.com/fixture/hevc/resOriginalRes"
+          },
+          "type": "ASSETID"
+        },
+        "resVidSmallFileType": {
+          "value": "public.mpeg-4",
+          "type": "STRING"
+        },
+        "resVidSmallRes": {
+          "value": {
+            "size": 95613,
+            "downloadURL": "https://cws.icloud-content.com/fixture/hevc/resVidSmallRes"
+          },
+          "type": "ASSETID"
+        },
+        "resJPEGThumbHeight": {
+          "value": 360,
+          "type": "INT64"
+        },
+        "resJPEGThumbFileType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "resVidMedHeight": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resVidSmallWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resJPEGThumbRes": {
+          "value": {
+            "size": 29962,
+            "downloadURL": "https://cws.icloud-content.com/fixture/hevc/resJPEGThumbRes"
+          },
+          "type": "ASSETID"
+        },
+        "resOriginalFileType": {
+          "value": "com.apple.quicktime-movie",
+          "type": "STRING"
+        }
+      }
+    },
+    {
+      "recordName": "master-avc",
+      "recordType": "CPLMaster",
+      "fields": {
+        "itemType": {
+          "value": "public.mpeg-4",
+          "type": "STRING"
+        },
+        "filenameEnc": {
+          "value": "YXZjLm1wNA==",
+          "type": "STRING"
+        },
+        "resVidSmallHeight": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resJPEGMedFileType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "resJPEGThumbWidth": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resOriginalWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resVidMedFileType": {
+          "value": "public.mpeg-4",
+          "type": "STRING"
+        },
+        "resJPEGMedWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resVidMedRes": {
+          "value": {
+            "size": 87605,
+            "downloadURL": "https://cws.icloud-content.com/fixture/avc/resVidMedRes"
+          },
+          "type": "ASSETID"
+        },
+        "resOriginalHeight": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resVidMedWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resJPEGMedRes": {
+          "value": {
+            "size": 36384,
+            "downloadURL": "https://cws.icloud-content.com/fixture/avc/resJPEGMedRes"
+          },
+          "type": "ASSETID"
+        },
+        "resJPEGMedHeight": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resOriginalRes": {
+          "value": {
+            "size": 29742,
+            "downloadURL": "https://cws.icloud-content.com/fixture/avc/resOriginalRes"
+          },
+          "type": "ASSETID"
+        },
+        "resVidSmallFileType": {
+          "value": "public.mpeg-4",
+          "type": "STRING"
+        },
+        "resVidSmallRes": {
+          "value": {
+            "size": 87605,
+            "downloadURL": "https://cws.icloud-content.com/fixture/avc/resVidSmallRes"
+          },
+          "type": "ASSETID"
+        },
+        "resJPEGThumbHeight": {
+          "value": 360,
+          "type": "INT64"
+        },
+        "resJPEGThumbFileType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "resVidMedHeight": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resVidSmallWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resJPEGThumbRes": {
+          "value": {
+            "size": 29376,
+            "downloadURL": "https://cws.icloud-content.com/fixture/avc/resJPEGThumbRes"
+          },
+          "type": "ASSETID"
+        },
+        "resOriginalFileType": {
+          "value": "public.mpeg-4",
+          "type": "STRING"
+        }
+      }
+    },
+    {
+      "recordName": "master-png",
+      "recordType": "CPLMaster",
+      "fields": {
+        "itemType": {
+          "value": "public.png",
+          "type": "STRING"
+        },
+        "filenameEnc": {
+          "value": "cG5nLnBuZw==",
+          "type": "STRING"
+        },
+        "resOriginalRes": {
+          "value": {
+            "size": 17198,
+            "downloadURL": "https://cws.icloud-content.com/fixture/png/resOriginalRes"
+          },
+          "type": "ASSETID"
+        },
+        "resJPEGThumbHeight": {
+          "value": 360,
+          "type": "INT64"
+        },
+        "resJPEGThumbWidth": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resOriginalWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resJPEGThumbFileType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "resJPEGThumbRes": {
+          "value": {
+            "size": 27999,
+            "downloadURL": "https://cws.icloud-content.com/fixture/png/resJPEGThumbRes"
+          },
+          "type": "ASSETID"
+        },
+        "resOriginalFileType": {
+          "value": "public.png",
+          "type": "STRING"
+        },
+        "resOriginalHeight": {
+          "value": 480,
+          "type": "INT64"
+        }
+      }
+    },
+    {
+      "recordName": "master-heic",
+      "recordType": "CPLMaster",
+      "fields": {
+        "itemType": {
+          "value": "public.heic",
+          "type": "STRING"
+        },
+        "filenameEnc": {
+          "value": "aGVpYy5oZWlj",
+          "type": "STRING"
+        },
+        "resOriginalRes": {
+          "value": {
+            "size": 10278,
+            "downloadURL": "https://cws.icloud-content.com/fixture/heic/resOriginalRes"
+          },
+          "type": "ASSETID"
+        },
+        "resJPEGThumbHeight": {
+          "value": 360,
+          "type": "INT64"
+        },
+        "resJPEGThumbWidth": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resOriginalWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resJPEGThumbFileType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "resJPEGThumbRes": {
+          "value": {
+            "size": 33440,
+            "downloadURL": "https://cws.icloud-content.com/fixture/heic/resJPEGThumbRes"
+          },
+          "type": "ASSETID"
+        },
+        "resOriginalFileType": {
+          "value": "public.heic",
+          "type": "STRING"
+        },
+        "resOriginalHeight": {
+          "value": 480,
+          "type": "INT64"
+        }
+      }
+    },
+    {
+      "recordName": "master-jpeg",
+      "recordType": "CPLMaster",
+      "fields": {
+        "itemType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "filenameEnc": {
+          "value": "anBlZy5qcGc=",
+          "type": "STRING"
+        },
+        "resOriginalRes": {
+          "value": {
+            "size": 29261,
+            "downloadURL": "https://cws.icloud-content.com/fixture/jpeg/resOriginalRes"
+          },
+          "type": "ASSETID"
+        },
+        "resJPEGThumbHeight": {
+          "value": 360,
+          "type": "INT64"
+        },
+        "resJPEGThumbWidth": {
+          "value": 480,
+          "type": "INT64"
+        },
+        "resOriginalWidth": {
+          "value": 640,
+          "type": "INT64"
+        },
+        "resJPEGThumbFileType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "resJPEGThumbRes": {
+          "value": {
+            "size": 32863,
+            "downloadURL": "https://cws.icloud-content.com/fixture/jpeg/resJPEGThumbRes"
+          },
+          "type": "ASSETID"
+        },
+        "resOriginalFileType": {
+          "value": "public.jpeg",
+          "type": "STRING"
+        },
+        "resOriginalHeight": {
+          "value": 480,
+          "type": "INT64"
+        }
+      }
+    },
+    {
+      "recordName": "asset-webp",
+      "recordType": "CPLAsset",
+      "fields": {
+        "masterRef": {
+          "value": {
+            "recordName": "master-webp"
+          },
+          "type": "REFERENCE"
+        },
+        "assetDate": {
+          "value": 1800000000000,
+          "type": "TIMESTAMP"
+        }
+      }
+    },
+    {
+      "recordName": "asset-hevc",
+      "recordType": "CPLAsset",
+      "fields": {
+        "masterRef": {
+          "value": {
+            "recordName": "master-hevc"
+          },
+          "type": "REFERENCE"
+        },
+        "assetDate": {
+          "value": 1800000000000,
+          "type": "TIMESTAMP"
+        },
+        "duration": {
+          "value": 2000,
+          "type": "INT64"
+        }
+      }
+    },
+    {
+      "recordName": "asset-avc",
+      "recordType": "CPLAsset",
+      "fields": {
+        "masterRef": {
+          "value": {
+            "recordName": "master-avc"
+          },
+          "type": "REFERENCE"
+        },
+        "assetDate": {
+          "value": 1800000000000,
+          "type": "TIMESTAMP"
+        },
+        "duration": {
+          "value": 2000,
+          "type": "INT64"
+        }
+      }
+    },
+    {
+      "recordName": "asset-png",
+      "recordType": "CPLAsset",
+      "fields": {
+        "masterRef": {
+          "value": {
+            "recordName": "master-png"
+          },
+          "type": "REFERENCE"
+        },
+        "assetDate": {
+          "value": 1800000000000,
+          "type": "TIMESTAMP"
+        }
+      }
+    },
+    {
+      "recordName": "asset-heic",
+      "recordType": "CPLAsset",
+      "fields": {
+        "masterRef": {
+          "value": {
+            "recordName": "master-heic"
+          },
+          "type": "REFERENCE"
+        },
+        "assetDate": {
+          "value": 1800000000000,
+          "type": "TIMESTAMP"
+        }
+      }
+    },
+    {
+      "recordName": "asset-jpeg",
+      "recordType": "CPLAsset",
+      "fields": {
+        "masterRef": {
+          "value": {
+            "recordName": "master-jpeg"
+          },
+          "type": "REFERENCE"
+        },
+        "assetDate": {
+          "value": 1800000000000,
+          "type": "TIMESTAMP"
+        }
+      }
+    }
+  ]
+}

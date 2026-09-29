@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adapted from SVG Repo Live Photo (CC0); normalized for Alba. See THIRD_PARTY_NOTICES.md. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M21.000,11.225 L21.000,12.775 M20.182,15.829 L19.407,17.171 M17.171,19.407 L15.829,20.182 M12.775,21.000 L11.225,21.000 M8.171,20.182 L6.829,19.407 M4.593,17.171 L3.818,15.829 M3.000,12.775 L3.000,11.225 M3.818,8.171 L4.593,6.829 M6.829,4.593 L8.171,3.818 M11.225,3.000 L12.775,3.000 M15.829,3.818 L17.171,4.593 M19.407,6.829 L20.182,8.171"
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M17,12 A5,5 0,1 1,7,12 A5,5 0,1 1,17,12"
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5" />
+    <path
+        android:pathData="M13.5,12 A1.5,1.5 0,1 1,10.5,12 A1.5,1.5 0,1 1,13.5,12"
+        android:fillColor="#FF000000" />
+</vector>

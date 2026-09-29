@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adapted from SVG Repo Slowmo (CC0); normalized for Alba. See THIRD_PARTY_NOTICES.md. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M12.000,5.850 L12.000,3.000 M15.075,6.674 L16.500,4.206 M17.326,8.925 L19.794,7.500 M18.150,12.000 L21.000,12.000 M17.326,15.075 L19.794,16.500 M15.075,17.326 L16.500,19.794 M12.000,18.150 L12.000,21.000 M8.925,17.326 L7.500,19.794 M6.674,15.075 L4.206,16.500 M5.850,12.000 L3.000,12.000 M6.674,8.925 L4.206,7.500 M8.925,6.674 L7.500,4.206"
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+</vector>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" role="img" aria-labelledby="alba-title alba-description">
+  <title id="alba-title">Alba — dawn mark</title>
+  <desc id="alba-description">A pointed landscape mark with gently concave edges, a bottom-centered golden dawn gradient and visible fine grain.</desc>
+  <defs>
+    <!-- Circular dawn centered on the lower midpoint of the silhouette.
+         Stop positions retain the original spacing of the color bands. -->
+    <radialGradient id="alba-dawn" gradientUnits="userSpaceOnUse" cx="512" cy="696" r="640" color-interpolation="sRGB">
+      <stop offset="0" stop-color="#FFD267"/>
+      <stop offset="0.22" stop-color="#FF9D6C"/>
+      <stop offset="0.44" stop-color="#F47799"/>
+      <stop offset="0.66" stop-color="#B467CF"/>
+      <stop offset="0.84" stop-color="#805FDD"/>
+      <stop offset="1" stop-color="#5561DD"/>
+    </radialGradient>
+    <path id="alba-silhouette" d="M 96 264 Q 512 392 928 264 L 928 760 Q 512 632 96 760 Z"/>
+    <!-- Deterministic monochrome grain; clipped to the source alpha after blending. -->
+    <filter id="alba-grain" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.62" numOctaves="2" seed="17" stitchTiles="stitch" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="mono-noise"/>
+      <feComponentTransfer in="mono-noise" result="soft-noise">
+        <feFuncR type="linear" slope="1.6" intercept="-0.3"/>
+        <feFuncG type="linear" slope="1.6" intercept="-0.3"/>
+        <feFuncB type="linear" slope="1.6" intercept="-0.3"/>
+        <feFuncA type="linear" slope="0.34"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="soft-noise" mode="soft-light" result="textured"/>
+      <feComposite in="textured" in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+  <!--
+    Width 832; height at ends 496; height at center 368 (74.2% of end height).
+    Each quadratic curve moves inward 64 units at its midpoint.
+    Straight vertical sides and unrounded joins preserve four pointed corners.
+    Uniform 84% scaling about (512,512) preserves all proportions and widens padding.
+  -->
+  <g transform="translate(512 512) scale(0.84) translate(-512 -512)">
+    <g filter="url(#alba-grain)">
+      <use href="#alba-silhouette" fill="url(#alba-dawn)"/>
+    </g>
+  </g>
+</svg>

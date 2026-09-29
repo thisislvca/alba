@@ -1,0 +1,2374 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 12,
+    "identityHash": "84bb9feec1fd9c946d326f7083344f34",
+    "entities": [
+      {
+        "tableName": "catalog_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaId` TEXT NOT NULL, `fileName` TEXT NOT NULL, `capturedAtEpochMillis` INTEGER NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `origin` TEXT NOT NULL, `sourceRevision` TEXT NOT NULL, `localUri` TEXT, `previewCachePath` TEXT, `originalCachePath` TEXT, `accentStartArgb` INTEGER NOT NULL, `accentEndArgb` INTEGER NOT NULL, `lastSeenScanId` TEXT NOT NULL, `kind` TEXT NOT NULL DEFAULT 'PHOTO', `mimeType` TEXT NOT NULL DEFAULT 'image/jpeg', `durationMillis` INTEGER, `motionCachePath` TEXT, `motionMimeType` TEXT NOT NULL DEFAULT 'video/quicktime', `masterRecordName` TEXT, `assetRecordName` TEXT, `resourceFingerprint` TEXT NOT NULL DEFAULT '', `addedAtEpochMillis` INTEGER, `viewerCachePath` TEXT, `byteCount` INTEGER, `deviceFolderId` TEXT, `deviceFolderName` TEXT, `localFavorite` INTEGER NOT NULL DEFAULT 0, `isTrashed` INTEGER NOT NULL DEFAULT 0, `expiresAtEpochMillis` INTEGER, PRIMARY KEY(`mediaId`))",
+        "fields": [
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fileName",
+            "columnName": "fileName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "capturedAtEpochMillis",
+            "columnName": "capturedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "width",
+            "columnName": "width",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "height",
+            "columnName": "height",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "origin",
+            "columnName": "origin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceRevision",
+            "columnName": "sourceRevision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localUri",
+            "columnName": "localUri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "previewCachePath",
+            "columnName": "previewCachePath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "originalCachePath",
+            "columnName": "originalCachePath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "accentStartArgb",
+            "columnName": "accentStartArgb",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accentEndArgb",
+            "columnName": "accentEndArgb",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenScanId",
+            "columnName": "lastSeenScanId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'PHOTO'"
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "mimeType",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'image/jpeg'"
+          },
+          {
+            "fieldPath": "durationMillis",
+            "columnName": "durationMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "motionCachePath",
+            "columnName": "motionCachePath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "motionMimeType",
+            "columnName": "motionMimeType",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'video/quicktime'"
+          },
+          {
+            "fieldPath": "masterRecordName",
+            "columnName": "masterRecordName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "assetRecordName",
+            "columnName": "assetRecordName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "resourceFingerprint",
+            "columnName": "resourceFingerprint",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          },
+          {
+            "fieldPath": "addedAtEpochMillis",
+            "columnName": "addedAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "viewerCachePath",
+            "columnName": "viewerCachePath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "byteCount",
+            "columnName": "byteCount",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "deviceFolderId",
+            "columnName": "deviceFolderId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "deviceFolderName",
+            "columnName": "deviceFolderName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localFavorite",
+            "columnName": "localFavorite",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "isTrashed",
+            "columnName": "isTrashed",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "expiresAtEpochMillis",
+            "columnName": "expiresAtEpochMillis",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mediaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_catalog_items_capturedAtEpochMillis_mediaId",
+            "unique": false,
+            "columnNames": [
+              "capturedAtEpochMillis",
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_items_capturedAtEpochMillis_mediaId` ON `${TABLE_NAME}` (`capturedAtEpochMillis`, `mediaId`)"
+          },
+          {
+            "name": "index_catalog_items_origin_lastSeenScanId",
+            "unique": false,
+            "columnNames": [
+              "origin",
+              "lastSeenScanId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_items_origin_lastSeenScanId` ON `${TABLE_NAME}` (`origin`, `lastSeenScanId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "catalog_checkpoints",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`scope` TEXT NOT NULL, `changeToken` TEXT NOT NULL, `refreshedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`scope`))",
+        "fields": [
+          {
+            "fieldPath": "scope",
+            "columnName": "scope",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "changeToken",
+            "columnName": "changeToken",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "refreshedAtEpochMillis",
+            "columnName": "refreshedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "scope"
+          ]
+        }
+      },
+      {
+        "tableName": "upload_transfers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transferId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `fileName` TEXT NOT NULL, `accountLabel` TEXT NOT NULL, `sourceRevision` TEXT NOT NULL, `localUri` TEXT NOT NULL, `stagedPath` TEXT NOT NULL, `byteCount` INTEGER NOT NULL, `sha256Hex` TEXT NOT NULL, `state` TEXT NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `message` TEXT, PRIMARY KEY(`transferId`))",
+        "fields": [
+          {
+            "fieldPath": "transferId",
+            "columnName": "transferId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fileName",
+            "columnName": "fileName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountLabel",
+            "columnName": "accountLabel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceRevision",
+            "columnName": "sourceRevision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localUri",
+            "columnName": "localUri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stagedPath",
+            "columnName": "stagedPath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "byteCount",
+            "columnName": "byteCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sha256Hex",
+            "columnName": "sha256Hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "message",
+            "columnName": "message",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "transferId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_upload_transfers_mediaId",
+            "unique": false,
+            "columnNames": [
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_upload_transfers_mediaId` ON `${TABLE_NAME}` (`mediaId`)"
+          },
+          {
+            "name": "index_upload_transfers_accountLabel",
+            "unique": false,
+            "columnNames": [
+              "accountLabel"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_upload_transfers_accountLabel` ON `${TABLE_NAME}` (`accountLabel`)"
+          },
+          {
+            "name": "index_upload_transfers_state",
+            "unique": false,
+            "columnNames": [
+              "state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_upload_transfers_state` ON `${TABLE_NAME}` (`state`)"
+          }
+        ]
+      },
+      {
+        "tableName": "accounts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `authSessionId` TEXT NOT NULL, `destinationLabel` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `active` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountId`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authSessionId",
+            "columnName": "authSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "destinationLabel",
+            "columnName": "destinationLabel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authEpoch",
+            "columnName": "authEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationFence",
+            "columnName": "operationFence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "active",
+            "columnName": "active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_accounts_active",
+            "unique": false,
+            "columnNames": [
+              "active"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_accounts_active` ON `${TABLE_NAME}` (`active`)"
+          },
+          {
+            "name": "index_accounts_authSessionId",
+            "unique": false,
+            "columnNames": [
+              "authSessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_accounts_authSessionId` ON `${TABLE_NAME}` (`authSessionId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "staged_sources",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stagedSourceId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `authorityType` TEXT NOT NULL, `authorityId` TEXT NOT NULL, `enrollmentId` TEXT, `enrollmentRevision` INTEGER, `mediaId` TEXT, `contentUri` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `lineageKey` TEXT NOT NULL, `sourceRevision` TEXT NOT NULL, `originalAcquisition` TEXT NOT NULL, `originalFormatRequested` INTEGER NOT NULL, `unredacted` INTEGER NOT NULL, `jpegHeaderValidated` INTEGER NOT NULL, `ownedFileToken` TEXT NOT NULL, `byteCount` INTEGER NOT NULL, `sha256Hex` TEXT NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, `releasedAtEpochMillis` INTEGER, `lastModifiedAtEpochMillis` INTEGER, PRIMARY KEY(`stagedSourceId`))",
+        "fields": [
+          {
+            "fieldPath": "stagedSourceId",
+            "columnName": "stagedSourceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authEpoch",
+            "columnName": "authEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationFence",
+            "columnName": "operationFence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorityType",
+            "columnName": "authorityType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorityId",
+            "columnName": "authorityId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enrollmentId",
+            "columnName": "enrollmentId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "enrollmentRevision",
+            "columnName": "enrollmentRevision",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "contentUri",
+            "columnName": "contentUri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "mimeType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineageKey",
+            "columnName": "lineageKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceRevision",
+            "columnName": "sourceRevision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalAcquisition",
+            "columnName": "originalAcquisition",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalFormatRequested",
+            "columnName": "originalFormatRequested",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unredacted",
+            "columnName": "unredacted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "formatValidated",
+            "columnName": "jpegHeaderValidated",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ownedFileToken",
+            "columnName": "ownedFileToken",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "byteCount",
+            "columnName": "byteCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sha256Hex",
+            "columnName": "sha256Hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "releasedAtEpochMillis",
+            "columnName": "releasedAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastModifiedAtEpochMillis",
+            "columnName": "lastModifiedAtEpochMillis",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "stagedSourceId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_staged_sources_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_staged_sources_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          },
+          {
+            "name": "index_staged_sources_lineageKey",
+            "unique": false,
+            "columnNames": [
+              "lineageKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_staged_sources_lineageKey` ON `${TABLE_NAME}` (`lineageKey`)"
+          },
+          {
+            "name": "index_staged_sources_sha256Hex",
+            "unique": false,
+            "columnNames": [
+              "sha256Hex"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_staged_sources_sha256Hex` ON `${TABLE_NAME}` (`sha256Hex`)"
+          },
+          {
+            "name": "index_staged_sources_ownedFileToken",
+            "unique": true,
+            "columnNames": [
+              "ownedFileToken"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_staged_sources_ownedFileToken` ON `${TABLE_NAME}` (`ownedFileToken`)"
+          }
+        ]
+      },
+      {
+        "tableName": "transfers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transferId` TEXT NOT NULL, `stagedSourceId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `authorityType` TEXT NOT NULL, `authorityId` TEXT NOT NULL, `enrollmentId` TEXT, `enrollmentRevision` INTEGER, `mediaId` TEXT, `displayName` TEXT NOT NULL, `state` TEXT NOT NULL, `stateVersion` INTEGER NOT NULL, `activeAttemptId` TEXT, `leaseToken` TEXT, `leaseExpiresAtEpochMillis` INTEGER, `reconciliationDueAtEpochMillis` INTEGER, `reconciliationDeadlineEpochMillis` INTEGER, `reconciliationChangeToken` TEXT, `verifiedAtEpochMillis` INTEGER, `createdAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `message` TEXT, PRIMARY KEY(`transferId`))",
+        "fields": [
+          {
+            "fieldPath": "transferId",
+            "columnName": "transferId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stagedSourceId",
+            "columnName": "stagedSourceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authEpoch",
+            "columnName": "authEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationFence",
+            "columnName": "operationFence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorityType",
+            "columnName": "authorityType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorityId",
+            "columnName": "authorityId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enrollmentId",
+            "columnName": "enrollmentId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "enrollmentRevision",
+            "columnName": "enrollmentRevision",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stateVersion",
+            "columnName": "stateVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activeAttemptId",
+            "columnName": "activeAttemptId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "leaseToken",
+            "columnName": "leaseToken",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "leaseExpiresAtEpochMillis",
+            "columnName": "leaseExpiresAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reconciliationDueAtEpochMillis",
+            "columnName": "reconciliationDueAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reconciliationDeadlineEpochMillis",
+            "columnName": "reconciliationDeadlineEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reconciliationChangeToken",
+            "columnName": "reconciliationChangeToken",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "verifiedAtEpochMillis",
+            "columnName": "verifiedAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "message",
+            "columnName": "message",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "transferId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_transfers_accountId_state",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transfers_accountId_state` ON `${TABLE_NAME}` (`accountId`, `state`)"
+          },
+          {
+            "name": "index_transfers_state",
+            "unique": false,
+            "columnNames": [
+              "state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transfers_state` ON `${TABLE_NAME}` (`state`)"
+          },
+          {
+            "name": "index_transfers_stagedSourceId",
+            "unique": true,
+            "columnNames": [
+              "stagedSourceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_transfers_stagedSourceId` ON `${TABLE_NAME}` (`stagedSourceId`)"
+          },
+          {
+            "name": "index_transfers_mediaId",
+            "unique": false,
+            "columnNames": [
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transfers_mediaId` ON `${TABLE_NAME}` (`mediaId`)"
+          },
+          {
+            "name": "index_transfers_activeAttemptId",
+            "unique": false,
+            "columnNames": [
+              "activeAttemptId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transfers_activeAttemptId` ON `${TABLE_NAME}` (`activeAttemptId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "upload_attempts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`attemptId` TEXT NOT NULL, `transferId` TEXT NOT NULL, `stagedSourceId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `preUploadChangeToken` TEXT NOT NULL, `predecessorAttemptId` TEXT, `authorizedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`attemptId`))",
+        "fields": [
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transferId",
+            "columnName": "transferId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stagedSourceId",
+            "columnName": "stagedSourceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authEpoch",
+            "columnName": "authEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationFence",
+            "columnName": "operationFence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "preUploadChangeToken",
+            "columnName": "preUploadChangeToken",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "predecessorAttemptId",
+            "columnName": "predecessorAttemptId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "authorizedAtEpochMillis",
+            "columnName": "authorizedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "attemptId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_upload_attempts_transferId",
+            "unique": true,
+            "columnNames": [
+              "transferId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_upload_attempts_transferId` ON `${TABLE_NAME}` (`transferId`)"
+          },
+          {
+            "name": "index_upload_attempts_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_upload_attempts_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "upload_acceptances",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`attemptId` TEXT NOT NULL, `requestUuid` TEXT, `masterRecordName` TEXT, `assetRecordName` TEXT, `duplicateHint` INTEGER, `receivedAtEpochMillis` INTEGER NOT NULL, `uploadJobId` TEXT, PRIMARY KEY(`attemptId`))",
+        "fields": [
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestUuid",
+            "columnName": "requestUuid",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "masterRecordName",
+            "columnName": "masterRecordName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "assetRecordName",
+            "columnName": "assetRecordName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "duplicateHint",
+            "columnName": "duplicateHint",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "receivedAtEpochMillis",
+            "columnName": "receivedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uploadJobId",
+            "columnName": "uploadJobId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "attemptId"
+          ]
+        }
+      },
+      {
+        "tableName": "upload_uncertainties",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`attemptId` TEXT NOT NULL, `reason` TEXT NOT NULL, `observedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`attemptId`))",
+        "fields": [
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "observedAtEpochMillis",
+            "columnName": "observedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "attemptId"
+          ]
+        }
+      },
+      {
+        "tableName": "account_write_slots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `attemptId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `acquiredAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountId`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authEpoch",
+            "columnName": "authEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "acquiredAtEpochMillis",
+            "columnName": "acquiredAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId"
+          ]
+        }
+      },
+      {
+        "tableName": "remote_asset_pairs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`remotePairId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `observedAuthEpoch` INTEGER NOT NULL, `databaseScope` TEXT NOT NULL, `zoneName` TEXT NOT NULL, `masterRecordName` TEXT NOT NULL, `masterChangeTag` TEXT NOT NULL, `masterDeleted` INTEGER NOT NULL, `assetRecordName` TEXT NOT NULL, `assetChangeTag` TEXT NOT NULL, `assetDeleted` INTEGER NOT NULL, `relationIsCurrent` INTEGER NOT NULL, `originalResourceIdentity` TEXT NOT NULL, `hydratedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`remotePairId`))",
+        "fields": [
+          {
+            "fieldPath": "remotePairId",
+            "columnName": "remotePairId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "observedAuthEpoch",
+            "columnName": "observedAuthEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "databaseScope",
+            "columnName": "databaseScope",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "zoneName",
+            "columnName": "zoneName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "masterRecordName",
+            "columnName": "masterRecordName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "masterChangeTag",
+            "columnName": "masterChangeTag",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "masterDeleted",
+            "columnName": "masterDeleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "assetRecordName",
+            "columnName": "assetRecordName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "assetChangeTag",
+            "columnName": "assetChangeTag",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "assetDeleted",
+            "columnName": "assetDeleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "relationIsCurrent",
+            "columnName": "relationIsCurrent",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalResourceIdentity",
+            "columnName": "originalResourceIdentity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hydratedAtEpochMillis",
+            "columnName": "hydratedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "remotePairId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_remote_asset_pairs_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_remote_asset_pairs_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          },
+          {
+            "name": "index_remote_asset_pairs_accountId_masterRecordName_assetRecordName",
+            "unique": true,
+            "columnNames": [
+              "accountId",
+              "masterRecordName",
+              "assetRecordName"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_remote_asset_pairs_accountId_masterRecordName_assetRecordName` ON `${TABLE_NAME}` (`accountId`, `masterRecordName`, `assetRecordName`)"
+          }
+        ]
+      },
+      {
+        "tableName": "reconciliation_matches",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`attemptId` TEXT NOT NULL, `remotePairId` TEXT NOT NULL, `observedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`attemptId`, `remotePairId`))",
+        "fields": [
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remotePairId",
+            "columnName": "remotePairId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "observedAtEpochMillis",
+            "columnName": "observedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "attemptId",
+            "remotePairId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_reconciliation_matches_remotePairId",
+            "unique": false,
+            "columnNames": [
+              "remotePairId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reconciliation_matches_remotePairId` ON `${TABLE_NAME}` (`remotePairId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "asset_links",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`linkId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `mediaId` TEXT, `stagedSourceId` TEXT NOT NULL, `remotePairId` TEXT NOT NULL, `attemptId` TEXT NOT NULL, `linkedAtEpochMillis` INTEGER NOT NULL, `status` TEXT NOT NULL, PRIMARY KEY(`linkId`))",
+        "fields": [
+          {
+            "fieldPath": "linkId",
+            "columnName": "linkId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "stagedSourceId",
+            "columnName": "stagedSourceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remotePairId",
+            "columnName": "remotePairId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "linkedAtEpochMillis",
+            "columnName": "linkedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "linkId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_asset_links_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_asset_links_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          },
+          {
+            "name": "index_asset_links_mediaId",
+            "unique": false,
+            "columnNames": [
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_asset_links_mediaId` ON `${TABLE_NAME}` (`mediaId`)"
+          },
+          {
+            "name": "index_asset_links_remotePairId",
+            "unique": false,
+            "columnNames": [
+              "remotePairId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_asset_links_remotePairId` ON `${TABLE_NAME}` (`remotePairId`)"
+          },
+          {
+            "name": "index_asset_links_attemptId",
+            "unique": true,
+            "columnNames": [
+              "attemptId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_asset_links_attemptId` ON `${TABLE_NAME}` (`attemptId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "verification_proofs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`proofId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `verificationAuthEpoch` INTEGER NOT NULL, `invocationAuthEpoch` INTEGER NOT NULL, `linkId` TEXT NOT NULL, `mediaId` TEXT, `stagedSourceId` TEXT NOT NULL, `sourceRevision` TEXT NOT NULL, `remotePairId` TEXT NOT NULL, `masterChangeTag` TEXT NOT NULL, `assetChangeTag` TEXT NOT NULL, `originalResourceIdentity` TEXT NOT NULL, `byteCount` INTEGER NOT NULL, `sha256Hex` TEXT NOT NULL, `verifiedAtEpochMillis` INTEGER NOT NULL, `invalidatedAtEpochMillis` INTEGER, `invalidationReason` TEXT, PRIMARY KEY(`proofId`))",
+        "fields": [
+          {
+            "fieldPath": "proofId",
+            "columnName": "proofId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "verificationAuthEpoch",
+            "columnName": "verificationAuthEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "invocationAuthEpoch",
+            "columnName": "invocationAuthEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "linkId",
+            "columnName": "linkId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "stagedSourceId",
+            "columnName": "stagedSourceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceRevision",
+            "columnName": "sourceRevision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remotePairId",
+            "columnName": "remotePairId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "masterChangeTag",
+            "columnName": "masterChangeTag",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "assetChangeTag",
+            "columnName": "assetChangeTag",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalResourceIdentity",
+            "columnName": "originalResourceIdentity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "byteCount",
+            "columnName": "byteCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sha256Hex",
+            "columnName": "sha256Hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "verifiedAtEpochMillis",
+            "columnName": "verifiedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "invalidatedAtEpochMillis",
+            "columnName": "invalidatedAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "invalidationReason",
+            "columnName": "invalidationReason",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "proofId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_verification_proofs_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_verification_proofs_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          },
+          {
+            "name": "index_verification_proofs_linkId",
+            "unique": true,
+            "columnNames": [
+              "linkId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_verification_proofs_linkId` ON `${TABLE_NAME}` (`linkId`)"
+          },
+          {
+            "name": "index_verification_proofs_remotePairId",
+            "unique": false,
+            "columnNames": [
+              "remotePairId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_verification_proofs_remotePairId` ON `${TABLE_NAME}` (`remotePairId`)"
+          },
+          {
+            "name": "index_verification_proofs_mediaId_accountId_invalidatedAtEpochMillis_verifiedAtEpochMillis",
+            "unique": false,
+            "columnNames": [
+              "mediaId",
+              "accountId",
+              "invalidatedAtEpochMillis",
+              "verifiedAtEpochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_verification_proofs_mediaId_accountId_invalidatedAtEpochMillis_verifiedAtEpochMillis` ON `${TABLE_NAME}` (`mediaId`, `accountId`, `invalidatedAtEpochMillis`, `verifiedAtEpochMillis`)"
+          }
+        ]
+      },
+      {
+        "tableName": "upload_suppressions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`suppressionId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `attemptId` TEXT NOT NULL, `lineageKey` TEXT NOT NULL, `sha256Hex` TEXT NOT NULL, `reason` TEXT NOT NULL, `active` INTEGER NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`suppressionId`))",
+        "fields": [
+          {
+            "fieldPath": "suppressionId",
+            "columnName": "suppressionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineageKey",
+            "columnName": "lineageKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sha256Hex",
+            "columnName": "sha256Hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "active",
+            "columnName": "active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "suppressionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_upload_suppressions_accountId_lineageKey",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "lineageKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_upload_suppressions_accountId_lineageKey` ON `${TABLE_NAME}` (`accountId`, `lineageKey`)"
+          },
+          {
+            "name": "index_upload_suppressions_accountId_sha256Hex",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "sha256Hex"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_upload_suppressions_accountId_sha256Hex` ON `${TABLE_NAME}` (`accountId`, `sha256Hex`)"
+          },
+          {
+            "name": "index_upload_suppressions_attemptId",
+            "unique": false,
+            "columnNames": [
+              "attemptId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_upload_suppressions_attemptId` ON `${TABLE_NAME}` (`attemptId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "backup_enrollment_drafts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`draftId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `destinationLabel` TEXT NOT NULL, `scope` TEXT NOT NULL, `disclosureRevision` TEXT NOT NULL, `phase` TEXT NOT NULL, `shownAtEpochMillis` INTEGER NOT NULL, `acceptedAtEpochMillis` INTEGER, `expiresAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`draftId`))",
+        "fields": [
+          {
+            "fieldPath": "draftId",
+            "columnName": "draftId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authEpoch",
+            "columnName": "authEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationFence",
+            "columnName": "operationFence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "destinationLabel",
+            "columnName": "destinationLabel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scope",
+            "columnName": "scope",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "disclosureRevision",
+            "columnName": "disclosureRevision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phase",
+            "columnName": "phase",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shownAtEpochMillis",
+            "columnName": "shownAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "acceptedAtEpochMillis",
+            "columnName": "acceptedAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "expiresAtEpochMillis",
+            "columnName": "expiresAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "draftId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_backup_enrollment_drafts_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_enrollment_drafts_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          },
+          {
+            "name": "index_backup_enrollment_drafts_expiresAtEpochMillis",
+            "unique": false,
+            "columnNames": [
+              "expiresAtEpochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_enrollment_drafts_expiresAtEpochMillis` ON `${TABLE_NAME}` (`expiresAtEpochMillis`)"
+          }
+        ]
+      },
+      {
+        "tableName": "backup_enrollments",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`enrollmentId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authorizedAuthEpoch` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `scope` TEXT NOT NULL, `disclosureRevision` TEXT NOT NULL, `consentedAtEpochMillis` INTEGER NOT NULL, `permissionFingerprint` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `discoveryBaselineVersion` TEXT, `discoveryBaselineGeneration` INTEGER, PRIMARY KEY(`enrollmentId`))",
+        "fields": [
+          {
+            "fieldPath": "enrollmentId",
+            "columnName": "enrollmentId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorizedAuthEpoch",
+            "columnName": "authorizedAuthEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationFence",
+            "columnName": "operationFence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scope",
+            "columnName": "scope",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "disclosureRevision",
+            "columnName": "disclosureRevision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "consentedAtEpochMillis",
+            "columnName": "consentedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "permissionFingerprint",
+            "columnName": "permissionFingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enabled",
+            "columnName": "enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "discoveryBaselineVersion",
+            "columnName": "discoveryBaselineVersion",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "discoveryBaselineGeneration",
+            "columnName": "discoveryBaselineGeneration",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "enrollmentId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_backup_enrollments_accountId",
+            "unique": true,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_backup_enrollments_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          },
+          {
+            "name": "index_backup_enrollments_enabled",
+            "unique": false,
+            "columnNames": [
+              "enabled"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_enrollments_enabled` ON `${TABLE_NAME}` (`enabled`)"
+          }
+        ]
+      },
+      {
+        "tableName": "local_assets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`localAssetId` TEXT NOT NULL, `volumeName` TEXT NOT NULL, `volumeVersion` TEXT NOT NULL, `mediaStoreId` INTEGER NOT NULL, `generationModified` INTEGER NOT NULL, `contentUri` TEXT NOT NULL, `lineageKey` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `byteCount` INTEGER NOT NULL, `capturedAtEpochMillis` INTEGER NOT NULL, `permissionFingerprint` TEXT NOT NULL, `lastSeenAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`localAssetId`))",
+        "fields": [
+          {
+            "fieldPath": "localAssetId",
+            "columnName": "localAssetId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "volumeName",
+            "columnName": "volumeName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "volumeVersion",
+            "columnName": "volumeVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaStoreId",
+            "columnName": "mediaStoreId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generationModified",
+            "columnName": "generationModified",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentUri",
+            "columnName": "contentUri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineageKey",
+            "columnName": "lineageKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "mimeType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "byteCount",
+            "columnName": "byteCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "capturedAtEpochMillis",
+            "columnName": "capturedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "permissionFingerprint",
+            "columnName": "permissionFingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenAtEpochMillis",
+            "columnName": "lastSeenAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "localAssetId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_local_assets_volumeName_mediaStoreId_volumeVersion",
+            "unique": true,
+            "columnNames": [
+              "volumeName",
+              "mediaStoreId",
+              "volumeVersion"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_local_assets_volumeName_mediaStoreId_volumeVersion` ON `${TABLE_NAME}` (`volumeName`, `mediaStoreId`, `volumeVersion`)"
+          },
+          {
+            "name": "index_local_assets_lineageKey",
+            "unique": false,
+            "columnNames": [
+              "lineageKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_local_assets_lineageKey` ON `${TABLE_NAME}` (`lineageKey`)"
+          },
+          {
+            "name": "index_local_assets_volumeName_volumeVersion_permissionFingerprint_generationModified_mediaStoreId_mimeType",
+            "unique": false,
+            "columnNames": [
+              "volumeName",
+              "volumeVersion",
+              "permissionFingerprint",
+              "generationModified",
+              "mediaStoreId",
+              "mimeType"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_local_assets_volumeName_volumeVersion_permissionFingerprint_generationModified_mediaStoreId_mimeType` ON `${TABLE_NAME}` (`volumeName`, `volumeVersion`, `permissionFingerprint`, `generationModified`, `mediaStoreId`, `mimeType`)"
+          }
+        ]
+      },
+      {
+        "tableName": "media_store_checkpoints",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`checkpointId` TEXT NOT NULL, `volumeName` TEXT NOT NULL, `volumeVersion` TEXT NOT NULL, `permissionFingerprint` TEXT NOT NULL, `generationModified` INTEGER NOT NULL, `mediaStoreId` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`checkpointId`))",
+        "fields": [
+          {
+            "fieldPath": "checkpointId",
+            "columnName": "checkpointId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "volumeName",
+            "columnName": "volumeName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "volumeVersion",
+            "columnName": "volumeVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "permissionFingerprint",
+            "columnName": "permissionFingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generationModified",
+            "columnName": "generationModified",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaStoreId",
+            "columnName": "mediaStoreId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "checkpointId"
+          ]
+        }
+      },
+      {
+        "tableName": "reclaim_proposals",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`proposalId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `state` TEXT NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, `expiresAtEpochMillis` INTEGER NOT NULL, `blockedReason` TEXT, PRIMARY KEY(`proposalId`))",
+        "fields": [
+          {
+            "fieldPath": "proposalId",
+            "columnName": "proposalId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authEpoch",
+            "columnName": "authEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationFence",
+            "columnName": "operationFence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiresAtEpochMillis",
+            "columnName": "expiresAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "blockedReason",
+            "columnName": "blockedReason",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "proposalId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_reclaim_proposals_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reclaim_proposals_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          },
+          {
+            "name": "index_reclaim_proposals_expiresAtEpochMillis",
+            "unique": false,
+            "columnNames": [
+              "expiresAtEpochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reclaim_proposals_expiresAtEpochMillis` ON `${TABLE_NAME}` (`expiresAtEpochMillis`)"
+          }
+        ]
+      },
+      {
+        "tableName": "reclaim_proposal_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`proposalId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `contentUri` TEXT NOT NULL, `proofId` TEXT NOT NULL, `localSha256Hex` TEXT NOT NULL, `remoteSha256Hex` TEXT NOT NULL, `verifiedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`proposalId`, `mediaId`))",
+        "fields": [
+          {
+            "fieldPath": "proposalId",
+            "columnName": "proposalId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentUri",
+            "columnName": "contentUri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "proofId",
+            "columnName": "proofId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localSha256Hex",
+            "columnName": "localSha256Hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remoteSha256Hex",
+            "columnName": "remoteSha256Hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "verifiedAtEpochMillis",
+            "columnName": "verifiedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "proposalId",
+            "mediaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_reclaim_proposal_items_proofId",
+            "unique": false,
+            "columnNames": [
+              "proofId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reclaim_proposal_items_proofId` ON `${TABLE_NAME}` (`proofId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "trash_attempts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`trashAttemptId` TEXT NOT NULL, `proposalId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `consentDisposition` TEXT NOT NULL, `handedOffAtEpochMillis` INTEGER NOT NULL, `callbackAtEpochMillis` INTEGER, `callbackResult` TEXT, `bootSessionId` TEXT, PRIMARY KEY(`trashAttemptId`))",
+        "fields": [
+          {
+            "fieldPath": "trashAttemptId",
+            "columnName": "trashAttemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "proposalId",
+            "columnName": "proposalId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authEpoch",
+            "columnName": "authEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationFence",
+            "columnName": "operationFence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "consentDisposition",
+            "columnName": "consentDisposition",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "handedOffAtEpochMillis",
+            "columnName": "handedOffAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "callbackAtEpochMillis",
+            "columnName": "callbackAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "callbackResult",
+            "columnName": "callbackResult",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "bootSessionId",
+            "columnName": "bootSessionId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "trashAttemptId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_trash_attempts_proposalId",
+            "unique": true,
+            "columnNames": [
+              "proposalId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_trash_attempts_proposalId` ON `${TABLE_NAME}` (`proposalId`)"
+          },
+          {
+            "name": "index_trash_attempts_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_trash_attempts_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          },
+          {
+            "name": "index_trash_attempts_consentDisposition",
+            "unique": false,
+            "columnNames": [
+              "consentDisposition"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_trash_attempts_consentDisposition` ON `${TABLE_NAME}` (`consentDisposition`)"
+          }
+        ]
+      },
+      {
+        "tableName": "trash_obligations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`trashAttemptId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `contentUri` TEXT NOT NULL, `proofId` TEXT NOT NULL, `uriState` TEXT NOT NULL, `trashExpiresAtEpochMillis` INTEGER, `resolvedAtEpochMillis` INTEGER, PRIMARY KEY(`trashAttemptId`, `mediaId`))",
+        "fields": [
+          {
+            "fieldPath": "trashAttemptId",
+            "columnName": "trashAttemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentUri",
+            "columnName": "contentUri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "proofId",
+            "columnName": "proofId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uriState",
+            "columnName": "uriState",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trashExpiresAtEpochMillis",
+            "columnName": "trashExpiresAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "resolvedAtEpochMillis",
+            "columnName": "resolvedAtEpochMillis",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "trashAttemptId",
+            "mediaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_trash_obligations_contentUri",
+            "unique": false,
+            "columnNames": [
+              "contentUri"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_trash_obligations_contentUri` ON `${TABLE_NAME}` (`contentUri`)"
+          }
+        ]
+      },
+      {
+        "tableName": "collections",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account` TEXT NOT NULL, `collectionId` TEXT NOT NULL, `name` TEXT NOT NULL, `parentId` TEXT, `isFolder` INTEGER NOT NULL, `position` INTEGER NOT NULL, PRIMARY KEY(`account`, `collectionId`))",
+        "fields": [
+          {
+            "fieldPath": "account",
+            "columnName": "account",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collectionId",
+            "columnName": "collectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentId",
+            "columnName": "parentId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isFolder",
+            "columnName": "isFolder",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account",
+            "collectionId"
+          ]
+        }
+      },
+      {
+        "tableName": "collection_members",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account` TEXT NOT NULL, `collectionId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, PRIMARY KEY(`account`, `collectionId`, `mediaId`))",
+        "fields": [
+          {
+            "fieldPath": "account",
+            "columnName": "account",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collectionId",
+            "columnName": "collectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account",
+            "collectionId",
+            "mediaId"
+          ]
+        }
+      },
+      {
+        "tableName": "batch_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`batchId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `account` TEXT NOT NULL, `action` TEXT NOT NULL, `state` TEXT NOT NULL, `message` TEXT, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`batchId`, `mediaId`))",
+        "fields": [
+          {
+            "fieldPath": "batchId",
+            "columnName": "batchId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "account",
+            "columnName": "account",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "action",
+            "columnName": "action",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "message",
+            "columnName": "message",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "batchId",
+            "mediaId"
+          ]
+        }
+      },
+      {
+        "tableName": "upload_checkpoints",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`attemptId` TEXT NOT NULL, `phase` TEXT NOT NULL, `sealedPayload` BLOB NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`attemptId`))",
+        "fields": [
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attemptId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phase",
+            "columnName": "phase",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sealedPayload",
+            "columnName": "sealedPayload",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "attemptId"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '84bb9feec1fd9c946d326f7083344f34')"
+    ]
+  }
+}
