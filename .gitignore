@@ -13,3 +13,4 @@ __pycache__/
 *.keystore
 signing.properties
 sentry.properties
+node_modules/

@@ -1,0 +1,31 @@
+{
+  "locale": "en-US",
+  "width": 1080,
+  "height": 1920,
+  "files": [
+    "01-library.png",
+    "02-shared-albums.png",
+    "03-shared-photos.png",
+    "04-backup.png",
+    "05-viewer.png",
+    "06-video.png"
+  ],
+  "readyFiles": [
+    "01-library.png",
+    "02-shared-albums.png",
+    "03-shared-photos.png",
+    "05-viewer.png",
+    "06-video.png"
+  ],
+  "plannedFiles": [
+    "04-backup.png"
+  ],
+  "altText": {
+    "01-library.png": "Alba’s iCloud photo library on Android with a mix of coastal, mountain, pet, and café photography.",
+    "02-shared-albums.png": "Alba’s iCloud Shared Albums, with eight populated albums for trips, friends, and everyday moments.",
+    "03-shared-photos.png": "Alba’s Good company Shared Album with ten photos in two rows and no photos selected.",
+    "04-backup.png": "Alba’s Backup page with cloud storage usage, a category breakdown and current JPEG backup controls. Full backup is coming soon.",
+    "05-viewer.png": "A sunlit Italian street opened in Alba’s full-screen photo viewer.",
+    "06-video.png": "An ocean video playing in Alba’s video viewer."
+  }
+}

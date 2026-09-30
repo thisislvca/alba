@@ -1,6 +1,7 @@
 package dev.mela.protocol.fixture
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -17,22 +18,52 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
-class FixtureICloudCatalogSource(private val includeSharedAlbums: Boolean = false, private val openVideo: (() -> java.io.InputStream)? = null) : CloudCatalogSource {
+class FixtureICloudCatalogSource(
+    private val includeSharedAlbums: Boolean = false,
+    private val openPhoto: ((Int) -> java.io.InputStream)? = null,
+    private val openVideo: (() -> java.io.InputStream)? = null,
+) : CloudCatalogSource {
     override val accountLabel: String = "demo-library"
 
     private val fixtures = fixtureRecords()
     private val recordsById = fixtures.associateBy(FixtureRecord::recordId)
     private val sharedAlbums = mutableListOf(
-        dev.mela.engine.model.GalleryCollection("shared:demo-library:legacy:owner:one", "Family archive", shared = dev.mela.engine.model.SharedAlbumInfo(dev.mela.engine.model.SharedAlbumGeneration.LEGACY, dev.mela.engine.model.SharedAlbumRole.VIEWER)),
-        dev.mela.engine.model.GalleryCollection("shared:demo-library:private:owner:two", "Family moments", shared = dev.mela.engine.model.SharedAlbumInfo(dev.mela.engine.model.SharedAlbumGeneration.MODERN, dev.mela.engine.model.SharedAlbumRole.OWNER, participantCount = 1)))
-    private val sharedFixtures = mutableMapOf("shared:demo-library:legacy:owner:one:photo" to fixtures[0],
-        "shared:demo-library:private:owner:two:video" to fixtures.first { it.index == 19 })
+        dev.mela.engine.model.GalleryCollection("shared:demo-library:legacy:owner:one", "Family archive", position = 0,
+            shared = dev.mela.engine.model.SharedAlbumInfo(dev.mela.engine.model.SharedAlbumGeneration.LEGACY, dev.mela.engine.model.SharedAlbumRole.VIEWER)),
+        dev.mela.engine.model.GalleryCollection("shared:demo-library:private:owner:two", "Family moments", position = 1,
+            shared = dev.mela.engine.model.SharedAlbumInfo(dev.mela.engine.model.SharedAlbumGeneration.MODERN, dev.mela.engine.model.SharedAlbumRole.OWNER, participantCount = 1)),
+    ).apply {
+        listOf("Weekends away", "Good company", "Little moments", "Around town", "Sunday mornings", "Our favorites")
+            .forEachIndexed { index, name ->
+                add(dev.mela.engine.model.GalleryCollection("shared:demo-library:private:owner:album-${index + 3}", name, position = (index + 2).toLong(),
+                    shared = dev.mela.engine.model.SharedAlbumInfo(dev.mela.engine.model.SharedAlbumGeneration.MODERN, dev.mela.engine.model.SharedAlbumRole.OWNER, participantCount = 1)))
+            }
+    }
+    // Reuse the compact bundled media while keeping stable, album-scoped identities.
+    private val sharedFixtures = mutableMapOf<String, FixtureRecord>().apply {
+        val photosByAlbum = listOf(
+            listOf(11, 12, 13, 14), listOf(19, 7, 11, 14, 18),
+            listOf(5, 8, 10, 15, 18), listOf(6, 7, 11, 12, 14, 3, 4, 5, 8, 10),
+            listOf(7, 11, 12, 13, 14), listOf(8, 12, 15, 17, 18),
+            listOf(9, 10, 11, 12, 14), listOf(10, 11, 13, 14, 16, 18),
+        )
+        sharedAlbums.forEachIndexed { albumIndex, album ->
+            photosByAlbum[albumIndex].forEach { photoIndex ->
+                val suffix = when {
+                    albumIndex == 0 && photoIndex == 11 -> "photo"
+                    albumIndex == 1 && photoIndex == 19 -> "video"
+                    else -> "photo-$photoIndex"
+                }
+                put("${album.id}:$suffix", fixtures.first { it.index == photoIndex })
+            }
+        }
+    }
     private val discussions = mutableMapOf<String, MutableList<dev.mela.engine.model.SharedComment>>()
     private val management = mutableMapOf<String, dev.mela.engine.model.SharedAlbumManagement>()
     private val sharedDone = mutableSetOf<String>()
     override suspend fun sharedActivity(id: String, rank: Int): dev.mela.engine.model.SharedActivityPage {
         val album = sharedAlbums.first { it.id == id }; require(album.shared?.generation == dev.mela.engine.model.SharedAlbumGeneration.MODERN)
-        return dev.mela.engine.model.SharedActivityPage(if (rank == 0) listOf(dev.mela.engine.model.SharedPost("post:$id:demo-post", "Demo owner", true, 1790205441000, "Family moments")) else emptyList(), null)
+        return dev.mela.engine.model.SharedActivityPage(if (rank == 0) listOf(dev.mela.engine.model.SharedPost("post:$id:demo-post", "Demo owner", true, 1790205441000, album.name)) else emptyList(), null)
     }
     override suspend fun sharedPostPhotos(id: String): List<String> = sharedFixtures.keys.filter { it.startsWith(id.removePrefix("post:").substringBeforeLast(':') + ":") }.take(4)
     override suspend fun sharedPostDiscussion(id: String): dev.mela.engine.model.SharedDiscussion {
@@ -241,6 +272,24 @@ class FixtureICloudCatalogSource(private val includeSharedAlbums: Boolean = fals
         maxLongEdge: Int,
         quality: Int,
     ) {
+        // Keep bundled photos compact as WebP; encode the requested JPEG preview/original
+        // so the catalog MIME type, export filename and actual bytes continue to agree.
+        if (openPhoto != null) {
+            val decoded = openPhoto.invoke(fixture.index).use { input ->
+                requireNotNull(BitmapFactory.decodeStream(input)) { "Could not decode demo photo ${fixture.index}" }
+            }
+            val ratio = (maxLongEdge.toFloat() / max(decoded.width, decoded.height)).coerceAtMost(1f)
+            val scaled = if (ratio < 1f) Bitmap.createScaledBitmap(decoded,
+                (decoded.width * ratio).roundToInt().coerceAtLeast(1),
+                (decoded.height * ratio).roundToInt().coerceAtLeast(1), true) else decoded
+            try {
+                check(scaled.compress(Bitmap.CompressFormat.JPEG, quality, output)) { "Could not encode demo photo ${fixture.index}" }
+            } finally {
+                if (scaled !== decoded) scaled.recycle()
+                decoded.recycle()
+            }
+            return
+        }
         val scale = maxLongEdge.toFloat() / max(fixture.width, fixture.height)
         val width = (fixture.width * scale).roundToInt().coerceAtLeast(1)
         val height = (fixture.height * scale).roundToInt().coerceAtLeast(1)
@@ -429,7 +478,7 @@ class FixtureICloudCatalogSource(private val includeSharedAlbums: Boolean = fals
             capturedAtEpochMillis = Instant.parse(capturedAt).toEpochMilli(),
             width = width,
             height = height,
-            sourceRevision = "fixture-v1-$index",
+            sourceRevision = "fixture-pexels-v2-$index",
             accentStartArgb = accentStart,
             accentEndArgb = accentEnd,
             kind = when (index) { 19 -> dev.mela.engine.model.MediaKind.VIDEO; 20 -> dev.mela.engine.model.MediaKind.LIVE_PHOTO; else -> dev.mela.engine.model.MediaKind.PHOTO },
@@ -449,29 +498,29 @@ class FixtureICloudCatalogSource(private val includeSharedAlbums: Boolean = fals
     }
 
     private companion object {
-        const val CHANGE_TOKEN = "fixture-catalog-v2"
+        const val CHANGE_TOKEN = "fixture-catalog-pexels-v5"
 
         fun fixtureRecords(): List<FixtureRecord> = listOf(
-            FixtureRecord(20, "Live sea breeze.JPG", "2026-08-23T18:00:00Z", 640, 360, 0xFF496F82, 0xFF879B72, Scene.COAST, 20),
-            FixtureRecord(19, "Sea breeze.mp4", "2026-08-22T18:00:00Z", 640, 360, 0xFF496F82, 0xFF879B72, Scene.COAST, 19),
-            FixtureRecord(1, "IMG_8421.JPG", "2026-08-21T18:42:00Z", 4032, 3024, 0xFFE89362, 0xFF4D7D8C, Scene.COAST, 21),
-            FixtureRecord(2, "IMG_8377.JPG", "2026-08-19T07:15:00Z", 3024, 4032, 0xFFF4C876, 0xFF607D68, Scene.HILLS, 33),
-            FixtureRecord(3, "IMG_8294.JPG", "2026-08-12T20:03:00Z", 4032, 3024, 0xFF6E7A9E, 0xFF18243B, Scene.NIGHT, 87),
-            FixtureRecord(4, "IMG_8210.JPG", "2026-08-03T12:28:00Z", 4032, 3024, 0xFFC9D8D1, 0xFF687D75, Scene.INTERIOR, 54),
-            FixtureRecord(5, "IMG_8108.JPG", "2026-07-27T16:12:00Z", 3024, 4032, 0xFFF3B4A2, 0xFF6F8F70, Scene.GARDEN, 12),
-            FixtureRecord(6, "IMG_8033.JPG", "2026-07-20T19:48:00Z", 4032, 3024, 0xFFF0A762, 0xFF4F8B9A, Scene.COAST, 99),
-            FixtureRecord(7, "IMG_7912.JPG", "2026-07-02T21:31:00Z", 4032, 3024, 0xFF8D93B4, 0xFF252B45, Scene.CITY, 41),
-            FixtureRecord(8, "IMG_7824.JPG", "2026-06-22T10:04:00Z", 3024, 4032, 0xFFE7D49B, 0xFF4F7258, Scene.HILLS, 72),
-            FixtureRecord(9, "IMG_7751.JPG", "2026-06-08T14:43:00Z", 4032, 3024, 0xFFDAB0A6, 0xFF795C79, Scene.GARDEN, 15),
-            FixtureRecord(10, "IMG_7690.JPG", "2026-05-28T17:50:00Z", 4032, 3024, 0xFF88B8C5, 0xFF345D72, Scene.COAST, 28),
-            FixtureRecord(11, "IMG_7544.JPG", "2026-05-10T09:20:00Z", 3024, 4032, 0xFFEAD8C4, 0xFF7D695A, Scene.INTERIOR, 66),
-            FixtureRecord(12, "IMG_7411.JPG", "2026-04-21T18:02:00Z", 4032, 3024, 0xFFB4A6C9, 0xFF3D4868, Scene.CITY, 17),
-            FixtureRecord(13, "IMG_7304.JPG", "2026-04-02T13:36:00Z", 4032, 3024, 0xFFFFC986, 0xFF507F68, Scene.HILLS, 93),
-            FixtureRecord(14, "IMG_7188.JPG", "2026-03-18T06:58:00Z", 3024, 4032, 0xFFF2B99D, 0xFF547B72, Scene.GARDEN, 36),
-            FixtureRecord(15, "IMG_7051.JPG", "2026-03-01T20:17:00Z", 4032, 3024, 0xFF66739A, 0xFF161D34, Scene.NIGHT, 82),
-            FixtureRecord(16, "IMG_6920.JPG", "2026-02-14T11:40:00Z", 4032, 3024, 0xFFD8C9B8, 0xFF776656, Scene.INTERIOR, 45),
-            FixtureRecord(17, "IMG_6812.JPG", "2026-01-29T15:09:00Z", 3024, 4032, 0xFF79B5C2, 0xFF31566A, Scene.COAST, 71),
-            FixtureRecord(18, "IMG_6704.JPG", "2026-01-06T08:24:00Z", 4032, 3024, 0xFFE8C47F, 0xFF476B50, Scene.HILLS, 22),
+            FixtureRecord(20, "Live sea breeze.JPG", "2026-08-23T18:00:00Z", 540, 960, 0xFF496F82, 0xFF879B72, Scene.COAST, 20),
+            FixtureRecord(19, "Sea breeze.mp4", "2026-08-22T18:00:00Z", 540, 960, 0xFF496F82, 0xFF879B72, Scene.COAST, 19),
+            FixtureRecord(1, "IMG_8421.JPG", "2026-08-21T18:42:00Z", 960, 640, 0xFFE89362, 0xFF4D7D8C, Scene.COAST, 21),
+            FixtureRecord(2, "IMG_8377.JPG", "2026-08-19T07:15:00Z", 960, 640, 0xFFF4C876, 0xFF607D68, Scene.HILLS, 33),
+            FixtureRecord(3, "IMG_8294.JPG", "2026-08-12T20:03:00Z", 960, 638, 0xFF6E7A9E, 0xFF18243B, Scene.INTERIOR, 87),
+            FixtureRecord(4, "IMG_8210.JPG", "2026-08-03T12:28:00Z", 720, 960, 0xFFC9D8D1, 0xFF687D75, Scene.INTERIOR, 54),
+            FixtureRecord(5, "IMG_8108.JPG", "2026-07-27T16:12:00Z", 960, 960, 0xFFF3B4A2, 0xFF6F8F70, Scene.CITY, 12),
+            FixtureRecord(6, "IMG_8033.JPG", "2026-07-20T19:48:00Z", 640, 960, 0xFFF0A762, 0xFF4F8B9A, Scene.COAST, 99),
+            FixtureRecord(7, "IMG_7912.JPG", "2026-07-02T21:31:00Z", 641, 960, 0xFF8D93B4, 0xFF252B45, Scene.INTERIOR, 41),
+            FixtureRecord(8, "IMG_7824.JPG", "2026-07-16T10:04:00Z", 640, 960, 0xFFE7D49B, 0xFF4F7258, Scene.CITY, 72),
+            FixtureRecord(9, "IMG_7751.JPG", "2026-07-10T14:43:00Z", 640, 960, 0xFFDAB0A6, 0xFF795C79, Scene.INTERIOR, 15),
+            FixtureRecord(10, "IMG_7690.JPG", "2026-07-03T17:50:00Z", 720, 960, 0xFF88B8C5, 0xFF345D72, Scene.GARDEN, 28),
+            FixtureRecord(11, "IMG_7544.JPG", "2026-06-25T09:20:00Z", 720, 960, 0xFFEAD8C4, 0xFF7D695A, Scene.INTERIOR, 66),
+            FixtureRecord(12, "IMG_7411.JPG", "2026-06-21T18:02:00Z", 960, 640, 0xFFB4A6C9, 0xFF3D4868, Scene.GARDEN, 17),
+            FixtureRecord(13, "IMG_7304.JPG", "2026-06-16T13:36:00Z", 960, 640, 0xFFFFC986, 0xFF507F68, Scene.GARDEN, 93),
+            FixtureRecord(14, "IMG_7188.JPG", "2026-06-10T06:58:00Z", 960, 641, 0xFFF2B99D, 0xFF547B72, Scene.CITY, 36),
+            FixtureRecord(15, "IMG_7051.JPG", "2026-06-05T20:17:00Z", 960, 640, 0xFF66739A, 0xFF161D34, Scene.NIGHT, 82),
+            FixtureRecord(16, "IMG_6920.JPG", "2026-06-01T11:40:00Z", 960, 640, 0xFFD8C9B8, 0xFF776656, Scene.INTERIOR, 45),
+            FixtureRecord(17, "IMG_6812.JPG", "2026-05-29T15:09:00Z", 640, 960, 0xFF79B5C2, 0xFF31566A, Scene.COAST, 71),
+            FixtureRecord(18, "IMG_6704.JPG", "2026-05-15T08:24:00Z", 960, 640, 0xFFE8C47F, 0xFF476B50, Scene.HILLS, 22),
         )
     }
 }

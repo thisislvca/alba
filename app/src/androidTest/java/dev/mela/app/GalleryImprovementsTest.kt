@@ -84,8 +84,10 @@ class GalleryImprovementsTest {
         capture("dates")
         // Demo spans months; selecting the earliest jumps to that month's grid header.
         val repository = (compose.activity.application as MelaApplication).graph.galleryRepository
-        val oldest = runBlocking { repository.observeGallery().first().minBy { it.capturedAtEpochMillis } }
-        val label = java.time.Instant.ofEpochMilli(oldest.capturedAtEpochMillis).atZone(java.time.ZoneId.systemDefault())
+        val oldest = runBlocking { repository.observeGallery().first()
+            .filterNot { it.id.startsWith("shared:") }
+            .minBy { it.addedAtEpochMillis ?: it.capturedAtEpochMillis } }
+        val label = java.time.Instant.ofEpochMilli(oldest.addedAtEpochMillis ?: oldest.capturedAtEpochMillis).atZone(java.time.ZoneId.systemDefault())
             .format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy"))
         compose.onNodeWithTag("date-months").performScrollToNode(hasText(label))
         compose.onAllNodesWithText(label).onLast().performClick()

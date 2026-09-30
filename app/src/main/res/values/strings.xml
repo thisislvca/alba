@@ -93,6 +93,8 @@
     <string name="icloud_account">iCloud account</string>
     <string name="icloud_photos">iCloud Photos</string>
     <string name="icloud_storage">iCloud storage</string>
+    <string name="cloud_storage">Cloud storage</string>
+    <string name="backup_title">Backup</string>
     <string name="icloud_storage_demo_example">iCloud storage · demo example</string>
     <string name="batch_in_progress">In progress</string>
     <string name="include_photos_from_this_phone">Include photos from this phone</string>

@@ -39,9 +39,11 @@ class PhotoTransitionTest {
         val id = "fixture:icloud:0020"
         compose.onNodeWithTag("gallery-grid").performScrollToKey(id)
         val tile = compose.onNodeWithTag("photo-tile-$id", useUnmergedTree = true)
+        // Let initial grid placement finish before measuring the transition's endpoint.
+        compose.mainClock.advanceTimeBy(1200)
+        capture("01-grid")
         val start = tile.getUnclippedBoundsInRoot()
         val viewportWidth = compose.onNodeWithTag("gallery-grid").getUnclippedBoundsInRoot().width
-        capture("01-grid")
         compose.mainClock.autoAdvance = false
         compose.onNodeWithTag("media-$id").performClick()
         // Projection, decoding and layout are asynchronous. Find an actual intermediate
@@ -130,7 +132,9 @@ class PhotoTransitionTest {
 
     @Test fun zoomedLandscapePhotoCanFillItsLetterbox() {
         loaded()
-        val id = "fixture:icloud:0020"
+        // The live-photo demo is portrait; use an actual landscape photo for letterboxing.
+        val id = "fixture:icloud:0001"
+        compose.scrollToGalleryMedia(id)
         compose.onNodeWithTag("media-$id").performClick()
         viewerReady(id)
         val viewport = compose.onNodeWithTag("viewer-image-$id")

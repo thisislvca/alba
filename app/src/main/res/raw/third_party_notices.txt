@@ -5,7 +5,21 @@ OkHttp, Okio, Guava and JSpecify use Apache-2.0. Its license text is in
 `LICENSES/Apache-2.0.txt`. Build tooling includes Apache-2.0 components;
 JUnit is a test-only dependency under EPL-1.0.
 
-Alba branding is original project artwork. Bundled test media are synthetic.
+Alba branding is original project artwork. Demo photography and the ocean clip
+are adapted from Pexels, under the Pexels License (not AGPL):
+https://www.pexels.com/license/
+
+The demo combines coastal and mountain photography with everyday moments,
+Italian streets, pets, cafés and people. Additional photographs are by Alexandra
+Pociello Quijada, Zeynep Sena Açar, Olga Helmel, RDNE Stock project, Pavel Danilyuk,
+Paul Scheelen, Merve Nur Türker, Nur, esrannuur, Dua'a Al-Amad, Mohan Nannapaneni
+and Felix Young. The ocean clip is by Ahmed:
+https://www.pexels.com/video/waves-of-the-ocean-9620654/
+
+Exact photo source pages, transformations, dimensions and file sizes are recorded
+in assets/store/demo-media.json. The assets are used as example gallery content;
+they do not imply that Pexels or its contributors endorse Alba. Other test media
+remain synthetic.
 
 ## Material Icons
 

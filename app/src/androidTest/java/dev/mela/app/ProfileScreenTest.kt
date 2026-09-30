@@ -54,6 +54,8 @@ class ProfileScreenTest {
         compose.onNodeWithTag("profile-manage-plan").performScrollTo().performClick()
         assertEquals(listOf("https://www.icloud.com/plan"), opened)
         compose.onNodeWithTag("profile-backup").performScrollTo().performClick()
+        compose.onNodeWithText("Cloud storage").assertIsDisplayed()
+        compose.onNodeWithText("72 GB of 200 GB used").assertIsDisplayed()
         compose.onNodeWithText("Set up automatic backup").performScrollTo().assertIsDisplayed()
         androidx.test.espresso.Espresso.pressBack()
         compose.runOnIdle { dark = true }

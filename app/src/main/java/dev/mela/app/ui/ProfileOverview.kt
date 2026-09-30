@@ -36,7 +36,7 @@ import java.time.Instant
 
 internal enum class ProfilePage(val title: Int) {
     OVERVIEW(R.string.profile_title), ACTIVATION(R.string.how_to_activate_icloud_photos), SIGN_IN(R.string.icloud_account),
-    BACKUP(R.string.automatic_jpeg_backup), PHONE(R.string.phone_storage_title),
+    BACKUP(R.string.backup_title), PHONE(R.string.phone_storage_title),
     ABOUT(R.string.about_title),
 }
 
@@ -189,14 +189,15 @@ private fun PlanLink(hero: Boolean = false) {
 }
 
 @Composable
-private fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: Boolean, check: () -> Unit) {
+internal fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: Boolean, check: () -> Unit,
+    labelRes: Int = R.string.icloud_storage) {
     val context = LocalContext.current
     val info = state?.accountInfo
     val storage = info?.storage?.takeIf { it.isDemo == demo }
     fun bytes(value: Long) = Formatter.formatShortFileSize(context, value)
     MelaGroup {
         Column(Modifier.padding(20.dp).testTag("profile-storage"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.icloud_storage), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(labelRes), style = MaterialTheme.typography.titleMedium)
             if (storage != null) {
                 val usageLabel = stringResource(R.string.storage_used, bytes(storage.usedBytes), bytes(storage.totalBytes))
                 Text(usageLabel, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)

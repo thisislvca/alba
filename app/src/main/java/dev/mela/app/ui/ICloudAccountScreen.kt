@@ -136,6 +136,7 @@ fun ICloudAccountScreen(
             page == ProfilePage.BACKUP -> BackupSettings(
                 connected = signedIn?.status == SessionStatus.VERIFIED,
                 appleId = signedIn?.appleId.orEmpty(), backup = backup,
+                diagnostics = diagnostics, onCheckConnection = onCheckConnection,
                 onEnableAutomaticBackup = onEnableAutomaticBackup,
                 onDisableAutomaticBackup = onDisableAutomaticBackup,
             )
@@ -354,14 +355,13 @@ private fun BackupSettings(
     connected: Boolean,
     appleId: String,
     backup: BackupView,
+    diagnostics: dev.mela.app.GalleryUiState?,
+    onCheckConnection: () -> Unit,
     onEnableAutomaticBackup: () -> Unit,
     onDisableAutomaticBackup: () -> Unit,
 ) {
-    Text(
-        stringResource(R.string.mela_can_read_your_personal_library_and_upload_jpeg_originals_directly_from_this_phon),
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    ProfileStorage(diagnostics, demo = false, hasAccount = connected,
+        check = onCheckConnection, labelRes = R.string.cloud_storage)
     Spacer(Modifier.height(22.dp))
     Card(
         colors = CardDefaults.cardColors(containerColor = melaGroupColor()),

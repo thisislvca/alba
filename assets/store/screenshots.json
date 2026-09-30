@@ -1,0 +1,204 @@
+{
+  "width": 1080,
+  "height": 1920,
+  "locale": "en-US",
+  "cards": [
+    {
+      "capture": "01-library",
+      "lines": [
+        "Your iCloud photos.",
+        "On Android."
+      ],
+      "altText": "Alba’s iCloud photo library on Android with a mix of coastal, mountain, pet, and café photography.",
+      "callouts": [
+        {
+          "line": 0,
+          "text": "iCloud",
+          "icon": "cloud",
+          "tone": "cloud"
+        },
+        {
+          "line": 1,
+          "text": "Android",
+          "icon": "phone",
+          "tone": "android"
+        }
+      ],
+      "attribution": [
+        "Android is a trademark of Google LLC.",
+        "iCloud is a trademark of Apple Inc."
+      ],
+      "filename": "01-library.png"
+    },
+    {
+      "capture": "03-shared-albums",
+      "lines": [
+        "Different photos.",
+        "The same shared albums."
+      ],
+      "altText": "Alba’s iCloud Shared Albums, with eight populated albums for trips, friends, and everyday moments.",
+      "callouts": [
+        {
+          "line": 0,
+          "text": "photos",
+          "icon": "photos",
+          "tone": "mauve"
+        }
+      ],
+      "filename": "02-shared-albums.png"
+    },
+    {
+      "capture": "05-share",
+      "lines": [
+        "Everyone’s photos",
+        "in the same shared album."
+      ],
+      "altText": "Alba’s Good company Shared Album with ten photos in two rows and no photos selected.",
+      "callouts": [
+        {
+          "line": 0,
+          "text": "photos",
+          "icon": "family",
+          "tone": "apricot"
+        }
+      ],
+      "filename": "03-shared-photos.png"
+    },
+    {
+      "capture": "04-backup",
+      "lines": [
+        "Back up your photos*",
+        "with your current plan"
+      ],
+      "altText": "Alba’s Backup page with cloud storage usage, a category breakdown and current JPEG backup controls. Full backup is coming soon.",
+      "callouts": [
+        {
+          "line": 0,
+          "text": "Back up",
+          "icon": "backup",
+          "tone": "violet"
+        }
+      ],
+      "releaseStatus": "planned",
+      "note": [
+        "*Coming soon: full backup and automatic space saving."
+      ],
+      "filename": "04-backup.png"
+    },
+    {
+      "capture": "02-viewer",
+      "lines": [
+        "A closer look",
+        "at every moment"
+      ],
+      "altText": "A sunlit Italian street opened in Alba’s full-screen photo viewer.",
+      "callouts": [
+        {
+          "line": 0,
+          "text": "closer",
+          "icon": "zoom",
+          "tone": "rose"
+        }
+      ],
+      "filename": "05-viewer.png"
+    },
+    {
+      "capture": "06-video",
+      "lines": [
+        "Your videos",
+        "in full motion"
+      ],
+      "altText": "An ocean video playing in Alba’s video viewer.",
+      "callouts": [
+        {
+          "line": 0,
+          "text": "videos",
+          "icon": "video",
+          "tone": "indigo"
+        }
+      ],
+      "filename": "06-video.png"
+    }
+  ],
+  "captureWidth": 1080,
+  "captureHeight": 2400,
+  "style": {
+    "font": "GoogleSans-Medium.ttf",
+    "title": {
+      "lineHeight": 140,
+      "size": 80,
+      "letterSpacing": -2,
+      "color": "#000000",
+      "maxWidth": 960,
+      "pills": {
+        "cloud": {
+          "fill": "#DFEEFF",
+          "text": "#185B9E",
+          "icon": "#268AEC"
+        },
+        "android": {
+          "fill": "#DEF4E8",
+          "text": "#204C35",
+          "icon": "#34A853"
+        },
+        "rose": {
+          "fill": "url(#pill-rose)",
+          "text": "#FFFFFF",
+          "icon": "#FFFFFF",
+          "gradient": [
+            "#B75474",
+            "#C05D7C"
+          ]
+        },
+        "mauve": {
+          "fill": "url(#pill-mauve)",
+          "text": "#FFFFFF",
+          "icon": "#FFFFFF",
+          "gradient": [
+            "#9857AC",
+            "#A162B3"
+          ]
+        },
+        "violet": {
+          "fill": "url(#pill-violet)",
+          "text": "#FFFFFF",
+          "icon": "#FFFFFF",
+          "gradient": [
+            "#805FDD",
+            "#8868DE"
+          ]
+        },
+        "apricot": {
+          "fill": "url(#pill-apricot)",
+          "text": "#FFFFFF",
+          "icon": "#FFFFFF",
+          "gradient": [
+            "#B8753A",
+            "#C07D43"
+          ]
+        },
+        "indigo": {
+          "fill": "url(#pill-indigo)",
+          "text": "#FFFFFF",
+          "icon": "#FFFFFF",
+          "gradient": [
+            "#5561DD",
+            "#606BDD"
+          ]
+        }
+      },
+      "pill": {
+        "height": 120,
+        "top": -88,
+        "paddingLeft": 32,
+        "paddingRight": 36,
+        "iconSize": 64,
+        "gap": 16
+      }
+    },
+    "phone": {
+      "width": 660,
+      "top": 500
+    }
+  }
+}
