@@ -2,7 +2,10 @@ package dev.mela.app.ui
 
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateBounds
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -27,15 +30,20 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.zIndex
 import dev.mela.app.GalleryUiState
 import dev.mela.app.R
+import dev.mela.app.ui.theme.galleryOverlay
 import dev.mela.engine.companion.BatchAction
 import dev.mela.engine.model.*
 import dev.mela.protocol.account.ICloudAccountState
@@ -168,6 +176,42 @@ internal fun GalleryHome(
     BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
         val wide = maxWidth >= 600.dp
         val uiDensity = LocalDensity.current
+        val phonePhotos = !wide && tab == GalleryTab.LIBRARY
+        val collapseHeader = phonePhotos && state.selection.isEmpty()
+        val headerState = rememberTopAppBarState()
+        // A short grid can fit after collapse; it must still allow a reverse drag to restore the header.
+        val collapseAllowed by rememberUpdatedState(collapseHeader)
+        val headerScroll = TopAppBarDefaults.enterAlwaysScrollBehavior(headerState, canScroll = {
+            collapseAllowed && (headerState.heightOffset < 0f || libraryGrid.canScrollForward || libraryGrid.canScrollBackward)
+        },
+            snapAnimationSpec = spring(dampingRatio = 1f, stiffness = 400f))
+        val headerHidden by remember { derivedStateOf { headerState.collapsedFraction >= .99f } }
+        // Returning the header is independent of reaching the beginning of the grid.
+        val galleryScrolled by remember(libraryGrid, headerState) {
+            derivedStateOf { libraryGrid.canScrollBackward || headerState.heightOffset < -.5f }
+        }
+        val reducedMotion = reduceGalleryMotion()
+        val headerColor = animateColorAsState(
+            if (phonePhotos) {
+                if (galleryScrolled) MaterialTheme.colorScheme.galleryOverlay else MaterialTheme.colorScheme.surface
+            } else MaterialTheme.colorScheme.background,
+            animationSpec = if (reducedMotion) snap() else tween(250, easing = galleryColorEase), label = "gallery-header-surface")
+        val monthOffsets = remember(state.sections, state.deviceMediaAccess, permissionDismissed, leadingItems, visibleDensity, state.query.date) {
+            galleryMonthOffsets(state.sections, !state.deviceMediaAccess && !permissionDismissed, visibleDensity >= 160, state.query.date, leadingItems)
+        }
+        val visibleMonth by remember(libraryGrid, state.sections, monthOffsets) {
+            derivedStateOf {
+                val first = libraryGrid.layoutInfo.visibleItemsInfo.firstOrNull {
+                    it.offset.y + it.size.height > 0
+                }
+                // A month farther down the viewport must not label the opening featured section.
+                if (!galleryScrolled || first == null || first.index < (monthOffsets.firstOrNull() ?: Int.MAX_VALUE)) null
+                else state.sections.getOrNull(monthOffsets.indexOfLast { it <= first.index })?.month
+            }
+        }
+        LaunchedEffect(collapseHeader) {
+            if (!collapseHeader) { headerState.heightOffset = 0f; headerState.contentOffset = 0f }
+        }
         var floatingBarHeight by remember { mutableStateOf(80.dp) }
         val bottomSpace = if (wide) 24.dp else floatingBarHeight + 28.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         LaunchedEffect(bottomSpace) { onBottomSpaceChanged(bottomSpace) }
@@ -178,9 +222,12 @@ internal fun GalleryHome(
                     onClick = { navigate(destination) }, icon = { TabIcon(destination) }, label = { Text(stringResource(destination.title)) },
                     modifier = Modifier.testTag("tab-${destination.name}")) }
             }
-            Scaffold(modifier = Modifier.weight(1f), contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll.nestedScrollConnection), contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                containerColor = if (phonePhotos) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
                 topBar = {
-                    Column(Modifier.statusBarsPadding().background(MaterialTheme.colorScheme.background)) {
+                    Column(Modifier.scrollingGalleryHeader(headerState, collapseHeader).statusBarsPadding()
+                        .drawBehind { drawRect(headerColor.value) }.testTag("gallery-header")
+                        .then(if (collapseHeader && headerHidden) Modifier.clearAndSetSemantics {} else Modifier)) {
                         Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp).heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null)) {
                                 IconButton(onClick = ::backInCollections) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back_to_collections)) }
@@ -188,9 +235,10 @@ internal fun GalleryHome(
                                 else Spacer(Modifier.weight(1f))
                             } else {
                                 Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.alba_logo_mark), null, Modifier.size(44.dp))
+                                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.alba_logo_mark), stringResource(R.string.brand_name), Modifier.size(44.dp))
                                 }
-                                Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (!wide && tab == GalleryTab.LIBRARY) Spacer(Modifier.weight(1f))
+                                else Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(stringResource(R.string.brand_name), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                                     if (state.accountState == ICloudAccountState.Demo) Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                                         Text(stringResource(R.string.demo_badge), Modifier.padding(horizontal = 6.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1)
@@ -219,6 +267,10 @@ internal fun GalleryHome(
                                     Text(stringResource(if (state.selection.isEmpty()) R.string.select_items else R.string.cancel))
                                 }
                             } else if (!(tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null))) {
+                                if (phonePhotos && state.selection.isEmpty()) IconButton(onClick = { filters = true },
+                                    modifier = Modifier.testTag("gallery-menu-button")) {
+                                    Icon(Icons.Outlined.MoreVert, stringResource(R.string.filter_and_sort))
+                                }
                                 IconButton(onClick = if (signedIn?.status == SessionStatus.VERIFIED) upload else account) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
                                 IconButton(onClick = { activity = true }, modifier = Modifier.testTag("activity-button")) {
                                     BadgedBox(badge = { if (state.transferQueue.any { it.state != TransferViewState.VERIFIED } || state.batches.any { it.state != "DONE" }) Badge() }) {
@@ -241,7 +293,7 @@ internal fun GalleryHome(
                         }
                         if (state.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && state.selection.isNotEmpty()) SelectionActions(state, selectAll, clear, batch, actions)
-                        else if (!hero && state.selection.isEmpty() && (tab != GalleryTab.COLLECTIONS || inCollection)) {
+                        else if (!hero && state.selection.isEmpty() && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || inCollection)) {
                             if (tab == GalleryTab.SEARCH) {
                                 OutlinedTextField(state.query.filename, { change(state.query.copy(filename = it)) },
                                     label = { Text(stringResource(R.string.search_filenames)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
@@ -267,6 +319,8 @@ internal fun GalleryHome(
                         }
                     }
                 }) { padding ->
+                val statusOverlap = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() -
+                    padding.calculateTopPadding()).coerceAtLeast(0.dp)
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     if (tab == GalleryTab.COLLECTIONS && !inCollection) PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = refresh) { CollectionsScreen(state, folder, collectionsPage, summaries, if (collectionsPage == null) collectionScroll else collectionPageScroll, preview,
                         openPage = { collectionsPage = it; scope.launch { collectionPageScroll.scrollToItem(0) } },
@@ -291,16 +345,19 @@ internal fun GalleryHome(
                                     seeAll = { libraryQuery = state.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED; clear(); change(GalleryQuery()) })
                             }) else null)
                     }
+                    if (collapseHeader) FloatingGridDate(visibleMonth,
+                        dates = { jump = true }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
                     if (!wide && state.selection.isNotEmpty()) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(12.dp)
                         .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = RoundedCornerShape(28.dp), tonalElevation = 8.dp, shadowElevation = 8.dp) {
                         SelectionActions(state, selectAll, clear, batch, actions)
                     }
                     else if (!wide) FloatingGalleryNavigation(tab, { navigate(it) },
-                        Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 12.dp)
+                        Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 16.dp)
                             .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } })
                 }
             }
         }
+        if (phonePhotos) GalleryStatusBarScrim(Modifier.align(Alignment.TopCenter).zIndex(2f))
     }
     val currentGrid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid }
     if (jump) {

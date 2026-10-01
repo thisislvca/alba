@@ -119,7 +119,8 @@ internal fun OwnerAvatar(name: String?, modifier: Modifier = Modifier) {
 internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, retry: Int,
     preview: (String) -> Unit, modifier: Modifier = Modifier, featured: Boolean = false, open: () -> Unit) {
     Surface(onClick = open, modifier = modifier.testTag("${if (album.shared != null) "shared-" else ""}album-${album.id}"),
-        shape = androidx.compose.ui.graphics.RectangleShape, color = MaterialTheme.colorScheme.background) {
+        shape = if (featured) RoundedCornerShape(16.dp) else androidx.compose.ui.graphics.RectangleShape,
+        color = MaterialTheme.colorScheme.background) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(RoundedCornerShape(16.dp))) {
                 AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize())

@@ -10,6 +10,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -123,7 +124,9 @@ internal fun MediaDetailScreen(
     }) { id ->
         libraryActions.addToAlbum(id, listOf(media.id)); choosingAlbum = false
     }
-    MelaTheme(darkTheme = false) {
+    val darkViewer = isSystemInDarkTheme()
+    val colors = viewerColors()
+    MelaTheme(darkTheme = darkViewer) {
         BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
             val density = LocalDensity.current
             val heightPx = with(density) { maxHeight.toPx() }
@@ -132,8 +135,8 @@ internal fun MediaDetailScreen(
             val panelHeight = with(density) { (-motion.offset).coerceIn(0f, detailsHeightPx).toDp() }
             val expanded = panelHeight > 0.dp
             val chromeOn = controls && (media.kind != MediaKind.VIDEO || !videoPlaying)
-            val canvasColor = if (chromeOn || expanded) Color.White else Color.Black
-            SideEffect { onViewerLightBars(chromeOn || expanded) }
+            val canvasColor = if (chromeOn || expanded) colors.canvas else Color.Black
+            SideEffect { onViewerLightBars(!darkViewer && (chromeOn || expanded)) }
             gallerySnapshot?.let { layer -> Box(Modifier.fillMaxSize().drawWithContent { drawLayer(layer) }) }
             Box(Modifier.fillMaxSize().background(canvasColor.copy(alpha = (1f - motion.offset.coerceAtLeast(0f) / (heightPx * .6f)).coerceIn(0f, 1f))))
             var startedExpanded by remember { mutableStateOf(false) }
@@ -265,7 +268,7 @@ internal fun MediaDetailScreen(
                     }
                 }
                 if (expanded) Surface(Modifier.fillMaxWidth().height(panelHeight).clipToBounds().testTag("photo-details-panel"),
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), color = Color.White, contentColor = Color(0xFF30323A)) {
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), color = colors.canvas, contentColor = colors.foreground) {
                     Column {
                         Box(Modifier.fillMaxWidth().height(32.dp).then(gesture).testTag("details-drag-handle"), contentAlignment = Alignment.Center) {
                             Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = Color(0xFFDADCE6)) {}
@@ -288,7 +291,7 @@ internal fun MediaDetailScreen(
                             }
                             Spacer(Modifier.height(24.dp))
                             if (media.origin == MediaOrigin.ICLOUD) {
-                                Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFFEDEDF6), contentColor = Color(0xFF30323A)) {
+                                Surface(shape = RoundedCornerShape(20.dp), color = colors.card, contentColor = colors.foreground) {
                                     Column {
                                         if (!media.isShared) {
                                         DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,
@@ -310,7 +313,7 @@ internal fun MediaDetailScreen(
                                         DetailAction(stringResource(R.string.export_original), !isWorking, { libraryActions.exportOriginal(media) }, { Icon(Icons.Outlined.Share, null) })
                                         if (media.kind == MediaKind.LIVE_PHOTO) DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,
                                             { libraryActions.exportLivePhoto(media) }, { ICloudIcon(R.drawable.icloud_live_photos) })
-                                        HorizontalDivider(color = Color.White, thickness = 2.dp)
+                                        HorizontalDivider(color = colors.canvas, thickness = 2.dp)
                                         if (media.availability == MediaAvailability.ORIGINAL_CACHED) {
                                             DetailAction(stringResource(R.string.remove_offline_copy), !isWorking, onRemoveCachedOriginal, { Icon(MelaIcons.DeleteOutline, null) })
                                         } else {
@@ -325,11 +328,11 @@ internal fun MediaDetailScreen(
                                 Spacer(Modifier.height(16.dp))
                                 if (isDownloadingOriginal) TextButton(onClick = libraryActions.cancelOfflineDownload) { Text(stringResource(R.string.cancel_download)) }
                                 Text(stringResource(R.string.offline_copies_live_only_in_mela_s_private_storage_this_action_never_removes_a_photo_),
-                                    style = MaterialTheme.typography.bodySmall, color = Color(0xFF5F616A))
+                                    style = MaterialTheme.typography.bodySmall, color = colors.secondary)
                                 if (media.kind == MediaKind.LIVE_PHOTO) {
                                     Spacer(Modifier.height(12.dp))
                                     Text(stringResource(R.string.the_zip_preserves_the_original_still_image_and_motion_clip_your_gallery_may_show_them),
-                                        style = MaterialTheme.typography.bodySmall, color = Color(0xFF5F616A))
+                                        style = MaterialTheme.typography.bodySmall, color = colors.secondary)
                                 }
                             } else if (!media.isTrashed && media.kind == MediaKind.PHOTO) {
                                 DeviceUploadControls(
@@ -353,8 +356,9 @@ internal fun MediaDetailScreen(
 
 @Composable
 private fun ViewerDetailsBackButton(label: String, click: () -> Unit) {
+    val colors = viewerColors()
     Box(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, top = 12.dp)) {
-        Surface(shape = CircleShape, color = Color.White, contentColor = Color(0xFF30323A), shadowElevation = 4.dp) {
+        Surface(shape = CircleShape, color = colors.canvas, contentColor = colors.foreground, shadowElevation = 4.dp) {
             IconButton(onClick = click, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, label)
             }
@@ -380,14 +384,15 @@ private fun ViewerTopBar(
     val date = remember(media.capturedAtEpochMillis, locale) {
         Instant.ofEpochMilli(media.capturedAtEpochMillis).atZone(ZoneId.systemDefault())
     }
-    val ink = Color(0xFF5D5F68)
-    Box(Modifier.fillMaxWidth().background(Color.White).statusBarsPadding().height(64.dp)) {
+    val colors = viewerColors()
+    val ink = colors.secondary
+    Box(Modifier.fillMaxWidth().background(colors.canvas).statusBarsPadding().height(64.dp)) {
         IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp).size(48.dp)
             .testTag("floating-viewer-back")) {
             Icon(Icons.AutoMirrored.Outlined.ArrowBack, backLabel, tint = ink)
         }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(date.format(DateTimeFormatter.ofPattern("MMM d", locale)), color = Color(0xFF30323A),
+            Text(date.format(DateTimeFormatter.ofPattern("MMM d", locale)), color = colors.foreground,
                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium))
             Text(date.format(DateTimeFormatter.ofPattern("h:mm a", locale)), color = ink,
                 style = MaterialTheme.typography.bodyMedium)
@@ -396,7 +401,7 @@ private fun ViewerTopBar(
             if (!media.isShared && !media.isTrashed) IconButton(onClick = onFavorite, enabled = favoriteEnabled,
                 modifier = Modifier.size(48.dp).testTag("viewer-favorite")) {
                 Icon(MelaIcons.StarOutline, stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite),
-                    tint = if (media.isFavorite) Color(0xFF0065D0) else ink)
+                    tint = if (media.isFavorite) MaterialTheme.colorScheme.primary else ink)
             }
             Box {
                 IconButton(onClick = onMore, modifier = Modifier.size(48.dp).testTag("viewer-more")) {
@@ -425,7 +430,8 @@ private fun ViewerActionBar(
     onLive: () -> Unit,
     playingLive: Boolean,
 ) {
-    Row(Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().offset(y = 5.dp).height(76.dp),
+    val colors = viewerColors()
+    Row(Modifier.fillMaxWidth().background(colors.canvas).navigationBarsPadding().offset(y = 5.dp).height(76.dp),
         horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
         ViewerAction(stringResource(R.string.share), enabled, onShare, Modifier.weight(1f)) {
             Icon(Icons.Outlined.Share, null)
@@ -452,10 +458,11 @@ private fun ViewerActionBar(
 
 @Composable
 private fun ViewerAction(label: String, enabled: Boolean, click: () -> Unit, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {
+    val colors = viewerColors()
     Column(modifier.clickable(enabled = enabled, role = Role.Button, onClick = click)
         .height(76.dp).semantics { contentDescription = label }, horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
-        CompositionLocalProvider(LocalContentColor provides if (enabled) Color(0xFF5D5F68) else Color(0xFFB7B8BD)) {
+        CompositionLocalProvider(LocalContentColor provides if (enabled) colors.secondary else colors.disabled) {
             Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) { icon() }
             Spacer(Modifier.height(7.dp))
             Text(label, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, maxLines = 1)
@@ -465,7 +472,8 @@ private fun ViewerAction(label: String, enabled: Boolean, click: () -> Unit, mod
 
 @Composable
 private fun DetailAction(label: String, enabled: Boolean, click: () -> Unit, icon: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalContentColor provides if (enabled) Color(0xFF30323A) else Color(0xFF9A9BA0)) {
+    val colors = viewerColors()
+    CompositionLocalProvider(LocalContentColor provides if (enabled) colors.foreground else colors.disabled) {
         Row(Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = click)
             .heightIn(min = 56.dp).padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) { icon() }

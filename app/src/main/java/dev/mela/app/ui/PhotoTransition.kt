@@ -14,10 +14,11 @@ import androidx.compose.ui.platform.LocalContext
 import android.provider.Settings
 
 internal const val PHOTO_TRANSITION_MILLIS = 250
-private val viewerEaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+internal val galleryEaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+internal val galleryColorEase = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 
 @Composable
-private fun reduceViewerMotion(): Boolean {
+internal fun reduceGalleryMotion(): Boolean {
     val context = LocalContext.current
     return Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 }
@@ -36,12 +37,12 @@ internal val LocalPhotoTransition = staticCompositionLocalOf<PhotoTransitionScop
 internal fun Modifier.sharedPhoto(id: String?): Modifier {
     val scope = LocalPhotoTransition.current ?: return this
     if (id == null) return this
-    val reduceMotion = reduceViewerMotion()
+    val reduceMotion = reduceGalleryMotion()
     return with(scope.shared) {
         sharedElement(
             rememberSharedContentState("photo-$id"),
             animatedVisibilityScope = scope.visibility,
-            boundsTransform = { _, _ -> if (reduceMotion) snap() else tween(PHOTO_TRANSITION_MILLIS, easing = viewerEaseOut) },
+            boundsTransform = { _, _ -> if (reduceMotion) snap() else tween(PHOTO_TRANSITION_MILLIS, easing = galleryEaseOut) },
         )
     }
 }
@@ -49,7 +50,7 @@ internal fun Modifier.sharedPhoto(id: String?): Modifier {
 @Composable
 internal fun Modifier.photoChrome(): Modifier {
     val scope = LocalPhotoTransition.current ?: return this
-    val reduceMotion = reduceViewerMotion()
+    val reduceMotion = reduceGalleryMotion()
     return with(scope.visibility) {
         animateEnterExit(enter = fadeIn(tween(if (reduceMotion) 80 else 140, delayMillis = if (reduceMotion) 0 else 100)),
             exit = fadeOut(tween(if (reduceMotion) 80 else 90)))

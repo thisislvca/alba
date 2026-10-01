@@ -1,16 +1,22 @@
 package dev.mela.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+
+/** Shared gallery chrome; the light palette uses a softer surface without changing dark mode. */
+internal val ColorScheme.galleryOverlay: Color
+    get() = if (surface.luminance() > .5f) surfaceContainerLow else surfaceContainer
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF0065D0), onPrimary = Color.White,
@@ -114,4 +120,3 @@ fun MelaTheme(
         content = content,
     )
 }
-

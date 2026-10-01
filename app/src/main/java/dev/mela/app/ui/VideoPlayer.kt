@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -34,6 +35,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -119,6 +123,8 @@ fun VideoPlayer(
     showPlaybackControls: Boolean = true,
 ) {
     val context = LocalContext.current
+    val colors = viewerColors()
+    val latestShowPlaybackControls by rememberUpdatedState(showPlaybackControls)
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var error by remember(id) { mutableStateOf<Int?>(null) }
     var state by remember(id) { mutableStateOf(R.string.loading) }
@@ -173,8 +179,13 @@ fun VideoPlayer(
     }
     LaunchedEffect(player) {
         while (true) {
-            if (!scrubbing) position = player.currentPosition.coerceAtLeast(0L)
-            delay(100)
+            if (isPlaying && latestShowPlaybackControls && overlayVisible) {
+                // Read the player clock each visible frame; a tween would lag behind a seek.
+                withFrameNanos { if (!scrubbing) position = player.currentPosition.coerceAtLeast(0L) }
+            } else {
+                if (!scrubbing) position = player.currentPosition.coerceAtLeast(0L)
+                delay(100)
+            }
         }
     }
     LaunchedEffect(isPlaying, overlayVisible) {
@@ -213,7 +224,7 @@ fun VideoPlayer(
             interactionSource = remember { MutableInteractionSource() }, indication = null,
         ) { overlayVisible = !overlayVisible })
         if (showPlaybackControls && (!isPlaying || overlayVisible || scrubbing)) {
-            val darkControls = isPlaying || controlsOnVideo
+            val darkControls = isSystemInDarkTheme() || isPlaying || controlsOnVideo
             val ink = if (darkControls) Color(0xFFF4F4F4) else Color(0xFF30323A)
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = navBottom + 76.dp),
@@ -267,11 +278,12 @@ fun VideoPlayer(
             }
         }
     }
-    if (optionsOpen) ModalBottomSheet(onDismissRequest = onDismissOptions, containerColor = Color(0xFFEDEDF6),
+    if (optionsOpen) ModalBottomSheet(onDismissRequest = onDismissOptions, containerColor = colors.card,
+        contentColor = colors.foreground,
         dragHandle = {
             Box(Modifier.fillMaxWidth().height(26.dp), contentAlignment = Alignment.TopCenter) {
                 Surface(Modifier.padding(top = 8.dp).size(32.dp, 4.dp),
-                    shape = RoundedCornerShape(100), color = Color(0xFFB5B7C1)) {}
+                    shape = RoundedCornerShape(100), color = colors.secondary.copy(alpha = .5f)) {}
             }
         }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).navigationBarsPadding()) {
@@ -281,11 +293,12 @@ fun VideoPlayer(
                 listOf(.25f, .5f, 1f, 1.5f, 2f).forEach { value ->
                     Surface(onClick = { speed = value; player.setPlaybackSpeed(value); onDismissOptions() },
                         modifier = Modifier.weight(1f).height(44.dp),
-                        shape = RoundedCornerShape(12.dp), color = if (speed == value) Color(0xFFDDE4FA) else Color.White) {
+                        shape = RoundedCornerShape(12.dp), color = if (speed == value) MaterialTheme.colorScheme.primaryContainer else colors.canvas) {
                         Box(contentAlignment = Alignment.Center) {
                             val label = when (value) { .25f -> "0.25X"; .5f -> "0.5X"; 1f -> "1X"; 1.5f -> "1.5X"; else -> "2X" }
                             Text(if (speed == value) "✓ $label" else label,
-                                color = Color(0xFF30323A), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                                color = if (speed == value) MaterialTheme.colorScheme.onPrimaryContainer else colors.foreground,
+                                style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                         }
                     }
                 }
@@ -313,6 +326,9 @@ private fun VideoTimeline(
     val played = if (darkCanvas) Color(0xFFF4F4F4) else Color(0xFF30323A)
     val remaining = if (darkCanvas) Color(0xFF929292) else Color(0xFF838489)
     val fraction = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+    val beginSeek by rememberUpdatedState(onSeekStart)
+    val seek by rememberUpdatedState(onSeek)
+    val finishSeek by rememberUpdatedState(onSeekFinished)
     Canvas(Modifier.fillMaxWidth().padding(horizontal = 18.dp).height(48.dp)
         .testTag("video-timeline")
         .semantics {
@@ -324,25 +340,37 @@ private fun VideoTimeline(
         .pointerInput(duration) {
             detectTapGestures { tap ->
                 if (duration > 0L) {
-                    onSeekStart(); onSeek((duration * (tap.x / size.width).coerceIn(0f, 1f)).toLong()); onSeekFinished()
+                    val inset = 4.dp.toPx()
+                    val progress = ((tap.x - inset) / (size.width - inset * 2).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                    beginSeek(); seek((duration * progress).toLong()); finishSeek()
                 }
             }
         }
         .pointerInput(duration) {
-            detectDragGestures(onDragStart = { onSeekStart() }, onDragEnd = onSeekFinished, onDragCancel = onSeekFinished) { change, _ ->
-                if (duration > 0L) onSeek((duration * (change.position.x / size.width).coerceIn(0f, 1f)).toLong())
+            detectDragGestures(onDragStart = { if (duration > 0L) beginSeek() },
+                onDragEnd = { if (duration > 0L) finishSeek() }, onDragCancel = { if (duration > 0L) finishSeek() }) { change, _ ->
+                if (duration > 0L) {
+                    val inset = 4.dp.toPx()
+                    val progress = ((change.position.x - inset) / (size.width - inset * 2).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                    seek((duration * progress).toLong())
+                }
                 change.consume()
             }
         }) {
         val y = size.height / 2f
         val bar = 8.dp.toPx()
-        val x = size.width * fraction
-        val gap = 7.dp.toPx()
-        if (x > gap) drawLine(played, start = androidx.compose.ui.geometry.Offset(0f, y),
-            end = androidx.compose.ui.geometry.Offset(x - gap, y), strokeWidth = bar, cap = StrokeCap.Round)
-        if (x < size.width - gap) drawLine(remaining, start = androidx.compose.ui.geometry.Offset(x + gap, y),
-            end = androidx.compose.ui.geometry.Offset(size.width, y), strokeWidth = bar, cap = StrokeCap.Round)
-        drawLine(played, start = androidx.compose.ui.geometry.Offset(x, y - 22.dp.toPx()), end = androidx.compose.ui.geometry.Offset(x, y + 22.dp.toPx()),
-            strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
+        val inset = bar / 2f
+        val x = inset + (size.width - bar) * fraction
+        val gap = 4.dp.toPx()
+        val radius = CornerRadius(inset, inset)
+        if (x > gap) drawRoundRect(played, Offset(0f, y - inset), Size(x - gap, bar), radius)
+        if (x + gap < size.width) {
+            drawRoundRect(remaining, Offset(x + gap, y - inset), Size(size.width - x - gap, bar), radius)
+            // The terminal dot is distinct from the draggable playhead.
+            val end = size.width - inset
+            if (end - x > gap + 2.dp.toPx()) drawCircle(played, 2.dp.toPx(), Offset(end, y))
+        }
+        drawLine(played, start = Offset(x, y - 21.dp.toPx()), end = Offset(x, y + 21.dp.toPx()),
+            strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
     }
 }
