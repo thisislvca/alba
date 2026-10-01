@@ -24,6 +24,6 @@ To refresh icon exports: `bun run assets`. To refresh screens too, pass a folder
 
 GitHub Pages serves the generated static site from the public repository’s `gh-pages` branch. Source stays on `codex/alba-website`; this does not require merging the Android app branch. DNS: DNS-only CNAME `alba` to `thisislvca.github.io` in Cloudflare. The custom domain is configured in GitHub Pages before DNS is pointed there.
 
-Run `bun run check` and `bun run build`, then publish the contents of `dist/` to `gh-pages`. Preserve `CNAME` and `.nojekyll`, which are included in `public/` and copied into every build. Never publish through the private archive remote (`origin`); use the public `thisislvca/alba` repository.
+Run `bun run publish` from `website/` to check, build, and publish to `gh-pages` using your existing GitHub CLI login. The command updates the generated branch without force pushing. Preserve `CNAME` and `.nojekyll`, which are included in `public/` and copied into every build. Never publish through the private archive remote (`origin`); use the public `thisislvca/alba` repository.
 
 The website copy is written for launch. Download links use the Android application ID (`com.mannaworks.mela`) by default. Set `PUBLIC_PLAY_STORE_URL` if the confirmed listing differs; all store links share `src/config.ts`. No release version, waitlist, pricing, or donation destination is included.
