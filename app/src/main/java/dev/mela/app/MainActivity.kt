@@ -240,8 +240,9 @@ class MainActivity : ComponentActivity() {
             }
 
             val darkTheme = isSystemInDarkTheme()
+            var viewerLightBars by remember { mutableStateOf(true) }
+            val lightBars = if (uiState.selectedMedia != null && !uiState.isAccountOpen) viewerLightBars else !darkTheme
             androidx.compose.runtime.SideEffect {
-                val lightBars = !darkTheme && (uiState.selectedMedia == null || uiState.isAccountOpen)
                 androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
                     isAppearanceLightStatusBars = lightBars
                     isAppearanceLightNavigationBars = lightBars
@@ -275,6 +276,7 @@ class MainActivity : ComponentActivity() {
                     onBatch = { if (it == BatchAction.UPLOAD) requestGalleryUpload("batch") else viewModel.runBatch(it) },
                     onRetryBatch = viewModel::retryBatch,
                     playback = viewModel::openPlayback,
+                    onViewerLightBars = { viewerLightBars = it },
                     state = uiState,
                     onRefresh = viewModel::refresh,
                     onSelectFilter = viewModel::selectFilter,

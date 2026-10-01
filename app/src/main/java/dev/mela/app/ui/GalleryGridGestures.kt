@@ -91,7 +91,7 @@ internal fun Modifier.galleryGestures(grid: LazyGridState, items: List<GalleryMe
                     if (!changed && (scale > 1.22f || scale < .82f)) {
                         val center = event.calculateCentroid()
                         val item = grid.layoutInfo.visibleItemsInfo.firstOrNull { it.key.toString() == hit(center) }
-                        val sizes = listOf(80, 112, 160)
+                        val sizes = listOf(80, 100, 160)
                         val next = sizes[(sizes.indexOf(sizeNow).coerceAtLeast(0) + if (scale > 1f) 1 else -1).coerceIn(0, 2)]
                         if (next != sizeNow) {
                             // Apply the new index and column count in the same measure pass.

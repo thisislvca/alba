@@ -126,6 +126,7 @@ fun MelaApp(
     onRetryBatch: (String) -> Unit = {},
     playback: PlaybackReader? = null,
     libraryActions: LibraryActions = LibraryActions(),
+    onViewerLightBars: (Boolean) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val screenState = rememberSaveableStateHolder()
@@ -269,6 +270,7 @@ fun MelaApp(
                                 currentAlbumId = state.query.collectionId,
                                 gallerySnapshot = galleryLayer,
                                 playback = playback,
+                                onViewerLightBars = onViewerLightBars,
                                 libraryActions = libraryActions, collections = state.collections,
                                 media = selectedMedia, items = viewerItems,
                                 select = { if (destination == "media") onSelectMedia(it) }, preview = onRequestPreview,

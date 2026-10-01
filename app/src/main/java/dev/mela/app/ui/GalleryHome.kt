@@ -71,7 +71,7 @@ internal fun GalleryHome(
     var collectionsPage by rememberSaveable { mutableStateOf<CollectionsPage?>(null) }
     var albumMenu by remember { mutableStateOf(false) }
     var folder by rememberSaveable { mutableStateOf<String?>(null) }
-    var density by rememberSaveable { mutableIntStateOf(112) }
+    var density by rememberSaveable { mutableIntStateOf(100) }
     var albumDensity by rememberSaveable { mutableIntStateOf(80) }
     var jump by rememberSaveable { mutableStateOf(false) }
     var deleteAlbum by rememberSaveable { mutableStateOf<String?>(null) }

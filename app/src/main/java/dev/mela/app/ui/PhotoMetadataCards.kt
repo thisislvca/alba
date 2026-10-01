@@ -30,7 +30,7 @@ internal fun PhotoMetadataCards(media: GalleryMedia, account: ICloudAccountState
         else -> stringResource(R.string.personal_icloud_library)
     }
     val number = NumberFormat.getNumberInstance(LocalConfiguration.current.locales[0]).apply { maximumFractionDigits = 1 }
-    Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF1C1C1E), modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFFEDEDF6), contentColor = Color(0xFF30323A), modifier = Modifier.fillMaxWidth()) {
         Column {
             Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(when {
@@ -38,16 +38,16 @@ internal fun PhotoMetadataCards(media: GalleryMedia, account: ICloudAccountState
                     media.origin == MediaOrigin.DEVICE -> MelaIcons.PhoneAndroid
                     media.availability == MediaAvailability.ORIGINAL_CACHED -> MelaIcons.DownloadForOffline
                     else -> MelaIcons.CloudQueue
-                }, null, Modifier.size(28.dp), tint = Color(0xFFD3D3D3))
+                }, null, Modifier.size(28.dp), tint = Color(0xFF5D5F68))
                 Spacer(Modifier.width(18.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(source, style = MaterialTheme.typography.titleMedium)
-                    Text((if (media.linkedDeviceReference != null) MediaAvailability.DEVICE_ORIGINAL else media.availability).label(), style = MaterialTheme.typography.bodyMedium, color = Color(0xFFBBBBBB))
+                    Text((if (media.linkedDeviceReference != null) MediaAvailability.DEVICE_ORIGINAL else media.availability).label(), style = MaterialTheme.typography.bodyMedium, color = Color(0xFF5D5F68))
                 }
             }
-            HorizontalDivider(Modifier.padding(start = 66.dp), color = Color(0xFF38383A))
+            HorizontalDivider(Modifier.padding(start = 66.dp), color = Color.White)
             Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.Top) {
-                Icon(painterResource(R.drawable.icloud_library), null, Modifier.padding(top = 4.dp).size(28.dp), tint = Color(0xFFD3D3D3))
+                Icon(painterResource(R.drawable.icloud_library), null, Modifier.padding(top = 4.dp).size(28.dp), tint = Color(0xFF5D5F68))
                 Spacer(Modifier.width(18.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(media.fileName, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -67,7 +67,7 @@ internal fun PhotoMetadataCards(media: GalleryMedia, account: ICloudAccountState
 
 @Composable
 private fun MetadataChip(label: String) {
-    Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFF303030)) {
+    Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFE3E3EA), contentColor = Color(0xFF5D5F68)) {
         Text(label, Modifier.padding(horizontal = 8.dp, vertical = 5.dp), style = MaterialTheme.typography.bodySmall)
     }
 }

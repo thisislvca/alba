@@ -13,6 +13,60 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
 internal object MelaIcons {
+    val StarOutline: ImageVector by lazy {
+        icon("StarOutline") {
+            moveTo(22f, 9.24f)
+            lineTo(14.81f, 8.62f)
+            lineTo(12f, 2f)
+            lineTo(9.19f, 8.63f)
+            lineTo(2f, 9.24f)
+            lineTo(7.46f, 13.97f)
+            lineTo(5.82f, 21f)
+            lineTo(12f, 17.27f)
+            lineTo(18.18f, 21f)
+            lineTo(16.55f, 13.97f)
+            close()
+            moveTo(12f, 15.4f)
+            lineTo(8.24f, 17.67f)
+            lineTo(9.24f, 13.39f)
+            lineTo(5.92f, 10.51f)
+            lineTo(10.3f, 10.13f)
+            lineTo(12f, 6.1f)
+            lineTo(13.71f, 10.14f)
+            lineTo(18.09f, 10.52f)
+            lineTo(14.77f, 13.4f)
+            lineTo(15.77f, 17.68f)
+            close()
+        }
+    }
+
+    val Pause: ImageVector by lazy {
+        icon("Pause") {
+            moveTo(6f, 4f); horizontalLineTo(10f); verticalLineTo(20f); horizontalLineTo(6f); close()
+            moveTo(14f, 4f); horizontalLineTo(18f); verticalLineTo(20f); horizontalLineTo(14f); close()
+        }
+    }
+
+    val VolumeUp: ImageVector by lazy {
+        icon("VolumeUp") {
+            moveTo(3f, 9f); horizontalLineTo(7f); lineTo(12f, 5f); verticalLineTo(19f); lineTo(7f, 15f); horizontalLineTo(3f); close()
+            moveTo(14f, 8f); lineTo(15.4f, 6.6f); curveTo(18.4f, 9.3f, 18.4f, 14.7f, 15.4f, 17.4f); lineTo(14f, 16f)
+            curveTo(16.2f, 13.9f, 16.2f, 10.1f, 14f, 8f); close()
+            moveTo(17.3f, 4.7f); lineTo(18.7f, 3.3f); curveTo(23.1f, 7.7f, 23.1f, 16.3f, 18.7f, 20.7f)
+            lineTo(17.3f, 19.3f); curveTo(20.9f, 15.7f, 20.9f, 8.3f, 17.3f, 4.7f); close()
+        }
+    }
+
+    val VolumeOff: ImageVector by lazy {
+        icon("VolumeOff") {
+            moveTo(3f, 9f); horizontalLineTo(7f); lineTo(12f, 5f); verticalLineTo(19f); lineTo(7f, 15f); horizontalLineTo(3f); close()
+            moveTo(15.4f, 9f); lineTo(17f, 10.6f); lineTo(18.6f, 9f); lineTo(20f, 10.4f)
+            lineTo(18.4f, 12f); lineTo(20f, 13.6f); lineTo(18.6f, 15f)
+            lineTo(17f, 13.4f); lineTo(15.4f, 15f); lineTo(14f, 13.6f)
+            lineTo(15.6f, 12f); lineTo(14f, 10.4f); close()
+        }
+    }
+
     val CloudDone: ImageVector by lazy {
         icon("CloudDone") {
             moveTo(19.35f, 10.04f)

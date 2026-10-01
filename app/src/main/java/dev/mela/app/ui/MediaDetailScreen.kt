@@ -24,9 +24,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -51,12 +53,18 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.sp
 import dev.mela.app.R
 import dev.mela.app.ui.theme.MelaTheme
 import dev.mela.engine.model.*
 import dev.mela.protocol.account.ICloudAccountState
 import dev.mela.protocol.account.SessionStatus
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.roundToInt
 
@@ -80,6 +88,7 @@ internal fun MediaDetailScreen(
     accountState: ICloudAccountState,
     uploadTransfer: TransferView?,
     currentAlbumId: String? = null,
+    onViewerLightBars: (Boolean) -> Unit = {},
 ) {
     // MainActivity owns system-bar contrast for the active destination. Restoring an
     // outgoing viewer's captured values here races the gallery after its exit animation.
@@ -87,6 +96,10 @@ internal fun MediaDetailScreen(
     val pager = remember { PagerState(currentPage = items.indexOfFirst { it.id == media.id }.coerceAtLeast(0), pageCount = { latestItems.size }) }
     val latestSelect by rememberUpdatedState(select)
     var controls by rememberSaveable { mutableStateOf(true) }
+    var videoPlaying by remember(media.id) { mutableStateOf(false) }
+    var videoOptions by remember(media.id) { mutableStateOf(false) }
+    var videoSpeedSheet by remember(media.id) { mutableStateOf(false) }
+    var videoLoop by rememberSaveable(media.id) { mutableStateOf(true) }
     var zoomed by remember(media.id) { mutableStateOf(false) }
     LaunchedEffect(pager) {
         snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { page -> latestItems.getOrNull(page)?.let { latestSelect(it.id) } }
@@ -110,16 +123,19 @@ internal fun MediaDetailScreen(
     }) { id ->
         libraryActions.addToAlbum(id, listOf(media.id)); choosingAlbum = false
     }
-    MelaTheme(darkTheme = true) {
+    MelaTheme(darkTheme = false) {
         BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
             val density = LocalDensity.current
             val heightPx = with(density) { maxHeight.toPx() }
-            val detailsHeightPx = heightPx * if (maxHeight < 480.dp) .55f else .64f
+            val detailsHeightPx = heightPx * if (maxHeight < 480.dp) .55f else .69f
             val motion = remember(media.id, detailsHeightPx) { ViewerMotion(if (details) -detailsHeightPx else 0f) }
             val panelHeight = with(density) { (-motion.offset).coerceIn(0f, detailsHeightPx).toDp() }
             val expanded = panelHeight > 0.dp
+            val chromeOn = controls && (media.kind != MediaKind.VIDEO || !videoPlaying)
+            val canvasColor = if (chromeOn || expanded) Color.White else Color.Black
+            SideEffect { onViewerLightBars(chromeOn || expanded) }
             gallerySnapshot?.let { layer -> Box(Modifier.fillMaxSize().drawWithContent { drawLayer(layer) }) }
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = (1f - motion.offset.coerceAtLeast(0f) / (heightPx * .6f)).coerceIn(0f, 1f))))
+            Box(Modifier.fillMaxSize().background(canvasColor.copy(alpha = (1f - motion.offset.coerceAtLeast(0f) / (heightPx * .6f)).coerceIn(0f, 1f))))
             var startedExpanded by remember { mutableStateOf(false) }
             fun showDetails(show: Boolean) {
                 details = show
@@ -174,7 +190,7 @@ internal fun MediaDetailScreen(
             } }
             val detailsLabel = stringResource(R.string.details)
             val backLabel = stringResource(R.string.back_to_gallery)
-            Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            Column(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxWidth().weight(1f).testTag("viewer-photo-viewport")) {
                     HorizontalPager(state = pager, key = { latestItems.getOrNull(it)?.id ?: "removed:$it" }, userScrollEnabled = !zoomed && !expanded && !motion.dragging,
                         modifier = Modifier.fillMaxSize().offset { IntOffset(0, motion.offset.coerceAtLeast(0f).roundToInt()) }
@@ -203,7 +219,11 @@ internal fun MediaDetailScreen(
                         } }
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             if (active && (item.kind == MediaKind.VIDEO || (item.id == media.id && playingLive)) && playback != null) {
-                                VideoPlayer(item.id, playback, Modifier.fillMaxWidth(), autoPlay = playingLive, localReference = item.originalReference?.takeIf { item.origin == MediaOrigin.DEVICE })
+                                VideoPlayer(item.id, playback, Modifier.fillMaxSize(), autoPlay = true,
+                                    localReference = item.originalReference?.takeIf { item.origin == MediaOrigin.DEVICE },
+                                    onPlayingChanged = { videoPlaying = it }, optionsOpen = videoSpeedSheet,
+                                    onDismissOptions = { videoSpeedSheet = false }, loopEnabled = videoLoop,
+                                    showPlaybackControls = !expanded)
                             } else MediaThumbnail(reference = item.linkedDeviceReference ?: item.originalReference ?: item.viewerReference ?: item.previewReference, sourceRevision = item.sourceRevision,
                                 fallbackReference = item.previewReference, sharedMediaId = if (active) item.id else null,
                                 accentStartArgb = item.accentStartArgb, accentEndArgb = item.accentEndArgb, contentDescription = item.fileName,
@@ -215,46 +235,40 @@ internal fun MediaDetailScreen(
                             }
                         }
                     }
-                    androidx.compose.animation.AnimatedVisibility((controls || expanded) && !motion.dragging, modifier = Modifier.align(Alignment.TopCenter).photoChrome(),
+                    androidx.compose.animation.AnimatedVisibility((chromeOn || expanded) && !motion.dragging,
+                        modifier = Modifier.align(Alignment.TopCenter).photoChrome(),
                         enter = fadeIn(tween(140)), exit = fadeOut(tween(100))) {
-                        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            FloatingViewerButton(backLabel, onBack, Modifier.testTag("floating-viewer-back")) {
-                                Icon(Icons.AutoMirrored.Outlined.ArrowBack, null)
-                            }
-                            if (!expanded) FloatingViewerButton(stringResource(R.string.photo_details_and_actions), { showDetails(true) }, enabled = !pager.isScrollInProgress) {
-                                Icon(Icons.Outlined.Info, null)
-                            }
-                        }
+                        if (expanded) ViewerDetailsBackButton(backLabel, { showDetails(false) })
+                        else ViewerTopBar(media, backLabel, onBack,
+                            favoriteEnabled = canEdit && !media.isTrashed && !media.isShared && !pager.isScrollInProgress,
+                            onFavorite = { libraryActions.favorite(media.id, !media.isFavorite) },
+                            onMore = { if (media.kind == MediaKind.VIDEO) videoOptions = true else showDetails(true) },
+                            videoOptionsOpen = videoOptions, onDismissVideoOptions = { videoOptions = false },
+                            videoLoop = videoLoop, onToggleLoop = { videoLoop = !videoLoop; videoOptions = false },
+                            onPlaybackSpeed = { videoOptions = false; videoSpeedSheet = true })
                     }
-                    androidx.compose.animation.AnimatedVisibility(controls && !expanded && !motion.dragging, modifier = Modifier.align(Alignment.BottomCenter).photoChrome(),
+                    androidx.compose.animation.AnimatedVisibility(chromeOn && !expanded && !motion.dragging,
+                        modifier = Modifier.align(Alignment.BottomCenter).photoChrome(),
                         enter = fadeIn(tween(140)), exit = fadeOut(tween(100))) {
-                        Surface(Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).widthIn(max = 480.dp), shape = CircleShape,
-                            color = Color(0xFF1C1C1E).copy(alpha = .94f), contentColor = Color.White) {
-                            Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceEvenly) {
-                                IconButton(enabled = !isWorking && !pager.isScrollInProgress, onClick = { libraryActions.share(listOf(media)) }) {
-                                    Icon(Icons.Outlined.Share, stringResource(R.string.share))
-                                }
-                                if (media.kind != MediaKind.VIDEO && !media.isTrashed) IconButton(enabled = !isWorking, onClick = { libraryActions.edit(media) }) {
-                                    Icon(Icons.Outlined.Edit, stringResource(R.string.edit_photo))
-                                }
-                                if (!media.isTrashed && !media.isShared) IconButton(enabled = canEdit && !pager.isScrollInProgress, onClick = { libraryActions.favorite(media.id, !media.isFavorite) }) {
-                                    Icon(painterResource(R.drawable.icloud_favorites), stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite),
-                                        tint = if (media.isFavorite) Color(0xFF9DCBFF) else Color.White, modifier = Modifier.size(26.dp))
-                                }
-                                if (media.kind == MediaKind.LIVE_PHOTO) TextButton(onClick = { playingLive = !playingLive }, modifier = Modifier.weight(1f, fill = false)) {
-                                    Text(stringResource(if (playingLive) R.string.show_still_photo else R.string.play_live_photo), color = Color.White)
-                                } else Text(stringResource(R.string.viewer_position, pager.settledPage + 1, items.size), color = Color.LightGray, style = MaterialTheme.typography.labelMedium)
-                                TextButton(onClick = { showDetails(true) }, enabled = !pager.isScrollInProgress) { Text(detailsLabel, color = Color.White) }
-                            }
-                        }
+                        ViewerActionBar(
+                            media = media, enabled = !isWorking && !pager.isScrollInProgress,
+                            canEdit = canEdit,
+                            onShare = { libraryActions.share(listOf(media)) },
+                            onEdit = { libraryActions.edit(media) },
+                            onDetails = { showDetails(true) },
+                            onTrash = {
+                                if (media.origin == MediaOrigin.DEVICE) libraryActions.trash(listOf(media), media.isTrashed)
+                                else libraryActions.cloudTrash(listOf(media.id), !media.isTrashed)
+                            },
+                            onLive = { playingLive = !playingLive }, playingLive = playingLive,
+                        )
                     }
                 }
                 if (expanded) Surface(Modifier.fillMaxWidth().height(panelHeight).clipToBounds().testTag("photo-details-panel"),
-                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), color = Color(0xFF111111), contentColor = Color(0xFFEDEDED)) {
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), color = Color.White, contentColor = Color(0xFF30323A)) {
                     Column {
                         Box(Modifier.fillMaxWidth().height(32.dp).then(gesture).testTag("details-drag-handle"), contentAlignment = Alignment.Center) {
-                            Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = Color(0xFF565656)) {}
+                            Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = Color(0xFFDADCE6)) {}
                         }
                         Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding()) {
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -274,7 +288,7 @@ internal fun MediaDetailScreen(
                             }
                             Spacer(Modifier.height(24.dp))
                             if (media.origin == MediaOrigin.ICLOUD) {
-                                Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF1C1C1E), contentColor = Color(0xFFEDEDED)) {
+                                Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFFEDEDF6), contentColor = Color(0xFF30323A)) {
                                     Column {
                                         if (!media.isShared) {
                                         DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,
@@ -296,7 +310,7 @@ internal fun MediaDetailScreen(
                                         DetailAction(stringResource(R.string.export_original), !isWorking, { libraryActions.exportOriginal(media) }, { Icon(Icons.Outlined.Share, null) })
                                         if (media.kind == MediaKind.LIVE_PHOTO) DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,
                                             { libraryActions.exportLivePhoto(media) }, { ICloudIcon(R.drawable.icloud_live_photos) })
-                                        HorizontalDivider(color = Color(0xFF111111), thickness = 2.dp)
+                                        HorizontalDivider(color = Color.White, thickness = 2.dp)
                                         if (media.availability == MediaAvailability.ORIGINAL_CACHED) {
                                             DetailAction(stringResource(R.string.remove_offline_copy), !isWorking, onRemoveCachedOriginal, { Icon(MelaIcons.DeleteOutline, null) })
                                         } else {
@@ -311,11 +325,11 @@ internal fun MediaDetailScreen(
                                 Spacer(Modifier.height(16.dp))
                                 if (isDownloadingOriginal) TextButton(onClick = libraryActions.cancelOfflineDownload) { Text(stringResource(R.string.cancel_download)) }
                                 Text(stringResource(R.string.offline_copies_live_only_in_mela_s_private_storage_this_action_never_removes_a_photo_),
-                                    style = MaterialTheme.typography.bodySmall, color = Color(0xFFBBBBBB))
+                                    style = MaterialTheme.typography.bodySmall, color = Color(0xFF5F616A))
                                 if (media.kind == MediaKind.LIVE_PHOTO) {
                                     Spacer(Modifier.height(12.dp))
                                     Text(stringResource(R.string.the_zip_preserves_the_original_still_image_and_motion_clip_your_gallery_may_show_them),
-                                        style = MaterialTheme.typography.bodySmall, color = Color(0xFFBBBBBB))
+                                        style = MaterialTheme.typography.bodySmall, color = Color(0xFF5F616A))
                                 }
                             } else if (!media.isTrashed && media.kind == MediaKind.PHOTO) {
                                 DeviceUploadControls(
@@ -338,15 +352,120 @@ internal fun MediaDetailScreen(
 }
 
 @Composable
-private fun FloatingViewerButton(label: String, click: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: @Composable () -> Unit) {
-    Surface(shape = CircleShape, color = Color(0xFF161616).copy(alpha = .94f), contentColor = Color.White, shadowElevation = 3.dp) {
-        IconButton(onClick = click, enabled = enabled, modifier = modifier.size(48.dp).semantics { this.contentDescription = label }) { icon() }
+private fun ViewerDetailsBackButton(label: String, click: () -> Unit) {
+    Box(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, top = 12.dp)) {
+        Surface(shape = CircleShape, color = Color.White, contentColor = Color(0xFF30323A), shadowElevation = 4.dp) {
+            IconButton(onClick = click, modifier = Modifier.size(48.dp)) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, label)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ViewerTopBar(
+    media: GalleryMedia,
+    backLabel: String,
+    onBack: () -> Unit,
+    favoriteEnabled: Boolean,
+    onFavorite: () -> Unit,
+    onMore: () -> Unit,
+    videoOptionsOpen: Boolean,
+    onDismissVideoOptions: () -> Unit,
+    videoLoop: Boolean,
+    onToggleLoop: () -> Unit,
+    onPlaybackSpeed: () -> Unit,
+) {
+    val locale = LocalConfiguration.current.locales[0]
+    val date = remember(media.capturedAtEpochMillis, locale) {
+        Instant.ofEpochMilli(media.capturedAtEpochMillis).atZone(ZoneId.systemDefault())
+    }
+    val ink = Color(0xFF5D5F68)
+    Box(Modifier.fillMaxWidth().background(Color.White).statusBarsPadding().height(64.dp)) {
+        IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp).size(48.dp)
+            .testTag("floating-viewer-back")) {
+            Icon(Icons.AutoMirrored.Outlined.ArrowBack, backLabel, tint = ink)
+        }
+        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(date.format(DateTimeFormatter.ofPattern("MMM d", locale)), color = Color(0xFF30323A),
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium))
+            Text(date.format(DateTimeFormatter.ofPattern("h:mm a", locale)), color = ink,
+                style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)) {
+            if (!media.isShared && !media.isTrashed) IconButton(onClick = onFavorite, enabled = favoriteEnabled,
+                modifier = Modifier.size(48.dp).testTag("viewer-favorite")) {
+                Icon(MelaIcons.StarOutline, stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite),
+                    tint = if (media.isFavorite) Color(0xFF0065D0) else ink)
+            }
+            Box {
+                IconButton(onClick = onMore, modifier = Modifier.size(48.dp).testTag("viewer-more")) {
+                    Icon(Icons.Outlined.MoreVert, stringResource(R.string.more), tint = ink)
+                }
+                DropdownMenu(expanded = media.kind == MediaKind.VIDEO && videoOptionsOpen,
+                    onDismissRequest = onDismissVideoOptions) {
+                    DropdownMenuItem(text = { Text(stringResource(if (videoLoop) R.string.loop_video_on else R.string.loop_video_off)) },
+                        onClick = onToggleLoop)
+                    DropdownMenuItem(text = { Text(stringResource(R.string.playback_speed)) }, onClick = onPlaybackSpeed)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ViewerActionBar(
+    media: GalleryMedia,
+    enabled: Boolean,
+    canEdit: Boolean,
+    onShare: () -> Unit,
+    onEdit: () -> Unit,
+    onDetails: () -> Unit,
+    onTrash: () -> Unit,
+    onLive: () -> Unit,
+    playingLive: Boolean,
+) {
+    Row(Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().offset(y = 5.dp).height(76.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        ViewerAction(stringResource(R.string.share), enabled, onShare, Modifier.weight(1f)) {
+            Icon(Icons.Outlined.Share, null)
+        }
+        if (media.kind != MediaKind.VIDEO && !media.isTrashed) ViewerAction(stringResource(R.string.viewer_edit), enabled, onEdit, Modifier.weight(1f)) {
+            Icon(Icons.Outlined.Edit, null)
+        } else ViewerAction(stringResource(R.string.details), true, onDetails, Modifier.weight(1f)) {
+            Icon(Icons.Outlined.Info, null)
+        }
+        if (!media.isShared && (media.origin == MediaOrigin.ICLOUD || Build.VERSION.SDK_INT >= 30)) {
+            ViewerAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.viewer_trash),
+                enabled && canEdit, onTrash, Modifier.weight(1f)) {
+                Icon(MelaIcons.DeleteOutline, null)
+            }
+        } else ViewerAction(stringResource(R.string.details), true, onDetails, Modifier.weight(1f)) {
+            Icon(Icons.Outlined.Info, null)
+        }
+        if (media.kind == MediaKind.LIVE_PHOTO) ViewerAction(
+            stringResource(if (playingLive) R.string.show_still_photo else R.string.play_live_photo), true, onLive, Modifier.weight(1f)) {
+            Icon(Icons.Filled.PlayArrow, null)
+        }
+    }
+}
+
+@Composable
+private fun ViewerAction(label: String, enabled: Boolean, click: () -> Unit, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {
+    Column(modifier.clickable(enabled = enabled, role = Role.Button, onClick = click)
+        .height(76.dp).semantics { contentDescription = label }, horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
+        CompositionLocalProvider(LocalContentColor provides if (enabled) Color(0xFF5D5F68) else Color(0xFFB7B8BD)) {
+            Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) { icon() }
+            Spacer(Modifier.height(7.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, maxLines = 1)
+        }
     }
 }
 
 @Composable
 private fun DetailAction(label: String, enabled: Boolean, click: () -> Unit, icon: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalContentColor provides if (enabled) Color(0xFFEDEDED) else Color(0xFF777777)) {
+    CompositionLocalProvider(LocalContentColor provides if (enabled) Color(0xFF30323A) else Color(0xFF9A9BA0)) {
         Row(Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = click)
             .heightIn(min = 56.dp).padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) { icon() }

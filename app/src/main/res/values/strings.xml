@@ -369,6 +369,16 @@
     <string name="verify_and_continue">Verify and continue</string>
     <string name="videos">Videos</string>
     <string name="viewer_position">%1$d / %2$d</string>
+    <string name="viewer_edit">Edit</string>
+    <string name="viewer_trash">Trash</string>
+    <string name="play_video">Play video</string>
+    <string name="pause_video">Pause video</string>
+    <string name="mute_video">Mute video</string>
+    <string name="unmute_video">Unmute video</string>
+    <string name="loop_video">Loop video</string>
+    <string name="loop_video_on">Turn looping off</string>
+    <string name="loop_video_off">Turn looping on</string>
+    <string name="playback_speed">Playback speed</string>
     <string name="waiting">Waiting</string>
     <string name="waiting_to_upload">Waiting to upload</string>
     <string name="welcome_back">Previous welcome screen</string>

@@ -42,7 +42,7 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("filter-options")) {
                 FilterSectionLabel(stringResource(R.string.photo_size))
                 Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(80 to R.string.small, 112 to R.string.medium, 160 to R.string.large).forEachIndexed { index, (size, label) ->
+                    listOf(80 to R.string.small, 100 to R.string.medium, 160 to R.string.large).forEachIndexed { index, (size, label) ->
                         val selected = density == size
                         Surface(Modifier.weight(1f), color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .09f) else Color.Transparent,
                             shape = RoundedCornerShape(12.dp)) {
