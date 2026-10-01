@@ -18,7 +18,6 @@
     "build": "astro build",
     "preview": "astro preview --host 127.0.0.1 --port 4328",
     "check": "astro check",
-    "assets": "node scripts/prepare-assets.mjs",
-    "publish": "bun run check && bun run build && node scripts/publish-pages.mjs"
+    "assets": "node scripts/prepare-assets.mjs"
   }
 }

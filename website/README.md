@@ -22,8 +22,10 @@ To refresh icon exports: `bun run assets`. To refresh screens too, pass a folder
 
 ## Publishing
 
-GitHub Pages serves the generated static site from the public repository’s `gh-pages` branch. Source stays on `codex/alba-website`; this does not require merging the Android app branch. DNS: DNS-only CNAME `alba` to `thisislvca.github.io` in Cloudflare. The custom domain is configured in GitHub Pages before DNS is pointed there.
+GitHub Pages deploys through `.github/workflows/website.yml`. `main` is the development branch; `release` is the production branch. Pushes to either branch check and build the website. Every push or merge to `release` automatically publishes the successful build to `https://alba.lvca.me`; `main` and pull requests never deploy. You can also run the workflow manually against `release`.
 
-Run `bun run publish` from `website/` to check, build, and publish to `gh-pages` using your existing GitHub CLI login. The command updates the generated branch without force pushing. Preserve `CNAME` and `.nojekyll`, which are included in `public/` and copied into every build. Never publish through the private archive remote (`origin`); use the public `thisislvca/alba` repository.
+To publish approved changes, merge updated `main` into `release` and push `release` to the public `thisislvca/alba` repository. No version tag or GitHub Release is required. Failed checks/builds leave the current live website in place. GitHub Pages uses GitHub Actions as its source and the `github-pages` environment allows deployment from `release`.
+
+DNS: DNS-only CNAME `alba` to `thisislvca.github.io` in Cloudflare. Keep `public/CNAME` and the configured Astro site origin at `alba.lvca.me`. The former generated `gh-pages` branch is historical and no longer controls deployment. Never publish through the private archive remote (`origin`); use the public repository.
 
 The website copy is written for launch. Download links use the Android application ID (`com.mannaworks.mela`) by default. Set `PUBLIC_PLAY_STORE_URL` if the confirmed listing differs; all store links share `src/config.ts`. No release version, waitlist, pricing, or donation destination is included.
