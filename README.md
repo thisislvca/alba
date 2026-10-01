@@ -47,6 +47,10 @@ Use JDK 21 and Android SDK 37 with build tools 37.0.0. Set `JAVA_HOME` and `ANDR
 
 APKs are in `app/build/outputs/apk/`. `:app:assembleRelease` produces an unsigned release unless local signing is configured.
 
+## Releases
+
+The website deploys from `main`. App versions are prepared in GitHub Actions, tested internally, then promoted without rebuilding. See [release instructions](RELEASING.md).
+
 ## Tests
 
 CI runs device tests on Android 11 and 16. Locally, create a native Android emulator in Android Studio, then run `MELA_AVD_NAME=your_avd scripts/run_android_tests.sh`. On a Mac, the script requires and checks hardware graphics.

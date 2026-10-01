@@ -1,0 +1,144 @@
+name: Prepare app release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'User-facing version, for example 0.2.0'
+        required: true
+        type: string
+      notes:
+        description: 'Short release notes (required for Play, maximum 500 characters)'
+        type: string
+      upload_to_play:
+        description: 'Upload the signed AAB to Play internal testing'
+        default: true
+        type: boolean
+      dry_run:
+        description: 'Check and package unsigned artifacts only; create no tag/release or Play upload'
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'thisislvca/alba' && github.ref == 'refs/heads/main'
+    name: Prepare versioned build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: write
+      actions: read
+      attestations: write
+      id-token: write
+    env:
+      APP_VERSION: ${{ inputs.version }}
+      APP_NOTES: ${{ inputs.notes }}
+      APP_VERSION_CODE_OFFSET: ${{ vars.APP_VERSION_CODE_OFFSET || '1000' }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      UPLOAD_TO_PLAY: ${{ inputs.upload_to_play }}
+      MELA_SENTRY_DSN: ${{ vars.ALBA_SENTRY_DSN }}
+      ALBA_RELEASE_ENVIRONMENT: production
+      MELA_SENTRY_PROPERTIES: /tmp/alba-no-sentry.properties
+      MELA_SIGNING_PROPERTIES: /tmp/alba-no-signing.properties
+      FASTLANE_SKIP_UPDATE_CHECK: 'true'
+      FASTLANE_HIDE_CHANGELOG: 'true'
+      FASTLANE_OPT_OUT_USAGE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.4.2'
+      - name: Validate version, credentials and source checks
+        id: release
+        run: node scripts/release/release.mjs prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALBA_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ALBA_UPLOAD_KEYSTORE_BASE64 }}
+          ALBA_KEYSTORE_PASSWORD: ${{ secrets.ALBA_KEYSTORE_PASSWORD }}
+          ALBA_KEY_ALIAS: ${{ secrets.ALBA_KEY_ALIAS }}
+          ALBA_KEY_PASSWORD: ${{ secrets.ALBA_KEY_PASSWORD }}
+          ALBA_UPLOAD_CERT_SHA256: ${{ vars.ALBA_UPLOAD_CERT_SHA256 }}
+          ALBA_TAG_SIGNING_KEY: ${{ secrets.ALBA_TAG_SIGNING_KEY }}
+          ALBA_TAG_SIGNING_PUBLIC_KEY: ${{ vars.ALBA_TAG_SIGNING_PUBLIC_KEY }}
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Check Play workflow configuration
+        run: bundle exec fastlane lanes
+      - name: Configure approved signing keys
+        if: ${{ !inputs.dry_run }}
+        run: node scripts/release/release.mjs signing
+        env:
+          ALBA_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ALBA_UPLOAD_KEYSTORE_BASE64 }}
+          ALBA_KEYSTORE_PASSWORD: ${{ secrets.ALBA_KEYSTORE_PASSWORD }}
+          ALBA_KEY_ALIAS: ${{ secrets.ALBA_KEY_ALIAS }}
+          ALBA_KEY_PASSWORD: ${{ secrets.ALBA_KEY_PASSWORD }}
+          ALBA_UPLOAD_CERT_SHA256: ${{ vars.ALBA_UPLOAD_CERT_SHA256 }}
+          ALBA_TAG_SIGNING_KEY: ${{ secrets.ALBA_TAG_SIGNING_KEY }}
+          ALBA_TAG_SIGNING_PUBLIC_KEY: ${{ vars.ALBA_TAG_SIGNING_PUBLIC_KEY }}
+      - name: Check and build the candidate
+        run: |
+          bun test scripts/
+          cmp THIRD_PARTY_NOTICES.md app/src/main/res/raw/third_party_notices.txt
+          ./gradlew testDebugUnitTest lintDebug :app:assembleRelease :app:bundleRelease \
+            "-PalbaVersionName=$APP_VERSION" "-PalbaVersionCode=$VERSION_CODE" \
+            --max-workers=2 --no-parallel --no-daemon --console=plain
+        env:
+          VERSION_CODE: ${{ steps.release.outputs.version_code }}
+      - name: Verify and package artifacts
+        run: node scripts/release/release.mjs package
+        env:
+          ALBA_UPLOAD_CERT_SHA256: ${{ vars.ALBA_UPLOAD_CERT_SHA256 }}
+      - name: Attest the signed build
+        if: ${{ !inputs.dry_run }}
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: |
+            .artifacts/release/alba.apk
+            .artifacts/release/alba.aab
+      - name: Save build artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: alba-${{ steps.release.outputs.version_code }}-${{ inputs.dry_run && 'dry-run' || 'signed' }}
+          path: .artifacts/release/
+          if-no-files-found: error
+          retention-days: 30
+          include-hidden-files: true
+      - name: Create signed tag and draft GitHub release
+        if: ${{ !inputs.dry_run }}
+        run: node scripts/release/release.mjs publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Upload to Play internal testing
+        if: ${{ !inputs.dry_run && inputs.upload_to_play }}
+        run: bundle exec fastlane android internal
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+      - name: Release summary
+        run: |
+          cat .artifacts/release/NOTES.md >> "$GITHUB_STEP_SUMMARY"
+          printf '\nDry run: %s\n' "$DRY_RUN" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary credentials
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/alba-release-credentials"

@@ -22,9 +22,9 @@ To refresh icon exports: `bun run assets`. To refresh screens too, pass a folder
 
 ## Publishing
 
-GitHub Pages deploys through `.github/workflows/website.yml`. `main` is the development branch; `release` is the production branch. Pushes to either branch check and build the website. Every push or merge to `release` automatically publishes the successful build to `https://alba.lvca.me`; `main` and pull requests never deploy. You can also run the workflow manually against `release`.
+GitHub Pages deploys through `.github/workflows/website.yml`. Changes to `website/`, `PRIVACY.md`, or the website workflow on `main` automatically check, build, and publish to `https://alba.lvca.me`. Pull requests check and build without publishing. The workflow can also be run manually against `main`.
 
-To publish approved changes, merge updated `main` into `release` and push `release` to the public `thisislvca/alba` repository. No version tag or GitHub Release is required. Failed checks/builds leave the current live website in place. GitHub Pages uses GitHub Actions as its source and the `github-pages` environment allows deployment from `release`.
+The `github-pages` environment allows deployment from `main`. App releases use separate manual, version-based workflows described in [`../RELEASING.md`](../RELEASING.md); updating the website does not ship an app build. There is no long-lived release branch to synchronize.
 
 DNS: DNS-only CNAME `alba` to `thisislvca.github.io` in Cloudflare. Keep `public/CNAME` and the configured Astro site origin at `alba.lvca.me`. The former generated `gh-pages` branch is historical and no longer controls deployment. Never publish through the private archive remote (`origin`); use the public repository.
 

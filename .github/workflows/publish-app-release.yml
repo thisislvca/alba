@@ -1,0 +1,57 @@
+name: Publish tested app
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tested candidate tag, for example app/v0.2.0-build.1001'
+        required: true
+        type: string
+      notes:
+        description: 'Final release notes; leave empty to reuse the prepared notes'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'thisislvca/alba' && github.ref == 'refs/heads/main'
+    name: Promote the tested build to production
+    environment: play-production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      attestations: read
+    env:
+      APP_RELEASE_TAG: ${{ inputs.release_tag }}
+      APP_NOTES: ${{ inputs.notes }}
+      ALBA_TAG_SIGNING_PUBLIC_KEY: ${{ vars.ALBA_TAG_SIGNING_PUBLIC_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      FASTLANE_SKIP_UPDATE_CHECK: 'true'
+      FASTLANE_HIDE_CHANGELOG: 'true'
+      FASTLANE_OPT_OUT_USAGE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the candidate tag, signed manifest and asset hashes
+        run: node scripts/release/release.mjs verify
+      - name: Verify GitHub build provenance
+        run: gh attestation verify .artifacts/release/alba.aab --repo thisislvca/alba --signer-workflow thisislvca/alba/.github/workflows/prepare-app-release.yml
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Promote the existing internal build
+        run: bundle exec fastlane android production
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+      - name: Publish the GitHub release
+        run: gh release edit "$APP_RELEASE_TAG" --repo thisislvca/alba --draft=false --prerelease=false --latest --notes-file .artifacts/release/metadata/en-US/changelogs/*.txt

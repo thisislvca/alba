@@ -28,6 +28,17 @@ val sentryDsn = providers.environmentVariable("MELA_SENTRY_DSN")
 val sentryDsnLiteral = "\"" + sentryDsn.replace("\\", "\\\\").replace("\"", "\\\"")
     .replace("\n", "\\n").replace("\r", "\\r") + "\""
 
+val releaseVersionName = providers.gradleProperty("albaVersionName")
+val releaseVersionCode = providers.gradleProperty("albaVersionCode")
+require(releaseVersionName.isPresent == releaseVersionCode.isPresent) { "Supply both albaVersionName and albaVersionCode." }
+val appVersionName = releaseVersionName.getOrElse("0.1.0")
+val appVersionCode = releaseVersionCode.getOrElse("1").toInt()
+require(appVersionName.matches(Regex("(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"))) { "Invalid Alba version name." }
+require(appVersionCode in 1..2100000000) { "Invalid Alba version code." }
+if (providers.environmentVariable("ALBA_REQUIRE_RELEASE_SIGNING").getOrElse("false") == "true") {
+    require(releaseCredentials.isNotEmpty()) { "Official releases require signing credentials." }
+}
+
 android {
     namespace = "dev.mela.app"
     compileSdk = 37
@@ -52,8 +63,8 @@ android {
         applicationId = "com.mannaworks.mela"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         resourceConfigurations += listOf("en", "it")
         buildConfigField(
             "String",
@@ -82,7 +93,7 @@ android {
             buildConfigField("String", "SENTRY_ENVIRONMENT", "\"development\"")
         }
         release {
-            buildConfigField("String", "SENTRY_ENVIRONMENT", "\"family-beta\"")
+            buildConfigField("String", "SENTRY_ENVIRONMENT", "\"${providers.environmentVariable("ALBA_RELEASE_ENVIRONMENT").getOrElse("family-beta")}\"")
             if (releaseCredentials.isNotEmpty()) signingConfig = signingConfigs.getByName("production")
             isMinifyEnabled = true
             proguardFiles(

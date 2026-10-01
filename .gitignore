@@ -14,3 +14,7 @@ __pycache__/
 signing.properties
 sentry.properties
 node_modules/
+
+.bundle/
+vendor/bundle/
+fastlane/report.xml

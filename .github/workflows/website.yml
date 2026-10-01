@@ -2,7 +2,11 @@ name: Website
 
 on:
   push:
-    branches: [main, release]
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'PRIVACY.md'
+      - '.github/workflows/website.yml'
   pull_request:
     paths:
       - 'website/**'
@@ -15,7 +19,7 @@ permissions:
 
 concurrency:
   group: website-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/release' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -40,14 +44,14 @@ jobs:
       - name: Build
         run: bun run build
       - name: Upload website
-        if: github.ref == 'refs/heads/release' && github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: website/dist
 
   deploy:
     name: Publish alba.lvca.me
-    if: github.ref == 'refs/heads/release' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
