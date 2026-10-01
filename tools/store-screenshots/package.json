@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "render": "node render.mjs"
+    "render": "node render.mjs",
+    "banner": "node render-readme.mjs"
   },
   "dependencies": {
     "opentype.js": "1.3.4",

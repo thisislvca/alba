@@ -1,4 +1,4 @@
-# Alba
+![Alba — your iCloud photos on Android](assets/readme/banner.webp)
 
 Your iCloud photos, on Android.
 

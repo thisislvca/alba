@@ -126,3 +126,10 @@ node tools/store-screenshots/import-demo-media.mjs 3 4 5 6 7 8 9 10 11 12 13 14
 
 When changing a source, update the fixture dimensions and source revision before
 building and recapturing the real Android UI.
+
+## README banner
+
+From this folder, run `bun install --frozen-lockfile` and `bun run banner`.
+The generator uses the bundled demo captures in `assets/readme/screens/`, the Alba
+mark and Google Sans to rebuild `assets/readme/banner.webp` at 3200 × 1280.
+Edit `render-readme.mjs` to change the layout.
