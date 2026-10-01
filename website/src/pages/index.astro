@@ -1,0 +1,89 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Phone from '../components/Phone.astro';
+import Icon from '../components/Icon.astro';
+import { playStoreUrl } from '../config';
+const features = [
+  {
+    icon: 'photo' as const, tone: 'violet', title: 'Photos, videos and Live Photos.',
+    copy: 'Browse your library, play a Live Photo and find your favourites. All in a native Android app.',
+  },
+  {
+    icon: 'cloud' as const, tone: 'apricot', title: 'Keep your existing storage.',
+    copy: 'Use the cloud subscription you already have. Your library stays where it is, without moving everything to another service.',
+  },
+  {
+    icon: 'download' as const, tone: 'rose', title: 'Save originals offline.',
+    copy: 'Download photos and videos to your phone, then open or share them when you’re offline.',
+  },
+  {
+    icon: 'lock' as const, tone: 'mauve', title: 'Your phone connects to Apple.',
+    copy: 'Alba has no server that handles your photos or sign-in details. Your session is stored encrypted on your phone.',
+  },
+];
+---
+<Layout>
+  <div class="announcement text-center">
+    Now available on Google Play.
+    <a href={playStoreUrl}>Get Alba <span aria-hidden="true">↗</span></a>
+  </div>
+  <section class="hero text-center" aria-labelledby="hero-title">
+    <div class="hero-copy mx-auto">
+      <img class="hero-icon mx-auto" src="/images/app-icon.webp" width="104" height="104" alt="Alba" fetchpriority="high" />
+      <h1 id="hero-title">Your iCloud photos,<br /><span class="dawn-text">on Android.</span></h1>
+      <p class="hero-intro mx-auto">Browse your library and the albums your family shares.<br class="desktop-break" /> Keep using the cloud you already have, even on a different phone.</p>
+      <div class="hero-actions flex flex-wrap items-center justify-center gap-4">
+        <a class="button button-primary" href={playStoreUrl}>Get it on Google Play <Icon name="arrow" /></a>
+        <a class="text-link" href="https://github.com/thisislvca/alba">View on GitHub <span aria-hidden="true">↗</span></a>
+      </div>
+      <p class="availability">Android 11+ <span>·</span> Free & open source</p>
+    </div>
+    <div class="hero-stage mx-auto" aria-label="Alba photo library, shared albums and photo viewer">
+      <div class="stage-glow" aria-hidden="true"></div>
+      <div class="stage-orbit" aria-hidden="true"></div>
+      <Phone screen="library" alt="Alba’s photo library with favourite moments and videos" class="hero-phone hero-phone-center" eager />
+      <Phone screen="albums" alt="Alba shared albums filled with holiday and family photos" class="hero-phone hero-phone-left" eager />
+      <Phone screen="viewer" alt="A photo open in Alba’s full-screen viewer" class="hero-phone hero-phone-right" eager />
+    </div>
+  </section>
+  <section id="features" class="shared-section section-shell mx-auto grid items-center" aria-labelledby="shared-title">
+    <div class="shared-visual" data-reveal>
+      <div class="shared-halo" aria-hidden="true"></div>
+      <Phone screen="albums" alt="Shared Albums in Alba, including family and travel collections" class="shared-phone-back" />
+      <Phone screen="share" alt="A shared album showing two rows of photos" class="shared-phone-front" />
+    </div>
+    <div class="shared-copy" data-reveal>
+      <Icon name="heart" class="section-icon" />
+      <h2 id="shared-title">Different phones.<br />Same shared albums.</h2>
+      <p>When your family has iPhones and you have an Android, you can still see the photos they add to your shared albums. Open the albums you already use, with the Apple Account you already have.</p>
+      <a class="text-link" href="/support/#shared-albums">About shared albums <span aria-hidden="true">↗</span></a>
+    </div>
+  </section>
+  <section class="feature-section section-shell mx-auto" aria-label="Alba features">
+    <div class="feature-grid grid sm:grid-cols-2">
+      {features.map(feature => (
+        <article class="feature" data-tone={feature.tone} data-reveal>
+          <Icon name={feature.icon} />
+          <h3>{feature.title}</h3>
+          <p>{feature.copy}</p>
+        </article>
+      ))}
+    </div>
+  </section>
+  <section id="open-source" class="open-section" aria-labelledby="source-title">
+    <div class="open-grid section-shell mx-auto grid">
+      <div class="source-copy" data-reveal>
+        <span class="source-emblem" aria-hidden="true"><Icon name="code" /></span>
+        <h2 id="source-title">Free and open source.</h2>
+        <p>Alba has no paid tier or app subscription. The code is on GitHub, where you can report a bug, suggest a feature or contribute.</p>
+        <a class="text-link" href="https://github.com/thisislvca/alba">Explore the source <span aria-hidden="true">↗</span></a>
+      </div>
+      <div id="get-alba" class="get-copy" data-reveal>
+        <h3>Get Alba for Android.</h3>
+        <p>Download Alba from Google Play and sign in with your Apple Account. Your photo library and shared albums will be right there.</p>
+        <a class="button button-primary" href={playStoreUrl}>Get it on Google Play <Icon name="arrow" /></a>
+        <p class="availability">Android 11+ <span>·</span> English & Italian</p>
+      </div>
+    </div>
+  </section>
+</Layout>

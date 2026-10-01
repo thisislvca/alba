@@ -1,0 +1,51 @@
+---
+import '../styles/global.css';
+import Icon from '../components/Icon.astro';
+import { playStoreUrl } from '../config';
+interface Props { title?: string; description?: string }
+const { title='Alba — your iCloud photos, on Android.', description='Browse your iCloud photos and Shared Albums on Android. Alba is free, open source and connects your phone directly to Apple.' } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title><meta name="description" content={description} />
+    <link rel="canonical" href={canonical} /><link rel="icon" type="image/svg+xml" href="/images/favicon.svg" />
+    <meta name="theme-color" content="#080809" />
+    <meta property="og:title" content={title} /><meta property="og:description" content={description} /><meta property="og:type" content="website" /><meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL('/images/social.jpg', Astro.site)} /><meta name="twitter:card" content="summary_large_image" />
+    <script is:inline>try { const t=localStorage.getItem('alba-theme'); if(t==='light'||t==='dark') document.documentElement.dataset.theme=t; } catch {}</script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <nav class="nav-shell mx-auto flex items-center justify-between" aria-label="Main navigation">
+        <a class="wordmark flex items-center gap-2" href="/" aria-label="Alba home"><img src="/images/mark.png" width="38" height="24" alt="" />Alba</a>
+        <div class="nav-links flex items-center gap-7"><a href="/#features">Overview</a><a href="/#open-source">Open source</a><a href="/support/">Support</a></div>
+        <div class="flex items-center gap-4"><a class="nav-github" href="https://github.com/thisislvca/alba" aria-label="Alba on GitHub"><Icon name="github" /></a><a class="nav-button" href={playStoreUrl}>Download <span aria-hidden="true">↗</span></a></div>
+      </nav>
+    </header>
+    <main id="main"><slot /></main>
+    <footer class="site-footer">
+      <div class="footer-inner mx-auto">
+        <div class="footer-top flex flex-wrap items-center justify-between gap-6"><a class="wordmark flex items-center gap-2" href="/"><img src="/images/mark.png" width="38" height="24" alt="" />Alba</a><span>An independent Android app.</span></div>
+        <div class="footer-bottom flex flex-wrap items-center justify-between gap-6">
+          <div class="flex flex-wrap gap-6"><a href="/privacy/">Privacy</a><a href="/support/">Support</a><a href="https://github.com/thisislvca/alba">GitHub ↗</a><a href="mailto:alba@lvca.me">Contact ↗</a></div>
+          <button class="theme-toggle" type="button" aria-label="Switch to light appearance"><span class="theme-symbol" aria-hidden="true">◐</span><span class="theme-label">Dark</span></button>
+        </div>
+        <p class="legal">An independent project. Not affiliated with Apple or Google.<br />iCloud is a trademark of Apple Inc. Android is a trademark of Google LLC.</p>
+      </div>
+    </footer>
+    <script>
+      const themeButton=document.querySelector<HTMLButtonElement>('.theme-toggle');
+      function updateThemeLabel(){ const dark=document.documentElement.dataset.theme==='dark'; themeButton?.setAttribute('aria-label',`Switch to ${dark?'light':'dark'} appearance`); const label=document.querySelector('.theme-label');if(label)label.textContent=dark?'Dark':'Light'; }
+      updateThemeLabel();
+      themeButton?.addEventListener('click',()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('alba-theme',next);}catch{}updateThemeLabel();});
+      if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+        const observer=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){e.target.classList.add('is-visible');observer.unobserve(e.target);}},{threshold:0.1});
+        document.querySelectorAll('[data-reveal]').forEach(el=>{el.classList.add('reveal-ready');observer.observe(el);});
+      }
+    </script>
+  </body>
+</html>

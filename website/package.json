@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.5",
+    "marked": "^18.0.14",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "sharp": "^0.35.5",
+    "typescript": "6"
+  },
+  "name": "alba-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --host 127.0.0.1 --port 4328",
+    "build": "astro build",
+    "preview": "astro preview --host 127.0.0.1 --port 4328",
+    "check": "astro check",
+    "assets": "node scripts/prepare-assets.mjs"
+  }
+}

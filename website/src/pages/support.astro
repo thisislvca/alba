@@ -1,0 +1,55 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
+import Accordion from '../components/Accordion.astro';
+import { playStoreUrl } from '../config';
+import '../styles/support.css';
+---
+<Layout title="Support — Alba" description="Get help with Alba, read common questions, or report a bug.">
+  <article class="support-page mx-auto">
+    <header class="support-heading text-center">
+      <img class="support-app-icon mx-auto" src="/images/app-icon.webp" width="64" height="64" alt="" />
+      <h1>Alba support</h1>
+      <p>Find an answer below, or get in touch.</p>
+    </header>
+
+    <div class="support-actions grid sm:grid-cols-2" aria-label="Contact Alba support">
+      <a class="support-action" href="mailto:alba@lvca.me">
+        <span class="support-action-icon"><Icon name="mail" /></span>
+        <span class="support-action-copy"><strong>Email support</strong><span>alba@lvca.me</span></span>
+        <span class="support-action-arrow" aria-hidden="true">↗</span>
+      </a>
+      <a class="support-action support-action-rose" href="https://github.com/thisislvca/alba/issues/new">
+        <span class="support-action-icon"><Icon name="github" /></span>
+        <span class="support-action-copy"><strong>Report a bug</strong><span>Open an issue on GitHub</span></span>
+        <span class="support-action-arrow" aria-hidden="true">↗</span>
+      </a>
+    </div>
+
+    <section class="support-faq" aria-labelledby="faq-title">
+      <h2 id="faq-title">Common questions</h2>
+      <div class="faq-group">
+        <Accordion id="download" question="Where can I download Alba?">
+          <p><a href={playStoreUrl}>Get Alba on Google Play</a> for Android 11 or later. You can also build it yourself from the <a href="https://github.com/thisislvca/alba#build">source on GitHub</a>.</p>
+        </Accordion>
+        <Accordion id="shared-albums" question="Which shared albums does Alba support?">
+          <p>Alba supports iCloud Shared Albums. Shared Photo Library is a separate Apple feature and isn’t supported. Access to an album depends on the Apple Account you sign in with.</p>
+        </Accordion>
+        <Accordion id="backup" question="Does Alba back up my photos automatically?">
+          <p>Alba can back up new JPEG camera photos over an unmetered connection. Automatic video backup, additional formats and folder selection are still being worked on. Manual uploads support more photo and video formats.</p>
+        </Accordion>
+        <Accordion id="requirements" question="What do I need to use Alba?">
+          <p>An Android phone running Android 11 or later, and an Apple Account with access to your photo library. Sign-in supports two-factor authentication. The app is available in English and Italian.</p>
+        </Accordion>
+        <Accordion id="reporting" question="How do I report a problem?">
+          <p><a href="https://github.com/thisislvca/alba/issues/new">Open an issue on GitHub</a> or <a href="mailto:alba@lvca.me">email support</a>. Include your Android version, what you were trying to do, and what happened.</p>
+          <p>Please leave out passwords, verification codes, account details and personal photos. For a security issue, use <a href="https://github.com/thisislvca/alba/security/advisories/new">private vulnerability reporting</a>.</p>
+        </Accordion>
+        <Accordion id="independent" question="Is Alba made by Apple?">
+          <p>No. Alba is independent and uses unofficial APIs. It isn’t affiliated with Apple or Google.</p>
+        </Accordion>
+      </div>
+    </section>
+    <p class="support-privacy-note">Questions about your data? Read our <a href="/privacy/">privacy policy</a>.</p>
+  </article>
+</Layout>

@@ -1,0 +1,8 @@
+---
+import Layout from '../layouts/Layout.astro';
+import policy from '../../../PRIVACY.md?raw';
+import { marked } from 'marked';
+// Keep the website disclosure tied to the app's canonical privacy document.
+const html = await marked.parse(policy);
+---
+<Layout title="Privacy — Alba" description="How Alba handles your photos, account details and optional diagnostics."><article class="document"><p class="eyebrow">Your photos stay yours.</p><div set:html={html}></div><h2>Privacy questions</h2><p>Contact Luca at <a href="mailto:alba@lvca.me">alba@lvca.me</a> with questions about Alba’s handling of your data. You can remove Alba’s locally stored data through Android’s app settings.</p><h2>This website</h2><p>This website has no analytics, advertising or tracking cookies. It stores your chosen light or dark appearance locally in your browser. The site is hosted on GitHub Pages. GitHub logs visitors’ IP addresses for security purposes, as described in its <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">privacy statement</a>.</p></article></Layout>

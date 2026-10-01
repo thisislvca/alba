@@ -1,0 +1,97 @@
+---
+interface Props { id: string; question: string }
+const { id, question } = Astro.props;
+---
+<details id={id} class="faq-item">
+  <summary class="faq-trigger" aria-controls={`${id}-answer`}>
+    <span>{question}</span>
+    <svg class="faq-indicator" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+      <path d="M5 12h14M12 5v14" />
+    </svg>
+  </summary>
+  <div id={`${id}-answer`} class="faq-answer"><div class="faq-answer-inner"><slot /></div></div>
+</details>
+
+<script>
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const controllers = new Map<HTMLDetailsElement, (open: boolean) => void>();
+
+  document.querySelectorAll<HTMLDetailsElement>('.faq-item').forEach(details => {
+    const trigger = details.querySelector<HTMLElement>('.faq-trigger')!;
+    const answer = details.querySelector<HTMLElement>('.faq-answer')!;
+    let expanded = details.open;
+    let sizeAnimation: Animation | undefined;
+    let contentAnimation: Animation | undefined;
+
+    function settle(open: boolean) {
+      sizeAnimation?.cancel();
+      contentAnimation?.cancel();
+      sizeAnimation = contentAnimation = undefined;
+      expanded = details.open = open;
+      answer.inert = !open;
+      details.dataset.expanded = String(open);
+      trigger.setAttribute('aria-expanded', String(open));
+    }
+
+    function toggle(animate: boolean) {
+      const next = !expanded;
+      if (!animate || reducedMotion.matches || !details.animate) {
+        details.dataset.instant = '';
+        settle(next);
+        return;
+      }
+
+      delete details.dataset.instant;
+      // Read the current frame before cancelling, so a rapid reversal never jumps.
+      const startHeight = details.getBoundingClientRect().height;
+      const currentContent = getComputedStyle(answer);
+      const opacity = details.open ? currentContent.opacity : '0';
+      const transform = details.open ? currentContent.transform : 'translateY(-6px)';
+      sizeAnimation?.cancel();
+      contentAnimation?.cancel();
+
+      expanded = next;
+      details.open = true;
+      details.dataset.expanded = String(next);
+      answer.inert = !next;
+      trigger.setAttribute('aria-expanded', String(next));
+
+      const border = parseFloat(getComputedStyle(details).borderBottomWidth) || 0;
+      const endHeight = next ? details.getBoundingClientRect().height : trigger.getBoundingClientRect().height + border;
+      // Only the active disclosure changes size; answer text is never scaled.
+      const animation = details.animate(
+        [{ height: `${startHeight}px` }, { height: `${endHeight}px` }],
+        { duration: 240, easing: 'cubic-bezier(0.32, 0.72, 0, 1)', fill: 'both' },
+      );
+      sizeAnimation = animation;
+      contentAnimation = answer.animate(
+        [{ opacity, transform }, { opacity: next ? '1' : '0', transform: next ? 'none' : 'translateY(-6px)' }],
+        { duration: next ? 200 : 150, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'both' },
+      );
+      animation.onfinish = () => {
+        if (sizeAnimation === animation) settle(expanded);
+      };
+    }
+
+    settle(expanded);
+    controllers.set(details, settle);
+    trigger.addEventListener('click', event => {
+      event.preventDefault();
+      // Keyboard and assistive-technology activation respond immediately.
+      toggle(event.detail > 0);
+    });
+  });
+
+  function openLinkedQuestion() {
+    const question = document.getElementById(location.hash.slice(1));
+    if (question instanceof HTMLDetailsElement) controllers.get(question)?.(true);
+  }
+
+  openLinkedQuestion();
+  window.addEventListener('hashchange', openLinkedQuestion);
+  reducedMotion.addEventListener('change', () => {
+    if (reducedMotion.matches) controllers.forEach((settle, details) => {
+      settle(details.dataset.expanded === 'true');
+    });
+  });
+</script>
