@@ -47,6 +47,8 @@ Use JDK 21 and Android SDK 37 with build tools 37.0.0. Set `JAVA_HOME` and `ANDR
 
 APKs are in `app/build/outputs/apk/`. `:app:assembleRelease` produces an unsigned release unless local signing is configured.
 
+JavaScript tools use the Node LTS version pinned in `.nvmrc`. Run `nvm install` and `nvm use` from the repository root before using website, screenshot or release scripts. Script checks: `node --test 'scripts/**/*.test.mjs'`. Bun is used to install the website and screenshot packages from their lockfiles.
+
 ## Releases
 
 The website deploys from `main`. App versions are prepared in GitHub Actions, tested internally, then promoted without rebuilding. See [release instructions](RELEASING.md).

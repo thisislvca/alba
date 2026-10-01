@@ -55,9 +55,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          bun-version: '1.4.2'
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
       - name: Validate version, credentials and source checks
         id: release
         run: node scripts/release/release.mjs prepare
@@ -99,7 +100,7 @@ jobs:
           ALBA_TAG_SIGNING_PUBLIC_KEY: ${{ vars.ALBA_TAG_SIGNING_PUBLIC_KEY }}
       - name: Check and build the candidate
         run: |
-          bun test scripts/
+          node --test 'scripts/**/*.test.mjs'
           cmp THIRD_PARTY_NOTICES.md app/src/main/res/raw/third_party_notices.txt
           ./gradlew testDebugUnitTest lintDebug :app:assembleRelease :app:bundleRelease \
             "-PalbaVersionName=$APP_VERSION" "-PalbaVersionCode=$VERSION_CODE" \

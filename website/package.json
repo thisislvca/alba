@@ -13,6 +13,9 @@
   "name": "alba-website",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
   "scripts": {
     "dev": "astro dev --host 127.0.0.1 --port 4328",
     "build": "astro build",

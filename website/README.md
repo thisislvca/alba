@@ -3,11 +3,12 @@
 Astro + Tailwind CSS landing page for `alba.lvca.me`. Static output, no app backend and no website analytics. Includes support and privacy pages; the latter imports the repository's `PRIVACY.md` at build time. Contact: `alba@lvca.me`.
 
 ```sh
+nvm use
 cd website
 bun install --frozen-lockfile
-bun run dev
-bun run check
-bun run build
+npm run dev
+npm run check
+npm run build
 ```
 
 Local preview: http://127.0.0.1:4328. Production files: `website/dist/`.
@@ -22,7 +23,7 @@ To refresh icon exports: `bun run assets`. To refresh screens too, pass a folder
 
 ## Publishing
 
-GitHub Pages deploys through `.github/workflows/website.yml`. Changes to `website/`, `PRIVACY.md`, or the website workflow on `main` automatically check, build, and publish to `https://alba.lvca.me`. Pull requests check and build without publishing. The workflow can also be run manually against `main`.
+GitHub Pages deploys through `.github/workflows/website.yml`. Changes to `website/`, `PRIVACY.md`, the root Node LTS pin (`.nvmrc`), or the website workflow on `main` automatically check, build, and publish to `https://alba.lvca.me`. Pull requests check and build without publishing. The workflow can also be run manually against `main`.
 
 The `github-pages` environment allows deployment from `main`. App releases use separate manual, version-based workflows described in [`../RELEASING.md`](../RELEASING.md); updating the website does not ship an app build. There is no long-lived release branch to synchronize.
 
