@@ -48,23 +48,6 @@
       "filename": "02-shared-albums.png"
     },
     {
-      "capture": "05-share",
-      "lines": [
-        "Everyone’s photos",
-        "in the same shared album."
-      ],
-      "altText": "Alba’s Good company Shared Album with ten photos in two rows and no photos selected.",
-      "callouts": [
-        {
-          "line": 0,
-          "text": "photos",
-          "icon": "family",
-          "tone": "apricot"
-        }
-      ],
-      "filename": "03-shared-photos.png"
-    },
-    {
       "capture": "04-backup",
       "lines": [
         "Back up your photos*",
@@ -83,7 +66,7 @@
       "note": [
         "*Coming soon: full backup and automatic space saving."
       ],
-      "filename": "04-backup.png"
+      "filename": "03-backup.png"
     },
     {
       "capture": "02-viewer",
@@ -100,7 +83,7 @@
           "tone": "rose"
         }
       ],
-      "filename": "05-viewer.png"
+      "filename": "04-viewer.png"
     },
     {
       "capture": "06-video",
@@ -117,7 +100,7 @@
           "tone": "indigo"
         }
       ],
-      "filename": "06-video.png"
+      "filename": "05-video.png"
     }
   ],
   "captureWidth": 1080,

@@ -1,12 +1,22 @@
 import {createRequire} from 'node:module';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
+import {resolve} from 'node:path';
 const require=createRequire(import.meta.url);
 const sharp=require('sharp'), opentype=require('opentype.js');
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const raw=`${root}/assets/readme/screens`;
 const font=opentype.loadSync(`${root}/tools/store-screenshots/fonts/GoogleSans-Medium.ttf`);
 const names=['01-library','02-viewer','03-shared-albums','05-editor','06-video','03-collections','04-backup','05-share', '07-profile','08-phone-settings','09-about'];
+if(process.argv[2]) {
+ for(const name of names) {
+  const input=resolve(process.argv[2],`${name}.png`);
+  const metadata=await sharp(input).metadata();
+  if(metadata.width!==1080 || metadata.height!==2400)throw new Error(`Capture ${name} at 1080 × 2400`);
+  await sharp(input).resize({width:420}).webp({quality:90,effort:6}).toFile(`${raw}/${name}.webp`);
+ }
+ console.log(`Refreshed ${names.length} README screens`);
+}
 const screens=await Promise.all(names.map(async n=>(await sharp(`${raw}/${n}.webp`).resize(420,934).png().toBuffer()).toString('base64')));
 const logo=(await sharp(await readFile(`${root}/assets/brand/alba-mark.svg`)).trim().resize({width:300}).png().toBuffer()).toString('base64');
 function text(value,size,x,y,fill){const p=font.getPath(value,0,y,size);const b=p.getBoundingBox();p.fill=fill;return `<g transform="translate(${x-(b.x1+b.x2)/2},0)">${p.toSVG(3)}</g>`;}

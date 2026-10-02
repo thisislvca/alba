@@ -1,6 +1,6 @@
 # Alba store screenshots
 
-Real Android UI captures, composed into six opaque 1080 × 1920 PNGs. Headlines
+Real Android UI captures, composed into five opaque 1080 × 1920 PNGs. Headlines
 and order are editable in `assets/store/screenshots.json`. Each card's `capture`
 identifies the raw frame; its `filename` numbers the export in listing order.
 The layouts take their
@@ -19,14 +19,15 @@ Every heading and pill uses one 80px Google Sans Medium size. Common line boxes
 give all cards the same title baselines, centered above the phone. Plain text is
 black. The library-access card keeps the blue iCloud pill and green Android pill.
 The other cards use distinct shades from Alba’s dawn palette: rose, mauve, violet,
-apricot and indigo. Gradients stay subtle; text and filled
+and indigo. Gradients stay subtle; text and filled
 icons use dark ink on light fills and white on darker fills. The icons are 64px,
 with 32px of left padding.
 Each card's `callouts` identifies the word, line, icon and
 color tone. Words stay in the editable headline; the renderer adds their pills.
 Copy covers iCloud access on Android, photo viewing, Shared Albums with other
-people, a planned backup experience, sharing and video playback. The captures
-include the real Shared Albums list and a populated shared album without selection controls.
+people, a planned backup experience and video playback. The store captures
+include the real Shared Albums list. The album-interior capture is used by the
+README and website, but is not a store card.
 The bundled demo has eight shared albums with multiple photos and a video.
 Its licensed photos mix travel, pets, cafés, friends and everyday moments.
 Library and sharing captures show different parts of that demo.
@@ -37,8 +38,8 @@ selected and no message is sent during capture. Apple's Shared Photo Library is
 a different feature and is not claimed by this listing.
 
 The listing starts with the library-access cover, followed by the Shared Albums
-list and a populated shared album, then backup, the photo viewer and video playback.
-Card 4 replaces the offline artwork with a backup draft. Its actual screen is
+list, then backup, the photo viewer and video playback.
+Card 3 is a backup draft. Its actual screen is
 the Backup page: the existing cloud storage card, a usage bar, category totals,
 available space and current automatic JPEG backup settings. The shared storage
 card keeps its existing account/demo filtering and unavailable-state handling.
@@ -47,7 +48,7 @@ The headline's asterisk explains
 that full backup and automatic space saving are coming soon. The current app's
 Offline collection and backup behavior remain unchanged. The planned card is
 listed separately in the manifest's `plannedFiles`; `readyFiles` excludes it.
-The upload ZIP contains only `readyFiles`. All six design drafts are available
+The upload ZIP contains only `readyFiles`. All five design drafts are available
 in `alba-screenshot-drafts-en-US.zip` under `.artifacts/store-captures`.
 Keep future-feature artwork out of the launch submission until the submitted
 build supports its claims. The coming-soon label is a design disclosure, not
@@ -64,7 +65,9 @@ On the owned disposable emulator, clear `com.mannaworks.mela.dev` app data befor
 capturing so prior UI tests do not leave offline items or selections behind. Run
 `dev.mela.app.StoreScreenshotTest` with `-e captureStoreScreenshots true` alone on a disposable English demo emulator
 with a 1080 × 2400 display. Capture paths are the app's external-files directory,
-`store-screenshots`. Copy the six PNGs into `.artifacts/store-captures/raw`.
+`store-screenshots`. Copy the twelve PNGs into `.artifacts/store-captures/raw`:
+eleven screens used by the README, including the five store frames, plus an
+extra `00-library-top` frame showing the gallery before scrolling.
 Use host GPU/VM acceleration on macOS, verify Apple GPU/Metal after boot, and
 stop the owned emulator when finished. The capture test is for artwork generation;
 it is not a product test to include in every CI run.
@@ -132,4 +135,8 @@ building and recapturing the real Android UI.
 From this folder, run `bun install --frozen-lockfile` and `bun run banner`.
 The generator uses the bundled demo captures in `assets/readme/screens/`, the Alba
 mark and Google Sans to rebuild `assets/readme/banner.webp` at 3200 × 1280.
+To refresh all eleven README screens from new raw captures and rebuild the banner,
+run `bun run banner ../../.artifacts/store-captures/raw`.
+Refresh the website's four screen exports with
+`bun run assets -- /absolute/path/to/raw` from `website/`.
 Edit `render-readme.mjs` to change the layout.

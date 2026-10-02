@@ -17,7 +17,7 @@ The design takes inspiration from CodeEdit's centred hero, compact header, produ
 
 ## Assets
 
-The website uses Alba's approved SVG mark and actual demo-mode app captures. Photo provenance remains documented in [`public/images/demo-media-sources.json`](public/images/demo-media-sources.json); the website ships only compressed screen captures, not new stock photographs. The capture images were exported from the store screenshot worktree on October 1, 2026.
+The website uses Alba's approved SVG mark and actual demo-mode app captures. Photo provenance remains documented in [`public/images/demo-media-sources.json`](public/images/demo-media-sources.json); the website ships only compressed screen captures, not new stock photographs. The captures were refreshed from the committed floating gallery UI on October 2, 2026.
 
 To refresh icon exports: `bun run assets`. To refresh screens too, pass a folder containing the original captures: `bun run assets -- /absolute/path/to/raw`. The input filenames are mapped in `scripts/prepare-assets.mjs`; the checked-in WebP files work without access to that folder.
 

@@ -48,7 +48,8 @@ class StoreScreenshotTest {
     }
     private fun open(id: String) {
         compose.scrollToGalleryMedia(id)
-        compose.onNodeWithTag("media-$id").performClick()
+        // A scrolled cell can sit beneath the date pill; invoke the cell's own action.
+        compose.onNodeWithTag("media-$id").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
         compose.waitUntil(15_000) { compose.onAllNodesWithTag(if (id == "fixture:icloud:0019") "video-player" else "viewer-image-$id").fetchSemanticsNodes().isNotEmpty() }
     }
     @Test fun captureStoreScreens() {
@@ -60,12 +61,20 @@ class StoreScreenshotTest {
         runBlocking {
             repository.observeGallery().first().forEach { repository.ensurePreview(it.id) }
         }
+        compose.onNodeWithTag("gallery-grid").performScrollToIndex(0)
+        capture("00-library-top")
         compose.scrollToGalleryMedia("fixture:icloud:0001")
         capture("01-library")
         open("fixture:icloud:0008")
         capture("02-viewer")
+        compose.onNodeWithText(compose.activity.getString(R.string.viewer_edit)).performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("save-edited-copy").assertIsEnabled()
+        capture("05-editor")
+        compose.onNodeWithText(compose.activity.getString(R.string.cancel)).performClick()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+        capture("03-collections")
         compose.onNodeWithTag("collection-shared").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Family moments").fetchSemanticsNodes().isNotEmpty() }
         capture("03-shared-albums")
@@ -80,7 +89,24 @@ class StoreScreenshotTest {
         compose.onNodeWithContentDescription("Back to collections").performClick()
         compose.onNodeWithTag("tab-LIBRARY").performClick()
         open("fixture:icloud:0019")
-        compose.waitUntil(15_000) { compose.onAllNodes(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Ready")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15_000) {
+            compose.onAllNodes(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Ready") or
+                SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Playing"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle {
+            fun findPlayer(view: android.view.View): androidx.media3.ui.PlayerView? {
+                if (view is androidx.media3.ui.PlayerView) return view
+                if (view is android.view.ViewGroup) {
+                    for (index in 0 until view.childCount) findPlayer(view.getChildAt(index))?.let { return it }
+                }
+                return null
+            }
+            // Freeze the native player for a repeatable frame with its real controls visible.
+            requireNotNull(findPlayer(compose.activity.window.decorView)?.player).pause()
+        }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("video-timeline").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("video-timeline").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(.35f) }
         capture("06-video")
         // Show the production backup settings with a synthetic account, as in
         // ProfileScreenTest. No credentials, Apple requests or backup jobs run.
@@ -95,6 +121,7 @@ class StoreScreenshotTest {
                         state = ICloudAccountState.SignedIn("demo@example.com"),
                         diagnostics = GalleryUiState(
                             accountState = ICloudAccountState.SignedIn("demo@example.com"),
+                            phoneStorage = dev.mela.engine.model.LocalMediaStorage(120_000_000, 480_000_000, 2_400_000_000, 42_000_000_000),
                             accountInfo = AccountInfo(storage = CloudStorageUsage(
                                 72_000_000_000, 200_000_000_000,
                                 listOf(StorageCategory("Photos", 64_000_000_000),
@@ -111,6 +138,13 @@ class StoreScreenshotTest {
                 }
             }
         }
+        capture("07-profile")
+        compose.onNodeWithTag("profile-phone").performScrollTo().performClick()
+        capture("08-phone-settings")
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithTag("profile-about").performScrollTo().performClick()
+        capture("09-about")
+        androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag("profile-backup").performScrollTo().performClick()
         compose.onNodeWithText("Set up automatic backup").assertIsDisplayed()
         compose.onNodeWithText("Cloud storage").assertIsDisplayed()
