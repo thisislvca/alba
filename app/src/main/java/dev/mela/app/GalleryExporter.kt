@@ -3,30 +3,31 @@ package dev.mela.app
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import androidx.core.net.toUri
 import android.os.Build
 import android.provider.MediaStore
+import androidx.core.net.toUri
+import dev.mela.engine.cache.StorageWriteGuard
 import dev.mela.engine.model.GalleryMedia
-import dev.mela.engine.model.GalleryRepository
 import dev.mela.engine.model.MediaKind
+import dev.mela.engine.model.OriginalExporter
+import dev.mela.engine.model.StoredMessage
 import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.currentCoroutineContext
-import dev.mela.engine.cache.StorageWriteGuard
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 
 /** Publishes new copies only; it never modifies the source or asks for broad storage access. */
-class GalleryExporter(context: Context, private val repository: GalleryRepository) {
+class GalleryExporter(context: Context, private val repository: OriginalExporter) {
     private val appContext = context.applicationContext
     private val resolver = appContext.contentResolver
 
     /** Only completed copies in this directory are exposed to the chosen share target. */
     suspend fun prepareShare(items: List<GalleryMedia>): android.content.Intent = withContext(Dispatchers.IO) {
-        require(items.isNotEmpty() && items.size <= 50) { "Select between 1 and 50 items to share." }
+        require(items.isNotEmpty() && items.size <= 50) { StoredMessage.CHOOSE_BETWEEN_1_AND_50_PHOTOS_TO_SHARE_AT_ONCE.code }
         val root = java.io.File(appContext.cacheDir, "shares").apply { mkdirs() }
         val expiry = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         root.listFiles()?.filter { it.lastModified() < expiry }?.forEach { it.deleteRecursively() }
@@ -44,11 +45,11 @@ class GalleryExporter(context: Context, private val repository: GalleryRepositor
                         override fun write(bytes: ByteArray, offset: Int, length: Int) {
                             context.ensureActive()
                             total += length
-                            check(total <= 2_000_000_000L) { "Share up to 2 GB at a time. Try fewer items." }
+                            check(total <= 2_000_000_000L) { StoredMessage.SHARE_UP_TO_2_GB_AT_A_TIME_TRY_FEWER_ITEMS.code }
                             if (total >= nextSpaceCheck) {
                                 // Leave headroom without evicting unrelated application caches for a share.
                                 check(android.os.StatFs(directory.path).availableBytes > 16_000_000L) {
-                                    "Not enough space to prepare this share. Try fewer or smaller items."
+                                    StoredMessage.NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS.code
                                 }
                                 nextSpaceCheck = total + 1_000_000L
                             }
@@ -88,7 +89,7 @@ class GalleryExporter(context: Context, private val repository: GalleryRepositor
     }
 
     suspend fun saveToGallery(media: GalleryMedia) = withContext(Dispatchers.IO) {
-        if (Build.VERSION.SDK_INT < 29) error("Use Export original on Android 9.")
+        if (Build.VERSION.SDK_INT < 29) error(StoredMessage.USE_EXPORT_ORIGINAL_ON_ANDROID_9.code)
         val pending = mutableListOf<Uri>()
         try {
             for (motion in if (media.kind == MediaKind.LIVE_PHOTO) listOf(false, true) else listOf(false)) {
@@ -101,7 +102,7 @@ class GalleryExporter(context: Context, private val repository: GalleryRepositor
                     put(MediaStore.MediaColumns.RELATIVE_PATH, if (mime.startsWith("video/")) "Movies/Alba" else "Pictures/Alba")
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
                     put(MediaStore.MediaColumns.DATE_TAKEN, media.capturedAtEpochMillis)
-                })) { "Android could not create a gallery copy." }
+                })) { StoredMessage.ANDROID_COULD_NOT_CREATE_A_GALLERY_COPY.code }
                 pending += uri
                 checkNotNull(resolver.openOutputStream(uri, "w")).use { output ->
                     repository.exportOriginal(media.id, StorageWriteGuard(output, currentCoroutineContext(), {
@@ -113,7 +114,7 @@ class GalleryExporter(context: Context, private val repository: GalleryRepositor
             // Both Live Photo resources are written before either is made visible.
             pending.forEach { uri ->
                 check(resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1) {
-                    "Android could not publish the gallery copy."
+                    StoredMessage.ANDROID_COULD_NOT_PUBLISH_THE_GALLERY_COPY.code
                 }
             }
         } catch (error: Throwable) {
@@ -124,7 +125,7 @@ class GalleryExporter(context: Context, private val repository: GalleryRepositor
 
     suspend fun exportDocument(media: GalleryMedia, uri: Uri, livePair: Boolean) = withContext(Dispatchers.IO) {
         try {
-            checkNotNull(resolver.openOutputStream(uri, "wt")) { "Could not open the export destination." }.use { output ->
+            checkNotNull(resolver.openOutputStream(uri, "wt")) { StoredMessage.COULD_NOT_OPEN_THE_EXPORT_DESTINATION.code }.use { output ->
                 if (livePair) writeLivePhotoArchive(media, output) else repository.exportOriginal(media.id, output)
             }
         } catch (error: Throwable) {

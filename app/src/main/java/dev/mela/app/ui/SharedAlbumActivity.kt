@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMedia>, actions: LibraryActions,
+internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMedia>, actions: SharedActions,
     preview: (String) -> Unit, open: (String) -> Unit, dismiss: () -> Unit) {
     var posts by remember(album.id) { mutableStateOf<List<SharedPost>>(emptyList()) }
     var next by remember(album.id) { mutableStateOf<Int?>(0) }

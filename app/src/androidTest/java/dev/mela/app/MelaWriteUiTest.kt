@@ -1,12 +1,11 @@
 package dev.mela.app
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import dev.mela.app.ui.MelaApp
 import dev.mela.app.ui.theme.MelaTheme
 import dev.mela.engine.model.GalleryMedia
@@ -109,7 +108,7 @@ class MelaWriteUiTest {
     ) {
         compose.setContent {
             MelaTheme(darkTheme = false) {
-                MelaApp(
+                MelaApp(libraryActions = testLibraryActions(),
                     state = state,
                     onRefresh = {},
                     onSelectFilter = {},

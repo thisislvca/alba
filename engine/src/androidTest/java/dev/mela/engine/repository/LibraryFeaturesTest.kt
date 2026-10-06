@@ -2,17 +2,17 @@ package dev.mela.engine.repository
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import dev.mela.engine.database.*
 import dev.mela.engine.cache.MediaFileCache
+import dev.mela.engine.companion.*
+import dev.mela.engine.database.*
 import dev.mela.engine.model.*
 import dev.mela.engine.source.*
-import dev.mela.engine.companion.*
+import java.io.OutputStream
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.junit.Assert.*
 import org.junit.Test
-import java.io.OutputStream
-import java.util.concurrent.atomic.AtomicInteger
 
 class LibraryFeaturesTest {
     @Test fun incrementalRefreshKeepsCachesAndFailedSnapshotKeepsVisibleState() = runBlocking {
@@ -59,16 +59,12 @@ class LibraryFeaturesTest {
         var account = "a"
         var fail = true
         val active = AtomicInteger(); val maximum = AtomicInteger()
-        val gallery = object : GalleryRepository {
-            override fun observeGallery() = flowOf(emptyList<GalleryMedia>())
-            override suspend fun refresh(includeDeviceMedia: Boolean) = RefreshSummary(0, 0, 0)
-            override suspend fun ensurePreview(mediaId: String) = Unit
+        val gallery = object : OfflineMediaStore {
             override suspend fun keepOriginalOffline(mediaId: String) {
                 val count = active.incrementAndGet(); maximum.updateAndGet { maxOf(it, count) }
                 try { delay(20); if (mediaId == "bad" && fail) error("failed") } finally { active.decrementAndGet() }
             }
             override suspend fun removeCachedOriginal(mediaId: String) = Unit
-            override suspend fun clearCloudCatalog() = Unit
         }
         val photos = java.lang.reflect.Proxy.newProxyInstance(PhotoCompanion::class.java.classLoader, arrayOf(PhotoCompanion::class.java)) { _, _, _ -> error("No uploads expected") } as PhotoCompanion
         try {

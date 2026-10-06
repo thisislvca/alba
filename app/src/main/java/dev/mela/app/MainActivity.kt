@@ -9,35 +9,34 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
-import dev.mela.engine.model.BackupDraftId
-import dev.mela.engine.companion.BatchAction
-import androidx.compose.ui.res.stringResource
-import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import dev.mela.app.ui.MelaApp
 import dev.mela.app.ui.theme.MelaTheme
-import dev.mela.engine.model.BackupDraft
+import dev.mela.engine.companion.BatchAction
+import dev.mela.engine.model.BackupDraftId
 import dev.mela.engine.model.BackupSetupEffect
 import dev.mela.engine.model.SystemConsentCallback
 import dev.mela.engine.model.TrashAttemptId
-import kotlinx.coroutines.launch
-import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<MelaViewModel> { MelaViewModel.Factory(this) }
@@ -108,7 +107,7 @@ class MainActivity : ComponentActivity() {
                         confirmButton = { androidx.compose.material3.TextButton(onClick = { invitation = null; if (returnToCaller) finish() }) { androidx.compose.material3.Text(getString(R.string.cancel)) } })
                     else if (account?.status == dev.mela.protocol.account.SessionStatus.VERIFIED) {
                         key(account.appleId, link) {
-                            dev.mela.app.ui.SharedInvitations(dev.mela.app.ui.LibraryActions(
+                            dev.mela.app.ui.SharedInvitations(dev.mela.app.ui.InvitationCallbacks(
                                 pendingSharedInvitations = viewModel::pendingSharedInvitations,
                                 resolveSharedInvitation = viewModel::resolveSharedInvitation,
                                 respondSharedInvitation = viewModel::respondSharedInvitation,

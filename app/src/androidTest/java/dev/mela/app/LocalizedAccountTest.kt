@@ -7,9 +7,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.mela.app.ui.ICloudAccountScreen
 import dev.mela.app.ui.theme.MelaTheme
@@ -38,7 +38,7 @@ class LocalizedAccountTest {
                 LocalDensity provides Density(context.resources.displayMetrics.density, config.fontScale)) {
                 MelaTheme(darkTheme = true) {
                     androidx.compose.material3.Surface {
-                        ICloudAccountScreen(state, onBack = {}, onSignIn = { _, _ -> }, onSubmitTwoFactor = { submitted = it },
+                        ICloudAccountScreen(libraryActions = testLibraryActions(), state = state, onBack = {}, onSignIn = { _, _ -> }, onSubmitTwoFactor = { submitted = it },
                             onResendTwoFactor = {}, onSignOut = {}, backup = BackupView(false, message = "Automatic backup is off."),
                             onEnableAutomaticBackup = {}, onDisableAutomaticBackup = {})
                     }
@@ -69,7 +69,7 @@ class LocalizedAccountTest {
             CompositionLocalProvider(LocalContext provides context, LocalConfiguration provides config) {
                 MelaTheme(darkTheme = false) {
                     androidx.compose.material3.Surface {
-                        ICloudAccountScreen(
+                        ICloudAccountScreen(libraryActions = testLibraryActions(),
                             state = ICloudAccountState.SignedIn("family@example.com", SessionStatus.PHOTOS_NOT_ENABLED),
                             onCheckConnection = { checks++ },
                             onBack = {}, onSignIn = { _, _ -> }, onSubmitTwoFactor = {}, onResendTwoFactor = {},

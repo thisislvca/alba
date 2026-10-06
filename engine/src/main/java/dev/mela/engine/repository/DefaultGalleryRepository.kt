@@ -4,32 +4,33 @@ import androidx.room.withTransaction
 import dev.mela.engine.cache.MediaFileCache
 import dev.mela.engine.database.CatalogCheckpointEntity
 import dev.mela.engine.database.CatalogItemEntity
+import dev.mela.engine.database.CollectionEntity
+import dev.mela.engine.database.CollectionMemberEntity
 import dev.mela.engine.database.MelaDatabase
+import dev.mela.engine.database.toEntity
+import dev.mela.engine.database.toModel
+import dev.mela.engine.model.*
 import dev.mela.engine.model.AvailabilityResolver
 import dev.mela.engine.model.GalleryMedia
 import dev.mela.engine.model.GalleryRepository
 import dev.mela.engine.model.MediaOrigin
 import dev.mela.engine.model.RefreshSummary
+import dev.mela.engine.model.StoredMessage
+import dev.mela.engine.source.*
 import dev.mela.engine.source.CloudCatalogSource
 import dev.mela.engine.source.DeviceCatalogSource
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import dev.mela.engine.model.*
-import dev.mela.engine.source.*
-import dev.mela.engine.database.toEntity
-import dev.mela.engine.database.toModel
-import dev.mela.engine.database.CollectionEntity
-import dev.mela.engine.database.CollectionMemberEntity
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 
 class DefaultGalleryRepository(
@@ -81,7 +82,7 @@ class DefaultGalleryRepository(
         }
         requireCloudItem(mediaId)
         cloudSource.setFavorite(mediaId, favorite)
-        check(cloudSource.accountLabel == account) { "Account changed during edit. Refresh to check the result." }
+        check(cloudSource.accountLabel == account) { StoredMessage.ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT.code }
         if (favorite) library.putMembers(listOf(CollectionMemberEntity(account, GalleryQuery.FAVORITES, mediaId)))
         else library.removeMember(account, GalleryQuery.FAVORITES, mediaId)
     }
@@ -109,28 +110,16 @@ class DefaultGalleryRepository(
                 else cloudSource.writeOriginal(mediaId, output)
             }
             try {
-                val format = UploadMediaFormat.detect(staged.inputStream().use { it.readPrefix(4096) })
-                UploadMediaValidator.validate(staged, format)
+                val prepared = prepareSharedUpload(staged)
+                val format = prepared.format
                 check(cloudSource.accountLabel == account) { "Account changed before shared upload." }
-                cloudSource.uploadSharedPhoto(id, format.fileName(item.fileName), stagedSource(staged), operationId)
+                cloudSource.uploadSharedPhoto(id, format.fileName(item.fileName), prepared.source, operationId)
             } finally { cache.delete(staged.absolutePath) }
         }
         check(cloudSource.accountLabel == account) { "Account changed. Refresh to check the contribution." }
         // Copies have their own remote identities. Only a fresh shared snapshot can publish membership.
     }
 
-    private fun stagedSource(file: java.io.File): OneShotUploadSource {
-        val digest = java.security.MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input -> val buffer = ByteArray(64 * 1024); var count = input.read(buffer)
-            while (count >= 0) { digest.update(buffer, 0, count); count = input.read(buffer) } }
-        val hash = digest.digest().joinToString("") { "%02x".format(it) }
-        return object : OneShotUploadSource {
-            private val opened = java.util.concurrent.atomic.AtomicBoolean(false)
-            override val byteCount = file.length()
-            override val sha256Hex = hash
-            override fun openOnce(): java.io.InputStream { check(opened.compareAndSet(false, true)); return file.inputStream() }
-        }
-    }
     override suspend fun sharedActivity(id: String, rank: Int) = edit { account -> cloudSource.sharedActivity(id, rank).also { check(cloudSource.accountLabel == account) } }
     override suspend fun sharedPostDiscussion(id: String) = edit { account -> cloudSource.sharedPostDiscussion(id).also { check(cloudSource.accountLabel == account) } }
     override suspend fun sharedPostPhotos(id: String) = edit { account -> cloudSource.sharedPostPhotos(id).also { check(cloudSource.accountLabel == account) } }
@@ -153,10 +142,10 @@ class DefaultGalleryRepository(
             val item = requireCloudItem(command.subject)
             val staged = cache.writeAtomically("shared-save:$operationId:${item.mediaId}", "shared") { cloudSource.writeOriginal(item.mediaId, it) }
             try {
-                val format = UploadMediaFormat.detect(staged.inputStream().use { it.readPrefix(4096) })
-                UploadMediaValidator.validate(staged, format)
+                val prepared = prepareSharedUpload(staged)
+                val format = prepared.format
                 check(cloudSource.accountLabel == account)
-                cloudSource.saveLegacySharedPhoto(item.mediaId, format.fileName(item.fileName), stagedSource(staged))
+                cloudSource.saveLegacySharedPhoto(item.mediaId, format.fileName(item.fileName), prepared.source)
             } finally { cache.delete(staged.absolutePath) }
         } else cloudSource.changeSharedAlbum(id, command, operationId)
         check(cloudSource.accountLabel == account) { "Account changed. Refresh to check the result." }
@@ -164,14 +153,14 @@ class DefaultGalleryRepository(
 
     override suspend fun createSharedAlbum(name: String, operationId: String, generation: dev.mela.engine.model.SharedAlbumGeneration): GalleryCollection = edit { account ->
         val album = cloudSource.createSharedAlbum(validAlbumName(name), operationId, generation)
-        check(cloudSource.accountLabel == account) { "Account changed during edit. Refresh to check the result." }
+        check(cloudSource.accountLabel == account) { StoredMessage.ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT.code }
         library.putCollections(listOf(album.toEntity(account)))
         album
     }
 
     override suspend fun createAlbum(name: String): GalleryCollection = edit { account ->
         val album = cloudSource.createAlbum(validAlbumName(name))
-        check(cloudSource.accountLabel == account) { "Account changed during edit. Refresh to check the result." }
+        check(cloudSource.accountLabel == account) { StoredMessage.ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT.code }
         library.putCollections(listOf(CollectionEntity(account, album.id, album.name, album.parentId, album.isFolder, album.position)))
         album
     }
@@ -179,7 +168,7 @@ class DefaultGalleryRepository(
     override suspend fun deleteAlbum(id: String) = edit { account ->
         editableAlbum(account, id)
         cloudSource.deleteAlbum(id)
-        check(cloudSource.accountLabel == account) { "Account changed during edit. Refresh to check the result." }
+        check(cloudSource.accountLabel == account) { StoredMessage.ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT.code }
         database.withTransaction {
             library.deleteCollectionMembers(account, id)
             library.deleteCollection(account, id)
@@ -190,17 +179,17 @@ class DefaultGalleryRepository(
         val album = editableAlbum(account, id)
         val title = validAlbumName(name)
         cloudSource.renameAlbum(id, title)
-        check(cloudSource.accountLabel == account) { "Account changed during edit. Refresh to check the result." }
+        check(cloudSource.accountLabel == account) { StoredMessage.ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT.code }
         library.putCollections(listOf(album.copy(name = title)))
     }
 
     override suspend fun addToAlbum(id: String, mediaIds: List<String>) = edit { account ->
         editableAlbum(account, id)
         val ids = mediaIds.distinct()
-        require(ids.isNotEmpty() && ids.size <= 50) { "Select up to 50 iCloud photos at a time." }
+        require(ids.isNotEmpty() && ids.size <= 50) { StoredMessage.SELECT_UP_TO_50_ICLOUD_PHOTOS_AT_A_TIME.code }
         ids.forEach { require(!SharedMediaIdentity.isShared(it)); requireCloudItem(it) }
         cloudSource.addToAlbum(id, ids)
-        check(cloudSource.accountLabel == account) { "Account changed during edit. Refresh to check the result." }
+        check(cloudSource.accountLabel == account) { StoredMessage.ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT.code }
         library.putMembers(ids.map { CollectionMemberEntity(account, id, it) })
     }
 
@@ -210,7 +199,7 @@ class DefaultGalleryRepository(
         require(ids.isNotEmpty() && ids.size <= 50)
         ids.forEach { require(!SharedMediaIdentity.isShared(it)); requireCloudItem(it) }
         cloudSource.removeFromAlbum(id, ids)
-        check(cloudSource.accountLabel == account) { "Account changed during edit. Refresh to check the result." }
+        check(cloudSource.accountLabel == account) { StoredMessage.ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT.code }
         database.withTransaction { ids.forEach { library.removeMember(account, id, it) } }
     }
 
@@ -219,22 +208,22 @@ class DefaultGalleryRepository(
         require(ids.isNotEmpty() && ids.size <= 50)
         val items = ids.map { require(!SharedMediaIdentity.isShared(it)); requireCloudItem(it) }
         cloudSource.setCloudTrashed(ids, trashed)
-        check(cloudSource.accountLabel == account) { "Account changed during edit. Refresh to check the result." }
+        check(cloudSource.accountLabel == account) { StoredMessage.ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT.code }
         dao.upsertItems(items.map { it.copy(isTrashed = trashed) })
     }
 
     private suspend fun editableAlbum(account: String, id: String): CollectionEntity {
-        require(!SharedMediaIdentity.isShared(id) && !id.startsWith("smart:") && !id.startsWith("device-folder:")) { "Media collections cannot be edited." }
-        return requireNotNull(library.collection(account, id)) { "Album is no longer available. Refresh the library." }
-            .also { require(!it.isFolder) { "Choose an album, not a folder." } }
+        require(!SharedMediaIdentity.isShared(id) && !id.startsWith("smart:") && !id.startsWith("device-folder:")) { StoredMessage.MEDIA_COLLECTIONS_CANNOT_BE_EDITED.code }
+        return requireNotNull(library.collection(account, id)) { StoredMessage.ALBUM_IS_NO_LONGER_AVAILABLE_REFRESH_THE_LIBRARY.code }
+            .also { require(!it.isFolder) { StoredMessage.CHOOSE_AN_ALBUM_NOT_A_FOLDER.code } }
     }
     private fun validAlbumName(name: String): String = name.trim().also {
-        require(it.isNotEmpty() && it.length <= 255) { "Use an album name between 1 and 255 characters." }
+        require(it.isNotEmpty() && it.length <= 255) { StoredMessage.USE_AN_ALBUM_NAME_BETWEEN_1_AND_255_CHARACTERS.code }
     }
 
     override suspend fun exportOriginal(mediaId: String, output: java.io.OutputStream, motion: Boolean) = withMediaLock(mediaId) {
         val item = requireCloudItem(mediaId)
-        require(!motion || item.kind == MediaKind.LIVE_PHOTO.name) { "This photo has no motion clip." }
+        require(!motion || item.kind == MediaKind.LIVE_PHOTO.name) { StoredMessage.THIS_PHOTO_HAS_NO_MOTION_CLIP.code }
         val path = if (motion) item.motionCachePath else item.originalCachePath
         if (cache.isReadable(path)) java.io.File(path!!).inputStream().use { it.copyTo(output) }
         else if (motion) cloudSource.writeMotion(mediaId, output) else cloudSource.writeOriginal(mediaId, output)
@@ -414,7 +403,7 @@ class DefaultGalleryRepository(
         val cloud = activeCloud.copy(records = (activeCloud.records + trash + shared.records).associateBy { it.id }.values.toList())
         val collections = CollectionSnapshot(personalCollections.collections + shared.collections.collections,
             personalCollections.members + shared.collections.members)
-        check(cloudSource.accountLabel == account) { "Account changed during refresh" }
+        check(cloudSource.accountLabel == account) { StoredMessage.ACCOUNT_CHANGED_DURING_REFRESH.code }
         val cloudScanId = UUID.randomUUID().toString()
 
         exclusiveCatalog {
@@ -664,17 +653,4 @@ class DefaultGalleryRepository(
         const val DEFAULT_DEVICE_ACCENT_START = 0xFF5C6670L
         const val DEFAULT_DEVICE_ACCENT_END = 0xFF1F252BL
     }
-}
-
-private fun java.io.InputStream.readPrefix(limit: Int): ByteArray {
-    require(limit >= 0)
-    val buffer = ByteArray(limit)
-    var offset = 0
-    while (offset < limit) {
-        val count = read(buffer, offset, limit - offset)
-        if (count < 0) break
-        if (count == 0) continue
-        offset += count
-    }
-    return if (offset == limit) buffer else buffer.copyOf(offset)
 }

@@ -3,16 +3,11 @@ package dev.mela.protocol.photos
 import dev.mela.engine.model.*
 import dev.mela.engine.source.*
 import dev.mela.protocol.account.AppleSessionSnapshot
-import dev.mela.protocol.auth.AppleProtocolError
-import dev.mela.protocol.auth.AppleProtocolException
 import dev.mela.protocol.network.*
 import java.io.OutputStream
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
-import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /** The personal library, legacy streams and each CloudKit owner's zones are separate namespaces. */
 internal class SharedAlbumsCatalog(
@@ -25,31 +20,12 @@ internal class SharedAlbumsCatalog(
     private val journal: UploadJournal?,
     private val reject: suspend (AppleSessionSnapshot) -> Unit = {},
 ) : SharedAlbumOperations {
-    private data class Album(val collection: GalleryCollection, val scope: String, val owner: String,
-        val zone: String, val location: String? = null, val ctag: String? = null) {
-        fun zoneId() = buildJsonObject { put("zoneName", zone); put("ownerRecordName", owner); put("zoneType", "REGULAR_CUSTOM_ZONE") }
-    }
     private val parser = CloudKitPhotoResponseParser()
-    private val albums = ConcurrentHashMap<String, Album>()
+    private val albums = ConcurrentHashMap<String, SharedAlbumRecord>()
     private val photos = ConcurrentHashMap<String, CloudPhotoAsset>()
     private val legacyContributors = ConcurrentHashMap<String, String>()
-    private val lock = Mutex()
-    private var binding: String? = null
-    private var operationSession: AppleSessionSnapshot? = null
-    private suspend fun <T> exclusive(block: suspend () -> T): T = lock.withLock {
-        operationSession = bound()
-        try { block() } finally { operationSession = null }
-    }
-
-    private fun bound(): AppleSessionSnapshot {
-        val current = session()
-        prepare(current)
-        val key = "${current.dsid}:${current.clientId}"
-        if (binding != key) { albums.clear(); photos.clear(); legacyContributors.clear(); binding = key }
-        return current
-    }
-    private fun checkSession(expected: AppleSessionSnapshot) {
-        check(session().let { it.dsid == expected.dsid && it.clientId == expected.clientId }) { "Account changed. Refresh shared albums." }
+    private val connection = SharedAlbumSession(transport, session, prepare, persist, authorized, reject) {
+        albums.clear(); photos.clear(); legacyContributors.clear()
     }
     private fun webAlbumUrl(route: String, identifier: String): String {
         require(identifier.matches(Regex("[A-Za-z0-9_-]+")))
@@ -58,59 +34,24 @@ internal class SharedAlbumsCatalog(
     }
     private fun sharedAlbumLink(token: String): String {
         require(token.matches(Regex("[A-Za-z0-9_-]{1,4096}")))
-        val domain = if (bound().webservices["ckdatabasews"].orEmpty().contains(".icloud.com.cn")) "photos.icloud.com.cn" else "photos.icloud.com"
+        val domain = if (connection.bound().webservices["ckdatabasews"].orEmpty().contains(".icloud.com.cn")) "photos.icloud.com.cn" else "photos.icloud.com"
         return "https://$domain/shared/album/$token"
     }
     private fun encoded(value: String) = Base64.getUrlEncoder().withoutPadding().encodeToString(value.toByteArray(Charsets.UTF_8))
     private fun albumId(scope: String, owner: String, zone: String) =
         "shared:${account()}:${encoded(scope)}:${encoded(owner)}:${encoded(zone)}"
-    private fun photoId(album: Album, name: String) = "${album.collection.id}:${encoded(name)}"
+    private fun photoId(album: SharedAlbumRecord, name: String) = "${album.collection.id}:${encoded(name)}"
     private fun collectionId(mediaId: String): String {
         require(mediaId.startsWith("shared:${account()}:")) { "Shared photo belongs to another account." }
         require(mediaId.split(':').size == 6) { "Invalid shared photo identity." }
         return mediaId.substringBeforeLast(':')
     }
 
-    private suspend fun request(url: String, body: JsonObject, write: Boolean = false): JsonObject =
-        requestElement(url, body, write) as? JsonObject ?: error("Apple returned an invalid shared album response.")
-    private suspend fun requestElement(url: String, body: JsonObject, write: Boolean = false): JsonElement {
-        operationSession?.let(::checkSession)
-        val current = bound()
-        if (write) check(authorized()) { "Sign in before changing shared albums." }
-        AppleEndpointPolicy.requireAllowed(url)
-        val target = url.toHttpUrl().newBuilder().addQueryParameter("clientId", current.clientId)
-            .addQueryParameter("dsid", current.dsid).addQueryParameter("remapEnums", "true").build().toString()
-        val response = transport.execute(AppleHttpRequest("POST", target, mapOf("Content-Type" to "text/plain;charset=UTF-8"), body.toString(), oneShot = write))
-        checkSession(current)
-        persist(current)
-        if (response.code !in 200..299) {
-            if (response.code == 401) reject(current)
-            throw AppleProtocolException(
-                if (response.code == 401) AppleProtocolError.SESSION_EXPIRED else AppleProtocolError.PHOTOS_UNAVAILABLE,
-                "Shared albums returned HTTP ${response.code}. Refresh to check access.",
-            )
-        }
-        if (write && response.body.isBlank()) return buildJsonObject {}
-        val element = Json.parseToJsonElement(response.body)
-        val root = element as? JsonObject ?: return element
-        check(root["errors"]?.jsonArray.isNullOrEmpty() && root["serverErrorCode"] == null) { "Apple could not load shared albums." }
-        if (write) {
-            for (key in listOf("records", "zones")) check((root[key] as? JsonArray).orEmpty().none { (it as? JsonObject)?.get("serverErrorCode") != null }) {
-                "Apple could not confirm the shared album change. Refresh before retrying."
-            }
-        }
-        return root
-    }
-    private suspend fun ck(scope: String, path: String, body: JsonObject, write: Boolean = false): JsonObject {
-        require(scope in setOf("private", "shared", "public"))
-        val root = requireNotNull(bound().webservices["ckdatabasews"]) { "Shared albums are unavailable for this account." }
-        return request("${root.trimEnd('/')}/database/1/com.apple.photos.cloud/production/$scope/$path", body, write)
-    }
-    private suspend fun streamRequest(album: Album, path: String, body: JsonObject) =
-        request("${requireNotNull(album.location).trimEnd('/')}/$path", body)
+    private suspend fun streamRequest(album: SharedAlbumRecord, path: String, body: JsonObject) =
+        connection.request("${requireNotNull(album.location).trimEnd('/')}/$path", body)
 
-    suspend fun snapshot(): SharedCatalogSnapshot = exclusive {
-        val current = bound()
+    suspend fun snapshot(): SharedCatalogSnapshot = connection.exclusive {
+        val current = connection.bound()
         val found = discover()
         val records = mutableListOf<RemoteMediaRecord>()
         val members = mutableMapOf<String, Set<String>>()
@@ -130,17 +71,17 @@ internal class SharedAlbumsCatalog(
             check(records.size <= 100000) { "Shared library is too large for a single snapshot." }
             members[album.collection.id] = mapped.map { it.id }.toSet()
         }
-        checkSession(current)
+        connection.checkSession(current)
         albums.clear(); albums.putAll(found.associateBy { it.collection.id })
         photos.clear(); photos.putAll(loaded)
         SharedCatalogSnapshot(records, CollectionSnapshot(found.map { it.collection }, members))
     }
 
-    private suspend fun discover(): List<Album> {
-        val current = bound()
-        val result = mutableListOf<Album>()
+    private suspend fun discover(): List<SharedAlbumRecord> {
+        val current = connection.bound()
+        val result = mutableListOf<SharedAlbumRecord>()
         current.webservices["sharedstreams"]?.let { root ->
-            val response = request("${root.trimEnd('/')}/${current.dsid}/sharedstreams/webgetalbumslist", buildJsonObject {})
+            val response = connection.request("${root.trimEnd('/')}/${current.dsid}/sharedstreams/webgetalbumslist", buildJsonObject {})
             val rows = requireNotNull(response["albums"] as? JsonArray) { "Incomplete shared album list." }
             for (value in rows) {
                 val row = value.jsonObject
@@ -156,7 +97,7 @@ internal class SharedAlbumsCatalog(
                     else -> SharedAlbumRole.VIEWER
                 }
                 val id = albumId("legacy", owner, guid)
-                result += Album(GalleryCollection(id, attributes.text("name") ?: guid,
+                result += SharedAlbumRecord(GalleryCollection(id, attributes.text("name") ?: guid,
                     shared = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, role, webUrl = webAlbumUrl("sa,", guid))), "legacy", owner, guid, location, row.text("albumctag"))
             }
         }
@@ -165,7 +106,7 @@ internal class SharedAlbumsCatalog(
             val tokens = mutableSetOf<String>()
             var token: String? = null
             do {
-                val root = ck(scope, "changes/database", buildJsonObject { token?.let { put("syncToken", it) } })
+                val root = connection.ck(scope, "changes/database", buildJsonObject { token?.let { put("syncToken", it) } })
                 for (entry in requireNotNull(root["zones"] as? JsonArray) { "Incomplete shared zone list." }) {
                     val zone = entry.jsonObject
                     val id = zone["zoneID"]?.jsonObject ?: continue
@@ -194,7 +135,7 @@ internal class SharedAlbumsCatalog(
                     else -> SharedAlbumRole.VIEWER
                 }
                 val id = albumId(scope, owner, name)
-                result += Album(GalleryCollection(id, share.field("cloudkit.title")?.jsonPrimitive?.contentOrNull ?: name,
+                result += SharedAlbumRecord(GalleryCollection(id, share.field("cloudkit.title")?.jsonPrimitive?.contentOrNull ?: name,
                     shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, role, participantCount = participants.size, webUrl = share.text("shortGUID")?.let { webAlbumUrl("sharedalbums/sc,", it) })), scope, owner, name)
             }
         }
@@ -203,7 +144,7 @@ internal class SharedAlbumsCatalog(
     }
 
     private suspend fun lookupShare(scope: String, zone: JsonObject, creating: Boolean = false): JsonObject? {
-        val response = ck(scope, "records/lookup", buildJsonObject {
+        val response = connection.ck(scope, "records/lookup", buildJsonObject {
             put("zoneID", zone); putJsonArray("records") { add(buildJsonObject { put("recordName", "cloudkit.zoneshare") }) }
         })
         val record = requireNotNull(response["records"]?.jsonArray?.singleOrNull()?.jsonObject) { "Missing shared album metadata." }
@@ -214,7 +155,7 @@ internal class SharedAlbumsCatalog(
         return record
     }
 
-    private suspend fun readAlbum(album: Album): List<CloudPhotoAsset> {
+    private suspend fun readAlbum(album: SharedAlbumRecord): List<CloudPhotoAsset> {
         val output = linkedMapOf<String, CloudPhotoAsset>()
         if (album.scope == "legacy") {
             val count = streamRequest(album, "webgetassetcount", buildJsonObject { put("albumguid", album.zone) })
@@ -246,7 +187,7 @@ internal class SharedAlbumsCatalog(
             val cursors = mutableSetOf<String>()
             do {
                 check(cursors.add("$rank:$marker") && cursors.size <= 2000) { "Repeated shared album cursor." }
-                val root = ck(album.scope, "records/query", buildJsonObject {
+                val root = connection.ck(album.scope, "records/query", buildJsonObject {
                     put("zoneID", album.zoneId()); put("resultsLimit", 200)
                     putJsonObject("query") {
                         put("recordType", "CPLAssetAndMasterByAddedDate")
@@ -271,8 +212,8 @@ internal class SharedAlbumsCatalog(
         return output.values.toList()
     }
 
-    private suspend fun reference(mediaId: String, refresh: Boolean = false): CloudPhotoAsset = exclusive {
-        bound()
+    private suspend fun reference(mediaId: String, refresh: Boolean = false): CloudPhotoAsset = connection.exclusive {
+        connection.bound()
         val id = collectionId(mediaId)
         if (!refresh) photos[mediaId]?.let { return@exclusive it }
         val album = discover().firstOrNull { it.collection.id == id }
@@ -291,17 +232,17 @@ internal class SharedAlbumsCatalog(
             "motion" -> requireNotNull(photo.motionDownloadUrl)
             else -> photo.originalDownloadUrl
         }.also { check(it.isNotBlank()) { "No preview is available for this shared item." } }
-        val current = bound()
+        val current = connection.bound()
         val ref = reference(mediaId)
         try { transport.stream(url(ref), output) }
         catch (e: AppleMediaHttpException) {
             if (e.status !in setOf(401, 403, 404, 410)) throw e
             transport.stream(url(reference(mediaId, refresh = true)), output)
         }
-        checkSession(current)
+        connection.checkSession(current)
     }
     suspend fun playback(mediaId: String, position: Long, length: Long): MediaRead {
-        val current = bound()
+        val current = connection.bound()
         var ref = reference(mediaId)
         val result = try { transport.openRange(ref.playbackUrl, position, length) }
         catch (e: AppleMediaHttpException) {
@@ -309,7 +250,7 @@ internal class SharedAlbumsCatalog(
             ref = reference(mediaId, refresh = true)
             transport.openRange(ref.playbackUrl, position, length)
         }
-        try { checkSession(current) } catch (e: Exception) { result.close(); throw e }
+        try { connection.checkSession(current) } catch (e: Exception) { result.close(); throw e }
         return result
     }
 
@@ -320,7 +261,7 @@ internal class SharedAlbumsCatalog(
         .save(journalBinding(), key, UploadCheckpoint(phase, data.toString()))
 
     /** A pending creation is recovered by account/name even after force-stop loses UI saved state. */
-    suspend fun create(name: String, operationId: String, generation: SharedAlbumGeneration): GalleryCollection = exclusive {
+    suspend fun create(name: String, operationId: String, generation: SharedAlbumGeneration): GalleryCollection = connection.exclusive {
         require(name.isNotBlank() && name.length <= 255)
         java.util.UUID.fromString(operationId)
         check(authorized()) { "Sign in before creating a shared album." }
@@ -337,9 +278,9 @@ internal class SharedAlbumsCatalog(
             var found = discover().firstOrNull { it.scope == "legacy" && it.zone == zoneName }
             if (found == null) {
                 save(key, "CREATING_LEGACY", pending)
-                val current = bound()
+                val current = connection.bound()
                 val root = requireNotNull(current.webservices["sharedstreams"])
-                request("${root.trimEnd('/')}/${current.dsid}/sharedstreams/createalbum", buildJsonObject {
+                connection.request("${root.trimEnd('/')}/${current.dsid}/sharedstreams/createalbum", buildJsonObject {
                     put("albumguid", zoneName)
                     putJsonObject("attributes") { put("name", name); put("ispublic", "0"); put("allowcontributions", "1") }
                 }, write = true)
@@ -349,12 +290,12 @@ internal class SharedAlbumsCatalog(
             save(key, "DONE", pending); albums[created.collection.id] = created
             return@exclusive created.collection
         }
-        val listed = ck("private", "zones/list", buildJsonObject {})["zones"]?.jsonArray
+        val listed = connection.ck("private", "zones/list", buildJsonObject {})["zones"]?.jsonArray
             ?: error("Could not check pending shared albums.")
         var zone = listed.mapNotNull { it.jsonObject["zoneID"] as? JsonObject }.firstOrNull { it.text("zoneName") == zoneName }
         if (zone == null) {
             save(key, "ZONE_SENDING", pending)
-            val result = ck("private", "zones/modify", buildJsonObject {
+            val result = connection.ck("private", "zones/modify", buildJsonObject {
                 putJsonArray("operations") { add(buildJsonObject {
                     put("operationType", "create"); putJsonObject("zone") { putJsonObject("zoneID") { put("zoneName", zoneName) } }
                 }) }
@@ -365,7 +306,7 @@ internal class SharedAlbumsCatalog(
         save(key, "ZONE_CREATED", pending)
         if (lookupShare("private", zone, creating = true) == null) {
             save(key, "SHARE_SENDING", pending)
-            ck("private", "records/modify", buildJsonObject {
+            connection.ck("private", "records/modify", buildJsonObject {
                 put("atomic", true); put("zoneID", zone)
                 putJsonArray("operations") { add(buildJsonObject {
                     put("operationType", "create")
@@ -390,7 +331,7 @@ internal class SharedAlbumsCatalog(
     }
 
     /** Server-side copy, never a relation to a PrimarySync original or cleanup proof. */
-    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String) = exclusive {
+    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String) = connection.exclusive {
         java.util.UUID.fromString(operationId)
         require(mediaIds.size in 1..50)
         val prefix = "icloud:${account()}:"
@@ -413,10 +354,10 @@ internal class SharedAlbumsCatalog(
         val batchId = requireNotNull(pending.text("batchId"))
         if (phase == "STARTING") error("The contribution result is uncertain. Check the album in iCloud before adding these photos again.")
         if (phase == "READY") {
-            val zones = ck("private", "zones/list", buildJsonObject {})["zones"]!!.jsonArray
+            val zones = connection.ck("private", "zones/list", buildJsonObject {})["zones"]!!.jsonArray
             val source = zones.map { it.jsonObject["zoneID"]!!.jsonObject }.first { it.text("zoneName") == "PrimarySync" }
             save(key, "STARTING", pending)
-            val response = ck("private", "records/copy/start", buildJsonObject {
+            val response = connection.ck("private", "records/copy/start", buildJsonObject {
                 put("sourceZoneID", source); put("targetZoneID", album.zoneId()); put("targetShareName", "cloudkit.zoneshare")
                 put("batchId", batchId); put("includeRecords", JsonArray(names.map(::JsonPrimitive)))
             }, write = true)
@@ -427,7 +368,7 @@ internal class SharedAlbumsCatalog(
             var completed = false
             repeat(20) {
                 if (!completed) {
-                    val response = ck("private", "records/copy/status", buildJsonObject { put("jobID", requireNotNull(pending.text("jobID"))) })
+                    val response = connection.ck("private", "records/copy/status", buildJsonObject { put("jobID", requireNotNull(pending.text("jobID"))) })
                     when (response.text("status")) {
                         "COMPLETED" -> completed = true
                         "SUBMITTED", "RUNNING", "PROCESSING" -> kotlinx.coroutines.delay(1000)
@@ -439,11 +380,11 @@ internal class SharedAlbumsCatalog(
             save(key, "POSTING", pending)
         }
         // A stable post record name makes the last step recoverable after response loss.
-        val existing = ck(album.scope, "records/lookup", buildJsonObject {
+        val existing = connection.ck(album.scope, "records/lookup", buildJsonObject {
             put("zoneID", album.zoneId()); putJsonArray("records") { add(buildJsonObject { put("recordName", batchId) }) }
         })["records"]!!.jsonArray.single().jsonObject
         if (existing.text("serverErrorCode") == "NOT_FOUND") {
-            ck(album.scope, "records/modify", buildJsonObject {
+            connection.ck(album.scope, "records/modify", buildJsonObject {
                 put("atomic", true); put("zoneID", album.zoneId())
                 putJsonArray("operations") { add(buildJsonObject {
                     put("operationType", "create"); putJsonObject("record") {
@@ -456,21 +397,21 @@ internal class SharedAlbumsCatalog(
         save(key, "DONE", pending)
     }
 
-    suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: OneShotUploadSource) = exclusive {
+    suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: OneShotUploadSource) = connection.exclusive {
         val a = fresh(collectionId(mediaId)); require(a.scope == "legacy")
         require(readAlbum(a).any { it.assetRecordName == mediaName(a, mediaId) })
-        val current = bound(); val root = requireNotNull(current.webservices["photosupload"])
+        val current = connection.bound(); val root = requireNotNull(current.webservices["photosupload"])
         val key = "shared-save:" + digest("${account()}|$mediaId|${source.sha256Hex}")
         val accepted = PhotosUpload(transport, current, root.trimEnd('/'), fileName, source,
-            { checkSession(current); persist(current) }, requireNotNull(journal), journalBinding(),
-            checkAuthorized = { checkSession(current); check(authorized()) },
+            { connection.checkSession(current); persist(current) }, requireNotNull(journal), journalBinding(),
+            checkAuthorized = { connection.checkSession(current); check(authorized()) },
             onSessionRejected = reject).startOnce(key)
         accepted.uploadJobId?.let { pollUpload(root, it) }
         Unit
     }
     private suspend fun pollUpload(root: String, job: String) {
         repeat(20) {
-            val response = request("${root.trimEnd('/')}/photosupload/uploadStatus", buildJsonObject { putJsonArray("uploadJobIds") { add(job) } })
+            val response = connection.request("${root.trimEnd('/')}/photosupload/uploadStatus", buildJsonObject { putJsonArray("uploadJobIds") { add(job) } })
             val status = response[job]?.jsonObject ?: error("Upload status unavailable. Retry to check again.")
             check(status["errorCode"] == null) { "Apple could not process this upload." }
             if (status.text("progress") == "100") return
@@ -481,20 +422,20 @@ internal class SharedAlbumsCatalog(
 
     suspend fun upload(id: String, fileName: String, source: OneShotUploadSource, operationId: String) {
         if (id.split(':').getOrNull(2) == encoded("legacy")) return uploadLegacy(id, fileName, source, operationId)
-        exclusive {
+        connection.exclusive {
             val a = fresh(id); require(a.collection.shared?.canContribute == true)
-            val current = bound(); val root = requireNotNull(current.webservices["photosupload"])
+            val current = connection.bound(); val root = requireNotNull(current.webservices["photosupload"])
             val key = "shared-direct:" + digest("${account()}|$id|$fileName|${source.sha256Hex}")
             val batch = "CPLPost-" + java.util.UUID.nameUUIDFromBytes(key.toByteArray()).toString()
             val accepted = PhotosUpload(transport, current, root.trimEnd('/'), fileName, source,
-                { checkSession(current); persist(current) }, requireNotNull(journal), journalBinding(),
-                checkAuthorized = { checkSession(current); check(authorized()) }, zoneName = a.zone, assetBatchId = batch,
+                { connection.checkSession(current); persist(current) }, requireNotNull(journal), journalBinding(),
+                checkAuthorized = { connection.checkSession(current); check(authorized()) }, zoneName = a.zone, assetBatchId = batch,
                 onSessionRejected = reject).startOnce(key)
             accepted.uploadJobId?.let { job ->
                 var done = false
                 repeat(20) {
                     if (!done) {
-                        val response = request("${root.trimEnd('/')}/photosupload/uploadStatus", buildJsonObject { putJsonArray("uploadJobIds") { add(job) } })
+                        val response = connection.request("${root.trimEnd('/')}/photosupload/uploadStatus", buildJsonObject { putJsonArray("uploadJobIds") { add(job) } })
                         val status = response[job]?.jsonObject ?: error("Upload status unavailable. Retry to check again.")
                         check(status["errorCode"] == null) { "Apple could not process this shared upload." }
                         done = status.text("progress") == "100"
@@ -514,102 +455,21 @@ internal class SharedAlbumsCatalog(
         }
     }
 
-    suspend fun uploadLegacy(id: String, fileName: String, source: OneShotUploadSource, operationId: String) = exclusive {
-        require(source.byteCount > 0 && fileName.isNotBlank())
-        check(authorized()) { "Sign in before contributing photos." }
-        val current = bound()
-        val album = discover().firstOrNull { it.collection.id == id } ?: error("Shared album is no longer available.")
-        require(album.scope == "legacy" && album.collection.shared?.canContribute == true) { "You cannot add photos to this album." }
-        // A force-stop may lose the UI operation ID. Bind retries to the actual content instead.
-        java.util.UUID.fromString(operationId)
-        val key = "shared-upload:" + digest("${account()}|$id|$fileName|${source.sha256Hex}")
-        val old = requireNotNull(journal).load(journalBinding(), key)
-        var phase = old?.phase ?: "READY"
-        fun newUpload() = buildJsonObject {
-            put("target", id); put("size", source.byteCount); put("sha256", source.sha256Hex); put("fileName", fileName)
-            put("assetGuid", java.util.UUID.randomUUID().toString()); put("batchGuid", java.util.UUID.randomUUID().toString())
-            put("date", java.time.Instant.now().toString()); put("timezone", java.time.ZoneId.systemDefault().id)
-        }
-        var saved = old?.payload?.let { Json.parseToJsonElement(it).jsonObject } ?: newUpload()
-        check(saved.text("target") == id && saved.text("fileName") == fileName && saved.text("sha256") == source.sha256Hex && saved.text("size")?.toLong() == source.byteCount) { "Shared upload source or destination changed." }
-        if (phase == "DONE") {
-            if (readAlbum(album).any { it.assetRecordName == saved.text("assetGuid") }) return@exclusive
-            // A confirmed completed copy was subsequently removed. An explicit new add is safe.
-            saved = newUpload(); phase = "READY"
-        }
-        suspend fun savePhase(next: String, additions: Map<String, JsonElement> = emptyMap()) {
-            saved = JsonObject(saved + additions); save(key, next, saved); phase = next
-        }
-        if (phase == "REGISTERING") {
-            // The client-assigned asset GUID survives response loss. Do not register the same bytes twice.
-            if (readAlbum(album).any { it.assetRecordName == saved.text("assetGuid") }) { savePhase("DONE"); return@exclusive }
-            error("The shared upload result is uncertain. Check the album before adding it again.")
-        }
-        check(phase != "BYTES_SENDING") { "The shared upload was interrupted. Its bytes will not be replayed automatically." }
-        if (phase in setOf("READY", "RESERVING")) {
-            savePhase("RESERVING")
-            val reserved = request("${album.location!!.trimEnd('/')}/webgetuploadurl", buildJsonObject {
-                put("albumguid", album.zone); put("filesize", source.byteCount)
-            }, write = true)
-            val target = requireNotNull(reserved.text("uploadurl")).toHttpUrl().newBuilder().addQueryParameter("chunker", "FIXED").build().toString()
-            val allowed = AppleEndpointPolicy.requireAllowed(target)
-            require(allowed.host.endsWith(".icloud-content.com") || allowed.host.endsWith(".icloud-content.com.cn"))
-            savePhase("RESERVED", mapOf("uploadUrl" to JsonPrimitive(target)))
-        }
-        if (phase == "RESERVED") {
-            checkSession(current); check(authorized())
-            savePhase("BYTES_SENDING")
-            val raw = transport.executeRawUpload(requireNotNull(saved.text("uploadUrl")), emptyMap(), source.byteCount, source::openOnce)
-            checkSession(current); persist(current)
-            check(raw.code in 200..299) { "Shared upload bytes were not accepted." }
-            val receipt = requireNotNull(Json.parseToJsonElement(raw.body).jsonObject["singleFile"] as? JsonObject)
-            check(receipt.text("size")?.toLong() == source.byteCount && listOf("referenceChecksum", "fileChecksum", "wrappingKey", "receipt").all { !receipt.text(it).isNullOrBlank() })
-            savePhase("RECEIPT_SAVED", mapOf("receipt" to receipt))
-        }
-        if (phase == "RECEIPT_SAVED") {
-            // Re-read permission before the publishing step; UI capabilities can be stale.
-            check(discover().firstOrNull { it.collection.id == id }?.collection?.shared?.canContribute == true)
-            savePhase("REGISTERING")
-            val registered = request("${album.location!!.trimEnd('/')}/webputasset", buildJsonObject {
-                put("albumguid", album.zone); put("assetguid", saved.getValue("assetGuid")); put("filename", fileName)
-                putJsonObject("collectionmetadata") {
-                    put("batchDateCreated", saved.getValue("date")); put("dateCreated", saved.getValue("date")); put("batchGUID", saved.getValue("batchGuid"))
-                }
-                put("singlefileupload", saved.getValue("receipt")); put("localtimezoneid", saved.getValue("timezone"))
-            }, write = true)
-            check(registered.text("albumguid") == album.zone && registered.text("assetguid") == saved.text("assetGuid"))
-            savePhase("POLLING", mapOf("jobId" to JsonPrimitive(requireNotNull(registered.text("uploadjobid")))))
-        }
-        if (phase == "POLLING") {
-            var complete = false
-            repeat(20) {
-                if (!complete) {
-                    val result = requestElement("${album.location!!.trimEnd('/')}/webuploadstatus", buildJsonObject {
-                        putJsonArray("uploadjobids") { add(requireNotNull(saved.text("jobId"))) }
-                    }).jsonArray.single().jsonObject
-                    check(result.text("uploadjobid") == saved.text("jobId"))
-                    when (result.text("status")) {
-                        "COMPLETED" -> complete = true
-                        "IN_PROGRESS" -> kotlinx.coroutines.delay(1000)
-                        else -> error("Apple could not finish the shared upload. Check the album before retrying.")
-                    }
-                }
-            }
-            check(complete) { "Shared upload is still processing. Retry to check the same job." }
-            savePhase("DONE")
-        }
+    suspend fun uploadLegacy(id: String, fileName: String, source: OneShotUploadSource, operationId: String) = connection.exclusive {
+        LegacySharedUpload(transport, account, authorized, journal, connection, persist,
+            ::discover, ::readAlbum, ::journalBinding, ::save).upload(id, fileName, source, operationId)
     }
 
-    private suspend fun fresh(id: String): Album {
+    private suspend fun fresh(id: String): SharedAlbumRecord {
         require(id.startsWith("shared:${account()}:")) { "Shared album belongs to another account." }
         return discover().firstOrNull { it.collection.id == id } ?: error("Shared album is no longer available.")
     }
     private fun legacyUrl(path: String): String {
-        val s = bound()
+        val s = connection.bound()
         return "${requireNotNull(s.webservices["sharedstreams"]).trimEnd('/')}/${s.dsid}/sharedstreams/$path"
     }
-    private suspend fun legacy(album: Album, path: String, extra: JsonObject = buildJsonObject {}, write: Boolean = false, root: Boolean = false): JsonElement =
-        requestElement(if (root) legacyUrl(path) else "${requireNotNull(album.location).trimEnd('/')}/$path",
+    private suspend fun legacy(album: SharedAlbumRecord, path: String, extra: JsonObject = buildJsonObject {}, write: Boolean = false, root: Boolean = false): JsonElement =
+        connection.requestElement(if (root) legacyUrl(path) else "${requireNotNull(album.location).trimEnd('/')}/$path",
             JsonObject(mapOf("albumguid" to JsonPrimitive(album.zone)) + extra), write)
     private fun participantRole(p: JsonObject): SharedAlbumRole = when {
         p.text("type") == "OWNER" -> SharedAlbumRole.OWNER
@@ -628,10 +488,10 @@ internal class SharedAlbumsCatalog(
         }
     }
     private fun invitationId(kind: String, value: String) = "invitation:${account()}:$kind:${encoded(value)}"
-    override suspend fun pendingSharedInvitations(): List<SharedInvitation> = exclusive { pendingInvitations() }
+    override suspend fun pendingSharedInvitations(): List<SharedInvitation> = connection.exclusive { pendingInvitations() }
     private suspend fun pendingInvitations(): List<SharedInvitation> {
-        if (bound().webservices["sharedstreams"] == null) return emptyList()
-        val root = request(legacyUrl("webgetpendingalbums"), buildJsonObject {})
+        if (connection.bound().webservices["sharedstreams"] == null) return emptyList()
+        val root = connection.request(legacyUrl("webgetpendingalbums"), buildJsonObject {})
         return requireNotNull(root["albums"] as? JsonArray).map { it.jsonObject }.map { row ->
             check(row["httpstatus"] == null) { "Could not load an invitation." }
             SharedInvitation(invitationId("legacy", requireNotNull(row.text("albumguid"))),
@@ -645,7 +505,7 @@ internal class SharedAlbumsCatalog(
     }
     private suspend fun resolveShare(guid: String): JsonObject {
         require(guid.matches(Regex("[A-Za-z0-9_-]{1,4096}")))
-        val response = ck("public", "records/resolve", buildJsonObject { putJsonArray("shortGUIDs") { add(buildJsonObject { put("value", guid) }) } })
+        val response = connection.ck("public", "records/resolve", buildJsonObject { putJsonArray("shortGUIDs") { add(buildJsonObject { put("value", guid) }) } })
         val item = requireNotNull(response["results"] as? JsonArray).single().jsonObject
         check(item["serverErrorCode"] == null) { "The invitation is unavailable." }
         val share = requireNotNull(item["share"] as? JsonObject) { "Open this invitation in iCloud to finish signing in." }
@@ -653,12 +513,12 @@ internal class SharedAlbumsCatalog(
         require(zone?.text("zoneName")?.startsWith("SharedCollection-") == true && share.text("recordType") == "cloudkit.share") { "This link is not a new shared album." }
         return share
     }
-    override suspend fun resolveSharedInvitation(url: String): SharedInvitation = exclusive {
+    override suspend fun resolveSharedInvitation(url: String): SharedInvitation = connection.exclusive {
         val guid = requireNotNull(SharedAlbumLinks.token(url)) { "Paste an iCloud Photos shared-album link." }
         val share = resolveShare(guid)
         SharedInvitation(invitationId("modern", guid), share.field("cloudkit.title")?.jsonPrimitive?.contentOrNull ?: "—", SharedAlbumGeneration.MODERN)
     }
-    override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String) = exclusive {
+    override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String) = connection.exclusive {
         java.util.UUID.fromString(operationId); check(authorized())
         val (kind, value) = invitationValue(id)
         require(kind == "legacy" || accept) { "New-album invitations are declined in iCloud." }
@@ -679,9 +539,9 @@ internal class SharedAlbumsCatalog(
         }
         if (kind == "legacy") require(pendingInvitations().any { it.id == id }) else resolveShare(value)
         save(key, "SENDING", buildJsonObject { put("operationId", operationId) })
-        if (kind == "legacy") request(legacyUrl(if(accept) "subscribe" else "unsubscribe"), buildJsonObject { put("albumguid", value) }, true)
+        if (kind == "legacy") connection.request(legacyUrl(if(accept) "subscribe" else "unsubscribe"), buildJsonObject { put("albumguid", value) }, true)
         else {
-            val response = ck("public", "records/accept", buildJsonObject { putJsonArray("shortGUIDs") { add(buildJsonObject { put("value", value) }) } }, true)
+            val response = connection.ck("public", "records/accept", buildJsonObject { putJsonArray("shortGUIDs") { add(buildJsonObject { put("value", value) }) } }, true)
             val result = requireNotNull(response["results"] as? JsonArray).single().jsonObject
             check(result["serverErrorCode"] == null && result["share"] != null) { "Apple did not confirm joining the album." }
         }
@@ -689,13 +549,13 @@ internal class SharedAlbumsCatalog(
         save(key, "DONE", buildJsonObject {})
     }
 
-    override suspend fun sharedManagement(id: String): SharedAlbumManagement = exclusive { management(fresh(id)) }
-    private suspend fun management(a: Album): SharedAlbumManagement {
+    override suspend fun sharedManagement(id: String): SharedAlbumManagement = connection.exclusive { management(fresh(id)) }
+    private suspend fun management(a: SharedAlbumRecord): SharedAlbumManagement {
         if (a.scope == "legacy") {
-            val details = request(legacyUrl("webgetalbumview"), buildJsonObject { putJsonArray("albumguids") { add(a.zone) } })
+            val details = connection.request(legacyUrl("webgetalbumview"), buildJsonObject { putJsonArray("albumguids") { add(a.zone) } })
             val row = requireNotNull(details["albums"]?.jsonArray?.map { it.jsonObject }?.firstOrNull { it.text("albumguid") == a.zone })
             val attrs = (row["attributes"] as? JsonObject).orEmpty()
-            val info = request(legacyUrl("webgetsharinginfos"), buildJsonObject { putJsonArray("albums") { add(buildJsonObject { put("albumguid", a.zone); put("ownerdsid", a.owner) }) } })
+            val info = connection.request(legacyUrl("webgetsharinginfos"), buildJsonObject { putJsonArray("albums") { add(buildJsonObject { put("albumguid", a.zone); put("ownerdsid", a.owner) }) } })
             val sharing = (info["albums"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.firstOrNull { it.text("albumguid") == a.zone }
             val people = ((sharing?.get("sharinginfo") ?: info["sharinginfo"]) as? JsonArray).orEmpty().map { it.jsonObject }.map { p ->
                 SharedParticipant(p.text("invitationguid") ?: p.text("personid").orEmpty(), participantName(p),
@@ -724,22 +584,22 @@ internal class SharedAlbumsCatalog(
                     participantName(buildJsonObject { put("userIdentity", it) }))
             })
     }
-    private suspend fun lookup(a: Album, name: String): JsonObject = ck(a.scope, "records/lookup", buildJsonObject {
+    private suspend fun lookup(a: SharedAlbumRecord, name: String): JsonObject = connection.ck(a.scope, "records/lookup", buildJsonObject {
         put("zoneID", a.zoneId()); putJsonArray("records") { add(buildJsonObject { put("recordName", name) }) }
     })["records"]!!.jsonArray.single().jsonObject
-    private suspend fun modify(a: Album, operation: String, record: JsonObject): JsonObject = ck(a.scope, "records/modify", buildJsonObject {
+    private suspend fun modify(a: SharedAlbumRecord, operation: String, record: JsonObject): JsonObject = connection.ck(a.scope, "records/modify", buildJsonObject {
         put("atomic", true); put("zoneID", a.zoneId()); putJsonArray("operations") { add(buildJsonObject {
             put("operationType", operation); put("record", record)
         }) }
     }, write = true)
-    private suspend fun patchShare(a: Album, share: JsonObject, properties: JsonObject = buildJsonObject {}, fields: JsonObject? = null) {
+    private suspend fun patchShare(a: SharedAlbumRecord, share: JsonObject, properties: JsonObject = buildJsonObject {}, fields: JsonObject? = null) {
         modify(a, "update", buildJsonObject {
             put("recordType", "cloudkit.share"); put("recordName", "cloudkit.zoneshare")
             put("recordChangeTag", requireNotNull(share.text("recordChangeTag")))
             properties.forEach { (k, v) -> put(k, v) }; fields?.let { put("fields", it) }
         })
     }
-    private fun mediaName(a: Album, media: String): String {
+    private fun mediaName(a: SharedAlbumRecord, media: String): String {
         require(collectionId(media) == a.collection.id) { "Photo belongs to a different shared album." }
         return String(Base64.getUrlDecoder().decode(media.substringAfterLast(':')), Charsets.UTF_8)
     }
@@ -747,22 +607,22 @@ internal class SharedAlbumsCatalog(
         require(id.startsWith("post:")) { "Invalid post identity" }
         return collectionId(id.removePrefix("post:"))
     }
-    private fun postName(a: Album, id: String): String {
+    private fun postName(a: SharedAlbumRecord, id: String): String {
         require(postAlbumId(id) == a.collection.id)
         return mediaName(a, id.removePrefix("post:"))
     }
-    private suspend fun requirePost(a: Album, name: String): JsonObject {
+    private suspend fun requirePost(a: SharedAlbumRecord, name: String): JsonObject {
         require(a.scope != "legacy")
         return lookup(a, name).also { check(it.text("recordType") == "CPLPost" && it["serverErrorCode"] == null && it.text("deleted") != "true") { "This post is no longer available." } }
     }
-    override suspend fun sharedActivity(id: String, rank: Int): SharedActivityPage = exclusive {
+    override suspend fun sharedActivity(id: String, rank: Int): SharedActivityPage = connection.exclusive {
         val a = fresh(id); require(a.scope != "legacy"); require(rank in 0..100000)
         val share = requireNotNull(lookupShare(a.scope, a.zoneId()))
         val me = (share["currentUserParticipant"] as? JsonObject)?.get("userIdentity")?.jsonObject?.text("userRecordName")
         val people = (share["participants"] as? JsonArray).orEmpty().map { it.jsonObject }.associateBy { (it["userIdentity"] as? JsonObject)?.text("userRecordName") }
         val rows = mutableListOf<JsonObject>(); var marker: String? = null; val seen = mutableSetOf<String>()
         do {
-            val response = ck(a.scope, "records/query", buildJsonObject {
+            val response = connection.ck(a.scope, "records/query", buildJsonObject {
                 put("zoneID", a.zoneId()); put("resultsLimit", 25)
                 marker?.let { put("continuationMarker", it) }
                 putJsonObject("query") {
@@ -784,13 +644,13 @@ internal class SharedAlbumsCatalog(
                 r.field("postTimestamp")?.jsonPrimitive?.longOrNull ?: 0, r.field("caption")?.jsonPrimitive?.contentOrNull.orEmpty())
         }, if (rows.size >= 25) rank + rows.size else null)
     }
-    override suspend fun sharedPostPhotos(id: String): List<String> = exclusive {
+    override suspend fun sharedPostPhotos(id: String): List<String> = connection.exclusive {
         val a = fresh(postAlbumId(id)); val post = postName(a, id); requirePost(a, post)
         val photos = linkedSetOf<String>()
         var marker: String? = null
         val seen = mutableSetOf<String>()
         do {
-            val response = ck(a.scope, "records/query", buildJsonObject {
+            val response = connection.ck(a.scope, "records/query", buildJsonObject {
                 put("zoneID", a.zoneId()); put("resultsLimit", 8)
                 marker?.let { put("continuationMarker", it) }
                 putJsonObject("query") { put("recordType", "CPLAssetAndMasterInPost"); putJsonArray("filterBy") {
@@ -809,13 +669,13 @@ internal class SharedAlbumsCatalog(
         } while (marker != null && photos.size < 4)
         photos.take(4)
     }
-    override suspend fun sharedPostDiscussion(id: String): SharedDiscussion = exclusive {
+    override suspend fun sharedPostDiscussion(id: String): SharedDiscussion = connection.exclusive {
         val a = fresh(postAlbumId(id)); val name = postName(a, id); requirePost(a, name); discussion(a, name, post = true)
     }
-    private suspend fun commentRecords(a: Album, asset: String, reaction: Boolean, post: Boolean = false): List<JsonObject> {
+    private suspend fun commentRecords(a: SharedAlbumRecord, asset: String, reaction: Boolean, post: Boolean = false): List<JsonObject> {
         val all = mutableListOf<JsonObject>(); var marker: String? = null; val seen = mutableSetOf<String>()
         do {
-            val result = ck(a.scope, "records/query", buildJsonObject {
+            val result = connection.ck(a.scope, "records/query", buildJsonObject {
                 put("zoneID", a.zoneId()); put("resultsLimit", 200); marker?.let { put("continuationMarker", it) }
                 putJsonObject("query") {
                     put("recordType", (if (reaction) "CPLReactFor" else "CPLTextCommentFor") + if (post) "Post" else "Asset")
@@ -834,10 +694,10 @@ internal class SharedAlbumsCatalog(
         } while (marker != null)
         return all
     }
-    override suspend fun sharedDiscussion(mediaId: String): SharedDiscussion = exclusive {
+    override suspend fun sharedDiscussion(mediaId: String): SharedDiscussion = connection.exclusive {
         val a = fresh(collectionId(mediaId)); discussion(a, mediaName(a, mediaId))
     }
-    private suspend fun discussion(a: Album, asset: String, post: Boolean = false): SharedDiscussion {
+    private suspend fun discussion(a: SharedAlbumRecord, asset: String, post: Boolean = false): SharedDiscussion {
         val info = requireNotNull(a.collection.shared)
         val rows = if (a.scope == "legacy") {
             val result = legacy(a, "getcomments", buildJsonObject { put("assetguid", asset) }).jsonObject
@@ -865,11 +725,11 @@ internal class SharedAlbumsCatalog(
         return SharedDiscussion(rows.sortedBy { it.timestamp }, info.canComment, info.generation, canRemovePhoto = !post && canRemove(a, asset))
     }
 
-    private suspend fun canRemove(a: Album, asset: String): Boolean {
+    private suspend fun canRemove(a: SharedAlbumRecord, asset: String): Boolean {
         if (a.collection.shared?.canManage == true) return true
         if (a.scope == "legacy") {
             readAlbum(a) // Author metadata must be fresh, not inferred from local file names.
-            val details = request(legacyUrl("webgetalbumview"), buildJsonObject { putJsonArray("albumguids") { add(a.zone) } })
+            val details = connection.request(legacyUrl("webgetalbumview"), buildJsonObject { putJsonArray("albumguids") { add(a.zone) } })
             val caller = details.text("callerId") ?: return false
             return legacyContributors[photoId(a, asset)] == caller
         }
@@ -879,7 +739,7 @@ internal class SharedAlbumsCatalog(
         return user != null && (record["created"] as? JsonObject)?.text("userRecordName") == user
     }
 
-    override suspend fun changeSharedAlbum(id: String, command: SharedCommand, operationId: String) = exclusive {
+    override suspend fun changeSharedAlbum(id: String, command: SharedCommand, operationId: String) = connection.exclusive {
         java.util.UUID.fromString(operationId)
         require(id.startsWith("shared:${account()}:"))
         check(authorized()) { "Sign in before changing shared albums." }
@@ -1105,7 +965,7 @@ internal class SharedAlbumsCatalog(
                     }
                     save(key, "SENDING", pending)
                     if (command.action in setOf(SharedAction.DELETE_ALBUM, SharedAction.LEAVE)) {
-                        ck(a.scope, "zones/modify", buildJsonObject { putJsonArray("operations") { add(buildJsonObject {
+                        connection.ck(a.scope, "zones/modify", buildJsonObject { putJsonArray("operations") { add(buildJsonObject {
                             put("operationType", "delete"); putJsonObject("zone") { put("zoneID", a.zoneId()) }
                         }) } }, true)
                     } else {
@@ -1119,7 +979,7 @@ internal class SharedAlbumsCatalog(
         save(key, "DONE", pending)
     }
 
-    private suspend fun reconciled(a: Album, command: SharedCommand, pending: JsonObject): Boolean = when(command.action) {
+    private suspend fun reconciled(a: SharedAlbumRecord, command: SharedCommand, pending: JsonObject): Boolean = when(command.action) {
         SharedAction.RENAME -> a.collection.name == command.value
         SharedAction.PUBLIC_ACCESS -> management(a).publicAccess == command.enabled
         SharedAction.CONTRIBUTIONS -> management(a).allowContributions == command.enabled
@@ -1167,7 +1027,7 @@ internal class SharedAlbumsCatalog(
         else -> false
     }
 
-    private suspend fun coverThumbnail(a: Album, asset: String): String {
+    private suspend fun coverThumbnail(a: SharedAlbumRecord, asset: String): String {
         val photo = readAlbum(a).first { it.assetRecordName == asset }
         val bytes = java.io.ByteArrayOutputStream()
         transport.stream(photo.previewDownloadUrl, object : OutputStream() {
@@ -1176,19 +1036,19 @@ internal class SharedAlbumsCatalog(
                 check(bytes.size().toLong() + length <= 4 * 1024 * 1024); bytes.write(buffer, offset, length)
             }
         })
-        operationSession?.let(::checkSession)
+        connection.checkOperation()
         return SharedCoverImage.encode(bytes.toByteArray())
     }
 
-    private suspend fun copyToPersonal(a: Album, asset: String, key: String, data: JsonObject) {
+    private suspend fun copyToPersonal(a: SharedAlbumRecord, asset: String, key: String, data: JsonObject) {
         val old = requireNotNull(journal).load(journalBinding(), key)
         var pending = old?.payload?.let { Json.parseToJsonElement(it).jsonObject } ?: data
         if (old?.phase == "DONE") return
         if (old?.phase != "POLLING") {
             require(readAlbum(a).any { it.assetRecordName == asset })
-            val target = ck("private", "zones/list", buildJsonObject {})["zones"]!!.jsonArray.map { it.jsonObject["zoneID"]!!.jsonObject }.first { it.text("zoneName") == "PrimarySync" }
+            val target = connection.ck("private", "zones/list", buildJsonObject {})["zones"]!!.jsonArray.map { it.jsonObject["zoneID"]!!.jsonObject }.first { it.text("zoneName") == "PrimarySync" }
             save(key, "SENDING", pending)
-            val result = ck("private", "records/copy/start", buildJsonObject {
+            val result = connection.ck("private", "records/copy/start", buildJsonObject {
                 put("sourceZoneID", a.zoneId()); put("targetZoneID", target); put("sourceShareName", "cloudkit.zoneshare")
                 putJsonArray("includeRecords") { add(asset) }
             }, true)
@@ -1200,7 +1060,7 @@ internal class SharedAlbumsCatalog(
     }
     private suspend fun pollCopy(job: String) {
         repeat(20) {
-            val result = ck("private", "records/copy/status", buildJsonObject { put("jobID", job) })
+            val result = connection.ck("private", "records/copy/status", buildJsonObject { put("jobID", job) })
             when(result.text("status")) {
                 "COMPLETED" -> return
                 "SUBMITTED", "RUNNING", "PROCESSING" -> kotlinx.coroutines.delay(1000)

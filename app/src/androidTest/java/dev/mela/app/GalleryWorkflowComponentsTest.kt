@@ -1,8 +1,8 @@
 package dev.mela.app
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -12,12 +12,12 @@ import androidx.test.core.app.ApplicationProvider
 import dev.mela.app.ui.*
 import dev.mela.app.ui.theme.MelaTheme
 import dev.mela.engine.model.*
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
-import java.util.concurrent.atomic.AtomicInteger
 
 class GalleryWorkflowComponentsTest {
     @get:Rule val compose = createComposeRule()
@@ -84,7 +84,7 @@ class GalleryWorkflowComponentsTest {
     @Test fun phoneStorageCleanupRequiresConfirmationAndKeepsCategoriesSeparate() {
         var removed: LocalMediaCategory? = null
         val state = GalleryUiState(phoneStorage = LocalMediaStorage(1024, 2048, 4096, 128L * 1024 * 1024))
-        compose.setContent { MelaTheme(darkTheme = false) { PhoneStorageCard(state, LibraryActions(clearLocalMedia = { removed = it })) } }
+        compose.setContent { MelaTheme(darkTheme = false) { PhoneStorageCard(state, testLibraryActions(clearLocalMedia = { removed = it })) } }
         compose.onNodeWithTag("phone-storage-button").performClick()
         compose.onNodeWithTag("clear-storage-VIEWERS").performScrollTo().performClick()
         compose.onNodeWithText(text(R.string.cancel)).performClick()

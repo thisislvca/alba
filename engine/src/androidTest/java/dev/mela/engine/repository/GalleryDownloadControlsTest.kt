@@ -8,25 +8,21 @@ import dev.mela.engine.companion.*
 import dev.mela.engine.database.*
 import dev.mela.engine.model.*
 import dev.mela.engine.source.*
+import java.io.OutputStream
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.junit.Assert.*
 import org.junit.Test
-import java.io.OutputStream
-import java.util.concurrent.ConcurrentHashMap
 
 class GalleryDownloadControlsTest {
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     private fun database() = Room.inMemoryDatabaseBuilder(context, MelaDatabase::class.java).build()
     private fun photos() = java.lang.reflect.Proxy.newProxyInstance(PhotoCompanion::class.java.classLoader,
         arrayOf(PhotoCompanion::class.java)) { _, _, _ -> error("No upload should be invoked") } as PhotoCompanion
-    private fun gallery(download: suspend (String) -> Unit = {}) = object : GalleryRepository {
-        override fun observeGallery() = flowOf(emptyList<GalleryMedia>())
-        override suspend fun refresh(includeDeviceMedia: Boolean) = RefreshSummary(0, 0, 0)
-        override suspend fun ensurePreview(mediaId: String) = Unit
+    private fun gallery(download: suspend (String) -> Unit = {}) = object : OfflineMediaStore {
         override suspend fun keepOriginalOffline(mediaId: String) = download(mediaId)
         override suspend fun removeCachedOriginal(mediaId: String) = Unit
-        override suspend fun clearCloudCatalog() = Unit
     }
 
     @Test fun boundedPassLeavesRemainingRowsForTheNextPass() = runBlocking {

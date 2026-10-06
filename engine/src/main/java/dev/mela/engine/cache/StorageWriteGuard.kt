@@ -1,11 +1,12 @@
 package dev.mela.engine.cache
 
+import dev.mela.engine.model.StoredMessage
 import java.io.IOException
 import java.io.OutputStream
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.ensureActive
 
-class InsufficientStorageException : IOException("Not enough free space on this phone. Free up space and retry.")
+class InsufficientStorageException : IOException(StoredMessage.PHONE_STORAGE_LOW.code)
 
 /** Cancellation is checked on every chunk; leave a reserve for Android and the database. */
 class StorageWriteGuard(

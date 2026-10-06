@@ -76,7 +76,7 @@ data class TransferEntity(
     val enrollmentRevision: Long?,
     val mediaId: String?,
     val displayName: String,
-    val state: String,
+    val state: TransferState,
     val stateVersion: Long,
     val activeAttemptId: String?,
     val leaseToken: String?,

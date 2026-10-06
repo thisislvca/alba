@@ -12,11 +12,11 @@ import dev.mela.engine.cache.UploadStagingStore
 import dev.mela.engine.database.AccountWriteSlotEntity
 import dev.mela.engine.database.MelaDatabase
 import dev.mela.engine.database.UploadAttemptEntity
-import dev.mela.engine.model.AutomaticBackupPolicy
 import dev.mela.engine.model.AccountBinding
 import dev.mela.engine.model.AccountChangeResult
-import dev.mela.engine.model.BackupScope
+import dev.mela.engine.model.AutomaticBackupPolicy
 import dev.mela.engine.model.BackupChange
+import dev.mela.engine.model.BackupScope
 import dev.mela.engine.model.BackupSetupEffect
 import dev.mela.engine.model.CandidatePage
 import dev.mela.engine.model.ICloudDestination
@@ -44,10 +44,10 @@ import java.io.OutputStream
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -181,7 +181,7 @@ class DefaultPhotoCompanionTest {
         assertEquals(1, protocol.uploadStarts.get())
         assertFalse(restarted.hasPendingUserUploads())
         assertNotNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
-        assertTrue(database.photoWriteDao().findTransfer(ticket.id.value)?.state in setOf("OUTCOME_UNKNOWN", "RECONCILING", "READ_FAILURE"))
+        assertTrue(database.photoWriteDao().findTransfer(ticket.id.value)?.state in setOf(dev.mela.engine.database.TransferState.OUTCOME_UNKNOWN, dev.mela.engine.database.TransferState.RECONCILING, dev.mela.engine.database.TransferState.READ_FAILURE))
     }
 
     @Test
@@ -261,7 +261,7 @@ class DefaultPhotoCompanionTest {
         val transfer = photos.observeTransfers().first().single()
         assertEquals(TransferViewState.UNRESOLVED, transfer.state)
         assertNull(transfer.verifiedAtEpochMillis)
-        assertTrue(transfer.message.orEmpty().contains("could not process"))
+        assertEquals(dev.mela.engine.model.StoredMessage.UPLOAD_PROCESSING_FAILED.code, transfer.message)
         assertEquals(0, protocol.candidateReads)
         assertEquals(1, protocol.uploadStarts.get())
         assertNotNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
@@ -518,7 +518,7 @@ class DefaultPhotoCompanionTest {
         photos.wake(WakeReason.PROCESS_STARTED)
         assertEquals(1, protocol.uploadStarts.get())
         val transfer = photos.observeTransfers().first().single()
-        assertEquals("SENDING", database.photoWriteDao().findTransfer(transfer.id.value)?.state)
+        assertEquals(dev.mela.engine.database.TransferState.SENDING, database.photoWriteDao().findTransfer(transfer.id.value)?.state)
         unmetered = true
         photos.wake(WakeReason.FOREGROUND)
         assertEquals(2, protocol.uploadStarts.get())
@@ -558,7 +558,7 @@ class DefaultPhotoCompanionTest {
         }
         photos.wake(WakeReason.USER_TRANSFER)
         val row = requireNotNull(database.photoWriteDao().findTransfer(photos.observeTransfers().first().single().id.value))
-        assertEquals("SENDING", row.state)
+        assertEquals(dev.mela.engine.database.TransferState.SENDING, row.state)
         assertEquals(1, protocol.uploadStarts.get())
     }
 

@@ -8,6 +8,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+@androidx.room.TypeConverters(TransferStateConverters::class)
 @Database(
     entities = [
         CatalogItemEntity::class,

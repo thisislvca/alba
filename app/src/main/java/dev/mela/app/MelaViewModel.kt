@@ -2,14 +2,15 @@ package dev.mela.app
 
 import android.content.Context
 import android.net.Uri
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.createSavedStateHandle
-import androidx.lifecycle.viewmodel.CreationExtras
-import dev.mela.engine.model.GallerySort
-import java.time.LocalDate
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import dev.mela.engine.companion.BatchAction
+import dev.mela.engine.companion.GalleryBatchActions
+import dev.mela.engine.database.BatchItemEntity
 import dev.mela.engine.model.AccountChangeResult
 import dev.mela.engine.model.BackupChange
 import dev.mela.engine.model.BackupDraft
@@ -17,47 +18,42 @@ import dev.mela.engine.model.BackupDraftId
 import dev.mela.engine.model.BackupScope
 import dev.mela.engine.model.BackupSetupEffect
 import dev.mela.engine.model.BackupView
+import dev.mela.engine.model.GalleryCollection
 import dev.mela.engine.model.GalleryMedia
+import dev.mela.engine.model.GalleryQuery
 import dev.mela.engine.model.GalleryRepository
-import dev.mela.engine.model.MediaOrigin
+import dev.mela.engine.model.GallerySort
 import dev.mela.engine.model.MaintenanceWakeup
+import dev.mela.engine.model.MediaOrigin
 import dev.mela.engine.model.PhotoCompanion
+import dev.mela.engine.model.StoredMessage
 import dev.mela.engine.model.SystemConsentCallback
-import dev.mela.engine.model.TrashAttemptId
-import dev.mela.engine.model.TrashHandoff
 import dev.mela.engine.model.TransferId
 import dev.mela.engine.model.TransferView
+import dev.mela.engine.model.TrashAttemptId
+import dev.mela.engine.model.TrashHandoff
 import dev.mela.engine.model.WakeReason
 import dev.mela.protocol.account.AppleSignInResult
 import dev.mela.protocol.account.ICloudAccountManager
 import dev.mela.protocol.account.ICloudAccountState
 import java.time.Instant
+import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
-import dev.mela.engine.model.GalleryQuery
-import dev.mela.engine.model.GalleryCollection
-import dev.mela.engine.companion.GalleryBatchActions
-import dev.mela.engine.companion.BatchAction
-import dev.mela.engine.database.BatchItemEntity
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.delay
 
 enum class GalleryFilter(val label: String) {
     ALL("All"),
@@ -193,8 +189,8 @@ class MelaViewModel(
             status.value = status.value.copy(phoneStorageChecking = true, phoneStorageError = null)
             try {
                 val usage = repository.localStorageUsage()
-                if (previewStorageBlocked && usage.availableBytes > dev.mela.engine.cache.StorageWriteGuard.RESERVE_BYTES) {
-                    previewStorageBlocked = false
+                if (previews.storageBlocked && usage.availableBytes > dev.mela.engine.cache.StorageWriteGuard.RESERVE_BYTES) {
+                    previews.storageBlocked = false
                     status.value = status.value.copy(previewRetryVersion = status.value.previewRetryVersion + 1)
                 }
                 status.value = status.value.copy(phoneStorage = usage)
@@ -205,11 +201,10 @@ class MelaViewModel(
     }
     fun clearLocalMedia(category: dev.mela.engine.model.LocalMediaCategory) = runMediaAction("local-storage", R.string.phone_storage_failed) {
         phoneStorageJob?.cancel(); phoneStorageJob?.join()
-        val previews = previewJobs.values.toList()
-        previews.forEach { it.cancel() }; previews.joinAll()
+        previews.cancelAndJoin()
         if (category == dev.mela.engine.model.LocalMediaCategory.ORIGINALS) batchActions?.cancelOfflineDownloads()
         repository.clearLocalMedia(category)
-        previewStorageBlocked = false
+        previews.storageBlocked = false
         status.value = status.value.copy(phoneStorage = repository.localStorageUsage(), phoneStorageError = null,
             message = UiMessage(R.string.phone_storage_cleared))
     }
@@ -259,7 +254,7 @@ class MelaViewModel(
                     span.finish(DiagnosticOutcome.SUCCESS)
                     return@launch
                 }
-                if (session != null && accountManager.authorizedSession == null) error("Reconnect to iCloud to check storage. Saved copies remain available.")
+                if (session != null && accountManager.authorizedSession == null) error(StoredMessage.RECONNECT_TO_ICLOUD_TO_CHECK_STORAGE_SAVED_COPIES_REMAIN_AVAILABLE.code)
                 val storage = kotlinx.coroutines.withContext(Dispatchers.IO) { repository.storageUsage() }
                 if (identity != accountManager.session.value?.dsid) return@launch
                 accountInfo.value = accountInfo.value.copy(storage = storage,
@@ -404,7 +399,7 @@ class MelaViewModel(
     }
     fun exportDocument(id: String, uri: Uri, livePair: Boolean) = runMediaAction(id, R.string.message_could_not_export_this_photo) {
         val media = repository.findMedia(id)
-            ?: error("The photo is no longer available.")
+            ?: error(StoredMessage.THE_PHOTO_IS_NO_LONGER_AVAILABLE.code)
         requireNotNull(exporter).exportDocument(media, uri, livePair)
         status.value = status.value.copy(message = UiMessage(if (livePair) R.string.message_exported_the_original_photo_and_motion_clip else R.string.message_exported_the_original))
     }
@@ -412,10 +407,14 @@ class MelaViewModel(
     private val selectedMediaId = savedState.getStateFlow<String?>("media", null)
     private val deviceMediaAccess = MutableStateFlow(false)
     private val status = MutableStateFlow(ViewModelStatus(isAccountOpen = savedState["accountOpen"] ?: false))
-    private val previewJobs = linkedMapOf<String, Job>()
-    private val runningPreviews = mutableSetOf<String>()
-    private var previewStorageBlocked = false
-    private val previewPermits = Semaphore(MAX_CONCURRENT_PREVIEWS)
+    private val previews = PreviewQueue(
+        scope = viewModelScope,
+        selectedMediaId = { selectedMediaId.value },
+        needsPreview = { id -> uiState.value.catalogItems.any { it.id == id && it.origin == MediaOrigin.ICLOUD && it.previewReference == null } },
+        load = repository::ensurePreview,
+        diagnostics = diagnostics,
+        onFailure = { error -> status.value = status.value.copy(message = error.toUserMessage(R.string.message_could_not_load_this_preview)) },
+    )
     private var refreshJob: Job? = null
     private var mediaActionJob: Job? = null
 
@@ -503,9 +502,7 @@ class MelaViewModel(
                     // Coalesce network handovers, then retire failed/in-flight reads before
                     // the existing visible-tile effects retry their bounded preview window.
                     delay(300)
-                    val oldJobs = previewJobs.values.toList()
-                    oldJobs.forEach { it.cancel() }
-                    oldJobs.joinAll()
+                    previews.cancelAndJoin()
                     status.value = status.value.copy(previewRetryVersion = status.value.previewRetryVersion + 1)
                     wasOffline = false
                 }
@@ -585,7 +582,7 @@ class MelaViewModel(
     }
 
     fun refresh() {
-        previewStorageBlocked = false
+        previews.storageBlocked = false
         viewModelScope.launch {
             if (accountManager.state.value == ICloudAccountState.Restoring && status.value.isRefreshing) return@launch
             try {
@@ -621,14 +618,14 @@ class MelaViewModel(
         signInPreviousDsid = accountManager.session.value?.dsid
         status.value = status.value.copy(accountBusy = true)
         viewModelScope.launch {
-            val accountChange = photos.accountWillChange()
-            if (accountChange is AccountChangeResult.Blocked) {
-                status.value = status.value.copy(message = localizedStoredMessage(accountChange.reason), accountBusy = false)
-                return@launch
-            }
-            cancelCloudWork()
-            status.value = status.value.copy(message = null)
             try {
+                val accountChange = photos.accountWillChange()
+                if (accountChange is AccountChangeResult.Blocked) {
+                    status.value = status.value.copy(message = localizedStoredMessage(accountChange.reason))
+                    return@launch
+                }
+                cancelCloudWork()
+                status.value = status.value.copy(message = null)
                 val result = accountManager.signIn(appleId, password)
                 if (result is AppleSignInResult.SignedIn) {
                     accountChanged(refresh = accountManager.authorizedSession != null)
@@ -648,9 +645,9 @@ class MelaViewModel(
         if (status.value.accountBusy) return
         status.value = status.value.copy(accountBusy = true)
         viewModelScope.launch {
-            cancelCloudWork()
-            status.value = status.value.copy(message = null)
             try {
+                cancelCloudWork()
+                status.value = status.value.copy(message = null)
                 accountManager.submitTwoFactor(code)
                 accountChanged(refresh = accountManager.authorizedSession != null)
             } catch (error: Throwable) {
@@ -685,14 +682,14 @@ class MelaViewModel(
 
     fun signOut() {
         viewModelScope.launch {
-            val accountChange = photos.accountWillChange()
-            if (accountChange is AccountChangeResult.Blocked) {
-                status.value = status.value.copy(message = localizedStoredMessage(accountChange.reason))
-                return@launch
-            }
-            cancelCloudWork()
-            status.value = status.value.copy(message = null)
             try {
+                val accountChange = photos.accountWillChange()
+                if (accountChange is AccountChangeResult.Blocked) {
+                    status.value = status.value.copy(message = localizedStoredMessage(accountChange.reason))
+                    return@launch
+                }
+                cancelCloudWork()
+                status.value = status.value.copy(message = null)
                 accountManager.signOut()
                 accountChanged()
             } catch (error: Throwable) {
@@ -730,13 +727,12 @@ class MelaViewModel(
         batchActions?.cancelActive()
         val jobs = buildList {
             refreshJob?.let(::add)
-            addAll(previewJobs.values)
+            addAll(previews.cancel())
             mediaActionJob?.let(::add)
             accountInfoJob?.let(::add)
         }.distinct()
         jobs.forEach(Job::cancel)
         refreshJob = null
-        previewJobs.clear()
         mediaActionJob = null
         jobs.joinAll()
         status.value = status.value.copy(activeDownloadId = null, isRefreshing = false)
@@ -779,70 +775,8 @@ class MelaViewModel(
         }
     }
 
-    fun requestPreview(mediaId: String) {
-        if (previewStorageBlocked) return
-        if (uiState.value.catalogItems.none { it.id == mediaId && it.origin == MediaOrigin.ICLOUD && it.previewReference == null }) return
-        queuePreview(mediaId)
-    }
-
-    fun prefetchPreviews(mediaIds: List<String>) {
-        val candidates = mediaIds.distinct().take(MAX_PENDING_PREVIEWS)
-        val finishing = previewJobs.keys.count { id ->
-            id !in candidates && (id in runningPreviews || id == selectedMediaId.value)
-        }
-        // Reserve room for retained in-flight work, trimming look-ahead from the end
-        // instead of dropping the first (currently visible) photos in a full window.
-        val wanted = candidates.take((MAX_PENDING_PREVIEWS - finishing).coerceAtLeast(0)).toSet()
-        // Replace obsolete queued work after a fling. Let in-flight bytes finish so
-        // briefly browsing past a photo still leaves a useful thumbnail on disk.
-        previewJobs.entries.toList().forEach { (id, job) ->
-            if (id !in wanted && id != selectedMediaId.value && id !in runningPreviews) {
-                previewJobs.remove(id)
-                job.cancel()
-            }
-        }
-        wanted.forEach(::requestPreview)
-    }
-
-    private fun queuePreview(mediaId: String) {
-        if (previewJobs[mediaId]?.isActive == true) return
-        if (previewJobs.size >= MAX_PENDING_PREVIEWS) {
-            val oldestBackground = previewJobs.entries.lastOrNull { it.key != selectedMediaId.value && it.key !in runningPreviews }
-                ?: return
-            previewJobs.remove(oldestBackground.key)
-            oldestBackground.value.cancel()
-        }
-
-        lateinit var job: Job
-        job = viewModelScope.launch(start = CoroutineStart.LAZY) {
-            val span = diagnostics.start(DiagnosticOperation.PREVIEW_DOWNLOAD)
-            try {
-                previewPermits.withPermit {
-                    if (previewStorageBlocked) return@withPermit
-                    runningPreviews += mediaId
-                    try { repository.ensurePreview(mediaId) }
-                    finally { runningPreviews -= mediaId }
-                }
-                span.finish(DiagnosticOutcome.SUCCESS)
-            } catch (error: Throwable) {
-                if (error is CancellationException) {
-                    span.finish(DiagnosticOutcome.CANCELLED)
-                    throw error
-                }
-                span.finish(DiagnosticOutcome.FAILED, error = error)
-                if (error is dev.mela.engine.cache.InsufficientStorageException) previewStorageBlocked = true
-                if (selectedMediaId.value == mediaId || previewStorageBlocked) {
-                    status.value = status.value.copy(
-                        message = error.toUserMessage(R.string.message_could_not_load_this_preview),
-                    )
-                }
-            } finally {
-                if (previewJobs[mediaId] === job) previewJobs.remove(mediaId)
-            }
-        }
-        previewJobs[mediaId] = job
-        job.start()
-    }
+    fun requestPreview(mediaId: String) = previews.request(mediaId)
+    fun prefetchPreviews(mediaIds: List<String>) = previews.prefetch(mediaIds)
 
     fun keepOriginalOffline(mediaId: String) {
         launchBatchWork {
@@ -877,7 +811,10 @@ class MelaViewModel(
         viewModelScope.launch {
             runCatching { photos.beginBackupEnrollment(BackupScope.CAMERA_JPEGS) }
                 .onSuccess(onDisclosureReady)
-                .onFailure { status.value = status.value.copy(message = it.toUserMessage(R.string.message_could_not_start_backup_setup)) }
+                .onFailure {
+                    if (it is CancellationException) throw it
+                    status.value = status.value.copy(message = it.toUserMessage(R.string.message_could_not_start_backup_setup))
+                }
         }
     }
 
@@ -893,7 +830,10 @@ class MelaViewModel(
         viewModelScope.launch {
             runCatching { photos.finishBackupEnrollment(draftId) }
                 .onSuccess { status.value = status.value.copy(message = localizedStoredMessage(it.message)) }
-                .onFailure { status.value = status.value.copy(message = it.toUserMessage(R.string.message_could_not_enable_backup)) }
+                .onFailure {
+                    if (it is CancellationException) throw it
+                    status.value = status.value.copy(message = it.toUserMessage(R.string.message_could_not_enable_backup))
+                }
         }
     }
 
@@ -901,7 +841,10 @@ class MelaViewModel(
         viewModelScope.launch {
             runCatching { photos.changeBackup(BackupChange.Disable) }
                 .onSuccess { status.value = status.value.copy(message = localizedStoredMessage(it.message)) }
-                .onFailure { status.value = status.value.copy(message = it.toUserMessage(R.string.message_could_not_disable_backup)) }
+                .onFailure {
+                    if (it is CancellationException) throw it
+                    status.value = status.value.copy(message = it.toUserMessage(R.string.message_could_not_disable_backup))
+                }
         }
     }
 
@@ -1076,8 +1019,4 @@ class MelaViewModel(
         }
     }
 
-    private companion object {
-        const val MAX_CONCURRENT_PREVIEWS = 4
-        const val MAX_PENDING_PREVIEWS = 48
-    }
 }

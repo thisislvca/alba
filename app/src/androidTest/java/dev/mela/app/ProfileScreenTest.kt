@@ -4,26 +4,26 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.LocaleList
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.*
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.mela.app.ui.ICloudAccountScreen
 import dev.mela.app.ui.theme.MelaTheme
+import dev.mela.engine.model.BackupView
 import dev.mela.engine.model.CloudAccountProfile
 import dev.mela.engine.model.CloudPlanSource
 import dev.mela.engine.model.CloudStoragePlan
-import dev.mela.engine.model.BackupView
 import dev.mela.engine.model.CloudStorageUsage
 import dev.mela.engine.model.StorageCategory
 import dev.mela.protocol.account.ICloudAccountState
 import dev.mela.protocol.account.SessionStatus
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
-import java.io.File
 
 class ProfileScreenTest {
     @get:Rule val compose = createComposeRule()
@@ -114,7 +114,7 @@ class ProfileScreenTest {
                     }
                 }
                 MelaTheme(darkTheme = darkTheme) {
-                    ICloudAccountScreen(state = state,
+                    ICloudAccountScreen(libraryActions = testLibraryActions(), state = state,
                         diagnostics = GalleryUiState(accountState = state, network = NetworkStatus(true, false),
                             lastRefreshedAt = java.time.Instant.ofEpochMilli(1_790_000_000_000),
                             phoneStorage = dev.mela.engine.model.LocalMediaStorage(120_000_000, 480_000_000, 2_400_000_000, 42_000_000_000),

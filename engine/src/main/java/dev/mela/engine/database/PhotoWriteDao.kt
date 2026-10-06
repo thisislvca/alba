@@ -5,13 +5,14 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
+import dev.mela.engine.model.StoredMessage
 import kotlinx.coroutines.flow.Flow
 
 data class TransferProjection(
     val transferId: String,
     val mediaId: String?,
     val displayName: String,
-    val state: String,
+    val state: TransferState,
     val byteCount: Long,
     val updatedAtEpochMillis: Long,
     val verifiedAtEpochMillis: Long?,
@@ -208,7 +209,7 @@ interface PhotoWriteDao {
         SET state = 'SENDING', activeAttemptId = :attemptId,
             leaseToken = NULL, leaseExpiresAtEpochMillis = NULL,
             stateVersion = stateVersion + 1, updatedAtEpochMillis = :now,
-            message = 'Uploading to iCloud'
+            message = :message
         WHERE transferId = :transferId AND state = 'READY'
           AND stateVersion = :expectedVersion AND leaseToken = :leaseToken
           AND accountId = :accountId AND authEpoch = :authEpoch
@@ -224,6 +225,7 @@ interface PhotoWriteDao {
         operationFence: Long,
         attemptId: String,
         now: Long,
+        message: String = StoredMessage.UPLOADING_TO_ICLOUD.code,
     ): Int
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
@@ -256,7 +258,7 @@ interface PhotoWriteDao {
         SET state = 'RECONCILING', stateVersion = stateVersion + 1,
             reconciliationDueAtEpochMillis = :dueAt,
             reconciliationDeadlineEpochMillis = COALESCE(reconciliationDeadlineEpochMillis, :deadline),
-            updatedAtEpochMillis = :now, message = 'Checking the exact original in iCloud'
+            updatedAtEpochMillis = :now, message = :message
         WHERE transferId = :transferId AND activeAttemptId = :attemptId
           AND state IN ('SENDING', 'OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE')
         """,
@@ -267,6 +269,7 @@ interface PhotoWriteDao {
         dueAt: Long,
         deadline: Long,
         now: Long,
+        message: String = StoredMessage.CHECKING_THE_EXACT_ORIGINAL_IN_ICLOUD.code,
     ): Int
 
     @Query(
@@ -277,7 +280,7 @@ interface PhotoWriteDao {
             reconciliationDeadlineEpochMillis = COALESCE(reconciliationDeadlineEpochMillis, :deadline),
             leaseToken = NULL, leaseExpiresAtEpochMillis = NULL,
             updatedAtEpochMillis = :now,
-            message = 'Upload result was lost. Mela will check iCloud without uploading again.'
+            message = :message
         WHERE transferId = :transferId AND activeAttemptId = :attemptId
           AND state = 'SENDING'
         """,
@@ -287,6 +290,7 @@ interface PhotoWriteDao {
         attemptId: String,
         now: Long,
         deadline: Long,
+        message: String = StoredMessage.UPLOAD_RESULT_WAS_LOST_MELA_WILL_CHECK_ICLOUD_WITHOUT_UPLOADING_AGAIN.code,
     ): Int
 
     @Query("SELECT * FROM transfers WHERE state = 'SENDING'")
@@ -354,7 +358,7 @@ interface PhotoWriteDao {
     suspend fun markUnresolvedTerminal(
         transferId: String,
         attemptId: String,
-        state: String,
+        state: TransferState,
         now: Long,
         message: String,
     ): Int
@@ -364,12 +368,12 @@ interface PhotoWriteDao {
         UPDATE transfers
         SET state = 'ABANDONED', stateVersion = stateVersion + 1,
             updatedAtEpochMillis = :now,
-            message = 'This uncertain item remains blocked from upload. Other photos may continue.'
+            message = :message
         WHERE transferId = :transferId AND activeAttemptId = :attemptId
           AND state IN ('AMBIGUOUS', 'NOT_OBSERVED')
         """,
     )
-    suspend fun abandonUnresolved(transferId: String, attemptId: String, now: Long): Int
+    suspend fun abandonUnresolved(transferId: String, attemptId: String, now: Long, message: String = StoredMessage.THIS_UNCERTAIN_ITEM_REMAINS_BLOCKED_FROM_UPLOAD_OTHER_PHOTOS_MAY_CONTINUE.code): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRemotePair(pair: RemoteAssetPairEntity)
@@ -399,7 +403,7 @@ interface PhotoWriteDao {
         SET state = 'VERIFIED', stateVersion = stateVersion + 1,
             reconciliationDueAtEpochMillis = NULL,
             verifiedAtEpochMillis = :verifiedAt, updatedAtEpochMillis = :verifiedAt,
-            message = 'Verified in iCloud'
+            message = :message
         WHERE transferId = :transferId AND activeAttemptId = :attemptId
           AND state IN ('OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE')
         """,
@@ -408,6 +412,7 @@ interface PhotoWriteDao {
         transferId: String,
         attemptId: String,
         verifiedAt: Long,
+        message: String = StoredMessage.VERIFIED_IN_ICLOUD.code,
     ): Int
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)

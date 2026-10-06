@@ -85,7 +85,7 @@ class LocalizationTest {
                 capture("02-choices-it")
                 click("Prova la demo")
                 waitFor("Alba")
-                waitFor("Demo")
+                waitFor("Foto")
                 capture("03-library-it")
                 click("Filtra e ordina")
                 waitFor("Dimensione foto")
@@ -128,7 +128,8 @@ class LocalizationTest {
             "iCloud is processing this file. The original is still on this phone.",
             "iCloud could not process this file. The original is still on this phone. This upload will not be repeated.")) {
             assertNotEquals(italian.getString(R.string.operation_needs_attention), localizedStoredMessage(message).resolve(italian))
-            assertEquals(message, localizedStoredMessage(message).resolve(localized("en")))
+            assertEquals(dev.mela.engine.model.StoredMessage.decode(message)?.legacyText ?: message,
+                localizedStoredMessage(message).resolve(localized("en")))
         }
         assertTrue(italian.getString(R.string.backup_disclosure, "family@example.com").contains("family@example.com"))
     }

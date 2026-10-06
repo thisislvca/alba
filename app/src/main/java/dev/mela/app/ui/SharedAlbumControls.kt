@@ -2,6 +2,7 @@ package dev.mela.app.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -10,12 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.dp
 import dev.mela.app.R
 import dev.mela.engine.model.*
 import kotlinx.coroutines.CancellationException
@@ -32,7 +32,7 @@ internal fun sharedRole(role: SharedAlbumRole): String = stringResource(when (ro
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SharedAlbumControls(album: GalleryCollection, actions: LibraryActions, dismiss: () -> Unit) {
+internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedActions, dismiss: () -> Unit) {
     var data by remember(album.id) { mutableStateOf<SharedAlbumManagement?>(null) }
     var error by remember(album.id) { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -155,20 +155,20 @@ private fun SharedToggle(label: String, checked: Boolean, enabled: Boolean, chan
 }
 
 @Composable
-internal fun SharedPhotoControls(media: GalleryMedia, actions: LibraryActions, dismiss: () -> Unit) =
+internal fun SharedPhotoControls(media: GalleryMedia, actions: SharedActions, dismiss: () -> Unit) =
     SharedDiscussionControls(media.id, media.fileName, false, actions, dismiss)
 
 @Composable
-internal fun SharedAssetDiscussion(id: String, title: String, actions: LibraryActions, dismiss: () -> Unit) =
+internal fun SharedAssetDiscussion(id: String, title: String, actions: SharedActions, dismiss: () -> Unit) =
     SharedDiscussionControls(id, title, false, actions, dismiss)
 
 @Composable
-internal fun SharedPostControls(post: SharedPost, actions: LibraryActions, dismiss: () -> Unit) =
+internal fun SharedPostControls(post: SharedPost, actions: SharedActions, dismiss: () -> Unit) =
     SharedDiscussionControls(post.id, post.caption.ifBlank { stringResource(R.string.shared_post_items) }, true, actions, dismiss)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SharedDiscussionControls(id: String, title: String, post: Boolean, actions: LibraryActions, dismiss: () -> Unit) {
+private fun SharedDiscussionControls(id: String, title: String, post: Boolean, actions: SharedActions, dismiss: () -> Unit) {
     val album = id.removePrefix("post:").substringBeforeLast(':')
     var discussion by remember(id) { mutableStateOf<SharedDiscussion?>(null) }
     var management by remember(id) { mutableStateOf<SharedAlbumManagement?>(null) }

@@ -1,5 +1,6 @@
 package dev.mela.engine.source
 
+import dev.mela.engine.model.StoredMessage
 /** Formats whose original bytes have been checked against Apple's Photos uploader. */
 enum class UploadMediaFormat(val mimeType: String, val extension: String, val extensions: Set<String>) {
     JPEG("image/jpeg", "jpg", setOf("jpg", "jpeg")),
@@ -45,9 +46,9 @@ enum class UploadMediaFormat(val mimeType: String, val extension: String, val ex
 
 class UnsupportedUploadException(message: String = MESSAGE) : IllegalArgumentException(message) {
     companion object {
-        const val MESSAGE = "Choose a JPEG, PNG, HEIC, still WebP, or H.264/HEVC MP4 or MOV video."
-        const val ANIMATED = "Animated images are not supported for upload yet."
-        const val VIDEO_CODEC = "This video codec is not supported for upload. Use H.264 or HEVC with AAC audio."
-        const val INVALID = "This media file could not be validated. The original has not been uploaded."
+        val MESSAGE = StoredMessage.UPLOAD_UNSUPPORTED_FORMAT.code
+        val ANIMATED = StoredMessage.UPLOAD_ANIMATED_UNSUPPORTED.code
+        val VIDEO_CODEC = StoredMessage.UPLOAD_UNSUPPORTED_CODEC.code
+        val INVALID = StoredMessage.UPLOAD_INVALID_MEDIA.code
     }
 }

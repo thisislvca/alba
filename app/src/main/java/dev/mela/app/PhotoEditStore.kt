@@ -15,7 +15,7 @@ import java.io.File
 import kotlinx.coroutines.*
 
 /** Editing always publishes a new local JPEG. Cloud and local originals are never overwritten. */
-class PhotoEditStore(context: Context, private val repository: GalleryRepository) {
+class PhotoEditStore(context: Context, private val repository: OriginalExporter) {
     private val context = context.applicationContext
     suspend fun source(media: GalleryMedia): File = withContext(Dispatchers.IO) {
         require(media.kind != MediaKind.VIDEO)

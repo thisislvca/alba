@@ -2,7 +2,6 @@ package dev.mela.engine.model
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.first
 
 data class RefreshSummary(
     val cloudItemCount: Int,
@@ -11,40 +10,57 @@ data class RefreshSummary(
     val sharedAlbumsUnavailable: Boolean = false,
 )
 
-interface GalleryRepository : SharedAlbumOperations {
-    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String): Unit = error("Shared contribution is unavailable")
-    suspend fun createSharedAlbum(name: String, operationId: String, generation: dev.mela.engine.model.SharedAlbumGeneration = dev.mela.engine.model.SharedAlbumGeneration.MODERN): GalleryCollection = error("Shared album creation is unavailable")
-    suspend fun localStorageUsage(): LocalMediaStorage = error("Phone storage information is unavailable")
-    suspend fun clearLocalMedia(category: LocalMediaCategory): Unit = error("Phone storage cleanup is unavailable")
-    suspend fun removeFromAlbum(id: String, mediaIds: List<String>): Unit = error("Album editing is unavailable")
-    suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean): Unit = error("iCloud trash is unavailable")
-    suspend fun setFavorite(mediaId: String, favorite: Boolean): Unit = error("Favorites are unavailable")
-    suspend fun createAlbum(name: String): GalleryCollection = error("Album editing is unavailable")
-    suspend fun deleteAlbum(id: String): Unit = error("Album editing is unavailable")
-    suspend fun renameAlbum(id: String, name: String): Unit = error("Album editing is unavailable")
-    suspend fun addToAlbum(id: String, mediaIds: List<String>): Unit = error("Album editing is unavailable")
-    suspend fun accountProfile(): dev.mela.engine.model.CloudAccountProfile? = null
-    suspend fun storageUsage(): CloudStorageUsage = error("Storage information is unavailable")
-    suspend fun exportOriginal(mediaId: String, output: java.io.OutputStream, motion: Boolean = false): Unit = error("Export is unavailable")
-    suspend fun findMedia(id: String): GalleryMedia? = observeGallery().first().firstOrNull { it.id == id }
+/** Reading the catalog does not imply permission to edit or export originals. */
+interface GalleryReader {
+    suspend fun findMedia(id: String): GalleryMedia?
     fun observeGallery(): Flow<List<GalleryMedia>>
-    fun observeGallery(query: GalleryQuery): Flow<List<GalleryMedia>> =
-        observeGallery().map { query.apply(it) }
-    fun observeCollections(): Flow<List<GalleryCollection>> = kotlinx.coroutines.flow.flowOf(emptyList())
-    suspend fun openPlayback(mediaId: String, position: Long, length: Long): dev.mela.engine.source.MediaRead =
-        error("Playback is unavailable")
-
-    suspend fun refreshDevice() { refresh(true) }
-
+    fun observeGallery(query: GalleryQuery): Flow<List<GalleryMedia>> = observeGallery().map { query.apply(it) }
+    fun observeCollections(): Flow<List<GalleryCollection>>
+    suspend fun refreshDevice()
     suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary
-
-    suspend fun ensureViewer(mediaId: String) { ensurePreview(mediaId) }
-
-    suspend fun ensurePreview(mediaId: String)
-
-    suspend fun keepOriginalOffline(mediaId: String)
-
-    suspend fun removeCachedOriginal(mediaId: String)
-
     suspend fun clearCloudCatalog()
+}
+
+interface OriginalExporter {
+    suspend fun exportOriginal(mediaId: String, output: java.io.OutputStream, motion: Boolean = false)
+}
+
+interface OfflineMediaStore {
+    suspend fun keepOriginalOffline(mediaId: String)
+    suspend fun removeCachedOriginal(mediaId: String)
+}
+
+interface GalleryMediaAccess : OriginalExporter, OfflineMediaStore {
+    suspend fun localStorageUsage(): LocalMediaStorage
+    suspend fun clearLocalMedia(category: LocalMediaCategory)
+    suspend fun openPlayback(mediaId: String, position: Long, length: Long): dev.mela.engine.source.MediaRead
+    suspend fun ensureViewer(mediaId: String)
+    suspend fun ensurePreview(mediaId: String)
+}
+
+interface GalleryEdits {
+    suspend fun removeFromAlbum(id: String, mediaIds: List<String>)
+    suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean)
+    suspend fun setFavorite(mediaId: String, favorite: Boolean)
+    suspend fun createAlbum(name: String): GalleryCollection
+    suspend fun deleteAlbum(id: String)
+    suspend fun renameAlbum(id: String, name: String)
+    suspend fun addToAlbum(id: String, mediaIds: List<String>)
+}
+
+/** All gallery capabilities are required here; partial consumers use the smaller interfaces above. */
+interface GalleryRepository : GalleryReader, GalleryMediaAccess, GalleryEdits, SharedAlbumOperations {
+    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String)
+    suspend fun createSharedAlbum(name: String, operationId: String, generation: SharedAlbumGeneration = SharedAlbumGeneration.MODERN): GalleryCollection
+    suspend fun accountProfile(): CloudAccountProfile?
+    suspend fun storageUsage(): CloudStorageUsage
+    override suspend fun sharedActivity(id: String, rank: Int): SharedActivityPage
+    override suspend fun sharedPostDiscussion(id: String): SharedDiscussion
+    override suspend fun sharedPostPhotos(id: String): List<String>
+    override suspend fun pendingSharedInvitations(): List<SharedInvitation>
+    override suspend fun resolveSharedInvitation(url: String): SharedInvitation
+    override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String)
+    override suspend fun sharedManagement(id: String): SharedAlbumManagement
+    override suspend fun sharedDiscussion(mediaId: String): SharedDiscussion
+    override suspend fun changeSharedAlbum(id: String, command: SharedCommand, operationId: String)
 }

@@ -12,12 +12,12 @@ import dev.mela.engine.model.BackupView
 import dev.mela.engine.model.CloudStorageUsage
 import dev.mela.engine.model.StorageCategory
 import dev.mela.protocol.account.ICloudAccountState
+import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
-import java.io.File
 
 /** Repeatable, real UI captures for the store artwork. Run alone on a disposable demo device. */
 class StoreScreenshotTest {
@@ -117,7 +117,7 @@ class StoreScreenshotTest {
             }
             compose.activity.setContent {
                 MelaTheme(darkTheme = false) {
-                    ICloudAccountScreen(
+                    ICloudAccountScreen(libraryActions = testLibraryActions(),
                         state = ICloudAccountState.SignedIn("demo@example.com"),
                         diagnostics = GalleryUiState(
                             accountState = ICloudAccountState.SignedIn("demo@example.com"),

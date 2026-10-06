@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SharedInvitations(actions: LibraryActions, dismiss: () -> Unit, initialUrl: String = "", invalidLink: Boolean = false) {
+internal fun SharedInvitations(actions: InvitationActions, dismiss: () -> Unit, initialUrl: String = "", invalidLink: Boolean = false) {
     var pending by remember { mutableStateOf<List<SharedInvitation>>(emptyList()) }
     var resolved by remember { mutableStateOf<SharedInvitation?>(null) }
     var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }

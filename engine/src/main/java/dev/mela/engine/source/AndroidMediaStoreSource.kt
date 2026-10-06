@@ -10,9 +10,10 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
-import dev.mela.engine.model.BackupScope
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import dev.mela.engine.model.BackupScope
+import dev.mela.engine.model.StoredMessage
 import java.io.OutputStream
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
@@ -112,10 +113,10 @@ class AndroidMediaStoreSource(
         require(scope == BackupScope.CAMERA_JPEGS)
         require(limit in 1..200) { "MediaStore discovery limit must be between 1 and 200" }
         check(hasAutomaticBackupAccess()) {
-            "Automatic backup needs full photo access and precise media location access."
+            StoredMessage.AUTOMATIC_BACKUP_NEEDS_FULL_PHOTO_ACCESS_AND_PRECISE_MEDIA_LOCATION_ACCESS.code
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            error("Automatic backup requires Android 11 or later.")
+            error(StoredMessage.AUTOMATIC_BACKUP_REQUIRES_ANDROID_11_OR_LATER.code)
         }
 
         val volume = MediaStore.VOLUME_EXTERNAL
@@ -178,13 +179,13 @@ class AndroidMediaStoreSource(
 
     override suspend fun captureEnrollmentBaseline(): LocalDiscoveryCheckpoint = withContext(Dispatchers.IO) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            error("Automatic backup requires Android 11 or later.")
+            error(StoredMessage.AUTOMATIC_BACKUP_REQUIRES_ANDROID_11_OR_LATER.code)
         }
         check(hasAutomaticBackupAccess())
         val volume = MediaStore.VOLUME_EXTERNAL
         val version = MediaStore.getVersion(appContext, volume)
         val generation = MediaStore.getGeneration(appContext, volume)
-        check(MediaStore.getVersion(appContext, volume) == version) { "MediaStore changed during backup setup" }
+        check(MediaStore.getVersion(appContext, volume) == version) { StoredMessage.MEDIASTORE_CHANGED_DURING_BACKUP_SETUP.code }
         LocalDiscoveryCheckpoint(volume, version, generation, Long.MAX_VALUE)
     }
 
@@ -193,10 +194,10 @@ class AndroidMediaStoreSource(
     }.getOrNull()
 
     override fun createTrashRequest(contentUris: List<String>) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        require(contentUris.isNotEmpty()) { "Select at least one photo to move to trash" }
+        require(contentUris.isNotEmpty()) { StoredMessage.SELECT_AT_LEAST_ONE_PHOTO_TO_MOVE_TO_TRASH.code }
         MediaStore.createTrashRequest(resolver, contentUris.map { it.toUri() }, true).intentSender
     } else {
-        error("Android trash requires Android 11 or later")
+        error(StoredMessage.ANDROID_TRASH_REQUIRES_ANDROID_11_OR_LATER.code)
     }
 
     override suspend fun readTrashState(contentUri: String): LocalTrashState? = withContext(Dispatchers.IO) {
@@ -316,7 +317,7 @@ class AndroidMediaStoreSource(
     ): ExactOriginalEvidence {
         val before = readSourceMetadata(uri, displayNameHint)
         if (expectedRevision != null) {
-            require(before.revision == expectedRevision) { "This photo changed before it could be staged." }
+            require(before.revision == expectedRevision) { StoredMessage.THIS_PHOTO_CHANGED_BEFORE_IT_COULD_BE_STAGED.code }
         }
         val isMediaStore = uri.authority == MediaStore.AUTHORITY
         val requireOriginalUri = if (requireMediaStoreOriginal && isMediaStore &&
@@ -348,13 +349,13 @@ class AndroidMediaStoreSource(
                 }
             }
         } catch (error: SecurityException) {
-            throw IllegalStateException("Android did not grant access to the exact original.", error)
+            throw IllegalStateException(StoredMessage.ANDROID_DID_NOT_GRANT_ACCESS_TO_THE_EXACT_ORIGINAL.code, error)
         }
 
         val format = UploadMediaFormat.detect(prefix.copyOf(prefixCount))
         val after = readSourceMetadata(uri, displayNameHint)
-        require(before.revision == after.revision && before.lastModifiedAtEpochMillis == after.lastModifiedAtEpochMillis) { "This photo changed while it was being staged." }
-        require(byteCount > 0L) { "The selected photo was empty." }
+        require(before.revision == after.revision && before.lastModifiedAtEpochMillis == after.lastModifiedAtEpochMillis) { StoredMessage.THIS_PHOTO_CHANGED_WHILE_IT_WAS_BEING_STAGED.code }
+        require(byteCount > 0L) { StoredMessage.THE_SELECTED_PHOTO_WAS_EMPTY.code }
 
         return ExactOriginalEvidence(
             contentUri = uri.toString(),
@@ -375,13 +376,13 @@ class AndroidMediaStoreSource(
 
     private fun openExactStream(uri: Uri, originalFormatRequested: Boolean): java.io.InputStream {
         if (!originalFormatRequested || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            return resolver.openInputStream(uri) ?: error("Android could not open this photo.")
+            return resolver.openInputStream(uri) ?: error(StoredMessage.ANDROID_COULD_NOT_OPEN_THIS_PHOTO.code)
         }
         val descriptor = resolver.openTypedAssetFileDescriptor(
             uri,
             "*/*",
             Bundle().apply { putBoolean(MediaStore.EXTRA_ACCEPT_ORIGINAL_MEDIA_FORMAT, true) },
-        ) ?: error("Android could not open this photo.")
+        ) ?: error(StoredMessage.ANDROID_COULD_NOT_OPEN_THIS_PHOTO.code)
         return descriptor.createInputStream()
     }
 

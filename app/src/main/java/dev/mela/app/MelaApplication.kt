@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import kotlinx.coroutines.flow.first
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -18,8 +17,9 @@ import dev.mela.engine.cache.MediaFileCache
 import dev.mela.engine.cache.UploadStagingStore
 import dev.mela.engine.companion.DefaultPhotoCompanion
 import dev.mela.engine.database.MelaDatabase
-import dev.mela.engine.model.MaintenanceWakeup
 import dev.mela.engine.model.AutomaticBackupPolicy
+import dev.mela.engine.model.MaintenanceWakeup
+import dev.mela.engine.model.StoredMessage
 import dev.mela.engine.model.WakeupScheduler
 import dev.mela.engine.repository.DefaultGalleryRepository
 import dev.mela.engine.source.AndroidMediaStoreSource
@@ -113,7 +113,7 @@ class MelaGraph(context: Context, val diagnostics: SentryMelaDiagnostics) {
     val batches = dev.mela.engine.companion.GalleryBatchActions(database.libraryDao(), galleryRepository, photos,
         saveToPhone = { id ->
             val media = galleryRepository.findMedia(id)
-                ?: error("The photo is no longer available.")
+                ?: error(StoredMessage.THE_PHOTO_IS_NO_LONGER_AVAILABLE.code)
             GalleryExporter(appContext, galleryRepository).saveToGallery(media)
         }) { cloudCatalog.accountLabel }
 }

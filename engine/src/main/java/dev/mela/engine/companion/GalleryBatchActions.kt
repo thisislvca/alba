@@ -1,23 +1,24 @@
 package dev.mela.engine.companion
 
+import dev.mela.engine.cache.InsufficientStorageException
 import dev.mela.engine.database.BatchItemEntity
 import dev.mela.engine.database.LibraryDao
-import dev.mela.engine.model.GalleryRepository
+import dev.mela.engine.model.OfflineMediaStore
 import dev.mela.engine.model.PhotoCompanion
+import dev.mela.engine.model.StoredMessage
 import dev.mela.engine.model.UserSelectedPhoto
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
-import dev.mela.engine.cache.InsufficientStorageException
 
 enum class BatchAction { KEEP_OFFLINE, REMOVE_CACHE, UPLOAD, PICKER_UPLOAD, SAVE_TO_PHONE }
 
-class GalleryBatchActions(private val dao: LibraryDao, private val gallery: GalleryRepository,
+class GalleryBatchActions(private val dao: LibraryDao, private val gallery: OfflineMediaStore,
     private val photos: PhotoCompanion,
     private val saveToPhone: suspend (String) -> Unit = { error("Saving to phone is unavailable") },
     private val account: () -> String) {
@@ -84,14 +85,14 @@ class GalleryBatchActions(private val dao: LibraryDao, private val gallery: Gall
 
     private suspend fun runItem(row: BatchItemEntity) {
         if (row.account != account()) {
-            dao.finishPendingBatch(row.batchId, row.mediaId, "STOPPED", "Account changed")
+            dao.finishPendingBatch(row.batchId, row.mediaId, "STOPPED", StoredMessage.ACCOUNT_CHANGED.code)
             return
         }
         val action = BatchAction.valueOf(row.action)
         val isUpload = action == BatchAction.UPLOAD || action == BatchAction.PICKER_UPLOAD
         if ((isUpload || action == BatchAction.SAVE_TO_PHONE) && row.state == "RUNNING") {
             dao.finishPendingBatch(row.batchId, row.mediaId, "NEEDS_ATTENTION", if (isUpload)
-                "Check the upload queue before selecting this item again" else "Check your phone gallery before saving this item again")
+                StoredMessage.CHECK_THE_UPLOAD_QUEUE_BEFORE_SELECTING_THIS_ITEM_AGAIN.code else StoredMessage.CHECK_PHONE_GALLERY_BEFORE_RETRY.code)
             return
         }
         if (dao.startBatchItem(row.batchId, row.mediaId) == 0) return
@@ -101,17 +102,17 @@ class GalleryBatchActions(private val dao: LibraryDao, private val gallery: Gall
                 BatchAction.REMOVE_CACHE -> gallery.removeCachedOriginal(row.mediaId)
                 BatchAction.SAVE_TO_PHONE -> saveToPhone(row.mediaId)
                 BatchAction.UPLOAD, BatchAction.PICKER_UPLOAD -> uploads.withLock {
-                    check(row.account == account()) { "Account changed" }
+                    check(row.account == account()) { StoredMessage.ACCOUNT_CHANGED.code }
                     if (action == BatchAction.UPLOAD) photos.uploadDeviceMedia(row.mediaId)
                     else photos.uploadSelected(UserSelectedPhoto(row.mediaId))
                 }
             }
-            dao.finishPendingBatch(row.batchId, row.mediaId, "DONE", if (isUpload) "Queued" else null)
+            dao.finishPendingBatch(row.batchId, row.mediaId, "DONE", if (isUpload) StoredMessage.QUEUED.code else null)
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (error: Exception) {
             val message = if (error is dev.mela.engine.source.UnsupportedUploadException) requireNotNull(error.message)
                 else if (error is InsufficientStorageException) requireNotNull(error.message)
-                else if (isUpload) "Could not stage this file; check file access and the upload queue" else "Could not complete this item"
+                else if (isUpload) StoredMessage.UPLOAD_STAGE_FAILED.code else StoredMessage.COULD_NOT_COMPLETE_THIS_ITEM.code
             dao.finishPendingBatch(row.batchId, row.mediaId, "FAILED", message)
             if (error is InsufficientStorageException) dao.failWaitingBatch(row.batchId, message)
         }

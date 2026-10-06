@@ -18,7 +18,7 @@ import dev.mela.engine.model.LocalMediaCategory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PhoneStorageCard(state: GalleryUiState, actions: LibraryActions) {
+internal fun PhoneStorageCard(state: GalleryUiState, actions: StorageActions) {
     var open by rememberSaveable { mutableStateOf(false) }
     OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().testTag("phone-storage-button")) {
         Text(stringResource(R.string.phone_storage_title))
@@ -31,7 +31,7 @@ internal fun PhoneStorageCard(state: GalleryUiState, actions: LibraryActions) {
 }
 
 @Composable
-internal fun PhoneStorageDetails(state: GalleryUiState, actions: LibraryActions) {
+internal fun PhoneStorageDetails(state: GalleryUiState, actions: StorageActions) {
     var confirming by rememberSaveable { mutableStateOf<LocalMediaCategory?>(null) }
     LaunchedEffect(Unit) { actions.checkPhoneStorage() }
     val context = LocalContext.current
