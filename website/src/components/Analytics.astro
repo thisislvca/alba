@@ -1,0 +1,96 @@
+<section id="analytics-choice" class="analytics-choice" aria-label="Analytics preferences" hidden>
+  <p>May we use Google Analytics to understand visits to this website? <a href="/privacy/#website">Privacy details</a></p>
+  <div class="analytics-actions">
+    <button type="button" data-analytics-choice="denied">Reject</button>
+    <button type="button" data-analytics-choice="granted">Accept</button>
+  </div>
+</section>
+
+<script>
+  const measurementId = 'G-W026QZQ1MZ';
+  const preferenceKey = 'alba-analytics-consent';
+  const panel = document.querySelector<HTMLElement>('#analytics-choice');
+  const settings = document.querySelector<HTMLButtonElement>('#analytics-settings');
+  // A copied site must not send visits to Alba, even when built in production mode.
+  const enabled = import.meta.env.PROD && location.hostname === 'alba.lvca.me';
+  let started = false;
+  const analyticsWindow = window as typeof window & {
+    dataLayer?: IArguments[];
+    gtag?: (...args: unknown[]) => void;
+    [key: `ga-disable-${string}`]: boolean;
+  };
+
+  function readPreference() {
+    try { return localStorage.getItem(preferenceKey); } catch { return null; }
+  }
+
+  function startAnalytics() {
+    if (!enabled || started) return;
+    started = true;
+    analyticsWindow.dataLayer = analyticsWindow.dataLayer || [];
+    analyticsWindow.gtag = function (..._args: unknown[]) {
+      analyticsWindow.dataLayer!.push(arguments);
+    };
+    const gtag = analyticsWindow.gtag;
+    gtag('consent', 'default', {
+      analytics_storage: 'granted', ad_storage: 'denied',
+      ad_user_data: 'denied', ad_personalization: 'denied',
+    });
+    gtag('js', new Date());
+    gtag('config', measurementId, {
+      cookie_domain: 'alba.lvca.me',
+      cookie_expires: 60 * 60 * 24 * 180,
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false,
+      page_location: location.origin + location.pathname,
+    });
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
+    document.head.append(script);
+  }
+
+  function choose(preference: string) {
+    try { localStorage.setItem(preferenceKey, preference); } catch {}
+    if (panel) panel.hidden = true;
+    if (preference === 'granted') {
+      analyticsWindow[`ga-disable-${measurementId}`] = false;
+      analyticsWindow.gtag?.('consent', 'update', { analytics_storage: 'granted' });
+      startAnalytics();
+    } else {
+      analyticsWindow[`ga-disable-${measurementId}`] = true;
+      analyticsWindow.gtag?.('consent', 'update', { analytics_storage: 'denied' });
+      for (const cookie of document.cookie.split(';')) {
+        const name = cookie.trim().split('=')[0];
+        if (name === '_ga' || name.startsWith('_ga_')) {
+          document.cookie = `${name}=; Max-Age=0; Path=/; Domain=alba.lvca.me; SameSite=Lax`;
+          document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
+        }
+      }
+      // Unload an already running tag after withdrawing consent.
+      if (started) location.reload();
+    }
+  }
+
+  if (enabled) {
+    if (settings) settings.hidden = false;
+    const preference = readPreference();
+    if (preference === 'granted') startAnalytics();
+    else if (preference !== 'denied' && panel) panel.hidden = false;
+    panel?.querySelectorAll<HTMLButtonElement>('[data-analytics-choice]').forEach(button => {
+      button.addEventListener('click', () => choose(button.dataset.analyticsChoice!));
+    });
+    settings?.addEventListener('click', () => {
+      if (panel) { panel.hidden = false; panel.querySelector<HTMLButtonElement>('button')?.focus(); }
+    });
+  }
+</script>
+
+<style>
+  .analytics-choice { position: fixed; z-index: 50; bottom: 20px; left: 20px; right: 20px; max-width: 560px; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--text); box-shadow: 0 8px 32px #0003; }
+  .analytics-choice[hidden] { display: none; }
+  p { margin: 0 0 16px; font-size: 14px; }
+  a { color: var(--accent); text-decoration: underline; }
+  .analytics-actions { display: flex; gap: 12px; }
+  button { flex: 1; padding: 10px 18px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--text); }
+</style>

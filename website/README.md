@@ -1,6 +1,6 @@
 # Alba website
 
-Astro + Tailwind CSS landing page for `alba.lvca.me`. Static output, no app backend and no website analytics. Includes support and privacy pages; the latter imports the repository's `PRIVACY.md` at build time. Contact: `alba@lvca.me`.
+Astro + Tailwind CSS landing page for `alba.lvca.me`. Static output, no app backend and consent-based Google Analytics. Includes support and privacy pages; the latter imports the repository's `PRIVACY.md` at build time. Contact: `alba@lvca.me`.
 
 ```sh
 nvm use
@@ -30,3 +30,11 @@ The `github-pages` environment allows deployment from `main`. App releases use s
 DNS: DNS-only CNAME `alba` to `thisislvca.github.io` in Cloudflare. Keep `public/CNAME` and the configured Astro site origin at `alba.lvca.me`. The former generated `gh-pages` branch is historical and no longer controls deployment. Never publish through the private archive remote (`origin`); use the public repository.
 
 The website copy is written for launch. Download links use the Android application ID (`com.mannaworks.mela`) by default. Set `PUBLIC_PLAY_STORE_URL` if the confirmed listing differs; all store links share `src/config.ts`. No release version, waitlist, pricing, or donation destination is included.
+
+## Website analytics
+
+Direct `gtag.js` uses measurement ID `G-W026QZQ1MZ` in `src/components/Analytics.astro`. Google Analytics account **Alba** (`411562054`), property **Alba Website** (`558481450`), and web stream `16108441349` are separate from other products. No GTM container snippet is installed.
+
+The tag loads only in production builds on the exact hostname `alba.lvca.me`, after opt-in. Rejecting sends no analytics requests; the footer preferences control permits withdrawal. Ads consent, Google signals, and ad personalization are disabled. The GA property must retain an active **Web hostname traffic / Include only / exactly matches alba.lvca.me** filter. Hostname filtering is not authentication against forged traffic; no Measurement Protocol API secret is used.
+
+The measurement ID is public. Forks should use their own GA property, hostname guard, and privacy disclosure rather than removing the guard and sending to Alba.

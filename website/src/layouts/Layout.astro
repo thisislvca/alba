@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import Icon from '../components/Icon.astro';
+import Analytics from '../components/Analytics.astro';
 import { playStoreUrl } from '../config';
 interface Props { title?: string; description?: string }
 const { title='Alba — your iCloud photos, on Android.', description='Browse your iCloud photos and Shared Albums on Android. Alba is free, open source and connects your phone directly to Apple.' } = Astro.props;
@@ -33,13 +34,15 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
         <div class="footer-top flex flex-wrap items-center justify-between gap-6"><a class="wordmark flex items-center gap-2" href="/"><img src="/images/mark.png" width="38" height="24" alt="" />Alba</a><span>An independent Android app.</span></div>
         <div class="footer-bottom flex flex-wrap items-center justify-between gap-6">
           <div class="flex flex-wrap gap-6"><a href="/privacy/">Privacy</a><a href="/support/">Support</a><a href="https://github.com/thisislvca/alba">GitHub ↗</a><a href="mailto:alba@lvca.me">Contact ↗</a></div>
+          <button id="analytics-settings" class="theme-toggle" type="button" hidden>Analytics preferences</button>
           <button class="theme-toggle" type="button" aria-label="Switch to light appearance"><span class="theme-symbol" aria-hidden="true">◐</span><span class="theme-label">Dark</span></button>
         </div>
         <p class="legal">An independent project. Not affiliated with Apple or Google.<br />iCloud is a trademark of Apple Inc. Android is a trademark of Google LLC.</p>
       </div>
     </footer>
+    <Analytics />
     <script>
-      const themeButton=document.querySelector<HTMLButtonElement>('.theme-toggle');
+      const themeButton=document.querySelector<HTMLButtonElement>('.theme-toggle[aria-label]');
       function updateThemeLabel(){ const dark=document.documentElement.dataset.theme==='dark'; themeButton?.setAttribute('aria-label',`Switch to ${dark?'light':'dark'} appearance`); const label=document.querySelector('.theme-label');if(label)label.textContent=dark?'Dark':'Light'; }
       updateThemeLabel();
       themeButton?.addEventListener('click',()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('alba-theme',next);}catch{}updateThemeLabel();});

@@ -9,3 +9,5 @@ html{scroll-behavior:smooth;scroll-padding-top:90px;}body{margin:0;background:va
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}*,*::before,*::after{transition:none!important;animation:none!important;}.reveal-ready{opacity:1;transform:none;}}
 @media(prefers-reduced-transparency:reduce){.site-header{background:var(--bg);backdrop-filter:none;}}
 @media(prefers-contrast:more){:root{--muted:#ccc;--line:#ffffff66;}:root[data-theme=light]{--muted:#444;--line:#0006;}}
+
+#analytics-settings[hidden]{display:none;}
