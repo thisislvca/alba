@@ -38,21 +38,3 @@ internal fun ComposeTestRule.waitForVideoPlaying() = waitUntil(15_000) {
         it.config.getOrNull(SemanticsProperties.StateDescription) == "Playing"
     }
 }
-
-internal fun ComposeTestRule.pauseVideo() {
-    // The overlay auto-hides after three seconds. Keep Compose's test clock from
-    // running that timer to completion while synchronizing the two touch events.
-    val autoAdvance = mainClock.autoAdvance
-    mainClock.autoAdvance = false
-    try {
-        onNodeWithTag("video-player").performClick()
-        mainClock.advanceTimeBy(100)
-        onNodeWithTag("video-play-pause").performClick()
-        mainClock.advanceTimeBy(100)
-    } finally { mainClock.autoAdvance = autoAdvance }
-    waitUntil(5_000) {
-        onAllNodesWithTag("video-player").fetchSemanticsNodes().any {
-            it.config.getOrNull(SemanticsProperties.StateDescription) == "Ready"
-        }
-    }
-}

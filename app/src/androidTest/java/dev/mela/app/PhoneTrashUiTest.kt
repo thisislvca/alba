@@ -61,8 +61,6 @@ class PhoneTrashUiTest {
                 screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
             }
             screenshot.recycle()
-            compose.pauseVideo()
-            compose.onNodeWithTag("video-play-pause").performClick()
             compose.waitUntil(5_000) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, context.getString(R.string.playing))).fetchSemanticsNodes().isNotEmpty() }
             compose.openViewerDetails()
             compose.onNodeWithText(context.getString(R.string.trash_phone_copy)).performScrollTo().performClick()
