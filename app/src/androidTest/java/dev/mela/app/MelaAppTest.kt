@@ -1,28 +1,9 @@
 package dev.mela.app
 
-import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.*
+
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.performScrollToKey
-import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.longClick
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.matcher.ViewMatchers.withContentDescription
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -37,12 +18,12 @@ class MelaAppTest {
     @Test
     fun browseFixtureAndKeepAnOriginalOffline() {
         waitForDemoLibrary()
-        compose.onNodeWithText("Demo").assertIsDisplayed()
+        compose.onNodeWithTag("tab-LIBRARY").assertIsSelected()
 
-        compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0001")
+        compose.scrollToGalleryMedia("fixture:icloud:0001")
         compose.onNodeWithTag("media-fixture:icloud:0001").performClick()
         compose.onNodeWithContentDescription("IMG_8421.JPG").assertIsDisplayed()
-        compose.onNodeWithText("Details").performClick()
+        compose.openViewerDetails()
         compose.onAllNodesWithText("IMG_8421.JPG").onFirst().assertIsDisplayed()
 
         compose.waitUntil(timeoutMillis = 15_000) {
@@ -65,24 +46,18 @@ class MelaAppTest {
     @Test
     fun demoVideoActuallyPlaysAndCapturesFeatureScreens() {
         waitForDemoLibrary()
-        compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0019")
+        compose.scrollToGalleryMedia("fixture:icloud:0019")
         capture("features-gallery.png")
         compose.onNodeWithTag("media-fixture:icloud:0019").performClick()
-        compose.waitUntil(timeoutMillis = 15000) {
-            compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Ready")).fetchSemanticsNodes().isNotEmpty()
-        }
-        // Media3 controls are native Android views, outside Compose's semantics tree.
-        onView(withContentDescription("Play")).perform(click())
-        compose.waitUntil(timeoutMillis = 5000) {
-            compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Playing")).fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitForVideoPlaying()
+        compose.pauseVideo()
+        compose.onNodeWithTag("video-play-pause").performClick()
+        compose.waitForVideoPlaying()
         capture("features-video.png")
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
-        compose.waitUntil(timeoutMillis = 5000) {
-            compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Playing")).fetchSemanticsNodes().isEmpty()
-        }
-        compose.onNodeWithText("Details").performClick()
+        compose.waitForVideoPlaying()
+        compose.openViewerDetails()
         if (hasNodeWithText("Remove offline copy")) {
             compose.onNodeWithText("Remove offline copy").performScrollTo().performClick()
             compose.waitUntil(timeoutMillis = 15_000) { hasNodeWithText("Keep original offline") }
@@ -116,14 +91,14 @@ class MelaAppTest {
         compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
         compose.activityRule.scenario.recreate()
         compose.waitUntil(timeoutMillis = 15000) { hasNodeWithText("Sea breeze") }
-        compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0019")
+        compose.scrollToGalleryMedia("fixture:icloud:0019")
         compose.onNodeWithTag("media-fixture:icloud:0019").performTouchInput { longClick() }
         compose.onNodeWithText("1 selected").assertIsDisplayed()
         compose.onNodeWithContentDescription("Cancel selection").performClick()
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithText("1 selected").assertDoesNotExist()
         compose.onNodeWithText("Favorites").performClick()
-        compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0019")
+        compose.scrollToGalleryMedia("fixture:icloud:0019")
         compose.onNodeWithContentDescription("Back to collections").performClick()
         compose.onNodeWithTag("collection-albums").performClick()
         compose.onNodeWithText("Journeys").performClick()
@@ -154,13 +129,14 @@ class MelaAppTest {
     fun androidBackClearsSelectionAndDetailKeepsGalleryPosition() {
         waitForDemoLibrary()
         val media = "media-fixture:icloud:0019"
-        compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0019")
+        compose.scrollToGalleryMedia("fixture:icloud:0019")
         compose.onNodeWithTag(media).performTouchInput { longClick() }
         compose.onNodeWithTag(media).assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag(media).assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, false))
         compose.onNodeWithTag(media).performClick()
-        compose.onNodeWithContentDescription("Back to gallery").performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isNotEmpty() }
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithTag(media).assertIsDisplayed()
     }
 

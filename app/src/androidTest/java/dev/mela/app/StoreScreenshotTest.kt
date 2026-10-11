@@ -15,19 +15,11 @@ import dev.mela.protocol.account.ICloudAccountState
 import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 
 /** Repeatable, real UI captures for the store artwork. Run alone on a disposable demo device. */
 class StoreScreenshotTest {
-    // Check before Compose runs the test in its coroutine, so JUnit records a skip.
-    @get:Rule(order = 0) val captureRequested = object : org.junit.rules.ExternalResource() {
-        override fun before() {
-            assumeTrue("Store captures run only when explicitly requested",
-                InstrumentationRegistry.getArguments().getString("captureStoreScreenshots") == "true")
-        }
-    }
     @get:Rule(order = 1) val onboarding = OnboardingRule()
     @get:Rule(order = 2) val compose = createAndroidComposeRule<MainActivity>()
     private val repository get() = (compose.activity.application as MelaApplication).graph.galleryRepository
@@ -53,6 +45,8 @@ class StoreScreenshotTest {
         compose.waitUntil(15_000) { compose.onAllNodesWithTag(if (id == "fixture:icloud:0019") "video-player" else "viewer-image-$id").fetchSemanticsNodes().isNotEmpty() }
     }
     @Test fun captureStoreScreens() {
+        // This opt-in capture utility produces store artwork; ordinary device runs do not capture it.
+        if (InstrumentationRegistry.getArguments().getString("captureStoreScreenshots") != "true") return
         compose.waitUntil(20_000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
         if (compose.onAllNodesWithText("Not now").fetchSemanticsNodes().isNotEmpty()) {
             compose.onNodeWithText("Not now").performScrollTo().performClick()

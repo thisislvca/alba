@@ -38,7 +38,7 @@ class AppSurfacesTest {
         compose.onNodeWithText(label(R.string.no_transfers_yet)).assertIsDisplayed()
         capture("activity")
         compose.onNodeWithContentDescription(label(R.string.close_surface)).performClick()
-        compose.onNodeWithTag("filter-button").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.filter_and_sort)).performClick()
         val sheet = compose.onNodeWithTag("gallery-filter-sheet").fetchSemanticsNode().boundsInRoot
         val screenHeight = compose.activity.resources.displayMetrics.heightPixels
         assertTrue("Sheet must leave visible space above its handle", sheet.top >= screenHeight * .15f)
@@ -55,7 +55,8 @@ class AppSurfacesTest {
             swipe(Offset(center.x, 8f), Offset(center.x, height - 1f), 400)
         }
         compose.waitUntil(5000) { compose.onAllNodesWithTag("gallery-filter-sheet").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithContentDescription(label(R.string.browse_by_date)).performClick()
+        compose.scrollToGalleryMedia("fixture:icloud:0016")
+        compose.onNodeWithTag("floating-date-button").performClick()
         capture("dates")
         compose.onNodeWithContentDescription(label(R.string.close_surface)).performClick()
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()

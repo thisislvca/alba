@@ -25,7 +25,7 @@ class GalleryWorkflowDeviceTest {
     private fun text(id: Int) = compose.activity.getString(id)
     private fun loaded() = compose.waitUntil(20_000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
     private fun open(id: String) {
-        compose.onNodeWithTag("gallery-grid").performScrollToKey(id)
+        compose.scrollToGalleryMedia(id)
         compose.onNodeWithTag("media-$id").performClick()
     }
     private fun player(view: View = compose.activity.window.decorView): Player? {
@@ -61,7 +61,7 @@ class GalleryWorkflowDeviceTest {
         val name = "Workflow ${System.nanoTime()}"
         try {
             open("fixture:icloud:0016")
-            compose.onNodeWithContentDescription(text(R.string.photo_details_and_actions)).performClick()
+            compose.openViewerDetails()
             compose.onNodeWithText(text(R.string.add_to_album)).performScrollTo().performClick()
             capture("album-picker")
             compose.onNodeWithText(text(R.string.new_album)).performClick()
@@ -76,7 +76,7 @@ class GalleryWorkflowDeviceTest {
 
     @Test fun accessibleCropUndoAndDirtyExitSurviveRecreation() {
         loaded(); open("fixture:icloud:0016")
-        compose.onNodeWithContentDescription(text(R.string.edit_photo)).performClick()
+        compose.onNodeWithContentDescription(text(R.string.viewer_edit)).performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isNotEmpty() }
         val before = compose.onNodeWithTag("photo-crop").fetchSemanticsNode().config[SemanticsProperties.StateDescription]
         val adjustment = compose.onNodeWithTag("photo-crop").fetchSemanticsNode().config[SemanticsActions.CustomActions][1]
@@ -112,9 +112,9 @@ class GalleryWorkflowDeviceTest {
         val graph = (compose.activity.application as MelaApplication).graph
         val previousBatches = runBlocking { graph.batches.observe().first().map { it.batchId }.toSet() }
         try {
-            compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0016")
+            compose.scrollToGalleryMedia("fixture:icloud:0016")
             compose.onNodeWithTag("media-fixture:icloud:0016").performTouchInput { longClick() }
-            compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0017")
+            compose.scrollToGalleryMedia("fixture:icloud:0017")
             compose.onNodeWithTag("media-fixture:icloud:0017").performClick()
             compose.onNodeWithTag("save-selection-to-phone").performScrollTo().performClick()
             compose.waitUntil(20_000) { runBlocking { graph.batches.observe().first().count {

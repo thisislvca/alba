@@ -29,7 +29,7 @@ class PhotoExtensionsTest {
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithText("Favorites").performClick()
         open("fixture:icloud:0001")
-        compose.onNodeWithText("Details").performClick()
+        compose.openViewerDetails()
         compose.onNodeWithText("Unfavorite").performScrollTo().performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Favorite").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Favorite").performScrollTo().performClick()
@@ -51,7 +51,7 @@ class PhotoExtensionsTest {
         compose.onNodeWithTag("tab-LIBRARY").performClick()
         compose.onNodeWithTag("tab-LIBRARY").assertIsSelected()
         open("fixture:icloud:0001")
-        compose.onNodeWithText("Details").performClick()
+        compose.openViewerDetails()
         compose.onNodeWithText("Add to album").performScrollTo().performClick()
         compose.onNodeWithText("Extension renamed").performClick()
         val graph = (compose.activity.application as MelaApplication).graph

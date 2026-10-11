@@ -15,7 +15,7 @@ class GalleryImprovementsTest {
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     private fun loaded() = compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
     private fun open(id: String) {
-        compose.onNodeWithTag("gallery-grid").performScrollToKey("$id")
+        compose.scrollToGalleryMedia("$id")
         compose.onNodeWithTag("media-$id").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isNotEmpty() }
     }
@@ -72,7 +72,7 @@ class GalleryImprovementsTest {
 
     @Test fun dateAndDensityRestoreAndMonthJumpReachesPhotos() {
         loaded()
-        compose.onNodeWithTag("filter-button").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.filter_and_sort)).performClick()
         compose.onNodeWithText("Added", useUnmergedTree = true).performScrollTo().performClick()
         compose.onNodeWithText("Large").performScrollTo().performClick()
         compose.activityRule.scenario.recreate()
@@ -80,7 +80,8 @@ class GalleryImprovementsTest {
         compose.onNodeWithText("Large").performScrollTo().assertIsSelected()
         capture("filters")
         compose.onNodeWithText("Show photos").performClick()
-        compose.onNodeWithContentDescription("Browse by date").performClick()
+        compose.scrollToGalleryMedia("fixture:icloud:0016")
+        compose.onNodeWithTag("floating-date-button").performClick()
         capture("dates")
         // Demo spans months; selecting the earliest jumps to that month's grid header.
         val repository = (compose.activity.application as MelaApplication).graph.galleryRepository

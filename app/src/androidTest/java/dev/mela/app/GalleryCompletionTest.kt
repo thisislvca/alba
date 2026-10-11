@@ -75,9 +75,9 @@ class GalleryCompletionTest {
         loaded()
         val id = "fixture:icloud:0017"
         try {
-            compose.onNodeWithTag("gallery-grid").performScrollToKey(id)
+            compose.scrollToGalleryMedia(id)
             compose.onNodeWithTag("media-$id").performClick()
-            compose.onNodeWithContentDescription(compose.activity.getString(R.string.photo_details_and_actions)).performClick()
+            compose.openViewerDetails()
             val trash = compose.activity.getString(R.string.trash_in_icloud)
             compose.onNodeWithText(trash).performScrollTo().performClick()
             compose.onNodeWithText(compose.activity.resources.getQuantityString(R.plurals.cloud_trash_confirmation, 1, 1)).assertIsDisplayed()
@@ -122,7 +122,7 @@ class GalleryCompletionTest {
             compose.onNodeWithTag("media-$id").assertIsDisplayed()
             capture("icloud-recently-deleted")
             compose.onNodeWithTag("media-$id").performClick()
-            compose.onNodeWithContentDescription(compose.activity.getString(R.string.photo_details_and_actions)).performClick()
+            compose.openViewerDetails()
             val restore = compose.activity.getString(R.string.restore_from_icloud)
             compose.onNodeWithText(restore).performScrollTo().performClick()
             compose.onAllNodesWithText(restore).onLast().performClick()

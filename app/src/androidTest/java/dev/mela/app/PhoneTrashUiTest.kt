@@ -7,9 +7,6 @@ import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.matcher.ViewMatchers.withContentDescription
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.mela.engine.source.AndroidMediaStoreSource
@@ -53,9 +50,9 @@ class PhoneTrashUiTest {
             compose.activityRule.scenario.recreate()
             val model = androidx.lifecycle.ViewModelProvider(compose.activity)[MelaViewModel::class.java]
             compose.waitUntil(15_000) { model.uiState.value.items.any { it.id == id } }
-            compose.onNodeWithTag("gallery-grid").performScrollToKey(id)
+            compose.scrollToGalleryMedia(id)
             compose.onNodeWithTag("media-$id").performClick()
-            compose.waitUntil(10_000) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, context.getString(R.string.ready))).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitForVideoPlaying()
             val playerBounds = compose.onNodeWithTag("video-player").fetchSemanticsNode().boundsInRoot
             assertTrue("Portrait video must use the available height", playerBounds.height > playerBounds.width)
             val screenshot = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
@@ -64,9 +61,10 @@ class PhoneTrashUiTest {
                 screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
             }
             screenshot.recycle()
-            onView(withContentDescription("Play")).perform(click())
+            compose.pauseVideo()
+            compose.onNodeWithTag("video-play-pause").performClick()
             compose.waitUntil(5_000) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, context.getString(R.string.playing))).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithContentDescription(context.getString(R.string.photo_details_and_actions)).performClick()
+            compose.openViewerDetails()
             compose.onNodeWithText(context.getString(R.string.trash_phone_copy)).performScrollTo().performClick()
             confirm("button2")
             compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
@@ -80,7 +78,7 @@ class PhoneTrashUiTest {
             compose.onNodeWithText(context.getString(R.string.phone_trash)).performClick()
             compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-$id").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("media-$id").performClick()
-            compose.onNodeWithContentDescription(context.getString(R.string.photo_details_and_actions)).performClick()
+            compose.openViewerDetails()
             compose.onNodeWithText(context.getString(R.string.restore_photo)).performScrollTo().performClick()
             confirm("button1")
             compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }

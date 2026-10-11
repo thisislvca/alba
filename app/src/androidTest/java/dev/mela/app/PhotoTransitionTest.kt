@@ -6,7 +6,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.width
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import org.junit.Assert.*
@@ -37,7 +37,7 @@ class PhotoTransitionTest {
     @Test fun imageExpandsFromTileAndShrinksBackWithoutRemovingOutgoingViewer() {
         loaded()
         val id = "fixture:icloud:0020"
-        compose.onNodeWithTag("gallery-grid").performScrollToKey(id)
+        compose.scrollToGalleryMedia(id)
         val tile = compose.onNodeWithTag("photo-tile-$id", useUnmergedTree = true)
         // Let initial grid placement finish before measuring the transition's endpoint.
         compose.mainClock.advanceTimeBy(1200)
@@ -99,6 +99,7 @@ class PhotoTransitionTest {
             .config[androidx.compose.ui.semantics.SemanticsProperties.TestTag].removePrefix("photo-viewer-")
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.onNodeWithTag("media-$current").assertIsDisplayed()
+        compose.scrollToGalleryMedia(current)
         compose.onNodeWithTag("media-$current").performClick()
         viewerReady(current)
         compose.onNodeWithTag("viewer-image-$current").assertIsDisplayed()
@@ -143,11 +144,14 @@ class PhotoTransitionTest {
         val x = (viewportBounds.width / 2).toInt()
         val y = (imageBounds.top - viewportBounds.top - 60).toInt()
         assertTrue(y > 0)
-        val before = viewport.captureToImage().toPixelMap()[x, y]
-        assertTrue("Expected black letterbox before zoom", before.red < .05f && before.green < .05f && before.blue < .05f)
+        val beforePixels = viewport.captureToImage().toPixelMap()
+        val before = beforePixels[x, y]
+        val canvas = beforePixels[2, y]
+        assertTrue("Letterbox should show the viewer canvas before zoom",
+            kotlin.math.abs(before.red - canvas.red) + kotlin.math.abs(before.green - canvas.green) + kotlin.math.abs(before.blue - canvas.blue) < .05f)
         viewport.performTouchInput { doubleClick() }
         val after = viewport.captureToImage().toPixelMap()[x, y]
-        assertTrue("Zoomed photo must extend beyond its original fitted rectangle", maxOf(after.red, after.green, after.blue) > .2f)
+        assertTrue("Zoomed photo must extend beyond its original fitted rectangle", kotlin.math.abs(after.red - before.red) + kotlin.math.abs(after.green - before.green) + kotlin.math.abs(after.blue - before.blue) > .2f)
     }
 
     private fun hasTestTagPrefix(prefix: String) = SemanticsMatcher("tag begins with $prefix") {

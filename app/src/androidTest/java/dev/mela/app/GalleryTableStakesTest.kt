@@ -49,7 +49,7 @@ class GalleryTableStakesTest {
         compose.onNodeWithTag("gallery-grid").performTouchInput {
             pinch(Offset(width*.4f,height*.35f),Offset(width*.2f,height*.35f),Offset(width*.6f,height*.35f),Offset(width*.8f,height*.35f),450)
         }
-        compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0020")
+        compose.scrollToGalleryMedia("fixture:icloud:0020")
         val after = compose.onNodeWithTag("media-fixture:icloud:0020").fetchSemanticsNode().boundsInRoot.width
         assertTrue("Pinch out should enlarge tiles", after > before)
         compose.onNodeWithTag("gallery-fast-scroll").performSemanticsAction(SemanticsActions.SetProgress) { it(.8f) }
@@ -68,9 +68,9 @@ class GalleryTableStakesTest {
         val existing = editedCopies()
         try {
         loaded()
-        compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0016")
+        compose.scrollToGalleryMedia("fixture:icloud:0016")
         compose.onNodeWithTag("media-fixture:icloud:0016").performClick()
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.edit_photo)).performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.viewer_edit)).performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(compose.activity.getString(R.string.square_crop)).performClick()
         compose.onNodeWithText(compose.activity.getString(R.string.rotate_degrees,0)).performClick()

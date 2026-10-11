@@ -40,7 +40,7 @@ class GalleryNavigationTest {
         compose.onNodeWithTag("shared-albums-strip").assertIsDisplayed()
         assertTrue("The photo grid should be visible below shared albums", first.top < screen.height * .8f)
         capture("library.png")
-        compose.onNodeWithTag("gallery-grid").performScrollToKey("fixture:icloud:0001")
+        compose.scrollToGalleryMedia("fixture:icloud:0001")
         compose.onNodeWithTag("tab-SEARCH").performClick()
         capture("search.png")
         compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
@@ -60,9 +60,9 @@ class GalleryNavigationTest {
         compose.onNodeWithText("Sea breeze").assertIsDisplayed()
         compose.onNodeWithTag("tab-LIBRARY").performClick()
         compose.onNodeWithTag("media-fixture:icloud:0001").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Details").assertIsDisplayed()
+        compose.onNodeWithTag("viewer-more").assertIsDisplayed()
         capture("viewer.png")
-        compose.onNodeWithText("Details").performClick()
+        compose.openViewerDetails()
         capture("photo-actions.png")
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
@@ -70,7 +70,7 @@ class GalleryNavigationTest {
     }
     @Test fun filtersRestoreAndDoNotLeakIntoCollections() {
         loaded()
-        compose.onNodeWithTag("filter-button").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.filter_and_sort)).performClick()
         compose.onNodeWithText("Favorites").performScrollTo().performClick()
         compose.onNodeWithText("Oldest first").performScrollTo().performClick()
         compose.activityRule.scenario.recreate()
@@ -80,7 +80,7 @@ class GalleryNavigationTest {
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collection-albums").assertIsDisplayed()
         compose.onNodeWithTag("tab-LIBRARY").performClick()
-        compose.onNodeWithTag("filter-button").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.filter_and_sort)).performClick()
         compose.onNodeWithText("Favorites").assertIsSelected()
         compose.onNodeWithText("Oldest first").assertIsSelected()
     }

@@ -3,10 +3,9 @@ package dev.mela.app
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.ComposeTestRule
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performScrollToKey
+import androidx.compose.ui.test.*
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.geometry.Offset
 
 internal fun ComposeTestRule.scrollToGalleryMedia(id: String) {
     // Wait for the item in the lazy grid's data, even when phone photos put it offscreen.
@@ -15,5 +14,45 @@ internal fun ComposeTestRule.scrollToGalleryMedia(id: String) {
         (grid?.config?.getOrNull(SemanticsProperties.IndexForKey)?.invoke(id) ?: -1) >= 0
     }
     onNodeWithTag("gallery-grid").performScrollToKey(id)
+    // Lazy-grid scrolling knows its viewport, but not the floating date header above it.
+    // Move the photo below that header before injecting a real tap/long press.
+    val tile = onNodeWithTag("media-$id").fetchSemanticsNode().boundsInRoot
+    val date = onAllNodesWithTag("floating-date-button").fetchSemanticsNodes().singleOrNull()?.boundsInRoot
+    if (date != null && tile.overlaps(date)) {
+        onNodeWithTag("gallery-grid").performSemanticsAction(SemanticsActions.ScrollBy) {
+            it(0f, tile.top - date.bottom - 24f)
+        }
+    }
     onNodeWithTag("media-$id").assertIsDisplayed()
+}
+
+internal fun ComposeTestRule.openViewerDetails() {
+    onNodeWithTag("media-pager").performTouchInput {
+        swipe(Offset(width * .5f, height * .72f), Offset(width * .5f, height * .22f), 400)
+    }
+    onNodeWithTag("photo-details-panel").assertIsDisplayed()
+}
+
+internal fun ComposeTestRule.waitForVideoPlaying() = waitUntil(15_000) {
+    onAllNodesWithTag("video-player").fetchSemanticsNodes().any {
+        it.config.getOrNull(SemanticsProperties.StateDescription) == "Playing"
+    }
+}
+
+internal fun ComposeTestRule.pauseVideo() {
+    // The overlay auto-hides after three seconds. Keep Compose's test clock from
+    // running that timer to completion while synchronizing the two touch events.
+    val autoAdvance = mainClock.autoAdvance
+    mainClock.autoAdvance = false
+    try {
+        onNodeWithTag("video-player").performClick()
+        mainClock.advanceTimeBy(100)
+        onNodeWithTag("video-play-pause").performClick()
+        mainClock.advanceTimeBy(100)
+    } finally { mainClock.autoAdvance = autoAdvance }
+    waitUntil(5_000) {
+        onAllNodesWithTag("video-player").fetchSemanticsNodes().any {
+            it.config.getOrNull(SemanticsProperties.StateDescription) == "Ready"
+        }
+    }
 }

@@ -18,7 +18,7 @@ class FloatingViewerTest {
     }
     private fun open() {
         loaded()
-        compose.onNodeWithTag("gallery-grid").performScrollToKey(id)
+        compose.scrollToGalleryMedia(id)
         compose.onNodeWithTag("media-$id").performClick()
         compose.onNodeWithTag("media-pager").assertIsDisplayed()
     }
@@ -54,7 +54,7 @@ class FloatingViewerTest {
         val details = compose.onNodeWithTag("photo-details-panel").fetchSemanticsNode().boundsInRoot
         assertTrue("Details must occupy their own space below the photo", photo.bottom <= details.top + 1f)
         assertTrue("Photo stays visible above the details", photo.height > original.height * .25f && photo.height < original.height * .6f)
-        compose.onNodeWithTag("floating-viewer-back").assertIsDisplayed()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.back_to_gallery)).assertIsDisplayed()
         capture("04-details-push-photo")
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
@@ -67,7 +67,7 @@ class FloatingViewerTest {
             val landscapePhoto = compose.onNodeWithTag("viewer-photo-viewport").fetchSemanticsNode().boundsInRoot
             val landscapeDetails = compose.onNodeWithTag("photo-details-panel").fetchSemanticsNode().boundsInRoot
             assertTrue(landscapePhoto.height > 0 && landscapePhoto.bottom <= landscapeDetails.top + 1f)
-            compose.onNodeWithTag("floating-viewer-back").assertIsDisplayed()
+            compose.onNodeWithContentDescription(compose.activity.getString(R.string.back_to_gallery)).assertIsDisplayed()
             // Compose can be idle while the system window rotation is still animating.
             android.os.SystemClock.sleep(500)
             capture("07-landscape-details")
@@ -77,10 +77,13 @@ class FloatingViewerTest {
         compose.onNodeWithTag("photo-details-panel").assertDoesNotExist()
         compose.onNodeWithTag("media-pager").assertIsDisplayed()
     }
-    @Test fun floatingBackLeavesExpandedDetailsAndReopeningStartsWithFullPhoto() {
+    @Test fun detailsBackCollapsesPanelThenViewerBackReturnsToGallery() {
         open()
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.photo_details_and_actions)).performClick()
+        compose.openViewerDetails()
         compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.back_to_gallery)).performClick()
+        compose.onNodeWithTag("photo-details-panel").assertDoesNotExist()
+        compose.onNodeWithTag("media-pager").assertIsDisplayed()
         compose.onNodeWithTag("floating-viewer-back").performClick()
         compose.onNodeWithTag("media-pager").assertDoesNotExist()
         compose.onNodeWithTag("media-$id").performClick()
@@ -92,7 +95,7 @@ class FloatingViewerTest {
     }
     @Test fun handleCollapsesDetailsThenDownwardPhotoDragReturnsToGrid() {
         open()
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.photo_details_and_actions)).performClick()
+        compose.openViewerDetails()
         compose.onNodeWithTag("details-drag-handle").performTouchInput {
             swipe(center, Offset(center.x, center.y + 450f), 400)
         }

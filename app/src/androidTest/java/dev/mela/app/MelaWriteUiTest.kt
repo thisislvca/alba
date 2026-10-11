@@ -43,7 +43,7 @@ class MelaWriteUiTest {
             onTrash = { trashRequested = true },
         )
 
-        compose.onNodeWithText("Details").performClick()
+        compose.openViewerDetails()
         compose.onNodeWithText("Verified in iCloud").assertIsDisplayed()
         compose.onNodeWithTag("move-phone-original-to-trash").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle { assertTrue(trashRequested) }
@@ -83,7 +83,7 @@ class MelaWriteUiTest {
         setMelaContent(GalleryUiState(isRefreshing = false, accountState = ICloudAccountState.Demo), onPhotos = { requests++ })
         compose.onNodeWithText("Not now").performClick()
         compose.onNodeWithText("Include photos from this phone").assertDoesNotExist()
-        compose.onNodeWithTag("filter-button").performClick()
+        compose.onNodeWithTag("gallery-menu-button").performClick()
         compose.onNodeWithText("Choose phone photos").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, requests) }
     }
@@ -94,7 +94,7 @@ class MelaWriteUiTest {
         setMelaContent(GalleryUiState(isRefreshing = false, deviceMediaAccess = true, limitedPhotoAccess = true,
             accountState = ICloudAccountState.SignedIn("owner@example.com", dev.mela.protocol.account.SessionStatus.OFFLINE)), onPhotos = { requests++ })
         compose.onNodeWithText("Offline · saved photos available").assertIsDisplayed()
-        compose.onNodeWithTag("filter-button").performClick()
+        compose.onNodeWithTag("gallery-menu-button").performClick()
         compose.onNodeWithText("Change selected phone photos").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, requests) }
     }

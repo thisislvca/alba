@@ -55,20 +55,13 @@ class SharedAlbumsFlowTest {
         compose.onNodeWithText("Family moments").performClick()
         val id = "shared:demo-library:private:owner:two:video"
         compose.onNodeWithTag("media-$id").performClick()
-        fun ready() = compose.waitUntil(15000) {
-            compose.onAllNodes(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, label(R.string.ready))).fetchSemanticsNodes().isNotEmpty()
-        }
-        ready()
-        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withId(androidx.media3.ui.R.id.exo_play_pause)).perform(androidx.test.espresso.action.ViewActions.click())
-        compose.waitUntil(5000) {
-            compose.onAllNodes(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, label(R.string.playing))).fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitForVideoPlaying()
         capture("shared-video-playing")
-        compose.onNodeWithTag("floating-viewer-back").performClick()
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         runBlocking { repository.keepOriginalOffline(id) }
         compose.waitUntil(5000) { compose.onAllNodesWithTag("media-$id").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("media-$id").performClick()
-        ready()
+        compose.waitForVideoPlaying()
         assertEquals(MediaAvailability.ORIGINAL_CACHED, runBlocking { repository.observeGallery().first().first { it.id == id }.availability })
         capture("shared-video-offline")
     }
@@ -104,7 +97,7 @@ class SharedAlbumsFlowTest {
             compose.scrollToGalleryMedia(requireNotNull(contributedId))
             compose.onNodeWithTag("media-$contributedId").assertIsDisplayed().performClick()
             compose.onNodeWithText(label(R.string.details)).assertIsDisplayed()
-            compose.onNodeWithContentDescription(label(R.string.photo_details_and_actions)).performClick()
+            compose.openViewerDetails()
             compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
             capture("details-open-${generation.name.lowercase()}")
             compose.onNodeWithText(label(R.string.shared_copy_notice), useUnmergedTree = true).performScrollTo().assertIsDisplayed()
