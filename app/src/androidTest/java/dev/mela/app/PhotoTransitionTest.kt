@@ -37,6 +37,7 @@ class PhotoTransitionTest {
     @Test fun imageExpandsFromTileAndShrinksBackWithoutRemovingOutgoingViewer() {
         loaded()
         val id = "fixture:icloud:0020"
+        kotlinx.coroutines.runBlocking { (compose.activity.application as MelaApplication).graph.galleryRepository.keepOriginalOffline(id) }
         compose.scrollToGalleryMedia(id)
         val tile = compose.onNodeWithTag("photo-tile-$id", useUnmergedTree = true)
         // Let initial grid placement finish before measuring the transition's endpoint.
@@ -46,6 +47,10 @@ class PhotoTransitionTest {
         val viewportWidth = compose.onNodeWithTag("gallery-grid").getUnclippedBoundsInRoot().width
         compose.mainClock.autoAdvance = false
         compose.onNodeWithTag("media-$id").performClick()
+        val model = androidx.lifecycle.ViewModelProvider(compose.activity)[MelaViewModel::class.java]
+        // Selection is projected off the UI thread; do not spend animation frames
+        // while waiting for that work to publish the viewer destination.
+        compose.waitUntil(5_000) { model.uiState.value.selectedMedia?.id == id }
         // Projection, decoding and layout are asynchronous. Find an actual intermediate
         // frame instead of advancing another fixed 128 ms after the image node appears.
         val image = compose.onNodeWithTag("photo-viewer-$id", useUnmergedTree = true)

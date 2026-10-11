@@ -67,13 +67,45 @@ class ThumbnailRevisionTest {
             writeColor(android.graphics.Color.RED)
             compose.setContent {
                 MediaThumbnail(file.path, 0xff000000, 0xff000000, null,
-                    Modifier.size(100.dp).testTag("thumbnail"), sourceRevision = revision.value)
+                    Modifier.size(100.dp).testTag("thumbnail"), sourceRevision = revision.value, sharedMediaId = "revision-photo")
             }
             compose.waitUntil(5_000) { hasColor(red = true) }
             writeColor(android.graphics.Color.BLUE)
             compose.runOnIdle { revision.value = "second" }
             compose.waitUntil(5_000) { hasColor(red = false) }
         } finally { file.delete() }
+    }
+
+    @Test fun incomingViewerImmediatelyReusesTheVisiblePhotoByIdentity() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val preview = File.createTempFile("visible-preview", ".png", context.cacheDir)
+        val bitmap = Bitmap.createBitmap(80, 40, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(android.graphics.Color.RED)
+        preview.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+        val showViewer = mutableStateOf(false)
+        fun isRed(tag: String): Boolean {
+            val pixels = compose.onNodeWithTag(tag).captureToImage().toPixelMap()
+            val color = pixels[pixels.width / 2, pixels.height / 2]
+            return color.red > .9f && color.blue < .1f
+        }
+        try {
+            compose.setContent {
+                androidx.compose.foundation.layout.Column {
+                    MediaThumbnail(preview.path, 0xff000000, 0xff000000, null,
+                        Modifier.size(80.dp).testTag("visible-tile"),
+                        sharedMediaId = "visible-handoff", sourceRevision = "first")
+                    if (showViewer.value) MediaThumbnail(null, 0xff000000, 0xff000000, null,
+                        Modifier.size(200.dp).testTag("incoming-viewer"), contentScale = ContentScale.Fit,
+                        sharedMediaId = "visible-handoff", sourceRevision = "first")
+                }
+            }
+            compose.waitUntil(5_000) { isRed("visible-tile") }
+            preview.delete()
+            compose.runOnIdle { showViewer.value = true }
+            // No reference or fallback can provide pixels: this must use the visible endpoint.
+            org.junit.Assert.assertTrue("Incoming image lost the visible thumbnail", isRed("incoming-viewer"))
+        } finally { preview.delete() }
     }
 
     @Test fun largerViewerKeepsPreviewPixelsWhileOriginalIsUnavailable() {

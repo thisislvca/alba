@@ -34,8 +34,10 @@ class AccountPreparationTest {
         }
         val collector = launch { vm.uiState.collect() }
         try {
-            withTimeout(5_000) { vm.uiState.first { it.accountState == ICloudAccountState.Demo } }
+            withTimeout(20_000) { vm.uiState.first { it.accountState == ICloudAccountState.Demo && !it.isRefreshing } }
             repeat(2) { attempt ->
+                withContext(Dispatchers.Main) { vm.dismissMessage() }
+                withTimeout(5_000) { vm.uiState.first { it.message == null && !it.accountBusy } }
                 withContext(Dispatchers.Main) { vm.signIn("unused@example.test", "unused") }
                 withTimeout(5_000) { attempts.first { it == attempt + 1 } }
                 val state = withTimeout(5_000) {

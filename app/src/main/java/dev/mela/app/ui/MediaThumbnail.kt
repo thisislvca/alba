@@ -62,6 +62,11 @@ import kotlinx.coroutines.withContext
 
 private data class TransitionThumbnailKey(val mediaId: String, val sourceRevision: String)
 
+// Visible images already own these bitmaps. Keep their identity available to the incoming
+// shared element even if background decoding evicts the corresponding LRU cache entry.
+// Access is confined to composition/effects on the UI thread; disposal releases each owner.
+private val visibleThumbnails = mutableMapOf<TransitionThumbnailKey, MutableMap<Any, Bitmap>>()
+
 // A sharp viewer decode can evict grid thumbnails. Keep small return targets separately
 // so the incoming shared element exists immediately, even when the disk decode is cold.
 private val transitionThumbnails = object : LruCache<TransitionThumbnailKey, Bitmap>(4 * 1_024) {
@@ -105,7 +110,8 @@ fun MediaThumbnail(
     // Start with the exact same pixels as the tile, then replace them when the larger decode is ready.
     // Reset on identity/revision changes so another photo (or an edited revision) can never leak through.
     val bitmap by key(sharedMediaId ?: reference, sourceRevision) { produceState<Bitmap?>(
-        initialValue = cachedThumbnail(reference, fallbackReference, sourceRevision)
+        initialValue = sharedMediaId?.let { visibleThumbnails[TransitionThumbnailKey(it, sourceRevision)]?.values?.firstOrNull() }
+            ?: cachedThumbnail(reference, fallbackReference, sourceRevision)
             ?: sharedMediaId?.let { transitionThumbnails.get(TransitionThumbnailKey(it, sourceRevision)) },
         key1 = cacheKey,
         key2 = retryVersion + localRetry,
@@ -134,6 +140,19 @@ fun MediaThumbnail(
             value = decoded
         }
     } }
+
+    val thumbnailOwner = remember { Any() }
+    androidx.compose.runtime.DisposableEffect(sharedMediaId, sourceRevision, bitmap) {
+        val key = sharedMediaId?.let { TransitionThumbnailKey(it, sourceRevision) }
+        val loaded = bitmap
+        if (key != null && loaded != null) visibleThumbnails.getOrPut(key) { mutableMapOf() }[thumbnailOwner] = loaded
+        onDispose {
+            if (key != null) visibleThumbnails[key]?.let { owners ->
+                owners.remove(thumbnailOwner)
+                if (owners.isEmpty()) visibleThumbnails.remove(key)
+            }
+        }
+    }
 
     val tap by rememberUpdatedState(onTap)
     val zoomChanged by rememberUpdatedState(onZoomChanged)

@@ -76,6 +76,7 @@ class GalleryWorkflowDeviceTest {
 
     @Test fun accessibleCropUndoAndDirtyExitSurviveRecreation() {
         loaded(); open("fixture:icloud:0016")
+        compose.waitUntil(5_000) { compose.onNodeWithContentDescription(text(R.string.viewer_edit)).isDisplayed() }
         compose.onNodeWithContentDescription(text(R.string.viewer_edit)).performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isNotEmpty() }
         val before = compose.onNodeWithTag("photo-crop").fetchSemanticsNode().config[SemanticsProperties.StateDescription]
