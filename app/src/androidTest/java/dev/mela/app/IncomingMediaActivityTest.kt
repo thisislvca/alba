@@ -40,7 +40,9 @@ class IncomingMediaActivityTest {
         val uri = image()
         try {
             ActivityScenario.launch<MainActivity>(intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/jpeg")).use { scenario ->
-                compose.waitUntil(15_000) { compose.onAllNodesWithTag("incoming-media").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(15_000) {
+                    compose.onNodeWithText(context.getString(R.string.incoming_upload_explanation)).isDisplayed()
+                }
                 compose.onNodeWithText(context.getString(R.string.incoming_upload_explanation)).assertIsDisplayed()
                 capture("open-with")
                 scenario.recreate()
