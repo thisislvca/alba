@@ -5,7 +5,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.Until
 
-internal const val TARGET = "com.mannaworks.mela.benchmark"
+internal const val TARGET = "me.lvca.alba.benchmark"
 
 internal fun MacrobenchmarkScope.waitForGallery() {
     check(device.wait(Until.hasObject(By.res("gallery-grid")), 15_000)) { "Gallery did not appear" }

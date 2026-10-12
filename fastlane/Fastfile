@@ -7,8 +7,8 @@ end
 
 def play_options
   {
-    package_name: 'com.mannaworks.mela',
-    json_key_data: ENV.fetch('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON'),
+    package_name: 'me.lvca.alba',
+    json_key: ENV.fetch('GOOGLE_APPLICATION_CREDENTIALS'),
     skip_upload_metadata: true,
     skip_upload_images: true,
     skip_upload_screenshots: true,
@@ -35,7 +35,7 @@ platform :android do
   desc 'Promote the selected internal build to production without rebuilding or uploading a binary'
   lane :production do
     m = release_manifest
-    codes = google_play_track_version_codes(package_name: 'com.mannaworks.mela', json_key_data: ENV.fetch('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON'), track: 'internal')
+    codes = google_play_track_version_codes(package_name: 'me.lvca.alba', json_key: ENV.fetch('GOOGLE_APPLICATION_CREDENTIALS'), track: 'internal')
     UI.user_error!('Selected build is not currently on the internal testing track') unless codes.include?(m.fetch('versionCode'))
     upload_to_play_store(**play_options, track: 'internal', track_promote_to: 'production', version_code: m.fetch('versionCode'), release_status: 'completed', skip_upload_apk: true, skip_upload_aab: true)
   end

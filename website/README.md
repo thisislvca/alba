@@ -29,7 +29,7 @@ The `github-pages` environment allows deployment from `main`. App releases use s
 
 DNS: DNS-only CNAME `alba` to `thisislvca.github.io` in Cloudflare. Keep `public/CNAME` and the configured Astro site origin at `alba.lvca.me`. The former generated `gh-pages` branch is historical and no longer controls deployment. Never publish through the private archive remote (`origin`); use the public repository.
 
-The website copy is written for launch. Download links use the Android application ID (`com.mannaworks.mela`) by default. Set `PUBLIC_PLAY_STORE_URL` if the confirmed listing differs; all store links share `src/config.ts`. No release version, waitlist, pricing, or donation destination is included.
+The website copy is written for launch. Download links use the Android application ID (`me.lvca.alba`) by default. Set `PUBLIC_PLAY_STORE_URL` if the confirmed listing differs; all store links share `src/config.ts`. No release version, waitlist, pricing, or donation destination is included.
 
 ## Website analytics
 

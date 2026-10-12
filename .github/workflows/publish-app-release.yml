@@ -28,10 +28,10 @@ jobs:
     permissions:
       contents: write
       attestations: read
+      id-token: write
     env:
       APP_RELEASE_TAG: ${{ inputs.release_tag }}
       APP_NOTES: ${{ inputs.notes }}
-      ALBA_TAG_SIGNING_PUBLIC_KEY: ${{ vars.ALBA_TAG_SIGNING_PUBLIC_KEY }}
       GH_TOKEN: ${{ github.token }}
       FASTLANE_SKIP_UPDATE_CHECK: 'true'
       FASTLANE_HIDE_CHANGELOG: 'true'
@@ -45,17 +45,24 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           package-manager-cache: false
-      - name: Verify the candidate tag, signed manifest and asset hashes
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify candidate source, hashes, certificate and GitHub provenance
         run: node scripts/release/release.mjs verify
-      - name: Verify GitHub build provenance
-        run: gh attestation verify .artifacts/release/alba.aab --repo thisislvca/alba --signer-workflow thisislvca/alba/.github/workflows/prepare-app-release.yml
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: '3.4'
           bundler-cache: true
+      - name: Authenticate to Google with short-lived credentials
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          project_id: lvca-alba-releases
+          create_credentials_file: true
       - name: Promote the existing internal build
         run: bundle exec fastlane android production
-        env:
-          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
       - name: Publish the GitHub release
         run: gh release edit "$APP_RELEASE_TAG" --repo thisislvca/alba --draft=false --prerelease=false --latest --notes-file .artifacts/release/metadata/en-US/changelogs/*.txt

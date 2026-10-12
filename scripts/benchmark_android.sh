@@ -31,10 +31,9 @@ if [[ "$MODE" == measure ]]; then
     }
   done
 fi
-# This installs only com.mannaworks.mela.benchmark; it never signs with the release key.
+# This installs only me.lvca.alba.benchmark; it never signs with the release key.
 export MELA_SENTRY_DSN=''
 export MELA_SENTRY_PROPERTIES=/tmp/mela-benchmark-no-sentry.properties
-export MELA_SIGNING_PROPERTIES=/tmp/mela-benchmark-no-signing.properties
 if [[ -z "${JAVA_HOME:-}" && -d "/Applications/Android Studio.app/Contents/jbr/Contents/Home" ]]; then
   export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 fi

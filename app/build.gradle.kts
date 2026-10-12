@@ -6,17 +6,7 @@ plugins {
     alias(libs.plugins.sentry)
 }
 
-// Keep signing credentials outside the checkout. Missing credentials produce unsigned artifacts.
-val signingPropertiesFile = file(providers.environmentVariable("MELA_SIGNING_PROPERTIES")
-    .getOrElse("${System.getProperty("user.home")}/.config/mela/release-signing/signing.properties"))
-val releaseCredentials = Properties()
-if (signingPropertiesFile.isFile) {
-    releaseCredentials.load(providers.fileContents(layout.file(provider { signingPropertiesFile })).asText.get().reader())
-    require(listOf("storeFile", "storePassword", "keyAlias", "keyPassword").all {
-        !releaseCredentials.getProperty(it).isNullOrBlank()
-    }) { "Release signing properties are incomplete." }
-}
-
+// Release builds stay unsigned. Only the isolated release job receives the upload key.
 val sentryPropertiesFile = file(providers.environmentVariable("MELA_SENTRY_PROPERTIES")
     .getOrElse("${System.getProperty("user.home")}/.config/mela/sentry/sentry.properties"))
 val sentryProperties = Properties()
@@ -35,9 +25,6 @@ val appVersionName = releaseVersionName.getOrElse("0.1.0")
 val appVersionCode = releaseVersionCode.getOrElse("1").toInt()
 require(appVersionName.matches(Regex("(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"))) { "Invalid Alba version name." }
 require(appVersionCode in 1..2100000000) { "Invalid Alba version code." }
-if (providers.environmentVariable("ALBA_REQUIRE_RELEASE_SIGNING").getOrElse("false") == "true") {
-    require(releaseCredentials.isNotEmpty()) { "Official releases require signing credentials." }
-}
 
 android {
     namespace = "dev.mela.app"
@@ -60,7 +47,7 @@ android {
 
     defaultConfig {
         buildConfigField("boolean", "BENCHMARK_MODE", "false")
-        applicationId = "com.mannaworks.mela"
+        applicationId = "me.lvca.alba"
         minSdk = 30
         targetSdk = 36
         versionCode = appVersionCode
@@ -75,17 +62,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    signingConfigs {
-        if (releaseCredentials.isNotEmpty()) {
-            create("production") {
-                storeFile = file(releaseCredentials.getProperty("storeFile"))
-                storePassword = releaseCredentials.getProperty("storePassword")
-                keyAlias = releaseCredentials.getProperty("keyAlias")
-                keyPassword = releaseCredentials.getProperty("keyPassword")
-            }
-        }
-    }
-
     buildTypes {
         debug {
             applicationIdSuffix = ".dev"
@@ -94,7 +70,6 @@ android {
         }
         release {
             buildConfigField("String", "SENTRY_ENVIRONMENT", "\"${providers.environmentVariable("ALBA_RELEASE_ENVIRONMENT").getOrElse("family-beta")}\"")
-            if (releaseCredentials.isNotEmpty()) signingConfig = signingConfigs.getByName("production")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
