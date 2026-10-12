@@ -6,7 +6,7 @@ Alba is free and open source, with optional donations. No subscriptions or paid 
 
 **Still experimental.** It uses unofficial Apple APIs, so things can break when Apple changes them. Not affiliated with Apple.
 
-Android 11+. English and Italian.
+Android 11+. English and Italian. Android application ID: `me.lvca.alba`.
 
 ## Features
 
@@ -45,7 +45,7 @@ Use JDK 21 and Android SDK 37 with build tools 37.0.0. Set `JAVA_HOME` and `ANDR
 ./gradlew :app:assembleDebug testDebugUnitTest lintDebug
 ```
 
-APKs are in `app/build/outputs/apk/`. `:app:assembleRelease` produces an unsigned release unless local signing is configured.
+APKs are in `app/build/outputs/apk/`. `:app:assembleRelease` always produces an unsigned release. Official bundles are signed in an isolated GitHub Actions job; see [RELEASING.md](RELEASING.md).
 
 JavaScript tools use the Node LTS version pinned in `.nvmrc`. Run `nvm install` and `nvm use` from the repository root before using website, screenshot or release scripts. Script checks: `node --test 'scripts/**/*.test.mjs'`. Bun is used to install the website and screenshot packages from their lockfiles.
 

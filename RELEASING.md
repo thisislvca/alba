@@ -1,56 +1,54 @@
 # Releasing Alba
 
-Merge finished work into `main`. Website changes deploy automatically after their checks pass. Follow the steps below to release the app.
+Alba uses Google Play App Signing for `me.lvca.alba`. Google holds the app signing key. GitHub Actions holds a separate, replaceable upload key in the `release-signing` environment. Gradle always builds unsigned release files and never reads signing credentials.
 
-## Quick start
+## Release a version
 
-Complete the one-time setup before your first release.
+1. Merge into `main` and wait for Android CI on that exact commit to pass.
+2. Run [Prepare app release](https://github.com/thisislvca/alba/actions/workflows/prepare-app-release.yml) on `main` with a version such as `0.2.0` and release notes of at most 500 characters.
+3. Approve the `release-signing` deployment after reviewing the source commit. A fresh runner signs the unsigned AAB, deletes the temporary key immediately, and records GitHub build provenance. A separate runner uploads it to Play internal testing.
+4. Test the Play internal build on your phone.
+5. Run [Publish tested app](https://github.com/thisislvca/alba/actions/workflows/publish-app-release.yml) with the candidate tag, then approve the `play-production` deployment. This promotes the existing internal build without rebuilding it and publishes the GitHub release.
 
-1. Merge your app changes into `main` and wait for Android CI to pass.
-2. Run [Prepare app release](https://github.com/thisislvca/alba/actions/workflows/prepare-app-release.yml) on `main` with a version such as `0.2.0` and short notes. Leave **Upload to Play** enabled.
-3. Install the candidate from Play internal testing and test it on your phone.
-4. Run [Publish tested app](https://github.com/thisislvca/alba/actions/workflows/publish-app-release.yml) on `main` with the candidate's full tag. It promotes that tested build to production and publishes its GitHub release.
+Play review, production eligibility and managed publishing still apply. The first bundle must be uploaded through Play Console: prepare it with **Upload to Play** disabled, select Google's generated app signing key, and upload the AAB. Keep the installer check enabled.
 
-Complete the initial public-release go/no-go before publishing. Play eligibility, review and managed-publishing settings still apply.
+**Dry run** builds and checks unsigned artifacts without signing keys, Google authentication, tags or uploads. A dry run cannot be promoted.
 
-**Dry run** checks and packages unsigned files without credentials, tags, releases or Play uploads. You cannot promote a dry run.
+## Credentials and permissions
 
-## One-time setup
-
-1. Create a fresh Play upload key and a separate, unencrypted SSH signing key. The old family-beta key existed in private Git history and must not be reused. Keep credentials and backups outside Git.
-2. Create the Play Console app and register your upload key with Play App Signing. Enable the Android Publisher API and give a service account permission to upload internal builds and promote them to production.
-3. Add the settings below in GitHub Settings > Secrets and variables > Actions.
-4. Prepare your first signed candidate with **Upload to Play** disabled. Upload its AAB manually to Play internal testing. Later candidates can use automated uploads.
-
-| Setting | Type | Value |
+| Location | Setting | Purpose |
 | --- | --- | --- |
-| `ALBA_UPLOAD_KEYSTORE_BASE64` | Secret | Base64 of the new upload keystore |
-| `ALBA_KEYSTORE_PASSWORD` | Secret | Keystore password |
-| `ALBA_KEY_ALIAS` | Secret | Upload-key alias |
-| `ALBA_KEY_PASSWORD` | Secret | Upload-key password |
-| `ALBA_TAG_SIGNING_KEY` | Secret | SSH private key for tags and manifests |
-| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Secret | Play service account JSON |
-| `ALBA_UPLOAD_CERT_SHA256` | Variable | Approved upload certificate SHA-256 fingerprint |
-| `ALBA_TAG_SIGNING_PUBLIC_KEY` | Variable | Matching public SSH key |
-| `APP_VERSION_CODE_OFFSET` | Variable | Optional build counter offset, default 1000 |
-| `ALBA_SENTRY_DSN` | Variable | Optional diagnostics destination, empty disables diagnostics |
+| `release-signing` environment secret | `ALBA_UPLOAD_KEYSTORE_BASE64` | Password-encrypted PKCS12 upload keystore |
+| `release-signing` environment secret | `ALBA_KEYSTORE_PASSWORD` | Keystore and key password |
+| `release-signing` environment variable | `ALBA_KEY_ALIAS` | Upload-key alias |
+| `release-signing` environment variable | `ALBA_UPLOAD_CERT_SHA256` | Approved public certificate fingerprint |
+| Each Play environment variable | `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` | Restricted Google workload identity provider |
+| Each Play environment variable | `GOOGLE_PLAY_SERVICE_ACCOUNT` | Its own Google service identity |
+| Repository variable, optional | `APP_VERSION_CODE_OFFSET` | Default 1000; add workflow run number for versionCode |
+| Repository variable, optional | `ALBA_SENTRY_DSN` | Public diagnostics destination; empty disables diagnostics |
 
-## Reference
+All three environments allow only the `main` branch. `release-signing` and `play-production` require the owner's approval and disable administrator bypass. Self-review is allowed so the sole maintainer can approve their own manually dispatched release. Account takeover remains a risk; protect Google and GitHub accounts with strong MFA.
 
-### Versions and notes
+Google project `lvca-alba-releases` uses Workload Identity Federation. No service-account private JSON key is stored in GitHub. Trust is restricted to the numeric repository and owner IDs, `main`, manual workflow dispatch, and the intended workflow/environment. The internal service account can view and release Alba to testing tracks; the production service account can view and promote Alba to production. Neither gets account-wide administration, financial, user-management or store-listing permissions.
 
-Choose `versionName`, such as `0.2.0`. The workflow sets `versionCode` to `APP_VERSION_CODE_OFFSET + workflow run number`. New runs consume numbers, including failures and dry runs. Reruns keep their number. Start a new run after a tag or upload. Before resetting the counter, raise the offset above all uploaded build numbers.
+Do not add release credentials as repository secrets. Build and PR jobs must never receive them. The signing job has no Gradle/dependency build or cache restore. Google authentication happens after dependencies and artifact verification. Artifact uploads use an explicit file list and omit hidden files.
 
-Tags such as `app/v0.2.0-build.1002` distinguish candidates of the same version. Automated Play notes are English-only, with a 500-character limit. Publishing reuses the candidate's notes unless you override them. GitHub-only candidates without notes get draft app changes since the previous candidate tag.
+## Keys and recovery
 
-### Checks and files
+The old Mela family-beta certificate is permanently rejected by the signing script because its keystore was committed to private Git history. Removing a file from the latest commit does not make that key safe. Preserve any historical copy only for legacy installs; never reuse it for Alba.
 
-Preparation requires passing Android CI for the exact commit. Publishing checks the signed tag, signed manifest, file hashes and GitHub build provenance. The candidate must be on the internal track. Promotion does not rebuild it.
+Keep the new encrypted upload keystore outside Git and its password in a password manager or macOS Keychain. Keep an independently recoverable encrypted backup. Public certificates and SHA-256 fingerprints are safe to share; private keys and passwords are not. Do not paste credentials into chat, command arguments or logs.
 
-Signed candidates include APK, AAB, R8 mapping, hashes and a signed source/build manifest. Workflow artifacts expire after 30 days. Draft release assets remain available and exclude credentials.
+If the upload key leaks, stop release workflows, request an upload-key reset in Play Console, then replace the environment secrets and approved fingerprint. Google's app signing key remains separate. If Google API access is compromised, disable the affected federation provider or service account, revoke its Play permissions and inspect recent releases. Short-lived tokens can remain usable until they expire.
 
-The `github-pages` environment permits only `main`. Production uses `play-production`. You can require reviewers there. Add your public SSH key to GitHub for the Verified badge. Workflow checks use `ALBA_TAG_SIGNING_PUBLIC_KEY` directly.
+## Artifacts and verification
 
-### Failed uploads or publishing
+Candidate tags use `app/v0.2.0-build.1002`. New workflow runs consume build numbers; reruns reuse them. After a tag/upload exists, start a new run. Raise the offset before resetting a run counter.
 
-If Play upload fails after the draft is created, upload its AAB manually or prepare another candidate. If promotion succeeds but GitHub publication fails, check Play's state before rerunning or publishing the draft manually.
+GitHub candidate assets contain the upload-signed AAB, R8 mapping, checksums and a source/build manifest. They do not include an installable upload-key-signed APK: it would have a different certificate from the Play app. Install through Play. A future direct APK distribution must use a compatible signing identity and account for the enabled installer check.
+
+The bundle and manifest have GitHub provenance tied to the repository, workflow and source commit. Production verifies both attestations, the tag's commit, file hashes and bundle certificate. No additional SSH signing key or custom manifest signature is needed. Provenance establishes origin; it does not prove the source is free from bugs or malicious changes.
+
+Unsigned workflow artifacts expire after seven days; signed ones after 30 days. Draft release assets persist. Temporary signing files are removed in the signing script's `finally` block and an unconditional workflow cleanup step.
+
+If Play upload fails after the draft is created, upload its AAB manually or prepare another candidate. If promotion succeeds but GitHub publication fails, check Play's state before retrying.
