@@ -36,7 +36,7 @@ class GalleryPinchAnimationTest {
     }
 
     @Test fun pinchResizesThroughIntermediateFramesAndCanReverse() {
-        compose.waitUntil(20_000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
+        compose.scrollToGalleryMedia("fixture:icloud:0020")
         grid.performScrollToKey("fixture:icloud:0020")
         // Initial lazy-grid placement must settle before measuring the pinch anchor.
         compose.mainClock.advanceTimeBy(1200)

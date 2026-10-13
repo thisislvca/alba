@@ -151,9 +151,7 @@ class MelaAppTest {
 
     private fun waitForDemoLibrary() {
         // The account banner appears before the asynchronous Room catalog is published.
-        compose.waitUntil(timeoutMillis = 15_000) {
-            compose.onAllNodes(hasTestTag("media-fixture:icloud:0020")).fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitForGalleryMedia()
     }
 
     private fun hasNodeWithText(text: String): Boolean =

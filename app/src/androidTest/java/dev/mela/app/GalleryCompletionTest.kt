@@ -21,7 +21,7 @@ class GalleryCompletionTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     private val repository get() = (compose.activity.application as MelaApplication).graph.galleryRepository
-    private fun loaded() = compose.waitUntil(20_000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
+    private fun loaded() = compose.waitForGalleryMedia()
     private fun capture(name: String) {
         compose.waitForIdle()
         android.os.SystemClock.sleep(350) // Let native dialog windows reach the compositor before capture.

@@ -23,7 +23,7 @@ class GalleryWorkflowDeviceTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     private fun text(id: Int) = compose.activity.getString(id)
-    private fun loaded() = compose.waitUntil(20_000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
+    private fun loaded() = compose.waitForGalleryMedia()
     private fun open(id: String) {
         compose.scrollToGalleryMedia(id)
         compose.onNodeWithTag("media-$id").performClick()
