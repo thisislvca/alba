@@ -56,4 +56,29 @@ class DemoBackupTest {
             assertTrue(gate.trySend(Unit).isFailure)
         } finally { scope.cancel() }
     }
+    @Test fun failureWifiRetryAndCleanupNeverProduceRealVerificationEvidence() = runBlocking {
+        val scope = CoroutineScope(coroutineContext + SupervisorJob())
+        try {
+            val gate = Channel<Unit>()
+            val demo = DemoBackup(scope, step = { gate.receive() })
+            val draft = demo.begin(); demo.accept(draft.id); demo.finish(draft.id)
+            demo.interrupt(); yield()
+            assertEquals(TransferViewState.NEEDS_ATTENTION, demo.transfers.value.first().state)
+            demo.cleanUpSamples()
+            assertEquals(TransferViewState.NEEDS_ATTENTION, demo.transfers.value.first().state)
+            demo.retry(demo.transfers.value.first().id)
+            repeat(9) { gate.send(Unit); yield() }
+            assertTrue(demo.transfers.value.all { it.state == TransferViewState.VERIFIED })
+            demo.pauseForWifi(); yield()
+            assertEquals("demo-wifi", demo.transfers.value.first().message)
+            demo.retry(demo.transfers.value.first().id)
+            repeat(9) { gate.send(Unit); yield() }
+            demo.cleanUpSamples()
+            assertTrue(demo.transfers.value.all { it.message == "demo-cleaned" })
+            assertTrue(demo.transfers.value.all { it.mediaId == null && it.verifiedAtEpochMillis == null })
+            demo.reset()
+            assertTrue(demo.transfers.value.isEmpty())
+        } finally { scope.cancel() }
+    }
+
 }

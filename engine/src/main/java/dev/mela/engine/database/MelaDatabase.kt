@@ -37,9 +37,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TrashObligationEntity::class,
         CollectionEntity::class, CollectionMemberEntity::class, BatchItemEntity::class, UploadCheckpointEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8)],
+    autoMigrations = [AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15)],
 )
 abstract class MelaDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao

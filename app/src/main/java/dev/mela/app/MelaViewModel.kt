@@ -115,6 +115,7 @@ class MelaViewModel(
     private val exporter: GalleryExporter? = null,
     private val network: kotlinx.coroutines.flow.Flow<NetworkStatus?> = flowOf(null),
     private val diagnostics: MelaDiagnostics = MelaDiagnostics.None,
+    private val importDemo: suspend (Uri?) -> Unit = { error("Demo importer unavailable") },
 ) : ViewModel() {
     private val demoBackup = DemoBackup(viewModelScope)
     private val connection = network.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -166,6 +167,9 @@ class MelaViewModel(
         }.map { it.id }
         if (ids.isEmpty()) return
         updateSelection(emptySet())
+        if (action == BatchAction.UPLOAD && accountManager.state.value == ICloudAccountState.Demo) {
+            uploadDemo(uiState.value.catalogItems.filter { it.id in ids }.mapNotNull { it.originalReference?.let(Uri::parse) }); return
+        }
         launchBatchWork {
             batchActions?.enqueue(action, ids)
             if (action in setOf(BatchAction.KEEP_OFFLINE, BatchAction.SAVE_TO_PHONE))
@@ -210,7 +214,20 @@ class MelaViewModel(
         status.value = status.value.copy(phoneStorage = repository.localStorageUsage(), phoneStorageError = null,
             message = UiMessage(R.string.phone_storage_cleared))
     }
-    fun uploadSelected(uris: List<Uri>) { launchBatchWork {
+    fun uploadDemoSample() = uploadDemo(listOf(null))
+    private fun uploadDemo(uris: List<Uri?>) {
+        if (accountManager.state.value != ICloudAccountState.Demo) return
+        launchBatchWork {
+            uris.forEach { importDemo(it) }
+            if (accountManager.state.value == ICloudAccountState.Demo) {
+                repository.refresh(includeDeviceMedia = false)
+                status.value = status.value.copy(message = UiMessage(R.string.demo_import_complete))
+            }
+        }
+    }
+    fun uploadSelected(uris: List<Uri>) {
+        if (accountManager.state.value == ICloudAccountState.Demo) { uploadDemo(uris); return }
+        launchBatchWork {
         batchActions?.enqueue(BatchAction.PICKER_UPLOAD, uris.map(Uri::toString))
         scheduleBatches()
     } }
@@ -809,6 +826,10 @@ class MelaViewModel(
     }
 
     fun requestUpload(mediaId: String) {
+        if (accountManager.state.value == ICloudAccountState.Demo) {
+            uiState.value.catalogItems.firstOrNull { it.id == mediaId }?.originalReference?.let { uploadDemo(listOf(Uri.parse(it))) }
+            return
+        }
         launchBatchWork {
             batchActions?.enqueue(BatchAction.UPLOAD, listOf(mediaId))
             scheduleBatches()
@@ -914,6 +935,15 @@ class MelaViewModel(
     }
 
     fun continuePastUnresolved(transferId: TransferId) {
+        if (accountManager.state.value == ICloudAccountState.Demo) {
+            when (transferId.value) {
+                "demo-control:interrupt" -> demoBackup.interrupt()
+                "demo-control:wifi" -> demoBackup.pauseForWifi()
+                "demo-control:cleanup" -> demoBackup.cleanUpSamples()
+                else -> demoBackup.retry(transferId)
+            }
+            return
+        }
         viewModelScope.launch {
             try {
                 photos.continuePastUnresolved(transferId)
@@ -1037,6 +1067,16 @@ class MelaViewModel(
                 exporter = GalleryExporter(appContext, graph.galleryRepository),
                 network = networkStatus(appContext),
                 diagnostics = graph.diagnostics,
+                importDemo = { uri ->
+                    check(graph.accountManager.state.value == ICloudAccountState.Demo)
+                    val name = if (uri == null) "Sample upload.webp" else appContext.contentResolver.query(uri,
+                        arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) cursor.getString(0) else null
+                    } ?: "Selected media"
+                    val input = if (uri == null) appContext.assets.open("demo/01.webp") else
+                        requireNotNull(appContext.contentResolver.openInputStream(uri))
+                    graph.demoCatalog.importMedia(name, input)
+                },
                 accountManager = graph.accountManager,
                 photos = graph.photos,
                 maintenance = graph.maintenance,

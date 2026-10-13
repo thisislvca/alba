@@ -337,6 +337,7 @@ internal fun MediaDetailScreen(
                             } else if (!media.isTrashed && media.kind == MediaKind.PHOTO) {
                                 DeviceUploadControls(
                                     uploadTransfer = uploadTransfer,
+                                    demo = accountState == ICloudAccountState.Demo,
                                     isSignedIn = (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED,
                                     isWorking = isWorking,
                                     onRequestUpload = onRequestUpload,

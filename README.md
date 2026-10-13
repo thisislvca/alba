@@ -41,7 +41,9 @@ Your password and verification codes aren't saved. Your sign-in session is store
 
 Choose **Try the demo** on the welcome screen; no Apple Account is needed. Browse the bundled library, albums, videos and editor. Library refresh reads the sample catalog locally.
 
-Open the profile icon, then **Automatic JPEG backup → Try sample backup** to walk through consent, queue progress and completion. The backup walkthrough is simulated: it never reads phone photos, requests photo permissions or uploads to Apple. Stop and restart it to repeat; its state resets when leaving demo mode or restarting the app. Real iCloud authentication, transfers and remote verification still require an Apple Account.
+Open the profile icon, then **Automatic JPEG backup → Try sample backup** to walk through consent, queue progress and completion. The backup walkthrough is simulated: it never reads phone photos, requests photo permissions or uploads to Apple. Use the interruption and Wi-Fi controls to pause and resume it, then preview freeing space with imaginary copies (no real files are deleted). Stop and restart it to repeat; its state resets when leaving demo mode or restarting the app. Real iCloud authentication, transfers and remote verification still require an Apple Account.
+
+The **+** button can add a bundled sample or a selected photo/video to the demo library. Selected bytes are retained in private temporary storage, never uploaded, and cleared on the next app process start. Shared albums support real sample-state changes: accepting/declining incoming invitations, approving/denying requests, selecting a cover, contributing selected media, and saving a shared copy to the sample personal library. Demo sharing screens label all people, invitations and nonfunctional public URLs as samples; no invitations are sent or links published.
 
 ## Build
 

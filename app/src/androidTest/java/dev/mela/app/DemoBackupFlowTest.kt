@@ -41,6 +41,22 @@ class DemoBackupFlowTest {
         compose.onNodeWithTag("transfer-queue").performScrollTo()
         capture("demo-backup-complete")
         compose.onNodeWithText(compose.activity.getString(R.string.verified_in_icloud)).assertDoesNotExist()
+        compose.onNodeWithText(compose.activity.getString(R.string.demo_backup_interrupt)).performScrollTo().performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.demo_backup_interrupted)).performScrollTo().assertIsDisplayed()
+        capture("demo-backup-interrupted")
+        compose.onNodeWithText(compose.activity.getString(R.string.demo_backup_retry)).performScrollTo().performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText(compose.activity.getString(R.string.demo_backup_complete)).fetchSemanticsNodes().size == 3 }
+        compose.onNodeWithText(compose.activity.getString(R.string.demo_backup_pause_wifi)).performScrollTo().performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.demo_backup_wifi)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(compose.activity.getString(R.string.demo_backup_retry)).performScrollTo().performClick()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText(compose.activity.getString(R.string.demo_backup_complete)).fetchSemanticsNodes().size == 3 }
+        compose.onNodeWithText(compose.activity.getString(R.string.demo_cleanup_preview)).performScrollTo().performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.demo_cleanup_disclosure)).assertIsDisplayed()
+        capture("demo-cleanup-confirmation")
+        compose.onNodeWithText(compose.activity.getString(R.string.welcome_continue)).performClick()
+        compose.onNodeWithTag("transfer-queue").performScrollTo()
+        compose.onAllNodesWithText(compose.activity.getString(R.string.demo_cleanup_complete)).assertCountEquals(3)
+        capture("demo-cleanup-complete")
         assertEquals(before, permissions.map(compose.activity::checkSelfPermission))
         assertNull(graph.accountManager.session.value)
         compose.onNodeWithText(compose.activity.getString(R.string.demo_sync_refresh)).performScrollTo().performClick()
@@ -53,6 +69,7 @@ class DemoBackupFlowTest {
 
     private fun capture(name: String) {
         compose.waitForIdle()
+        android.os.SystemClock.sleep(500) // Window animations run outside the Compose test clock.
         val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
         val directory = (InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
             ?: compose.activity.getExternalFilesDir("demo-review")!!).apply { mkdirs() }

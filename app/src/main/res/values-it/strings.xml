@@ -773,4 +773,17 @@
     <string name="demo_backup_complete">Demo completata · nessun backup su iCloud</string>
     <string name="demo_sync_description">La sincronizzazione in modalità demo legge il catalogo di esempio incluso. Trascina verso il basso in Foto, oppure aggiorna qui. Nessuna connessione ad Apple.</string>
     <string name="demo_sync_refresh">Aggiorna la libreria di esempio</string>
+    <string name="demo_upload_title">Prova un caricamento demo</string>
+    <string name="demo_upload_disclosure">Aggiungi un esempio o scegli una foto o un video. La demo conserva una copia temporanea sul telefono fino al riavvio dell’app. Non viene inviato nulla a iCloud.</string>
+    <string name="demo_upload_sample">Usa foto di esempio</string>
+    <string name="demo_import_complete">Aggiunto solo alla libreria demo. Nessun caricamento su iCloud.</string>
+    <string name="demo_backup_interrupt">Simula un backup interrotto</string>
+    <string name="demo_backup_interrupted">Interruzione simulata — riprova per continuare</string>
+    <string name="demo_backup_pause_wifi">Simula attesa del Wi-Fi</string>
+    <string name="demo_backup_wifi">Attesa Wi-Fi simulata — riprendi quando vuoi</string>
+    <string name="demo_backup_retry">Riprendi backup demo</string>
+    <string name="demo_cleanup_preview">Prova a liberare spazio</string>
+    <string name="demo_cleanup_disclosure">Queste tre foto immaginarie hanno completato il controllo demo. Continua per simulare lo spostamento delle copie nel cestino. Nessuna foto reale verrà eliminata e non verrà liberato spazio sul dispositivo.</string>
+    <string name="demo_cleanup_complete">Copia demo rimossa — nessuna foto reale eliminata</string>
+    <string name="demo_shared_notice">Demo: inviti, persone e link di esempio. Non viene inviato o pubblicato nulla. Le modifiche si azzerano al riavvio dell’app.</string>
 </resources>

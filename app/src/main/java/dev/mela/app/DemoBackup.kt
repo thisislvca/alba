@@ -52,17 +52,47 @@ internal class DemoBackup(
             TransferView(TransferId("demo-backup:$index"), null, name, TransferViewState.WAITING,
                 240_000L + index * 80_000L, now())
         }
+        resume()
+
+        return true
+    }
+
+    private fun resume() {
+        job?.cancel()
         job = scope.launch {
-            for (index in transferState.value.indices) {
+            for (id in transferState.value.map { it.id }) {
+                if (transferState.value.first { it.id == id }.state == TransferViewState.VERIFIED) continue
                 for (state in listOf(TransferViewState.UPLOADING, TransferViewState.CHECKING_ICLOUD, TransferViewState.VERIFIED)) {
                     step()
-                    transferState.value = transferState.value.mapIndexed { itemIndex, item ->
-                        if (itemIndex == index) item.copy(state = state, updatedAtEpochMillis = now()) else item
+                    transferState.value = transferState.value.map {
+                        if (it.id == id) it.copy(state = state, message = null, updatedAtEpochMillis = now()) else it
                     }
                 }
             }
         }
-        return true
+    }
+
+    fun interrupt() = pause(TransferViewState.NEEDS_ATTENTION, "demo-interrupted")
+    fun pauseForWifi() = pause(TransferViewState.WAITING, "demo-wifi")
+    private fun pause(state: TransferViewState, reason: String) {
+        if (!backupState.value.enabled) return
+        job?.cancel()
+        // Replayable scenarios let reviewers exercise an interruption even after the first run finishes.
+        transferState.value = transferState.value.mapIndexed { index, item ->
+            item.copy(state = if (index == 0) state else TransferViewState.WAITING,
+                message = if (index == 0) reason else null, updatedAtEpochMillis = now())
+        }
+    }
+
+    fun retry(id: TransferId) {
+        if (!backupState.value.enabled || transferState.value.none { it.id == id && it.message in setOf("demo-interrupted", "demo-wifi") }) return
+        resume()
+    }
+
+    fun cleanUpSamples() {
+        if (transferState.value.isEmpty() || transferState.value.any { it.state != TransferViewState.VERIFIED }) return
+        // Only changes imaginary rows. No MediaStore, trash handoff, proof, or local asset ID exists here.
+        transferState.value = transferState.value.map { it.copy(state = TransferViewState.SKIPPED, message = "demo-cleaned") }
     }
 
     fun reset() {

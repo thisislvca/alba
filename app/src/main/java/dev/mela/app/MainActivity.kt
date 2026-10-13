@@ -1,5 +1,6 @@
 package dev.mela.app
 
+import dev.mela.protocol.account.ICloudAccountState
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
@@ -183,12 +184,25 @@ class MainActivity : ComponentActivity() {
                 })
             }
             val scope = rememberCoroutineScope()
+            var demoUploadDialog by rememberSaveable { mutableStateOf(false) }
             val uploadPicker = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.PickMultipleVisualMedia(50),
             ) { uris ->
                 uris.forEach { uri -> runCatching { contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
                 viewModel.uploadSelected(uris)
             }
+            if (demoUploadDialog) androidx.compose.material3.AlertDialog(
+                onDismissRequest = { demoUploadDialog = false },
+                title = { androidx.compose.material3.Text(stringResource(R.string.demo_upload_title)) },
+                text = { androidx.compose.material3.Text(stringResource(R.string.demo_upload_disclosure)) },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { demoUploadDialog = false; viewModel.uploadDemoSample() }) {
+                    androidx.compose.material3.Text(stringResource(R.string.demo_upload_sample))
+                } },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = {
+                    demoUploadDialog = false
+                    uploadPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                }) { androidx.compose.material3.Text(stringResource(R.string.choose_photos_to_include)) } },
+            )
             val permissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestMultiplePermissions(),
             ) {
@@ -211,7 +225,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             fun requestGalleryUpload(id: String) {
-                if (Build.VERSION.SDK_INT >= 29 && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_MEDIA_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                if (uiState.accountState != ICloudAccountState.Demo && Build.VERSION.SDK_INT >= 29 && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_MEDIA_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                     pendingUpload = id
                     locationPermissionLauncher.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
                 } else if (id == "batch") viewModel.runBatch(BatchAction.UPLOAD) else viewModel.requestUpload(id)
@@ -286,7 +300,7 @@ class MainActivity : ComponentActivity() {
                         permissionLauncher.launch(requestedDevicePhotoPermissions().toTypedArray())
                     },
                     onPickUpload = {
-                        uploadPicker.launch(
+                        if (uiState.accountState == ICloudAccountState.Demo) demoUploadDialog = true else uploadPicker.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
                         )
                     },

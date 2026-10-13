@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SharedInvitations(actions: InvitationActions, dismiss: () -> Unit, initialUrl: String = "", invalidLink: Boolean = false) {
+internal fun SharedInvitations(actions: InvitationActions, dismiss: () -> Unit, initialUrl: String = "", invalidLink: Boolean = false, demo: Boolean = false) {
     var pending by remember { mutableStateOf<List<SharedInvitation>>(emptyList()) }
     var resolved by remember { mutableStateOf<SharedInvitation?>(null) }
     var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }
@@ -36,6 +36,7 @@ internal fun SharedInvitations(actions: InvitationActions, dismiss: () -> Unit, 
     MelaBottomSheet(onDismissRequest = { if (!busy) dismiss() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             MelaSheetHeading(stringResource(R.string.shared_invitations), stringResource(R.string.shared_invitation_help), dismiss, !busy)
+            if (demo) Text(stringResource(R.string.demo_shared_notice))
             if (invalidLink && url.isBlank()) Text(stringResource(R.string.shared_invalid_link), color = MaterialTheme.colorScheme.error)
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (error) Text(stringResource(R.string.shared_action_failed), color = MaterialTheme.colorScheme.error)

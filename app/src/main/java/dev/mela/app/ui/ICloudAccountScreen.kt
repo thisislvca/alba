@@ -71,6 +71,7 @@ fun ICloudAccountScreen(
     backup: BackupView,
     onEnableAutomaticBackup: () -> Unit,
     onDisableAutomaticBackup: () -> Unit,
+    onDemoAction: (dev.mela.engine.model.TransferId) -> Unit = {},
 ) {
     var page by rememberSaveable { mutableStateOf(ProfilePage.OVERVIEW) }
     var appleId by rememberSaveable { mutableStateOf("") }
@@ -139,7 +140,7 @@ fun ICloudAccountScreen(
                 appleId = signedIn?.appleId.orEmpty(), backup = backup,
                 diagnostics = diagnostics, onCheckConnection = onCheckConnection,
                 onEnableAutomaticBackup = onEnableAutomaticBackup,
-                onDisableAutomaticBackup = onDisableAutomaticBackup,
+                onDisableAutomaticBackup = onDisableAutomaticBackup, onDemoAction = onDemoAction,
             )
             page == ProfilePage.PHONE -> diagnostics?.let { PhoneStorageDetails(it, libraryActions) }
             page == ProfilePage.ACTIVATION && signedIn != null -> PhotosNotEnabledAccount(
@@ -361,6 +362,7 @@ private fun BackupSettings(
     onCheckConnection: () -> Unit,
     onEnableAutomaticBackup: () -> Unit,
     onDisableAutomaticBackup: () -> Unit,
+    onDemoAction: (dev.mela.engine.model.TransferId) -> Unit = {},
 ) {
     if (demo) {
         Text(stringResource(R.string.demo_backup_title), style = MaterialTheme.typography.titleLarge)
@@ -418,8 +420,26 @@ private fun BackupSettings(
         OutlinedButton(onClick = onCheckConnection, enabled = diagnostics?.isRefreshing != true,
             modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.demo_sync_refresh)) }
     }
+    if (demo && backup.enabled) {
+        var confirmCleanup by remember { mutableStateOf(false) }
+        OutlinedButton(onClick = { onDemoAction(dev.mela.engine.model.TransferId("demo-control:interrupt")) }, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.demo_backup_interrupt))
+        }
+        OutlinedButton(onClick = { onDemoAction(dev.mela.engine.model.TransferId("demo-control:wifi")) }, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.demo_backup_pause_wifi))
+        }
+        OutlinedButton(onClick = { confirmCleanup = true }, modifier = Modifier.fillMaxWidth(),
+            enabled = diagnostics?.transferQueue?.let { it.isNotEmpty() && it.all { row -> row.state == dev.mela.engine.model.TransferViewState.VERIFIED } } == true) {
+            Text(stringResource(R.string.demo_cleanup_preview))
+        }
+        if (confirmCleanup) androidx.compose.material3.AlertDialog(onDismissRequest = { confirmCleanup = false },
+            title = { Text(stringResource(R.string.demo_cleanup_preview)) },
+            text = { Text(stringResource(R.string.demo_cleanup_disclosure)) },
+            confirmButton = { TextButton(onClick = { confirmCleanup = false; onDemoAction(dev.mela.engine.model.TransferId("demo-control:cleanup")) }) { Text(stringResource(R.string.welcome_continue)) } },
+            dismissButton = { TextButton(onClick = { confirmCleanup = false }) { Text(stringResource(R.string.not_now)) } })
+    }
     if (demo && diagnostics != null && diagnostics.transferQueue.isNotEmpty()) {
         Spacer(Modifier.height(18.dp))
-        TransferQueueCard(diagnostics.transferQueue, {}, demo = true)
+        TransferQueueCard(diagnostics.transferQueue, onDemoAction, demo = true)
     }
 }

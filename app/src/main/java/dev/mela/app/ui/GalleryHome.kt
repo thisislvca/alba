@@ -110,7 +110,7 @@ internal fun GalleryHome(
     val searchGrid = rememberLazyGridState()
     val collectionScroll = rememberLazyGridState()
     val collectionPageScroll = rememberLazyGridState()
-    val summaries = key(identity) { rememberCollectionPreviews(state.catalogItems) }
+    val summaries = key(identity) { rememberCollectionPreviews(state.catalogItems, state.collections) }
     val sharedAlbums = remember(state.collections) { state.collections.filter { it.shared != null } }
     fun navigate(next: GalleryTab) {
         if (next == tab) return
@@ -271,7 +271,7 @@ internal fun GalleryHome(
                                     modifier = Modifier.testTag("gallery-menu-button")) {
                                     Icon(Icons.Outlined.MoreVert, stringResource(R.string.filter_and_sort))
                                 }
-                                IconButton(onClick = if (signedIn?.status == SessionStatus.VERIFIED) upload else account) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
+                                IconButton(onClick = if (signedIn?.status == SessionStatus.VERIFIED || state.accountState == ICloudAccountState.Demo) upload else account) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
                                 IconButton(onClick = { activity = true }, modifier = Modifier.testTag("activity-button")) {
                                     BadgedBox(badge = { if (state.transferQueue.any { it.state != TransferViewState.VERIFIED } || state.batches.any { it.state != "DONE" }) Badge() }) {
                                         Icon(Icons.Outlined.Notifications, stringResource(R.string.uploads_and_activity))
@@ -376,7 +376,7 @@ internal fun GalleryHome(
     if (activity) MelaBottomSheet(onDismissRequest = { activity = false }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             MelaSheetHeading(stringResource(R.string.activity), stringResource(R.string.uploads_downloads_and_backup), dismiss = { activity = false })
-            Button(onClick = if (signedIn?.status == SessionStatus.VERIFIED) upload else { { activity = false; account() } },
+            Button(onClick = if (signedIn?.status == SessionStatus.VERIFIED || state.accountState == ICloudAccountState.Demo) upload else { { activity = false; account() } },
                 modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) { Icon(MelaIcons.CloudUpload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.upload_photos)) }
             OutlinedButton(onClick = { activity = false; account() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
             if (state.transferQueue.isEmpty() && state.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
@@ -390,7 +390,7 @@ internal fun GalleryHome(
             (if (collection.shared?.generation == SharedAlbumGeneration.LEGACY || it.origin == MediaOrigin.DEVICE) supportsLegacySharedUpload(it.kind, it.mimeType) else true) },
         preview = preview, dismiss = { sharedPicker = false }, contribute = { ids -> actions.contributeToSharedAlbum(collection.id, ids); sharedPicker = false },
         legacy = collection.shared?.generation == SharedAlbumGeneration.LEGACY, requestPhotos = requestPhotos)
-    if (sharedInvitations) SharedInvitations(actions, dismiss = { sharedInvitations = false })
+    if (sharedInvitations) SharedInvitations(actions, dismiss = { sharedInvitations = false }, demo = state.accountState == ICloudAccountState.Demo)
     if (sharedActivity && collection?.shared?.generation == SharedAlbumGeneration.MODERN) SharedAlbumActivity(collection, state.catalogItems, actions, preview, open = { sharedActivity = false; open(it) }, dismiss = { sharedActivity = false })
     if (sharedManage && collection?.shared != null) SharedAlbumControls(collection, actions) { sharedManage = false }
     if (sharedInfo && collection?.shared != null) SharedAlbumDetails(collection) { sharedInfo = false }

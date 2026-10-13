@@ -40,10 +40,11 @@ internal data class CollectionPreview(val count: Int = 0, val media: List<Galler
 
 /** One bounded preview index; never decode originals to build collection mosaics. */
 @Composable
-internal fun rememberCollectionPreviews(media: List<GalleryMedia>): Map<String, CollectionPreview> {
-    val summaries by produceState<Map<String, CollectionPreview>>(emptyMap(), media) {
+internal fun rememberCollectionPreviews(media: List<GalleryMedia>, collections: List<GalleryCollection> = emptyList()): Map<String, CollectionPreview> {
+    val summaries by produceState<Map<String, CollectionPreview>>(emptyMap(), media, collections) {
         value = withContext(Dispatchers.Default) {
             val result = mutableMapOf<String, CollectionPreview>()
+            val covers = collections.associate { it.id to it.coverMediaId }
             for (item in media.filterNot { it.isTrashed }.sortedByDescending { it.capturedAtEpochMillis }) {
                 val ids = item.collectionIds + listOfNotNull(
                     GalleryQuery.FAVORITES.takeIf { item.isFavorite && !item.isShared },
@@ -53,7 +54,7 @@ internal fun rememberCollectionPreviews(media: List<GalleryMedia>): Map<String, 
                 for (id in ids) {
                     val previous = result[id] ?: CollectionPreview()
                     result[id] = CollectionPreview(previous.count + 1,
-                        if (previous.media.size < 6) previous.media + item else previous.media)
+                        if (covers[id] == item.id) listOf(item) + previous.media.take(5) else if (previous.media.size < 6) previous.media + item else previous.media)
                 }
             }
             result
@@ -79,11 +80,12 @@ internal fun CoverImage(media: GalleryMedia?, retry: Int, preview: (String) -> U
 
 @Composable
 internal fun AlbumCover(media: List<GalleryMedia>, retry: Int, preview: (String) -> Unit,
-    modifier: Modifier = Modifier, rotating: Boolean = false) {
+    modifier: Modifier = Modifier, rotating: Boolean = false, coverMediaId: String? = null) {
     LaunchedEffect(rotating, media.map { it.id }, retry) {
         if (rotating) media.filter { it.origin == MediaOrigin.ICLOUD && it.previewReference == null }.forEach { preview(it.id) }
     }
-    val candidates = if (rotating) media.filter { it.coverReference() != null }.ifEmpty { media.take(1) } else media.take(1)
+    val cover = media.firstOrNull { it.id == coverMediaId }
+    val candidates = if (cover != null) listOf(cover) else if (rotating) media.filter { it.coverReference() != null }.ifEmpty { media.take(1) } else media.take(1)
     var index by remember(candidates.map { it.id }) { mutableIntStateOf(0) }
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -123,7 +125,7 @@ internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, re
         color = MaterialTheme.colorScheme.background) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(RoundedCornerShape(16.dp))) {
-                AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize())
+                AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), coverMediaId = album.coverMediaId)
                 if (album.shared != null) OwnerAvatar(album.shared?.ownerName, Modifier.align(Alignment.TopStart).padding(10.dp))
                 if (featured) {
                     Box(Modifier.fillMaxWidth().height(100.dp).align(Alignment.BottomCenter)
@@ -165,7 +167,7 @@ internal fun AlbumHero(album: GalleryCollection, summary: CollectionPreview?, re
     activity: (() -> Unit)?, view: (() -> Unit)?, info: (() -> Unit)? = null) {
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("album-hero")) {
         Box(Modifier.fillMaxWidth().height((maxWidth * .95f).coerceIn(260.dp, 420.dp))) {
-            AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), rotating = true)
+            AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), rotating = true, coverMediaId = album.coverMediaId)
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .12f), Color.Black.copy(alpha = .85f)))))
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
                 Text(album.localizedName(), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Color.White,

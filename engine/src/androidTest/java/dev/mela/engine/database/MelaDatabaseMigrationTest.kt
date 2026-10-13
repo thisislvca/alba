@@ -42,6 +42,23 @@ class MelaDatabaseMigrationTest {
     }
 
     @Test
+    fun schemaFourteenPreservesCollectionsAndCanStoreSelectedCover() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 14).use { db ->
+            db.execSQL("INSERT INTO collections (account, collectionId, name, isFolder, position) VALUES ('demo-library', 'album', 'Keep me', 0, 3)")
+            db.execSQL("INSERT INTO collection_members VALUES ('demo-library', 'album', 'photo')")
+        }
+        val migrated = MelaDatabase.create(context)
+        try {
+            val album = requireNotNull(migrated.libraryDao().collection("demo-library", "album"))
+            assertEquals("Keep me", album.name)
+            assertEquals(null, album.coverMediaId)
+            assertEquals("photo", migrated.libraryDao().observeMembers().first().single().mediaId)
+            migrated.libraryDao().putCollections(listOf(album.copy(coverMediaId = "photo")))
+            assertEquals("photo", migrated.libraryDao().collection("demo-library", "album")?.toModel()?.coverMediaId)
+        } finally { migrated.close() }
+    }
+
+    @Test
     fun schemaThirteenMovesEveryCachePathAndRetainsCatalogAndSyncToken() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 13).use { db ->
             db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision,previewCachePath,viewerCachePath,originalCachePath,motionCachePath,resourceFingerprint,accentStartArgb,accentEndArgb,lastSeenScanId) VALUES ('kept','photo.heic',1,20,30,'ICLOUD','rev','/preview','/viewer','/original','/motion','fingerprint',0,0,'scan')")
