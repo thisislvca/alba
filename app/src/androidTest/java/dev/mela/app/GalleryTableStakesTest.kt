@@ -16,7 +16,7 @@ import java.io.File
 class GalleryTableStakesTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
-    private fun loaded() = compose.waitUntil(20_000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
+    private fun loaded() = compose.scrollToGalleryMedia("fixture:icloud:0020")
     private fun capture(name: String) {
         compose.waitForIdle()
         android.os.SystemClock.sleep(350)

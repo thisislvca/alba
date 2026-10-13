@@ -254,6 +254,7 @@ fun MelaApp(
                                 backup = state.backup,
                                 onEnableAutomaticBackup = onEnableAutomaticBackup,
                                 onDisableAutomaticBackup = onDisableAutomaticBackup,
+                                onDemoAction = onContinuePastUnresolved,
                             )
                         } else {
                             // AnimatedContent retains the outgoing snapshot until the image reaches its tile.
@@ -320,6 +321,7 @@ private fun GalleryScreen(
 internal fun TransferQueueCard(
     transfers: List<TransferView>,
     onContinuePastUnresolved: (TransferId) -> Unit,
+    demo: Boolean = false,
 ) {
     Card(
         modifier = Modifier
@@ -330,7 +332,7 @@ internal fun TransferQueueCard(
         shape = RoundedCornerShape(20.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-            Text(stringResource(R.string.uploads), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(if (demo) R.string.demo_backup_title else R.string.uploads), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             transfers.forEachIndexed { index, transfer ->
                 Row(
@@ -352,7 +354,17 @@ internal fun TransferQueueCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = transfer.message?.let { dev.mela.app.localizedStoredMessage(it).localized() } ?: transfer.state.label(),
+                            text = if (demo) stringResource(when {
+                                transfer.message == "demo-wifi" -> R.string.demo_backup_wifi
+                                transfer.message == "demo-cleaned" -> R.string.demo_cleanup_complete
+                                transfer.state == TransferViewState.NEEDS_ATTENTION -> R.string.demo_backup_interrupted
+                                else -> when (transfer.state) {
+                                TransferViewState.WAITING -> R.string.demo_backup_waiting
+                                TransferViewState.UPLOADING -> R.string.demo_backup_copying
+                                TransferViewState.CHECKING_ICLOUD -> R.string.demo_backup_checking
+                                TransferViewState.VERIFIED -> R.string.demo_backup_complete
+                                else -> R.string.demo_backup_off
+                            } }) else transfer.message?.let { dev.mela.app.localizedStoredMessage(it).localized() } ?: transfer.state.label(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,
@@ -360,13 +372,13 @@ internal fun TransferQueueCard(
                         )
                     }
                 }
-                if (transfer.state == TransferViewState.UNRESOLVED) {
+                if (transfer.state == TransferViewState.UNRESOLVED || (demo && transfer.message in setOf("demo-interrupted", "demo-wifi"))) {
                     Spacer(Modifier.height(9.dp))
                     OutlinedButton(
                         onClick = { onContinuePastUnresolved(transfer.id) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(stringResource(R.string.keep_this_item_blocked_continue_others))
+                        Text(stringResource(if (demo) R.string.demo_backup_retry else R.string.keep_this_item_blocked_continue_others))
                     }
                 }
                 if (index != transfers.lastIndex) {
@@ -521,6 +533,7 @@ internal fun EmptyLibrary() {
 internal fun DeviceUploadControls(
     uploadTransfer: TransferView?,
     isSignedIn: Boolean,
+    demo: Boolean = false,
     isWorking: Boolean,
     onRequestUpload: () -> Unit,
     onContinuePastUnresolved: () -> Unit,
@@ -528,7 +541,7 @@ internal fun DeviceUploadControls(
     onOpenAccount: () -> Unit,
 ) {
     if (uploadTransfer == null) {
-        if (isSignedIn) {
+        if (isSignedIn || demo) {
             Button(
                 onClick = onRequestUpload,
                 enabled = !isWorking,
@@ -544,7 +557,7 @@ internal fun DeviceUploadControls(
                     Icon(MelaIcons.CloudUpload, contentDescription = null)
                 }
                 Spacer(Modifier.width(8.dp))
-                Text(if (isWorking) stringResource(R.string.staging_original) else stringResource(R.string.upload_to_icloud))
+                Text(if (isWorking) stringResource(R.string.staging_original) else stringResource(if (demo) R.string.demo_upload_title else R.string.upload_to_icloud))
             }
         } else {
             OutlinedButton(

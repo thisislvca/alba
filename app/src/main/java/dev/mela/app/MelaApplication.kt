@@ -77,11 +77,13 @@ class MelaGraph(context: Context, val diagnostics: SentryMelaDiagnostics) {
         onSessionRejected = accountManager::rejectSession,
         sharedJournal = dev.mela.protocol.photos.EncryptedUploadJournal(database.libraryDao()),
     )
-    private val cloudCatalog = AccountAwareICloudCatalogSource(FixtureICloudCatalogSource(
+    val demoCatalog = FixtureICloudCatalogSource(
         includeSharedAlbums = true,
         openPhoto = { index -> appContext.assets.open(if (index in setOf(19, 20)) "demo/ocean.webp" else "demo/${index.toString().padStart(2, '0')}.webp") },
         openVideo = { appContext.assets.open("fixture_video.mp4") },
-    ), liveCatalog) { accountManager.session.value }
+        uploadDirectory = java.io.File(appContext.cacheDir, "demo-imports").apply { deleteRecursively(); mkdirs() },
+    )
+    private val cloudCatalog = AccountAwareICloudCatalogSource(demoCatalog, liveCatalog) { accountManager.session.value }
     val galleryRepository = DefaultGalleryRepository(
         database = database,
         cloudSource = cloudCatalog,

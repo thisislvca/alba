@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -114,7 +115,9 @@ class MelaViewModel(
     private val exporter: GalleryExporter? = null,
     private val network: kotlinx.coroutines.flow.Flow<NetworkStatus?> = flowOf(null),
     private val diagnostics: MelaDiagnostics = MelaDiagnostics.None,
+    private val importDemo: suspend (Uri?) -> Unit = { error("Demo importer unavailable") },
 ) : ViewModel() {
+    private val demoBackup = DemoBackup(viewModelScope)
     private val connection = network.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val query = MutableStateFlow(GalleryQuery(
         origin = savedState.get<String>("queryOrigin")?.let(MediaOrigin::valueOf)
@@ -164,6 +167,9 @@ class MelaViewModel(
         }.map { it.id }
         if (ids.isEmpty()) return
         updateSelection(emptySet())
+        if (action == BatchAction.UPLOAD && accountManager.state.value == ICloudAccountState.Demo) {
+            uploadDemo(uiState.value.catalogItems.filter { it.id in ids }.mapNotNull { it.originalReference?.let(Uri::parse) }); return
+        }
         launchBatchWork {
             batchActions?.enqueue(action, ids)
             if (action in setOf(BatchAction.KEEP_OFFLINE, BatchAction.SAVE_TO_PHONE))
@@ -208,7 +214,27 @@ class MelaViewModel(
         status.value = status.value.copy(phoneStorage = repository.localStorageUsage(), phoneStorageError = null,
             message = UiMessage(R.string.phone_storage_cleared))
     }
-    fun uploadSelected(uris: List<Uri>) { launchBatchWork {
+    fun uploadDemoSample() = uploadDemo(listOf(null))
+    private fun uploadDemo(uris: List<Uri?>) {
+        if (accountManager.state.value != ICloudAccountState.Demo) return
+        launchBatchWork {
+            var importedAny = false
+            try {
+                uris.forEach { importDemo(it); importedAny = true }
+            } finally {
+                // Publish successful copies even when a later selection is inaccessible or unsupported.
+                if (importedAny && accountManager.state.value == ICloudAccountState.Demo) {
+                    repository.refresh(includeDeviceMedia = false)
+                }
+            }
+            if (importedAny && accountManager.state.value == ICloudAccountState.Demo) {
+                status.value = status.value.copy(message = UiMessage(R.string.demo_import_complete))
+            }
+        }
+    }
+    fun uploadSelected(uris: List<Uri>) {
+        if (accountManager.state.value == ICloudAccountState.Demo) { uploadDemo(uris); return }
+        launchBatchWork {
         batchActions?.enqueue(BatchAction.PICKER_UPLOAD, uris.map(Uri::toString))
         scheduleBatches()
     } }
@@ -232,6 +258,7 @@ class MelaViewModel(
     private val accountInfo = MutableStateFlow(AccountInfo())
     private var accountInfoJob: Job? = null
     fun checkConnection() {
+        if (accountManager.state.value == ICloudAccountState.Demo) launchRefresh(replaceActive = false)
         if (accountInfoJob?.isActive == true || status.value.accountBusy) return
         accountInfoJob = viewModelScope.launch {
             val span = diagnostics.start(
@@ -443,7 +470,9 @@ class MelaViewModel(
         }
     }.flowOn(Dispatchers.Default)
 
-    private val transferContent = photos.observeTransfers()
+    private val transferContent = accountManager.state.flatMapLatest { state ->
+        if (state == ICloudAccountState.Demo) demoBackup.transfers else photos.observeTransfers()
+    }
         .map(::projectTransfers)
         .flowOn(Dispatchers.Default)
 
@@ -451,7 +480,9 @@ class MelaViewModel(
         galleryContent,
         transferContent,
         status,
-        photos.observeBackup(),
+        accountManager.state.flatMapLatest { state ->
+            if (state == ICloudAccountState.Demo) demoBackup.backup else photos.observeBackup()
+        },
     ) { content, transfers, currentStatus, backup ->
         GalleryUiState(
             phoneStorage = currentStatus.phoneStorage,
@@ -494,6 +525,9 @@ class MelaViewModel(
     )
 
     init {
+        viewModelScope.launch {
+            accountManager.state.collect { if (it != ICloudAccountState.Demo) demoBackup.reset() }
+        }
         viewModelScope.launch {
             var wasOffline = false
             connection.map { it?.online }.distinctUntilChanged().collectLatest { online ->
@@ -799,6 +833,10 @@ class MelaViewModel(
     }
 
     fun requestUpload(mediaId: String) {
+        if (accountManager.state.value == ICloudAccountState.Demo) {
+            uiState.value.catalogItems.firstOrNull { it.id == mediaId }?.originalReference?.let { uploadDemo(listOf(Uri.parse(it))) }
+            return
+        }
         launchBatchWork {
             batchActions?.enqueue(BatchAction.UPLOAD, listOf(mediaId))
             scheduleBatches()
@@ -808,6 +846,10 @@ class MelaViewModel(
     fun uploadSelected(uri: Uri) = uploadSelected(listOf(uri))
 
     fun beginAutomaticBackup(onDisclosureReady: (BackupDraft) -> Unit) {
+        if (accountManager.state.value == ICloudAccountState.Demo) {
+            onDisclosureReady(demoBackup.begin())
+            return
+        }
         viewModelScope.launch {
             runCatching { photos.beginBackupEnrollment(BackupScope.CAMERA_JPEGS) }
                 .onSuccess(onDisclosureReady)
@@ -819,6 +861,11 @@ class MelaViewModel(
     }
 
     suspend fun acceptAutomaticBackup(draftId: BackupDraftId): BackupSetupEffect {
+        if (DemoBackup.owns(draftId)) {
+            return if (accountManager.state.value == ICloudAccountState.Demo && demoBackup.accept(draftId))
+                BackupSetupEffect.RequestMediaPermissions(emptyList())
+            else BackupSetupEffect.Refused(StoredMessage.AUTOMATIC_BACKUP_IS_OFF.code)
+        }
         val effect = photos.acceptBackupDisclosure(draftId)
         if (effect is BackupSetupEffect.Refused) {
             status.value = status.value.copy(message = localizedStoredMessage(effect.reason))
@@ -827,6 +874,10 @@ class MelaViewModel(
     }
 
     fun finishAutomaticBackup(draftId: BackupDraftId) {
+        if (DemoBackup.owns(draftId)) {
+            if (accountManager.state.value == ICloudAccountState.Demo) demoBackup.finish(draftId)
+            return
+        }
         viewModelScope.launch {
             runCatching { photos.finishBackupEnrollment(draftId) }
                 .onSuccess { status.value = status.value.copy(message = localizedStoredMessage(it.message)) }
@@ -838,6 +889,10 @@ class MelaViewModel(
     }
 
     fun disableAutomaticBackup() {
+        if (accountManager.state.value == ICloudAccountState.Demo) {
+            demoBackup.reset()
+            return
+        }
         viewModelScope.launch {
             runCatching { photos.changeBackup(BackupChange.Disable) }
                 .onSuccess { status.value = status.value.copy(message = localizedStoredMessage(it.message)) }
@@ -887,6 +942,15 @@ class MelaViewModel(
     }
 
     fun continuePastUnresolved(transferId: TransferId) {
+        if (accountManager.state.value == ICloudAccountState.Demo) {
+            when (transferId.value) {
+                "demo-control:interrupt" -> demoBackup.interrupt()
+                "demo-control:wifi" -> demoBackup.pauseForWifi()
+                "demo-control:cleanup" -> demoBackup.cleanUpSamples()
+                else -> demoBackup.retry(transferId)
+            }
+            return
+        }
         viewModelScope.launch {
             try {
                 photos.continuePastUnresolved(transferId)
@@ -1010,6 +1074,16 @@ class MelaViewModel(
                 exporter = GalleryExporter(appContext, graph.galleryRepository),
                 network = networkStatus(appContext),
                 diagnostics = graph.diagnostics,
+                importDemo = { uri ->
+                    check(graph.accountManager.state.value == ICloudAccountState.Demo)
+                    val name = if (uri == null) "Sample upload.webp" else appContext.contentResolver.query(uri,
+                        arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) cursor.getString(0) else null
+                    } ?: "Selected media"
+                    val input = if (uri == null) appContext.assets.open("demo/01.webp") else
+                        requireNotNull(appContext.contentResolver.openInputStream(uri))
+                    graph.demoCatalog.importMedia(name, input)
+                },
                 accountManager = graph.accountManager,
                 photos = graph.photos,
                 maintenance = graph.maintenance,

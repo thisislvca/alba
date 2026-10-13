@@ -47,7 +47,7 @@ class StoreScreenshotTest {
     @Test fun captureStoreScreens() {
         // This opt-in capture utility produces store artwork; ordinary device runs do not capture it.
         if (InstrumentationRegistry.getArguments().getString("captureStoreScreenshots") != "true") return
-        compose.waitUntil(20_000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForGalleryMedia()
         if (compose.onAllNodesWithText("Not now").fetchSemanticsNodes().isNotEmpty()) {
             compose.onNodeWithText("Not now").performScrollTo().performClick()
         }

@@ -7,12 +7,16 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.geometry.Offset
 
-internal fun ComposeTestRule.scrollToGalleryMedia(id: String) {
+internal fun ComposeTestRule.waitForGalleryMedia(id: String = "fixture:icloud:0020") {
     // Wait for the item in the lazy grid's data, even when phone photos put it offscreen.
     waitUntil(15_000) {
         val grid = onAllNodesWithTag("gallery-grid").fetchSemanticsNodes().singleOrNull()
         (grid?.config?.getOrNull(SemanticsProperties.IndexForKey)?.invoke(id) ?: -1) >= 0
     }
+}
+
+internal fun ComposeTestRule.scrollToGalleryMedia(id: String) {
+    waitForGalleryMedia(id)
     onNodeWithTag("gallery-grid").performScrollToKey(id)
     // Lazy-grid scrolling knows its viewport, but not the floating date header above it.
     // Move the photo below that header before injecting a real tap/long press.

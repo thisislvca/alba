@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 data class CollectionEntity(val account: String, val collectionId: String, val name: String,
     val parentId: String?, val isFolder: Boolean, val position: Long,
     val sharedGeneration: String? = null, val sharedRole: String? = null,
-    val sharedOwnerName: String? = null, val sharedParticipantCount: Int? = null, val sharedWebUrl: String? = null)
+    val sharedOwnerName: String? = null, val sharedParticipantCount: Int? = null, val sharedWebUrl: String? = null, val coverMediaId: String? = null)
 @Entity(tableName = "collection_members", primaryKeys = ["account", "collectionId", "mediaId"])
 data class CollectionMemberEntity(val account: String, val collectionId: String, val mediaId: String)
 @Entity(tableName = "batch_items", primaryKeys = ["batchId", "mediaId"])
@@ -60,6 +60,6 @@ internal fun CollectionEntity.toModel() = dev.mela.engine.model.GalleryCollectio
     sharedGeneration?.let { dev.mela.engine.model.SharedAlbumInfo(
         dev.mela.engine.model.SharedAlbumGeneration.valueOf(it),
         sharedRole?.let(dev.mela.engine.model.SharedAlbumRole::valueOf) ?: dev.mela.engine.model.SharedAlbumRole.VIEWER,
-        sharedOwnerName, sharedParticipantCount, sharedWebUrl) })
+        sharedOwnerName, sharedParticipantCount, sharedWebUrl) }, coverMediaId)
 internal fun dev.mela.engine.model.GalleryCollection.toEntity(account: String) = CollectionEntity(account, id, name, parentId, isFolder, position,
-    shared?.generation?.name, shared?.role?.name, shared?.ownerName, shared?.participantCount, shared?.webUrl)
+    shared?.generation?.name, shared?.role?.name, shared?.ownerName, shared?.participantCount, shared?.webUrl, coverMediaId)

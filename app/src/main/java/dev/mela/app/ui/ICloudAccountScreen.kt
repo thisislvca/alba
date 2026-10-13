@@ -71,6 +71,7 @@ fun ICloudAccountScreen(
     backup: BackupView,
     onEnableAutomaticBackup: () -> Unit,
     onDisableAutomaticBackup: () -> Unit,
+    onDemoAction: (dev.mela.engine.model.TransferId) -> Unit = {},
 ) {
     var page by rememberSaveable { mutableStateOf(ProfilePage.OVERVIEW) }
     var appleId by rememberSaveable { mutableStateOf("") }
@@ -135,10 +136,11 @@ fun ICloudAccountScreen(
             }
             page == ProfilePage.BACKUP -> BackupSettings(
                 connected = signedIn?.status == SessionStatus.VERIFIED,
+                demo = state == ICloudAccountState.Demo,
                 appleId = signedIn?.appleId.orEmpty(), backup = backup,
                 diagnostics = diagnostics, onCheckConnection = onCheckConnection,
                 onEnableAutomaticBackup = onEnableAutomaticBackup,
-                onDisableAutomaticBackup = onDisableAutomaticBackup,
+                onDisableAutomaticBackup = onDisableAutomaticBackup, onDemoAction = onDemoAction,
             )
             page == ProfilePage.PHONE -> diagnostics?.let { PhoneStorageDetails(it, libraryActions) }
             page == ProfilePage.ACTIVATION && signedIn != null -> PhotosNotEnabledAccount(
@@ -353,14 +355,23 @@ private fun ProgressState(title: String, detail: String) {
 @Composable
 private fun BackupSettings(
     connected: Boolean,
+    demo: Boolean,
     appleId: String,
     backup: BackupView,
     diagnostics: dev.mela.app.GalleryUiState?,
     onCheckConnection: () -> Unit,
     onEnableAutomaticBackup: () -> Unit,
     onDisableAutomaticBackup: () -> Unit,
+    onDemoAction: (dev.mela.engine.model.TransferId) -> Unit = {},
 ) {
-    ProfileStorage(diagnostics, demo = false, hasAccount = connected,
+    if (demo) {
+        Text(stringResource(R.string.demo_backup_title), style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.demo_backup_disclosure), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(18.dp))
+    }
+    ProfileStorage(diagnostics, demo = demo, hasAccount = connected,
         check = onCheckConnection, labelRes = R.string.cloud_storage)
     Spacer(Modifier.height(22.dp))
     Card(
@@ -372,7 +383,9 @@ private fun BackupSettings(
             Text(stringResource(R.string.automatic_jpeg_backup), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(6.dp))
             Text(
-                if (backup.enabled) {
+                if (demo) {
+                    stringResource(if (backup.enabled) R.string.demo_backup_running else R.string.demo_backup_off)
+                } else if (backup.enabled) {
                     stringResource(R.string.backup_on_for, backup.destinationLabel ?: appleId)
                 } else {
                     stringResource(R.string.off_you_can_still_upload_one_photo_at_a_time_from_the_system_photo_picker)
@@ -390,11 +403,43 @@ private fun BackupSettings(
                 ) { Text(stringResource(R.string.turn_off_automatic_backup)) }
             } else {
                 Button(
-                    enabled = connected && Build.VERSION.SDK_INT >= 30,
+                    enabled = (connected || demo) && Build.VERSION.SDK_INT >= 30,
                     onClick = onEnableAutomaticBackup,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.set_up_automatic_backup)) }
+                ) { Text(stringResource(if (demo) R.string.demo_backup_start else R.string.set_up_automatic_backup)) }
             }
         }
+    }
+    if (demo) {
+        Spacer(Modifier.height(18.dp))
+        Text(stringResource(R.string.demo_sync_description), style = MaterialTheme.typography.bodyMedium)
+        diagnostics?.lastRefreshedAt?.let {
+            Text(stringResource(R.string.library_refreshed_at, timestampLabel(it)),
+                style = MaterialTheme.typography.bodySmall)
+        }
+        OutlinedButton(onClick = onCheckConnection, enabled = diagnostics?.isRefreshing != true,
+            modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.demo_sync_refresh)) }
+    }
+    if (demo && backup.enabled) {
+        var confirmCleanup by remember { mutableStateOf(false) }
+        OutlinedButton(onClick = { onDemoAction(dev.mela.engine.model.TransferId("demo-control:interrupt")) }, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.demo_backup_interrupt))
+        }
+        OutlinedButton(onClick = { onDemoAction(dev.mela.engine.model.TransferId("demo-control:wifi")) }, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.demo_backup_pause_wifi))
+        }
+        OutlinedButton(onClick = { confirmCleanup = true }, modifier = Modifier.fillMaxWidth(),
+            enabled = diagnostics?.transferQueue?.let { it.isNotEmpty() && it.all { row -> row.state == dev.mela.engine.model.TransferViewState.VERIFIED } } == true) {
+            Text(stringResource(R.string.demo_cleanup_preview))
+        }
+        if (confirmCleanup) androidx.compose.material3.AlertDialog(onDismissRequest = { confirmCleanup = false },
+            title = { Text(stringResource(R.string.demo_cleanup_preview)) },
+            text = { Text(stringResource(R.string.demo_cleanup_disclosure)) },
+            confirmButton = { TextButton(onClick = { confirmCleanup = false; onDemoAction(dev.mela.engine.model.TransferId("demo-control:cleanup")) }) { Text(stringResource(R.string.welcome_continue)) } },
+            dismissButton = { TextButton(onClick = { confirmCleanup = false }) { Text(stringResource(R.string.not_now)) } })
+    }
+    if (demo && diagnostics != null && diagnostics.transferQueue.isNotEmpty()) {
+        Spacer(Modifier.height(18.dp))
+        TransferQueueCard(diagnostics.transferQueue, onDemoAction, demo = true)
     }
 }

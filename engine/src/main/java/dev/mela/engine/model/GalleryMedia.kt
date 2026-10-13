@@ -12,7 +12,7 @@ fun GalleryMedia.dateMillis(date: GalleryDate): Long =
     if (date == GalleryDate.ADDED) addedAtEpochMillis ?: capturedAtEpochMillis else capturedAtEpochMillis
 
 data class GalleryCollection(val id: String, val name: String, val parentId: String? = null,
-    val isFolder: Boolean = false, val position: Long = 0, val shared: SharedAlbumInfo? = null)
+    val isFolder: Boolean = false, val position: Long = 0, val shared: SharedAlbumInfo? = null, val coverMediaId: String? = null)
 
 data class GalleryQuery(
     val origin: MediaOrigin? = null,

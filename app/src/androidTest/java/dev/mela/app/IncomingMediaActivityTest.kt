@@ -41,9 +41,9 @@ class IncomingMediaActivityTest {
         try {
             ActivityScenario.launch<MainActivity>(intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/jpeg")).use { scenario ->
                 compose.waitUntil(15_000) {
-                    compose.onNodeWithText(context.getString(R.string.incoming_upload_explanation)).isDisplayed()
+                    compose.onNodeWithText(context.getString(R.string.demo_upload_disclosure)).isDisplayed()
                 }
-                compose.onNodeWithText(context.getString(R.string.incoming_upload_explanation)).assertIsDisplayed()
+                compose.onNodeWithText(context.getString(R.string.demo_upload_disclosure)).assertIsDisplayed()
                 capture("open-with")
                 scenario.recreate()
                 compose.onNodeWithTag("incoming-media").assertIsDisplayed()
@@ -58,7 +58,7 @@ class IncomingMediaActivityTest {
                 type = "image/jpeg"; putParcelableArrayListExtra(Intent.EXTRA_STREAM, arrayListOf(one, two))
             }).use {
                 compose.waitUntil(15_000) { compose.onAllNodesWithText(context.getString(R.string.incoming_position, 1, 2)).fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithText(context.getString(R.string.incoming_connect)).assertIsDisplayed()
+                compose.onNodeWithText(context.getString(R.string.demo_upload_title)).assertIsDisplayed()
                 assertNull((context as MelaApplication).graph.accountManager.authorizedSession)
                 val image = compose.onNodeWithTag("incoming-image-0")
                 image.performTouchInput { doubleClick() }
@@ -71,6 +71,32 @@ class IncomingMediaActivityTest {
             }
         } finally { context.contentResolver.delete(one, null, null); context.contentResolver.delete(two, null, null) }
     }
+    @Test fun sharedPhotoCanBeImportedIntoDemoAfterExplicitConfirmation() {
+        val uri = image()
+        try {
+            ActivityScenario.launch<MainActivity>(intent(Intent.ACTION_SEND).apply {
+                type = "image/jpeg"; putExtra(Intent.EXTRA_STREAM, uri)
+            }).use {
+                compose.waitUntil(15_000) { compose.onAllNodesWithTag("queue-incoming-upload").fetchSemanticsNodes().isNotEmpty() }
+                val graph = (context as MelaApplication).graph
+                val before = kotlinx.coroutines.runBlocking { graph.demoCatalog.fetchPage(null, 100).records.map { it.id }.toSet() }
+                compose.onNodeWithTag("queue-incoming-upload").performClick()
+                compose.onNodeWithTag("confirm-incoming-upload").assertIsDisplayed()
+                compose.onNodeWithText(context.getString(R.string.cancel)).performClick()
+                assertEquals(before, kotlinx.coroutines.runBlocking { graph.demoCatalog.fetchPage(null, 100).records.map { it.id }.toSet() })
+                compose.onNodeWithTag("queue-incoming-upload").performClick()
+                compose.onNodeWithTag("confirm-incoming-upload").performClick()
+                compose.waitUntil(15_000) {
+                    compose.onAllNodesWithText(context.getString(R.string.demo_import_complete)).fetchSemanticsNodes().isNotEmpty()
+                }
+                val added = kotlinx.coroutines.runBlocking { graph.demoCatalog.fetchPage(null, 100).records.single { it.id !in before } }
+                assertEquals(80, added.width); assertEquals(60, added.height)
+                assertNull(graph.accountManager.authorizedSession)
+                capture("share-to-demo-imported")
+            }
+        } finally { context.contentResolver.delete(uri, null, null) }
+    }
+
     @Test fun unsafeSchemesAreRejectedAndMissingFilesHaveHonestErrors() {
         assertTrue(incomingMedia(Intent(Intent.ACTION_VIEW, Uri.parse("file:///data/private.jpg")))!!.uris.isEmpty())
         assertTrue(incomingMedia(Intent(Intent.ACTION_VIEW, Uri.parse("https://example.invalid/photo.jpg")))!!.uris.isEmpty())

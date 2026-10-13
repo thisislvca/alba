@@ -24,7 +24,7 @@ class AppSurfacesTest {
         bitmap.recycle()
     }
     @Test fun utilitySheetsAndProfileScrollUnderGestureArea() {
-        compose.waitUntil(15000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForGalleryMedia()
         compose.onNodeWithTag("account-button").performClick()
         val viewport = compose.onNodeWithTag("mela-page-scroll").fetchSemanticsNode().boundsInRoot
         val root = compose.onRoot().fetchSemanticsNode().boundsInRoot

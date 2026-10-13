@@ -52,6 +52,7 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
     MelaBottomSheet(onDismissRequest = { if (!busy) dismiss() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), modifier = Modifier.testTag("shared-management")) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             MelaSheetHeading(stringResource(R.string.shared_manage), album.name, dismiss, !busy)
+            if (album.id.startsWith("shared:demo-library:")) Text(stringResource(R.string.demo_shared_notice))
             if (busy || (data == null && !error)) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (error) {
                 Text(stringResource(R.string.shared_action_failed), color = MaterialTheme.colorScheme.error)

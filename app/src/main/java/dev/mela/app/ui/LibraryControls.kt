@@ -48,8 +48,8 @@ internal fun SelectionActions(state: GalleryUiState, selectAll: () -> Unit, clea
                     FilledTonalButton(onClick = { batch(BatchAction.SAVE_TO_PHONE) }, modifier = Modifier.testTag("save-selection-to-phone")) {
                         Text(stringResource(R.string.save_to_phone_gallery))
                     }
-                if (hasPhone && !state.query.trashOnly && selectedItems.any { it.origin == MediaOrigin.DEVICE && dev.mela.engine.source.UploadMediaFormat.isCandidate(it.mimeType) }) FilledTonalButton(enabled = (state.accountState as? ICloudAccountState.SignedIn)?.status == dev.mela.protocol.account.SessionStatus.VERIFIED,
-                    onClick = { batch(BatchAction.UPLOAD) }) { Text(stringResource(R.string.upload_phone_jpegs)) }
+                if (hasPhone && !state.query.trashOnly && selectedItems.any { it.origin == MediaOrigin.DEVICE && dev.mela.engine.source.UploadMediaFormat.isCandidate(it.mimeType) }) FilledTonalButton(enabled = state.accountState == ICloudAccountState.Demo || (state.accountState as? ICloudAccountState.SignedIn)?.status == dev.mela.protocol.account.SessionStatus.VERIFIED,
+                    onClick = { batch(BatchAction.UPLOAD) }) { Text(stringResource(if (state.accountState == ICloudAccountState.Demo) R.string.demo_upload_title else R.string.upload_phone_jpegs)) }
                 Box {
                     OutlinedButton(onClick = { more = true }) { Text(stringResource(R.string.more)) }
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {

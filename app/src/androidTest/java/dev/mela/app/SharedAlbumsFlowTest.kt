@@ -96,7 +96,7 @@ class SharedAlbumsFlowTest {
             // A catalog commit can precede the new item reaching the Compose grid.
             compose.scrollToGalleryMedia(requireNotNull(contributedId))
             compose.onNodeWithTag("media-$contributedId").assertIsDisplayed().performClick()
-            compose.onNodeWithText(label(R.string.details)).assertIsDisplayed()
+            compose.onNodeWithTag("media-pager").assertIsDisplayed()
             compose.openViewerDetails()
             compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
             capture("details-open-${generation.name.lowercase()}")

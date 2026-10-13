@@ -13,9 +13,7 @@ class FloatingViewerTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     private val id = "fixture:icloud:0016"
-    private fun loaded() = compose.waitUntil(15_000) {
-        compose.onAllNodesWithTag("photo-tile-fixture:icloud:0020", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-    }
+    private fun loaded() = compose.waitForGalleryMedia()
     private fun open() {
         loaded()
         compose.scrollToGalleryMedia(id)

@@ -13,7 +13,7 @@ import org.junit.Test
 class GalleryImprovementsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
-    private fun loaded() = compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-fixture:icloud:0020").fetchSemanticsNodes().isNotEmpty() }
+    private fun loaded() = compose.waitForGalleryMedia()
     private fun open(id: String) {
         compose.scrollToGalleryMedia("$id")
         compose.onNodeWithTag("media-$id").performClick()

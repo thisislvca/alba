@@ -135,9 +135,9 @@ internal fun ProfileOverview(
         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     MelaGroup {
         ProfileRow(stringResource(R.string.automatic_jpeg_backup),
-            stringResource(if (demo) R.string.profile_backup_connect else if (backup.enabled) R.string.profile_backup_on else R.string.profile_backup_off),
+            stringResource(if (demo) R.string.demo_backup_preview else if (backup.enabled) R.string.profile_backup_on else R.string.profile_backup_off),
             MelaIcons.CloudUpload, Color(0xFF268858), "profile-backup",
-            onClick = { onNavigate(if (demo) ProfilePage.SIGN_IN else ProfilePage.BACKUP) })
+            onClick = { onNavigate(ProfilePage.BACKUP) })
         if (diagnostics != null) {
             ProfileDivider()
             val phoneSummary = diagnostics.phoneStorage?.let {

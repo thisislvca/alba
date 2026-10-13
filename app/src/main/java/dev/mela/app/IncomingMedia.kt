@@ -73,6 +73,7 @@ internal fun IncomingMediaScreen(request: IncomingMediaRequest, state: GalleryUi
     connect: () -> Unit, upload: (List<Uri>) -> Unit) {
     val context = LocalContext.current
     val shareLabel = stringResource(R.string.share)
+    val demo = state.accountState == ICloudAccountState.Demo
     val items by produceState<List<IncomingItem>?>(null, request) {
         value = request.uris.map { inspectIncoming(context, it) }
     }
@@ -129,10 +130,10 @@ internal fun IncomingMediaScreen(request: IncomingMediaRequest, state: GalleryUi
                             if (loaded.size > 1) Text(stringResource(R.string.incoming_position, pager.currentPage + 1, loaded.size))
                             val eligible = loaded.filter { UploadMediaFormat.isCandidate(it.mime) }
                             if (!request.savedCopy && loaded.any { it.failure == null && it.mime != null }) {
-                                Text(stringResource(R.string.incoming_upload_explanation), style = MaterialTheme.typography.bodySmall)
+                                Text(stringResource(if (demo) R.string.demo_upload_disclosure else R.string.incoming_upload_explanation), style = MaterialTheme.typography.bodySmall)
                                 val signedIn = (state.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED
-                                if (eligible.isNotEmpty()) Button(modifier = Modifier.testTag("queue-incoming-upload"), enabled = !sent, onClick = { if (signedIn) confirm = true else connect() }) {
-                                    Text(stringResource(if (sent) R.string.incoming_upload_queued else if (signedIn) R.string.upload_phone_jpegs else R.string.incoming_connect))
+                                if (eligible.isNotEmpty()) Button(modifier = Modifier.testTag("queue-incoming-upload"), enabled = !sent, onClick = { if (signedIn || demo) confirm = true else connect() }) {
+                                    Text(stringResource(if (sent && demo) R.string.demo_import_requested else if (sent) R.string.incoming_upload_queued else if (demo) R.string.demo_upload_title else if (signedIn) R.string.upload_phone_jpegs else R.string.incoming_connect))
                                 }
                                 if (sent) TextButton(onClick = close) { Text(stringResource(R.string.incoming_view_library)) }
                                 state.message?.let { Text(it.localized(), style = MaterialTheme.typography.bodySmall) }
@@ -141,12 +142,12 @@ internal fun IncomingMediaScreen(request: IncomingMediaRequest, state: GalleryUi
                     }
                 }
             }
-            if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.upload_phone_jpegs)) },
-                text = { Text(androidx.compose.ui.res.pluralStringResource(R.plurals.incoming_upload_confirm, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) }, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) })) },
+            if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(if (demo) R.string.demo_upload_title else R.string.upload_phone_jpegs)) },
+                text = { Text(if (demo) stringResource(R.string.demo_upload_disclosure) else androidx.compose.ui.res.pluralStringResource(R.plurals.incoming_upload_confirm, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) }, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) })) },
                 confirmButton = { TextButton(modifier = Modifier.testTag("confirm-incoming-upload"), onClick = {
                     confirm = false; sent = true
                     upload(items.orEmpty().filter { UploadMediaFormat.isCandidate(it.mime) }.map { it.uri })
-                }) { Text(stringResource(R.string.upload_phone_jpegs)) } },
+                }) { Text(stringResource(if (demo) R.string.demo_upload_title else R.string.upload_phone_jpegs)) } },
                 dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
         }
     }

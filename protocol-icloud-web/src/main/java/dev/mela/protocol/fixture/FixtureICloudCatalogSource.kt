@@ -13,6 +13,11 @@ import dev.mela.engine.source.CloudCatalogPage
 import dev.mela.engine.source.CloudCatalogSource
 import dev.mela.engine.source.RemoteMediaRecord
 import java.io.OutputStream
+import dev.mela.engine.model.*
+import java.io.File
+import java.io.InputStream
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -22,11 +27,22 @@ class FixtureICloudCatalogSource(
     private val includeSharedAlbums: Boolean = false,
     private val openPhoto: ((Int) -> java.io.InputStream)? = null,
     private val openVideo: (() -> java.io.InputStream)? = null,
+    private val uploadDirectory: File? = null,
 ) : CloudCatalogSource {
     override val accountLabel: String = "demo-library"
 
     private val fixtures = fixtureRecords()
-    private val recordsById = fixtures.associateBy(FixtureRecord::recordId)
+    private val recordsById = fixtures.associateBy(FixtureRecord::recordId).toMutableMap()
+    private val extraRecords = java.util.concurrent.ConcurrentHashMap<String, RemoteMediaRecord>()
+    private val imported = java.util.concurrent.ConcurrentHashMap<String, DemoImportedMedia>()
+    private val importLock = Mutex()
+    private fun personalRecords() = fixtures.map { it.toRemoteRecord() } + extraRecords.values.filter { it.id.startsWith("fixture:") }
+    private fun record(id: String) = extraRecords[id] ?: requireFixture(id).toRemoteRecord().copy(id = id)
+    private fun sharedIds(id: String) = (sharedFixtures.keys + extraRecords.keys).filter { it.startsWith("$id:") }
+    private fun copyMedia(from: String, to: String) {
+        extraRecords[to] = record(from).copy(id = to, addedAtEpochMillis = System.currentTimeMillis())
+        imported[from]?.let { imported[to] = it } ?: run { recordsById[to] = requireFixture(from) }
+    }
     private val sharedAlbums = mutableListOf(
         dev.mela.engine.model.GalleryCollection("shared:demo-library:legacy:owner:one", "Family archive", position = 0,
             shared = dev.mela.engine.model.SharedAlbumInfo(dev.mela.engine.model.SharedAlbumGeneration.LEGACY, dev.mela.engine.model.SharedAlbumRole.VIEWER)),
@@ -65,7 +81,7 @@ class FixtureICloudCatalogSource(
         val album = sharedAlbums.first { it.id == id }; require(album.shared?.generation == dev.mela.engine.model.SharedAlbumGeneration.MODERN)
         return dev.mela.engine.model.SharedActivityPage(if (rank == 0) listOf(dev.mela.engine.model.SharedPost("post:$id:demo-post", "Demo owner", true, 1790205441000, album.name)) else emptyList(), null)
     }
-    override suspend fun sharedPostPhotos(id: String): List<String> = sharedFixtures.keys.filter { it.startsWith(id.removePrefix("post:").substringBeforeLast(':') + ":") }.take(4)
+    override suspend fun sharedPostPhotos(id: String): List<String> = sharedIds(id.removePrefix("post:").substringBeforeLast(':')).take(4)
     override suspend fun sharedPostDiscussion(id: String): dev.mela.engine.model.SharedDiscussion {
         val album = sharedAlbums.first { it.id == id.removePrefix("post:").substringBeforeLast(':') }
         return dev.mela.engine.model.SharedDiscussion(discussions[id].orEmpty().toList(), album.shared!!.canComment, album.shared!!.generation)
@@ -73,10 +89,12 @@ class FixtureICloudCatalogSource(
     override suspend fun sharedManagement(id: String): dev.mela.engine.model.SharedAlbumManagement {
         val album = sharedAlbums.first { it.id == id }
         return (management[id] ?: dev.mela.engine.model.SharedAlbumManagement(album,
-            listOf(dev.mela.engine.model.SharedParticipant("demo-owner", "Demo owner", dev.mela.engine.model.SharedAlbumRole.OWNER, isCurrentUser = album.shared?.canManage == true)), allowContributions = true)).copy(album = album)
+            listOf(dev.mela.engine.model.SharedParticipant("demo-owner", "Demo owner", dev.mela.engine.model.SharedAlbumRole.OWNER, isCurrentUser = album.shared?.canManage == true)), allowContributions = true,
+            requests = if (id.endsWith(":two")) listOf(SharedAccessRequest("sample-alex", "Alex (sample)"), SharedAccessRequest("sample-sam", "Sam (sample)")) else emptyList(),
+            blocked = if (id.endsWith(":two")) listOf(SharedAccessRequest("sample-jamie", "Jamie (sample)")) else emptyList())).copy(album = album)
     }
     override suspend fun sharedDiscussion(mediaId: String): dev.mela.engine.model.SharedDiscussion {
-        require(sharedFixtures.containsKey(mediaId))
+        require(mediaId in sharedIds(mediaId.substringBeforeLast(':')))
         val info = requireNotNull(sharedAlbums.first { it.id == mediaId.substringBeforeLast(':') }.shared)
         return dev.mela.engine.model.SharedDiscussion(discussions[mediaId].orEmpty().toList(), info.canComment, info.generation, canRemovePhoto = info.canManage)
     }
@@ -92,15 +110,20 @@ class FixtureICloudCatalogSource(
                 if (command.value.isNotBlank()) comments += dev.mela.engine.model.SharedComment(operationId, "You", command.value, System.currentTimeMillis(), true, true, reaction)
             }
             dev.mela.engine.model.SharedAction.POST_DELETE_COMMENT, dev.mela.engine.model.SharedAction.DELETE_COMMENT -> { require(comments.any { it.id == command.value && it.canDelete }); comments.removeAll { it.id == command.value } }
-            dev.mela.engine.model.SharedAction.REMOVE_MEDIA -> { require(info.canManage); sharedFixtures.remove(command.subject); discussions.remove(command.subject) }
-            dev.mela.engine.model.SharedAction.SAVE_TO_LIBRARY -> Unit // Demo photos already have personal-library counterparts.
-            dev.mela.engine.model.SharedAction.LEAVE -> { require(info.role != dev.mela.engine.model.SharedAlbumRole.OWNER); sharedAlbums.removeAll { it.id == id }; sharedFixtures.keys.removeAll { it.startsWith("$id:") } }
+            dev.mela.engine.model.SharedAction.REMOVE_MEDIA -> { require(info.canManage); require(command.subject in sharedIds(id)); sharedFixtures.remove(command.subject); extraRecords.remove(command.subject); discussions.remove(command.subject) }
+            dev.mela.engine.model.SharedAction.SAVE_TO_LIBRARY -> { require(command.subject in sharedIds(id)); copyMedia(command.subject, "fixture:saved:$operationId") }
+            dev.mela.engine.model.SharedAction.LEAVE -> { require(info.role != dev.mela.engine.model.SharedAlbumRole.OWNER); sharedAlbums.removeAll { it.id == id }; sharedFixtures.keys.removeAll { it.startsWith("$id:") }; extraRecords.keys.removeAll { it.startsWith("$id:") } }
             else -> {
                 require(info.canManage)
                 when(command.action) {
                     dev.mela.engine.model.SharedAction.CREATE_INVITE_LINK -> management[id] = state.copy(invitationLinks = state.invitationLinks + "https://example.invalid/mela-demo-invitation/$operationId")
                     dev.mela.engine.model.SharedAction.REVOKE_INVITE_LINKS -> management[id] = state.copy(invitationLinks = emptyList())
                     dev.mela.engine.model.SharedAction.UNBLOCK -> management[id] = state.copy(blocked = state.blocked.filterNot { it.id == command.subject })
+                    SharedAction.APPROVE_REQUEST -> {
+                        val person = state.requests.first { it.id == command.subject }
+                        management[id] = state.copy(requests = state.requests - person,
+                            participants = state.participants + SharedParticipant(person.id, person.name, SharedAlbumRole.CONTRIBUTOR))
+                    }
                     dev.mela.engine.model.SharedAction.DENY_REQUEST -> {
                         val person = state.requests.first { it.id == command.subject }
                         management[id] = state.copy(requests = state.requests - person, blocked = state.blocked + person)
@@ -109,12 +132,15 @@ class FixtureICloudCatalogSource(
                     dev.mela.engine.model.SharedAction.INVITE -> management[id] = state.copy(participants = state.participants + dev.mela.engine.model.SharedParticipant(operationId, command.value, dev.mela.engine.model.SharedAlbumRole.CONTRIBUTOR, pending = true))
                     dev.mela.engine.model.SharedAction.REMOVE_PARTICIPANT -> management[id] = state.copy(participants = state.participants.filter { it.id != command.subject })
                     dev.mela.engine.model.SharedAction.ROLE -> management[id] = state.copy(participants = state.participants.map { if (it.id != command.subject) it else it.copy(role = when(command.value) { "manager" -> dev.mela.engine.model.SharedAlbumRole.MANAGER; "commenter" -> dev.mela.engine.model.SharedAlbumRole.COMMENTER; else -> dev.mela.engine.model.SharedAlbumRole.CONTRIBUTOR }) })
-                    dev.mela.engine.model.SharedAction.PUBLIC_ACCESS -> management[id] = state.copy(publicAccess = command.enabled)
+                    dev.mela.engine.model.SharedAction.PUBLIC_ACCESS -> management[id] = state.copy(publicAccess = command.enabled, publicUrl = if (command.enabled) "https://example.invalid/alba-demo/$id" else null)
                     dev.mela.engine.model.SharedAction.CONTRIBUTIONS -> management[id] = state.copy(allowContributions = command.enabled)
                     dev.mela.engine.model.SharedAction.ACCESS_REQUESTS -> management[id] = state.copy(allowAccessRequests = command.enabled)
                     dev.mela.engine.model.SharedAction.TEMPORARY -> management[id] = state.copy(temporary = command.enabled)
-                    dev.mela.engine.model.SharedAction.DELETE_ALBUM -> { sharedAlbums.removeAll { it.id == id }; sharedFixtures.keys.removeAll { it.startsWith("$id:") } }
-                    dev.mela.engine.model.SharedAction.COVER -> require(sharedFixtures.containsKey(command.subject))
+                    dev.mela.engine.model.SharedAction.DELETE_ALBUM -> { sharedAlbums.removeAll { it.id == id }; sharedFixtures.keys.removeAll { it.startsWith("$id:") }; extraRecords.keys.removeAll { it.startsWith("$id:") } }
+                    dev.mela.engine.model.SharedAction.COVER -> {
+                        require(command.subject in sharedIds(id))
+                        sharedAlbums[sharedAlbums.indexOfFirst { it.id == id }] = state.album.copy(coverMediaId = command.subject)
+                    }
                     else -> error("Unsupported demo action")
                 }
             }
@@ -124,10 +150,45 @@ class FixtureICloudCatalogSource(
 
     override suspend fun sharedAlbums(): dev.mela.engine.source.SharedCatalogSnapshot {
         val shown = if (includeSharedAlbums) sharedAlbums.toList() else emptyList()
-        return dev.mela.engine.source.SharedCatalogSnapshot(sharedFixtures.filterKeys { key -> shown.any { key.startsWith(it.id + ":") } }
-            .map { (id, photo) -> photo.toRemoteRecord().copy(id = id) }, dev.mela.engine.source.CollectionSnapshot(shown,
-                shown.associate { album -> album.id to sharedFixtures.keys.filter { it.startsWith(album.id + ":") }.toSet() }))
+        return dev.mela.engine.source.SharedCatalogSnapshot(shown.flatMap { sharedIds(it.id) }.distinct().map(::record),
+            dev.mela.engine.source.CollectionSnapshot(shown, shown.associate { it.id to sharedIds(it.id).toSet() }))
     }
+
+    private val invitations = mutableListOf(
+        SharedInvitation("demo-invite-modern", "Sample weekend together", SharedAlbumGeneration.MODERN, true),
+        SharedInvitation("demo-invite-legacy", "Sample family trip", SharedAlbumGeneration.LEGACY, true),
+    )
+    override suspend fun pendingSharedInvitations() = if (includeSharedAlbums) invitations.toList() else emptyList()
+    override suspend fun resolveSharedInvitation(url: String): SharedInvitation = invitations.firstOrNull {
+        url == "https://example.invalid/alba-demo/invitation/${it.id}"
+    } ?: error("Use one of the sample invitations in Demo mode")
+    override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String) {
+        if (operationId in sharedDone) return
+        val invitation = invitations.first { it.id == id }
+        if (accept) {
+            val album = GalleryCollection("shared:demo-library:invited:$id", invitation.name,
+                shared = SharedAlbumInfo(invitation.generation, SharedAlbumRole.CONTRIBUTOR, "Sample friend", 2))
+            sharedAlbums += album
+            listOf(1, 2, 3).forEach { index -> sharedFixtures["${album.id}:photo-$index"] = fixtures.first { it.index == index } }
+        }
+        invitations.remove(invitation)
+        sharedDone += operationId
+    }
+    /** Copies are session-local and cannot create upload verification or reclaim eligibility. */
+    override suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: OneShotUploadSource) {
+        require(mediaId in sharedIds(mediaId.substringBeforeLast(':')))
+        importMedia(fileName, source.openOnce(), "fixture:saved:${java.util.UUID.randomUUID()}", source.byteCount, source.sha256Hex)
+    }
+    suspend fun importMedia(fileName: String, input: InputStream, id: String = "fixture:upload:${java.util.UUID.randomUUID()}",
+        expectedBytes: Long? = null, expectedHash: String? = null): String = input.use { stream ->
+        importLock.withLock {
+            val media = DemoImportedMedia.copy(requireNotNull(uploadDirectory), fileName, stream, expectedBytes, expectedHash)
+            imported[id] = media
+            extraRecords[id] = media.record(id)
+            id
+        }
+    }
+
     override suspend fun createSharedAlbum(name: String, operationId: String, generation: dev.mela.engine.model.SharedAlbumGeneration): dev.mela.engine.model.GalleryCollection {
         val id = "shared:demo-library:${generation.name}:owner:$operationId"
         return sharedAlbums.firstOrNull { it.id == id } ?: dev.mela.engine.model.GalleryCollection(id, name,
@@ -136,23 +197,22 @@ class FixtureICloudCatalogSource(
     }
     override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: dev.mela.engine.model.OneShotUploadSource, operationId: String) {
         require(sharedAlbums.first { it.id == albumId }.shared?.canContribute == true)
-        source.openOnce().use { input ->
-            input.copyTo(object : java.io.OutputStream() {
-                override fun write(value: Int) = Unit
-                override fun write(bytes: ByteArray, offset: Int, length: Int) = Unit
-            })
-        }
-        sharedFixtures["$albumId:$operationId-${source.sha256Hex}"] = fixtures[0]
+        val id = "$albumId:$operationId-${source.sha256Hex}"
+        if (extraRecords.containsKey(id)) return
+        importMedia(fileName, source.openOnce(), id, source.byteCount, source.sha256Hex)
     }
     override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String) {
         require(sharedAlbums.first { it.id == id }.shared?.canContribute == true)
-        mediaIds.forEach { media -> sharedFixtures["$id:$operationId-${media.hashCode()}"] = requireFixture(media) }
+        mediaIds.forEach { media -> copyMedia(media, "$id:$operationId-${media.hashCode()}") }
     }
     private val trashed = mutableSetOf<String>()
     override suspend fun captureSyncToken() = CHANGE_TOKEN
     override suspend fun changes(token: String, known: List<RemoteMediaRecord>): dev.mela.engine.source.CloudChanges {
         if (token != CHANGE_TOKEN) throw dev.mela.engine.source.CatalogResetRequired()
-        return dev.mela.engine.source.CloudChanges(fixtures.filterNot { it.recordId in trashed }.map { it.toRemoteRecord() }, trashed.toSet(), CHANGE_TOKEN, false)
+        val records = personalRecords()
+        val current = records.map { it.id }.toSet()
+        return dev.mela.engine.source.CloudChanges(records.filterNot { it.id in trashed },
+            trashed + known.map { it.id }.filterNot { it in current }, CHANGE_TOKEN, false)
     }
     private val albums = mutableListOf(
         dev.mela.engine.model.GalleryCollection("demo:journeys", "Journeys", isFolder = true),
@@ -173,11 +233,17 @@ class FixtureICloudCatalogSource(
                 dev.mela.engine.model.SmartCollection.BURSTS -> it.index == 6
                 dev.mela.engine.model.SmartCollection.SLO_MO, dev.mela.engine.model.SmartCollection.TIME_LAPSE -> false
             }
-        }.map { it.recordId }.toSet() }
+        }.map { it.recordId }.toSet() + extraRecords.values.filter { record ->
+            record.id.startsWith("fixture:") && when (collection) {
+                SmartCollection.VIDEOS -> record.kind == MediaKind.VIDEO
+                SmartCollection.LIVE_PHOTOS -> record.kind == MediaKind.LIVE_PHOTO
+                else -> false
+            }
+        }.map { it.id } }
         return dev.mela.engine.source.CollectionSnapshot(albums.toList() + smart.map { dev.mela.engine.model.GalleryCollection(it.id, it.title) }, members.toMap() + demoMembers)
     }
     override suspend fun setFavorite(mediaId: String, favorite: Boolean) {
-        requireFixture(mediaId)
+        record(mediaId)
         val id = dev.mela.engine.model.GalleryQuery.FAVORITES
         members[id] = if (favorite) members[id].orEmpty() + mediaId else members[id].orEmpty() - mediaId
     }
@@ -198,19 +264,19 @@ class FixtureICloudCatalogSource(
     }
     override suspend fun addToAlbum(id: String, mediaIds: List<String>) {
         require(albums.any { it.id == id && !it.isFolder })
-        mediaIds.forEach(::requireFixture)
+        mediaIds.forEach(::record)
         members[id] = members[id].orEmpty() + mediaIds
     }
     override suspend fun removeFromAlbum(id: String, mediaIds: List<String>) {
         require(albums.any { it.id == id && !it.isFolder })
-        mediaIds.forEach(::requireFixture)
+        mediaIds.forEach(::record)
         members[id] = members[id].orEmpty() - mediaIds.toSet()
     }
     override suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean) {
-        mediaIds.forEach(::requireFixture)
+        mediaIds.forEach(::record)
         if (trashed) this.trashed.addAll(mediaIds) else this.trashed.removeAll(mediaIds.toSet())
     }
-    override suspend fun recentlyDeleted() = fixtures.filter { it.recordId in trashed }.map { it.toRemoteRecord().copy(isTrashed = true) }
+    override suspend fun recentlyDeleted() = personalRecords().filter { it.id in trashed }.map { it.copy(isTrashed = true) }
     override suspend fun storageUsage() = dev.mela.engine.model.CloudStorageUsage(
         3_200_000_000, 5_000_000_000, listOf(dev.mela.engine.model.StorageCategory("Photos", 2_800_000_000),
             dev.mela.engine.model.StorageCategory("Other", 400_000_000)), System.currentTimeMillis(), isDemo = true)
@@ -219,6 +285,7 @@ class FixtureICloudCatalogSource(
         requireNotNull(openVideo).invoke().use { it.copyTo(output) }
     }
     override suspend fun openPlayback(mediaId: String, position: Long, length: Long): dev.mela.engine.source.MediaRead {
+        imported[mediaId]?.let { return it.openPlayback(position, length) }
         require(requireFixture(mediaId).index in setOf(19, 20))
         val bytes = requireNotNull(openVideo).invoke().use { it.readBytes() }
         require(position in 0..bytes.size.toLong())
@@ -233,17 +300,19 @@ class FixtureICloudCatalogSource(
     override suspend fun fetchPage(cursor: String?, limit: Int): CloudCatalogPage {
         require(limit in 1..100) { "Fixture page size must be between 1 and 100" }
         val offset = cursor?.toIntOrNull() ?: 0
-        require(offset in 0..fixtures.size) { "Invalid fixture cursor: $cursor" }
-        val page = fixtures.drop(offset).take(limit)
+        val all = personalRecords()
+        require(offset in 0..all.size) { "Invalid fixture cursor: $cursor" }
+        val page = all.drop(offset).take(limit)
         val nextOffset = offset + page.size
         return CloudCatalogPage(
-            records = page.filterNot { it.recordId in trashed }.map(FixtureRecord::toRemoteRecord),
-            nextCursor = nextOffset.takeIf { it < fixtures.size }?.toString(),
+            records = page.filterNot { it.id in trashed },
+            nextCursor = nextOffset.takeIf { it < all.size }?.toString(),
             changeToken = CHANGE_TOKEN,
         )
     }
 
     override suspend fun writePreview(mediaId: String, output: OutputStream) {
+        imported[mediaId]?.let { it.writePreview(output); return }
         render(
             fixture = requireFixture(mediaId),
             output = output,
@@ -253,6 +322,7 @@ class FixtureICloudCatalogSource(
     }
 
     override suspend fun writeOriginal(mediaId: String, output: OutputStream) {
+        imported[mediaId]?.let { it.file.inputStream().use { input -> input.copyTo(output) }; return }
         if (requireFixture(mediaId).index == 19) { requireNotNull(openVideo).invoke().use { it.copyTo(output) }; return }
         render(
             fixture = requireFixture(mediaId),
