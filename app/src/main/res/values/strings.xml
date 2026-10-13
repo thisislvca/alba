@@ -749,4 +749,16 @@
     <string name="transfer_notification_title">Transferring photos</string>
     <string name="transfer_notification_body">Open Alba to see progress.</string>
     <string name="transfer_cancel">Cancel transfers</string>
+    <string name="demo_backup_preview">Try backup with sample photos</string>
+    <string name="demo_backup_title">Sample backup</string>
+    <string name="demo_backup_disclosure">This demo simulates backup using three sample photos. Nothing is sent to Apple, no phone photos are read, and no photo permission is needed. Sample progress resets when you leave the demo or restart Alba. Real backup requires your Apple Account.</string>
+    <string name="demo_backup_running">Sample backup is on. You can turn it off at any time, then start again.</string>
+    <string name="demo_backup_off">Try the waiting, upload and verification steps with sample data.</string>
+    <string name="demo_backup_start">Try sample backup</string>
+    <string name="demo_backup_waiting">Sample queued</string>
+    <string name="demo_backup_copying">Simulating upload · no data sent</string>
+    <string name="demo_backup_checking">Simulating verification</string>
+    <string name="demo_backup_complete">Demo complete · not backed up to iCloud</string>
+    <string name="demo_sync_description">Library sync in demo mode reads the bundled sample catalog. Pull to refresh in Photos, or refresh here. No Apple connection is made.</string>
+    <string name="demo_sync_refresh">Refresh sample library</string>
 </resources>

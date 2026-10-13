@@ -135,6 +135,7 @@ fun ICloudAccountScreen(
             }
             page == ProfilePage.BACKUP -> BackupSettings(
                 connected = signedIn?.status == SessionStatus.VERIFIED,
+                demo = state == ICloudAccountState.Demo,
                 appleId = signedIn?.appleId.orEmpty(), backup = backup,
                 diagnostics = diagnostics, onCheckConnection = onCheckConnection,
                 onEnableAutomaticBackup = onEnableAutomaticBackup,
@@ -353,6 +354,7 @@ private fun ProgressState(title: String, detail: String) {
 @Composable
 private fun BackupSettings(
     connected: Boolean,
+    demo: Boolean,
     appleId: String,
     backup: BackupView,
     diagnostics: dev.mela.app.GalleryUiState?,
@@ -360,7 +362,14 @@ private fun BackupSettings(
     onEnableAutomaticBackup: () -> Unit,
     onDisableAutomaticBackup: () -> Unit,
 ) {
-    ProfileStorage(diagnostics, demo = false, hasAccount = connected,
+    if (demo) {
+        Text(stringResource(R.string.demo_backup_title), style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.demo_backup_disclosure), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(18.dp))
+    }
+    ProfileStorage(diagnostics, demo = demo, hasAccount = connected,
         check = onCheckConnection, labelRes = R.string.cloud_storage)
     Spacer(Modifier.height(22.dp))
     Card(
@@ -372,7 +381,9 @@ private fun BackupSettings(
             Text(stringResource(R.string.automatic_jpeg_backup), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(6.dp))
             Text(
-                if (backup.enabled) {
+                if (demo) {
+                    stringResource(if (backup.enabled) R.string.demo_backup_running else R.string.demo_backup_off)
+                } else if (backup.enabled) {
                     stringResource(R.string.backup_on_for, backup.destinationLabel ?: appleId)
                 } else {
                     stringResource(R.string.off_you_can_still_upload_one_photo_at_a_time_from_the_system_photo_picker)
@@ -390,11 +401,25 @@ private fun BackupSettings(
                 ) { Text(stringResource(R.string.turn_off_automatic_backup)) }
             } else {
                 Button(
-                    enabled = connected && Build.VERSION.SDK_INT >= 30,
+                    enabled = (connected || demo) && Build.VERSION.SDK_INT >= 30,
                     onClick = onEnableAutomaticBackup,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.set_up_automatic_backup)) }
+                ) { Text(stringResource(if (demo) R.string.demo_backup_start else R.string.set_up_automatic_backup)) }
             }
         }
+    }
+    if (demo) {
+        Spacer(Modifier.height(18.dp))
+        Text(stringResource(R.string.demo_sync_description), style = MaterialTheme.typography.bodyMedium)
+        diagnostics?.lastRefreshedAt?.let {
+            Text(stringResource(R.string.library_refreshed_at, timestampLabel(it)),
+                style = MaterialTheme.typography.bodySmall)
+        }
+        OutlinedButton(onClick = onCheckConnection, enabled = diagnostics?.isRefreshing != true,
+            modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.demo_sync_refresh)) }
+    }
+    if (demo && diagnostics != null && diagnostics.transferQueue.isNotEmpty()) {
+        Spacer(Modifier.height(18.dp))
+        TransferQueueCard(diagnostics.transferQueue, {}, demo = true)
     }
 }

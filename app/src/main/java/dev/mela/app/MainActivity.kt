@@ -333,15 +333,20 @@ class MainActivity : ComponentActivity() {
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = { pendingBackupId = null },
                         title = { androidx.compose.material3.Text(stringResource(R.string.back_up_new_photos)) },
-                        text = { androidx.compose.material3.Text(stringResource(R.string.backup_disclosure, pendingBackupDestination)) },
+                        text = { androidx.compose.material3.Text(if (DemoBackup.owns(BackupDraftId(draftId))) stringResource(R.string.demo_backup_disclosure) else stringResource(R.string.backup_disclosure, pendingBackupDestination)) },
                         confirmButton = {
                             androidx.compose.material3.Button(
                                 onClick = {
                                     scope.launch {
                                         when (val effect = viewModel.acceptAutomaticBackup(BackupDraftId(draftId))) {
                                             is BackupSetupEffect.RequestMediaPermissions -> {
-                                                backupPermissionPending = true
-                                                backupPermissionLauncher.launch(effect.permissions.toTypedArray())
+                                                if (effect.permissions.isEmpty()) {
+                                                    viewModel.finishAutomaticBackup(BackupDraftId(draftId))
+                                                    pendingBackupId = null
+                                                } else {
+                                                    backupPermissionPending = true
+                                                    backupPermissionLauncher.launch(effect.permissions.toTypedArray())
+                                                }
                                             }
                                             is BackupSetupEffect.Refused -> {
                                                 pendingBackupId = null

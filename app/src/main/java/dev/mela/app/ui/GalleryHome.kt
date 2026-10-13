@@ -380,7 +380,7 @@ internal fun GalleryHome(
                 modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) { Icon(MelaIcons.CloudUpload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.upload_photos)) }
             OutlinedButton(onClick = { activity = false; account() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
             if (state.transferQueue.isEmpty() && state.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
-            if (state.transferQueue.isNotEmpty()) TransferQueueCard(state.transferQueue, continueUpload)
+            if (state.transferQueue.isNotEmpty()) TransferQueueCard(state.transferQueue, continueUpload, demo = state.accountState == ICloudAccountState.Demo)
             BatchProgress(state, retry, actions.cancelDownloadBatch)
             Spacer(Modifier.height(24.dp))
         }

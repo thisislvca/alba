@@ -320,6 +320,7 @@ private fun GalleryScreen(
 internal fun TransferQueueCard(
     transfers: List<TransferView>,
     onContinuePastUnresolved: (TransferId) -> Unit,
+    demo: Boolean = false,
 ) {
     Card(
         modifier = Modifier
@@ -330,7 +331,7 @@ internal fun TransferQueueCard(
         shape = RoundedCornerShape(20.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-            Text(stringResource(R.string.uploads), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(if (demo) R.string.demo_backup_title else R.string.uploads), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             transfers.forEachIndexed { index, transfer ->
                 Row(
@@ -352,7 +353,13 @@ internal fun TransferQueueCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = transfer.message?.let { dev.mela.app.localizedStoredMessage(it).localized() } ?: transfer.state.label(),
+                            text = if (demo) stringResource(when (transfer.state) {
+                                TransferViewState.WAITING -> R.string.demo_backup_waiting
+                                TransferViewState.UPLOADING -> R.string.demo_backup_copying
+                                TransferViewState.CHECKING_ICLOUD -> R.string.demo_backup_checking
+                                TransferViewState.VERIFIED -> R.string.demo_backup_complete
+                                else -> R.string.demo_backup_off
+                            }) else transfer.message?.let { dev.mela.app.localizedStoredMessage(it).localized() } ?: transfer.state.label(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,

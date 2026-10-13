@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -115,6 +116,7 @@ class MelaViewModel(
     private val network: kotlinx.coroutines.flow.Flow<NetworkStatus?> = flowOf(null),
     private val diagnostics: MelaDiagnostics = MelaDiagnostics.None,
 ) : ViewModel() {
+    private val demoBackup = DemoBackup(viewModelScope)
     private val connection = network.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val query = MutableStateFlow(GalleryQuery(
         origin = savedState.get<String>("queryOrigin")?.let(MediaOrigin::valueOf)
@@ -232,6 +234,7 @@ class MelaViewModel(
     private val accountInfo = MutableStateFlow(AccountInfo())
     private var accountInfoJob: Job? = null
     fun checkConnection() {
+        if (accountManager.state.value == ICloudAccountState.Demo) launchRefresh(replaceActive = false)
         if (accountInfoJob?.isActive == true || status.value.accountBusy) return
         accountInfoJob = viewModelScope.launch {
             val span = diagnostics.start(
@@ -443,7 +446,9 @@ class MelaViewModel(
         }
     }.flowOn(Dispatchers.Default)
 
-    private val transferContent = photos.observeTransfers()
+    private val transferContent = accountManager.state.flatMapLatest { state ->
+        if (state == ICloudAccountState.Demo) demoBackup.transfers else photos.observeTransfers()
+    }
         .map(::projectTransfers)
         .flowOn(Dispatchers.Default)
 
@@ -451,7 +456,9 @@ class MelaViewModel(
         galleryContent,
         transferContent,
         status,
-        photos.observeBackup(),
+        accountManager.state.flatMapLatest { state ->
+            if (state == ICloudAccountState.Demo) demoBackup.backup else photos.observeBackup()
+        },
     ) { content, transfers, currentStatus, backup ->
         GalleryUiState(
             phoneStorage = currentStatus.phoneStorage,
@@ -494,6 +501,9 @@ class MelaViewModel(
     )
 
     init {
+        viewModelScope.launch {
+            accountManager.state.collect { if (it != ICloudAccountState.Demo) demoBackup.reset() }
+        }
         viewModelScope.launch {
             var wasOffline = false
             connection.map { it?.online }.distinctUntilChanged().collectLatest { online ->
@@ -808,6 +818,10 @@ class MelaViewModel(
     fun uploadSelected(uri: Uri) = uploadSelected(listOf(uri))
 
     fun beginAutomaticBackup(onDisclosureReady: (BackupDraft) -> Unit) {
+        if (accountManager.state.value == ICloudAccountState.Demo) {
+            onDisclosureReady(demoBackup.begin())
+            return
+        }
         viewModelScope.launch {
             runCatching { photos.beginBackupEnrollment(BackupScope.CAMERA_JPEGS) }
                 .onSuccess(onDisclosureReady)
@@ -819,6 +833,11 @@ class MelaViewModel(
     }
 
     suspend fun acceptAutomaticBackup(draftId: BackupDraftId): BackupSetupEffect {
+        if (DemoBackup.owns(draftId)) {
+            return if (accountManager.state.value == ICloudAccountState.Demo && demoBackup.accept(draftId))
+                BackupSetupEffect.RequestMediaPermissions(emptyList())
+            else BackupSetupEffect.Refused(StoredMessage.AUTOMATIC_BACKUP_IS_OFF.code)
+        }
         val effect = photos.acceptBackupDisclosure(draftId)
         if (effect is BackupSetupEffect.Refused) {
             status.value = status.value.copy(message = localizedStoredMessage(effect.reason))
@@ -827,6 +846,10 @@ class MelaViewModel(
     }
 
     fun finishAutomaticBackup(draftId: BackupDraftId) {
+        if (DemoBackup.owns(draftId)) {
+            if (accountManager.state.value == ICloudAccountState.Demo) demoBackup.finish(draftId)
+            return
+        }
         viewModelScope.launch {
             runCatching { photos.finishBackupEnrollment(draftId) }
                 .onSuccess { status.value = status.value.copy(message = localizedStoredMessage(it.message)) }
@@ -838,6 +861,10 @@ class MelaViewModel(
     }
 
     fun disableAutomaticBackup() {
+        if (accountManager.state.value == ICloudAccountState.Demo) {
+            demoBackup.reset()
+            return
+        }
         viewModelScope.launch {
             runCatching { photos.changeBackup(BackupChange.Disable) }
                 .onSuccess { status.value = status.value.copy(message = localizedStoredMessage(it.message)) }
