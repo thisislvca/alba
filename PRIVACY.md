@@ -4,6 +4,10 @@ Alba connects your phone directly to Apple. Alba has no server that receives you
 
 Photo metadata, previews, saved originals, settings and transfer state are stored locally. Alba requests Android media access for browsing, uploads and optional backup. Android backup and device-to-device transfer are disabled for app data.
 
+## Intended audience
+
+Alba is intended for teens aged 13 and older and adults. It is not directed to children under 13.
+
 ## Diagnostics
 
 Builds without a configured Sentry destination send no diagnostics. If you build Alba yourself, you can configure one with `MELA_SENTRY_DSN` or the local Sentry properties file. Configured builds enable crash and performance reporting by default; you can turn it off in About.
