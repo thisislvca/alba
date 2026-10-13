@@ -218,9 +218,16 @@ class MelaViewModel(
     private fun uploadDemo(uris: List<Uri?>) {
         if (accountManager.state.value != ICloudAccountState.Demo) return
         launchBatchWork {
-            uris.forEach { importDemo(it) }
-            if (accountManager.state.value == ICloudAccountState.Demo) {
-                repository.refresh(includeDeviceMedia = false)
+            var importedAny = false
+            try {
+                uris.forEach { importDemo(it); importedAny = true }
+            } finally {
+                // Publish successful copies even when a later selection is inaccessible or unsupported.
+                if (importedAny && accountManager.state.value == ICloudAccountState.Demo) {
+                    repository.refresh(includeDeviceMedia = false)
+                }
+            }
+            if (importedAny && accountManager.state.value == ICloudAccountState.Demo) {
                 status.value = status.value.copy(message = UiMessage(R.string.demo_import_complete))
             }
         }

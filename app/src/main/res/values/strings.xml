@@ -774,4 +774,5 @@
     <string name="demo_cleanup_disclosure">These three imaginary photos have completed the sample check. Continue to simulate moving their phone copies to trash. No real photos will be deleted and no device space will be freed.</string>
     <string name="demo_cleanup_complete">Sample copy removed — no real photo deleted</string>
     <string name="demo_shared_notice">Demo: sample invitations, people and links. Nothing is sent or published. Changes reset when the app restarts.</string>
+    <string name="demo_import_requested">Sample import requested</string>
 </resources>

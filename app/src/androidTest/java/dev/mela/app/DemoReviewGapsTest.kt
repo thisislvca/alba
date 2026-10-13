@@ -60,7 +60,9 @@ class DemoReviewGapsTest {
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }; bitmap.recycle()
         try {
             compose.runOnUiThread {
-                androidx.lifecycle.ViewModelProvider(compose.activity)[MelaViewModel::class.java].uploadSelected(androidx.core.content.FileProvider.getUriForFile(compose.activity, "${compose.activity.packageName}.shares", file))
+                val selected = androidx.core.content.FileProvider.getUriForFile(compose.activity, "${compose.activity.packageName}.shares", file)
+                val missing = androidx.core.content.FileProvider.getUriForFile(compose.activity, "${compose.activity.packageName}.shares", File(file.parentFile, "missing-review.png"))
+                androidx.lifecycle.ViewModelProvider(compose.activity)[MelaViewModel::class.java].uploadSelected(listOf(selected, missing))
             }
             var id: String? = null
             compose.waitUntil(15_000) {

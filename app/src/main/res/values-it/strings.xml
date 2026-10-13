@@ -786,4 +786,5 @@
     <string name="demo_cleanup_disclosure">Queste tre foto immaginarie hanno completato il controllo demo. Continua per simulare lo spostamento delle copie nel cestino. Nessuna foto reale verrà eliminata e non verrà liberato spazio sul dispositivo.</string>
     <string name="demo_cleanup_complete">Copia demo rimossa — nessuna foto reale eliminata</string>
     <string name="demo_shared_notice">Demo: inviti, persone e link di esempio. Non viene inviato o pubblicato nulla. Le modifiche si azzerano al riavvio dell’app.</string>
+    <string name="demo_import_requested">Importazione demo richiesta</string>
 </resources>
