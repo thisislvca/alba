@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Alba — foreground transfer demonstration</title>
+<style>
+  body { max-width: 760px; margin: 48px auto; padding: 0 24px; font: 17px/1.6 system-ui, sans-serif; color: #20242a; background: #fafafa; }
+  h1 { line-height: 1.2; font-size: 30px; }
+  video { display: block; width: 100%; max-height: 75vh; background: #111; border-radius: 16px; }
+  a { color: #0066bb; } li { margin-bottom: 10px; }
+</style>
+<main>
+  <h1>Alba: user-initiated photo transfers</h1>
+  <p>Google Play review evidence for Alba 0.1.1 (1004), recorded on Android 13.</p>
+  <video controls playsinline preload="metadata" aria-label="Alba photo transfer demonstration">
+    <source src="foreground-transfers-0.1.1.mp4" type="video/mp4">
+    <a href="foreground-transfers-0.1.1.mp4">Download the demonstration video</a>
+  </video>
+  <h2>What the recording shows</h2>
+  <ol>
+    <li>Select 20 sample items and choose <strong>Keep offline</strong>.</li>
+    <li>Open Android notifications. Alba displays <strong>Transferring photos</strong>, ongoing progress and a <strong>Cancel transfers</strong> action.</li>
+    <li>The notification disappears when work finishes. Alba's Activity sheet shows <strong>Keep offline · done: 20/20</strong>.</li>
+  </ol>
+  <h2>Demo boundaries</h2>
+  <p>The recording uses Alba's public demo and bundled sample media. The platform foreground service, notification, batch processing and local original-file cache are real. The original bytes come from local fixtures; this video does not demonstrate Apple authentication or live network transfers. The recording uses a development build from the same source revision as release 1004.</p>
+  <h2>Permission use</h2>
+  <p>On Android 11–13, user-requested original downloads and uploads run through WorkManager's data-sync foreground service. On Android 14 and later, these transfers use user-initiated data-transfer jobs instead. Automatic periodic JPEG backup is separate background work.</p>
+  <p><a href="https://github.com/thisislvca/alba/blob/d19903b2e3d5c31f7d5aeed4651416d49bc0e41d/app/src/main/java/dev/mela/app/UserTransfers.kt">Transfer implementation at the release source revision</a></p>
+  <p><a href="foreground-transfers-0.1.1.mp4">Open or download the MP4 directly</a> · <a href="/privacy/">Privacy policy</a> · <a href="mailto:alba@lvca.me">Contact</a></p>
+</main>
+</html>
