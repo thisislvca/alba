@@ -20,7 +20,8 @@ import org.junit.Rule
 import org.junit.Test
 
 class GalleryWorkflowComponentsTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule(order = 0) val onboarding = OnboardingRule()
+    @get:Rule(order = 1) val compose = createComposeRule()
     private val app get() = ApplicationProvider.getApplicationContext<MelaApplication>()
     private fun text(id: Int) = app.getString(id)
 

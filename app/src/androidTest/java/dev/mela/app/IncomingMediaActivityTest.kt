@@ -14,7 +14,8 @@ import org.junit.Rule
 import org.junit.Test
 
 class IncomingMediaActivityTest {
-    @get:Rule val compose = createEmptyComposeRule()
+    @get:Rule(order = 0) val onboarding = OnboardingRule()
+    @get:Rule(order = 1) val compose = createEmptyComposeRule()
     private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
     private fun capture(name: String) {
         compose.waitForIdle()

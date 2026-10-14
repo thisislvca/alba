@@ -13,8 +13,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Rule
 
 class GalleryShareTest {
+    @get:Rule val onboarding = OnboardingRule()
     @Test fun sharesExactBytesThroughReadOnlyScopedUrisWithMixedMimeAndNoFilenameCollisions() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repository = (context as MelaApplication).graph.galleryRepository
