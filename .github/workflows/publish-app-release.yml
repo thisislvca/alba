@@ -1,4 +1,4 @@
-name: Publish tested app
+name: Promote tested build to stable
 
 on:
   workflow_dispatch:
@@ -65,4 +65,4 @@ jobs:
       - name: Promote the existing internal build
         run: bundle exec fastlane android production
       - name: Publish the GitHub release
-        run: gh release edit "$APP_RELEASE_TAG" --repo thisislvca/alba --draft=false --prerelease=false --latest --notes-file .artifacts/release/metadata/en-US/changelogs/*.txt
+        run: node scripts/release/release.mjs stable

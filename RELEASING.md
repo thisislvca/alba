@@ -2,13 +2,15 @@
 
 Alba uses Google Play App Signing for `me.lvca.alba`. Google holds the app signing key. GitHub Actions holds a separate, replaceable upload key in the `release-signing` environment. Gradle always builds unsigned release files and never reads signing credentials.
 
-## Release a version
+## Prepare alpha builds and promote to stable
 
 1. Merge into `main` and wait for Android CI on that exact commit to pass.
-2. Run [Prepare app release](https://github.com/thisislvca/alba/actions/workflows/prepare-app-release.yml) on `main` with a version such as `0.2.0` and release notes of at most 500 characters.
-3. Approve the `release-signing` deployment after reviewing the source commit. A fresh runner signs the unsigned AAB, deletes the temporary key immediately, and records GitHub build provenance. A separate runner uploads it to Play internal testing.
+2. Run [Prepare alpha release](https://github.com/thisislvca/alba/actions/workflows/prepare-app-release.yml) on `main` with channel `alpha` and a version such as `0.1.1` and release notes of at most 500 characters.
+3. Approve the `release-signing` deployment after reviewing the source commit. A fresh runner signs the unsigned AAB, deletes the temporary key immediately, and records GitHub build provenance. A separate runner uploads it to Play internal testing. After that upload succeeds, the GitHub release is published as a prerelease, labelled `Alba 0.1.1 Alpha (build N)`. Failed or skipped uploads leave the candidate draft.
 4. Test the Play internal build on your phone.
-5. Run [Publish tested app](https://github.com/thisislvca/alba/actions/workflows/publish-app-release.yml) with the candidate tag, then approve the `play-production` deployment. This promotes the existing internal build without rebuilding it and publishes the GitHub release.
+5. Run [Promote tested build to stable](https://github.com/thisislvca/alba/actions/workflows/publish-app-release.yml) with the candidate tag, then approve the `play-production` deployment. This promotes the existing internal build without rebuilding it and marks the same GitHub release stable, removing the Alpha label.
+
+The Android version name stays `0.1.1` across alpha builds; the workflow run counter supplies a higher version code each time. No version-bump commit or separate alpha counter is needed. Tags retain `app/v0.1.1-build.N` and point to the exact tested main commit. Channel metadata is carried in the attested release manifest; older candidates without it remain promotable.
 
 Play review, production eligibility and managed publishing still apply. The first bundle must be uploaded through Play Console: prepare it with **Upload to Play** disabled, select Google's generated app signing key, and upload the AAB. Keep the installer check enabled.
 

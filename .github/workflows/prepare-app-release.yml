@@ -1,8 +1,15 @@
-name: Prepare app release
+name: Prepare alpha release
 
 on:
   workflow_dispatch:
     inputs:
+      channel:
+        description: Release channel (alpha uploads to internal testing)
+        required: true
+        default: alpha
+        type: choice
+        options:
+          - alpha
       version:
         description: 'User-facing version, for example 0.2.0'
         required: true
@@ -44,6 +51,7 @@ jobs:
       version_code: ${{ steps.release.outputs.version_code }}
     env:
       APP_VERSION: ${{ inputs.version }}
+      APP_CHANNEL: ${{ inputs.channel }}
       APP_NOTES: ${{ inputs.notes }}
       APP_VERSION_CODE_OFFSET: ${{ vars.APP_VERSION_CODE_OFFSET || '1000' }}
       DRY_RUN: ${{ inputs.dry_run }}
@@ -203,3 +211,28 @@ jobs:
           create_credentials_file: true
       - name: Upload verified bundle to internal testing
         run: bundle exec fastlane android internal
+
+  announce:
+    name: Publish alpha prerelease
+    needs: [build, internal]
+    if: ${{ !inputs.dry_run && inputs.upload_to_play }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: alba-${{ needs.build.outputs.version_code }}-signed
+          path: .artifacts/release
+      - name: Mark the uploaded alpha as a public prerelease
+        run: node scripts/release/release.mjs announce
+        env:
+          GH_TOKEN: ${{ github.token }}

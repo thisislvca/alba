@@ -29,7 +29,7 @@ platform :android do
     m = release_manifest
     UI.user_error!('Unsigned build cannot be uploaded') unless m.fetch('signed')
     write_notes(m)
-    upload_to_play_store(**play_options, aab: File.expand_path('../.artifacts/release/alba.aab', __dir__), track: 'internal', release_status: 'completed', version_name: "#{m.fetch('version')} (#{m.fetch('versionCode')})", mapping: File.expand_path('../.artifacts/release/mapping.txt', __dir__))
+    upload_to_play_store(**play_options, aab: File.expand_path('../.artifacts/release/alba.aab', __dir__), track: 'internal', release_status: 'completed', version_name: "#{m.fetch('version')}#{m['channel'] == 'alpha' ? ' Alpha' : ''} (#{m.fetch('versionCode')})", mapping: File.expand_path('../.artifacts/release/mapping.txt', __dir__))
   end
 
   desc 'Promote the selected internal build to production without rebuilding or uploading a binary'
@@ -37,6 +37,6 @@ platform :android do
     m = release_manifest
     codes = google_play_track_version_codes(package_name: 'me.lvca.alba', json_key: ENV.fetch('GOOGLE_APPLICATION_CREDENTIALS'), track: 'internal')
     UI.user_error!('Selected build is not currently on the internal testing track') unless codes.include?(m.fetch('versionCode'))
-    upload_to_play_store(**play_options, track: 'internal', track_promote_to: 'production', version_code: m.fetch('versionCode'), release_status: 'completed', skip_upload_apk: true, skip_upload_aab: true)
+    upload_to_play_store(**play_options, track: 'internal', track_promote_to: 'production', version_code: m.fetch('versionCode'), version_name: "#{m.fetch('version')} (#{m.fetch('versionCode')})", release_status: 'completed', skip_upload_apk: true, skip_upload_aab: true)
   end
 end

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { draftNotes, releaseVersion, validateManifest, validateNotes } from './release.mjs';
+import { draftNotes, releaseChannel, releaseTitle, releaseVersion, validateManifest, validateNotes } from './release.mjs';
 
 test('build IDs increase independently of the chosen marketing version', () => {
   assert.deepEqual(releaseVersion('0.2.0', '1'), { version: '0.2.0', versionCode: 1001, tag: 'app/v0.2.0-build.1001' });
@@ -82,4 +82,16 @@ test('isolated signing verifies the key, signs the bundle and cleans credentials
     assert.match(leakedFile.stderr, /Unexpected file/);
     assert.equal(existsSync(join(root, 'alba-release-credentials')), false);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+ test('alpha is metadata while Android version and build counter remain independent', () => {
+  assert.equal(releaseChannel(), 'alpha');
+  for (const channel of ['stable', 'beta', '../main', 'alpha\n']) assert.throws(() => releaseChannel(channel));
+  const m = { schema: 2, packageName: 'me.lvca.alba', ...releaseVersion('0.1.1', '5'), channel: 'alpha', commit: 'a'.repeat(40), signed: true, uploadCertificate: 'b'.repeat(64), files: { 'alba.aab': 'c'.repeat(64) } };
+  assert.equal(validateManifest(m), m);
+  assert.equal(m.tag, 'app/v0.1.1-build.1005');
+  assert.equal(releaseTitle(m), 'Alba 0.1.1 Alpha (build 1005)');
+  assert.equal(releaseTitle(m, true), 'Alba 0.1.1 (build 1005)');
+  assert.equal(releaseTitle({ ...m, channel: undefined }), 'Alba 0.1.1 (build 1005)');
+  assert.throws(() => validateManifest({ ...m, channel: 'stable' }));
 });

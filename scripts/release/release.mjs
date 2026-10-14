@@ -12,6 +12,13 @@ export function releaseVersion(version, runNumber, offset = '1000') {
   if (!Number.isSafeInteger(versionCode) || versionCode < 2 || versionCode > 2100000000) throw new Error('Build number is outside the Android range.');
   return { version, versionCode, tag: `app/v${version}-build.${versionCode}` };
 }
+export function releaseChannel(channel = 'alpha') {
+  if (channel !== 'alpha') throw new Error('Only the alpha channel can prepare a new build. Promote a tested build for stable releases.');
+  return channel;
+}
+export function releaseTitle(m, stable = false) {
+  return `Alba ${m.version}${!stable && m.channel === 'alpha' ? ' Alpha' : ''} (build ${m.versionCode})`;
+}
 export function validateNotes(notes) {
   if (Array.from(notes).length > 500) throw new Error('Play release notes must be 500 characters or fewer.');
   return notes.trim();
@@ -27,6 +34,7 @@ export function approvedCertificate(value) {
   return fingerprint;
 }
 export function validateManifest(m, signed = true) {
+  if (m.channel !== undefined) releaseChannel(m.channel);
   const expected = releaseVersion(m.version, '1', String(m.versionCode - 1));
   if (m.schema !== 2 || m.packageName !== packageName || m.tag !== expected.tag || !/^[a-f0-9]{40}$/.test(m.commit) || m.signed !== signed) throw new Error('Invalid release manifest.');
   const files = Object.keys(m.files || {});
@@ -56,6 +64,7 @@ function output(name, value) { if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_
 function prepare() {
   if (env.GITHUB_REPOSITORY !== 'thisislvca/alba' || env.GITHUB_REF !== 'refs/heads/main') throw new Error('App releases must run from public Alba main.');
   const v = releaseVersion(env.APP_VERSION, env.GITHUB_RUN_NUMBER, env.APP_VERSION_CODE_OFFSET || '1000');
+  const channel = releaseChannel(env.APP_CHANNEL || 'alpha');
   const notes = validateNotes(env.APP_NOTES || '');
   const commit = git('rev-parse', 'HEAD');
   if (commit !== env.GITHUB_SHA) throw new Error('Checkout does not match the selected workflow commit.');
@@ -72,7 +81,7 @@ function prepare() {
   const previous = git('describe', '--tags', '--match', 'app/v*', '--abbrev=0', '--always', 'HEAD');
   const range = previous.startsWith('app/v') ? `${previous}..HEAD` : 'HEAD';
   const commits = git('log', '--format=%H%x09%s', range, '--', 'app', 'engine', 'protocol-icloud-web', 'gradle', 'gradle.properties', 'build.gradle.kts', 'settings.gradle.kts').split('\n').filter(Boolean).map(line => { const [sha, ...subject] = line.split('\t'); return { sha, subject: subject.join('\t') }; });
-  save(join(out, 'release.json'), { schema: 2, packageName, ...v, commit, runUrl: `https://github.com/thisislvca/alba/actions/runs/${env.GITHUB_RUN_ID}`, signed: false, notes, files: {} });
+  save(join(out, 'release.json'), { schema: 2, packageName, ...v, channel, commit, runUrl: `https://github.com/thisislvca/alba/actions/runs/${env.GITHUB_RUN_ID}`, signed: false, notes, files: {} });
   writeFileSync(join(out, 'NOTES.md'), `${notes || draftNotes(commits)}\n\nSource: https://github.com/thisislvca/alba/commit/${commit}\nBuild: ${v.versionCode}\n\n${previous.startsWith('app/v') ? `Changes: https://github.com/thisislvca/alba/compare/${previous}...${commit}` : 'First app release candidate.'}\n`);
   output('version_code', v.versionCode); output('tag', v.tag);
 }
@@ -163,8 +172,20 @@ function publishCandidate() {
   git('config', 'user.name', 'Alba releases'); git('config', 'user.email', 'thisislvca@users.noreply.github.com');
   git('-c', 'tag.gpgSign=false', 'tag', '-a', m.tag, m.commit, '-m', `Alba ${m.version}, build ${m.versionCode}`);
   git('-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', 'https://github.com/thisislvca/alba.git', `refs/tags/${m.tag}`);
-  gh('release', 'create', m.tag, '--repo', 'thisislvca/alba', '--verify-tag', '--draft', '--prerelease', '--title', `Alba ${m.version} (build ${m.versionCode})`, '--notes-file', join(out, 'NOTES.md'), ...Object.keys(m.files).map(name => join(out, name)), join(out, 'release.json'), join(out, 'SHA256SUMS'));
+  gh('release', 'create', m.tag, '--repo', 'thisislvca/alba', '--verify-tag', '--draft', '--prerelease', '--title', releaseTitle(m), '--notes-file', join(out, 'NOTES.md'), ...Object.keys(m.files).map(name => join(out, name)), join(out, 'release.json'), join(out, 'SHA256SUMS'));
   console.log(`Draft release created: ${m.tag}`);
+}
+function announceAlpha() {
+  const m = validateManifest(json(join(out, 'release.json')));
+  checkSource(m);
+  if (m.channel !== 'alpha') throw new Error('Only alpha candidates can be announced as prereleases.');
+  verifyFiles(m);
+  gh('release', 'edit', m.tag, '--repo', 'thisislvca/alba', '--draft=false', '--prerelease', '--latest=false', '--title', releaseTitle(m));
+}
+function publishStable() {
+  const m = validateManifest(json(join(out, 'release.json')));
+  if (env.GITHUB_REPOSITORY !== 'thisislvca/alba' || env.GITHUB_REF !== 'refs/heads/main' || m.tag !== env.APP_RELEASE_TAG) throw new Error('Stable promotion requires the selected candidate on main.');
+  gh('release', 'edit', m.tag, '--repo', 'thisislvca/alba', '--draft=false', '--prerelease=false', '--latest', '--title', releaseTitle(m, true), '--notes-file', join(out, `metadata/en-US/changelogs/${m.versionCode}.txt`));
 }
 function verifyProvenance(m) {
   for (const name of ['alba.aab', 'release.json']) {
@@ -198,7 +219,7 @@ function writeNotes(m) {
   writeFileSync(join(out, `metadata/en-US/changelogs/${m.versionCode}.txt`), notes);
 }
 
-const commands = { prepare, sign: signBundle, package: packageBuild, publish: publishCandidate, verify: verifyCandidate, check: checkCandidate };
+const commands = { announce: announceAlpha, stable: publishStable, prepare, sign: signBundle, package: packageBuild, publish: publishCandidate, verify: verifyCandidate, check: checkCandidate };
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try { const command = commands[process.argv[2]]; if (!command) throw new Error('Unknown release command.'); await command(); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
