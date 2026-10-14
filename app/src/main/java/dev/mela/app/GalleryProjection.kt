@@ -80,7 +80,7 @@ internal fun projectGalleryContent(
         selectedFilter = filter,
         deviceMediaAccess = hasDeviceAccess,
         accountState = accountState,
-        cloudSourceLabel = if (accountState is ICloudAccountState.SignedIn) {
+        cloudSourceLabel = if (accountState != ICloudAccountState.Demo) {
             "iCloud Personal Library"
         } else {
             "Demo iCloud library"
@@ -114,8 +114,8 @@ internal fun buildGallerySections(
 
 private fun GalleryMedia.isVisibleFor(accountState: ICloudAccountState): Boolean = when (accountState) {
     is ICloudAccountState.SignedIn -> !id.startsWith("fixture:") && !id.startsWith("shared:demo-library:")
-    ICloudAccountState.Restoring -> origin != MediaOrigin.ICLOUD
-    else -> !id.startsWith("icloud:") && (!isShared || id.startsWith("shared:demo-library:"))
+    ICloudAccountState.Demo -> !id.startsWith("icloud:") && (!isShared || id.startsWith("shared:demo-library:"))
+    else -> origin == MediaOrigin.DEVICE
 }
 
 private fun GalleryFilter.includes(origin: MediaOrigin): Boolean = when (this) {

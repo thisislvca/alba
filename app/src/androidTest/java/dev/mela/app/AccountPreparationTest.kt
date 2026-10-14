@@ -19,6 +19,7 @@ class AccountPreparationTest {
     @Test fun failedPreparationIsReportedAndDoesNotLeaveSignInBusy() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<MelaApplication>()
         val graph = app.graph
+        graph.accountManager.selectDemo(true)
         check(graph.accountManager.session.value == null) { "Requires the demo account" }
         val attempts = MutableStateFlow(0)
         val photos = object : PhotoCompanion by graph.photos {

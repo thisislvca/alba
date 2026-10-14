@@ -15,6 +15,7 @@ class ICloudAccountManager(
     private val authentication: AppleAuthenticationService,
     private val sessionStore: AppleSessionStore,
     private val telemetry: AccountTelemetry = AccountTelemetry.None,
+    private val demoMode: DemoModeStore = MemoryDemoModeStore(),
     private val onLocalSignOut: suspend () -> Unit = {},
 ) {
     private val operations = Mutex()
@@ -41,7 +42,7 @@ class ICloudAccountManager(
         // A storage failure must not silently select the demo source or erase account data.
         val stored = mutableSession.value ?: sessionStore.load()
         if (stored == null) {
-            mutableState.value = ICloudAccountState.Demo
+            mutableState.value = if (demoMode.enabled) ICloudAccountState.Demo else ICloudAccountState.SignedOut
             telemetry.record(AccountOperation.RESTORE, AccountOutcome.SUCCESS, elapsedSince(started))
             return@accountOperation
         }
@@ -81,9 +82,17 @@ class ICloudAccountManager(
         }
     }
 
+    suspend fun selectDemo(enabled: Boolean) = accountOperation {
+        check(mutableSession.value == null) { "Sign out before changing demo mode" }
+        authentication.cancel()
+        demoMode.enabled = enabled
+        mutableState.value = if (enabled) ICloudAccountState.Demo else ICloudAccountState.SignedOut
+    }
+
     suspend fun signIn(appleId: String, password: String): AppleSignInResult = accountOperation {
         val started = System.nanoTime()
-        val previousState = mutableState.value
+        demoMode.enabled = false
+        val previousState = if (mutableState.value == ICloudAccountState.Demo) ICloudAccountState.SignedOut else mutableState.value
         mutableState.value = ICloudAccountState.SigningIn(appleId.trim())
         try {
             val result = authentication.signIn(appleId, password, mutableSession.value)
@@ -146,7 +155,7 @@ class ICloudAccountManager(
             authentication.cancel()
             mutableState.value = mutableSession.value?.let {
                 ICloudAccountState.SignedIn(it.accountName, SessionStatus.OFFLINE)
-            } ?: ICloudAccountState.Demo
+            } ?: ICloudAccountState.SignedOut
             throw error
         }
     }
@@ -174,7 +183,8 @@ class ICloudAccountManager(
                 val saved = mutableSession.value
                 sessionStore.clear()
                 mutableSession.value = null
-                mutableState.value = ICloudAccountState.Demo
+                demoMode.enabled = false
+                mutableState.value = ICloudAccountState.SignedOut
                 authentication.cancel()
                 saved
             }

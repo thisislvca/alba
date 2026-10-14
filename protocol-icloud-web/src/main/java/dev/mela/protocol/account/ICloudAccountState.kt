@@ -1,6 +1,8 @@
 package dev.mela.protocol.account
 
 sealed interface ICloudAccountState {
+    data object SignedOut : ICloudAccountState
+
     data object Demo : ICloudAccountState
 
     data object Restoring : ICloudAccountState

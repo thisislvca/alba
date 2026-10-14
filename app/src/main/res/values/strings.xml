@@ -298,7 +298,7 @@
     <string name="refresh_library">Refresh library</string>
     <string name="remove_offline_copies">Remove offline copies</string>
     <string name="remove_offline_copy">Remove offline copy</string>
-    <string name="remove_saved_account_and_use_demo">Remove saved account and use demo</string>
+    <string name="remove_saved_account_and_use_demo">Remove saved account</string>
     <string name="rename_album">Rename album</string>
     <string name="reset_filters">Reset filters</string>
     <string name="restoring_icloud">Restoring iCloud…</string>
@@ -326,7 +326,7 @@
     <string name="sign_in_expired_saved_copies_available">Sign-in expired · saved copies available</string>
     <string name="sign_in_to_icloud">Sign in to iCloud</string>
     <string name="sign_in_to_upload">Sign in to upload</string>
-    <string name="sign_out_and_use_demo_library">Sign out and use demo library</string>
+    <string name="sign_out_and_use_demo_library">Sign out</string>
     <string name="signed_in_to_icloud">Signed in to iCloud</string>
     <string name="signing_in">Signing in</string>
     <string name="six_digit_code">Six-digit code</string>

@@ -8,6 +8,7 @@ import java.io.OutputStream
 class AccountAwareICloudCatalogSource(
     private val demoSource: CloudCatalogSource,
     private val liveSource: CloudCatalogSource,
+    private val demoEnabled: () -> Boolean = { false },
     private val sessionProvider: () -> AppleSessionSnapshot?,
 ) : CloudCatalogSource {
     override val writeAccountId: String? get() = currentSource().writeAccountId
@@ -56,15 +57,24 @@ class AccountAwareICloudCatalogSource(
         sourceForMedia(mediaId).writeOriginal(mediaId, output)
     }
 
-    private fun currentSource(): CloudCatalogSource = if (sessionProvider() == null) {
-        demoSource
-    } else {
-        liveSource
+    private val signedOutSource = object : CloudCatalogSource {
+        override val accountLabel = "signed-out"
+        override suspend fun fetchPage(cursor: String?, limit: Int) = CloudCatalogPage(emptyList(), null, "signed-out")
+        override suspend fun writePreview(mediaId: String, output: OutputStream): Unit = error("No cloud account connected")
+        override suspend fun writeOriginal(mediaId: String, output: OutputStream): Unit = error("No cloud account connected")
     }
 
-    private fun sourceForMedia(mediaId: String): CloudCatalogSource = if (mediaId.startsWith("fixture:") || mediaId.startsWith("shared:demo-library:")) {
-        demoSource
-    } else {
-        liveSource
+    private fun currentSource(): CloudCatalogSource = when {
+        sessionProvider() != null -> liveSource
+        demoEnabled() -> demoSource
+        else -> signedOutSource
+    }
+
+    private fun sourceForMedia(mediaId: String): CloudCatalogSource {
+        if (mediaId.startsWith("fixture:") || mediaId.startsWith("shared:demo-library:")) {
+            check(demoEnabled() && sessionProvider() == null) { "Demo media is not available outside demo mode" }
+            return demoSource
+        }
+        return liveSource
     }
 }

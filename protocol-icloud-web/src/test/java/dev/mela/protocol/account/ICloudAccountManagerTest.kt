@@ -9,6 +9,27 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ICloudAccountManagerTest {
+    @Test fun demoRequiresExplicitSelectionAndSignOutClearsIt() = runBlocking {
+        val store = MemoryStore().apply { clear() }
+        val demo = MemoryDemoModeStore()
+        fun manager() = ICloudAccountManager(AppleAuthenticationService(ValidationTransport(200)), store, demoMode = demo)
+        val first = manager()
+        first.restore()
+        assertEquals(ICloudAccountState.SignedOut, first.state.value)
+        first.selectDemo(true)
+        val restarted = manager()
+        restarted.restore()
+        assertEquals(ICloudAccountState.Demo, restarted.state.value)
+        restarted.selectDemo(false)
+        assertEquals(ICloudAccountState.SignedOut, restarted.state.value)
+        restarted.selectDemo(true)
+        restarted.signOut()
+        val afterSignOut = manager()
+        afterSignOut.restore()
+        assertEquals(ICloudAccountState.SignedOut, afterSignOut.state.value)
+        assertFalse(demo.enabled)
+    }
+
     @Test fun localCleanupCanDrainRequestsWithoutResurrectingTheSession() = runBlocking {
         val store = MemoryStore()
         lateinit var manager: ICloudAccountManager
@@ -50,11 +71,11 @@ class ICloudAccountManagerTest {
         val logout = launch { manager.signOut() }
         withTimeout(5_000) { reachedLogout.await() }
         logout.cancelAndJoin()
-        assertEquals(ICloudAccountState.Demo, manager.state.value)
+        assertEquals(ICloudAccountState.SignedOut, manager.state.value)
         assertNull(saved)
         val restarted = ICloudAccountManager(AppleAuthenticationService(delegate), store)
         restarted.restore()
-        assertEquals(ICloudAccountState.Demo, restarted.state.value)
+        assertEquals(ICloudAccountState.SignedOut, restarted.state.value)
     }
 
     @Test fun cancellationDuringLocalLogoutStillFinishesDurableCleanup() = runBlocking {
@@ -81,7 +102,7 @@ class ICloudAccountManagerTest {
         logout.join()
         assertNull(saved)
         assertTrue(mediaCleared)
-        assertEquals(ICloudAccountState.Demo, manager.state.value)
+        assertEquals(ICloudAccountState.SignedOut, manager.state.value)
     }
 
     @Test fun storageFailureDoesNotPretendLogoutSucceeded() = runBlocking {
@@ -160,7 +181,7 @@ class ICloudAccountManagerTest {
         assertEquals(SNAPSHOT, store.saved)
         assertNull(manager.authorizedSession)
         manager.signOut()
-        assertEquals(ICloudAccountState.Demo, manager.state.value)
+        assertEquals(ICloudAccountState.SignedOut, manager.state.value)
         assertNull(store.saved)
         assertEquals(1, store.clears)
     }

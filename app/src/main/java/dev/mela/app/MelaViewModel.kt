@@ -97,7 +97,7 @@ data class GalleryUiState(
     val deviceCount: Int = 0,
     val accountState: ICloudAccountState = ICloudAccountState.Restoring,
     val isAccountOpen: Boolean = false,
-    val cloudSourceLabel: String = "Demo iCloud library",
+    val cloudSourceLabel: String = "iCloud Personal Library",
     val uploadTransfersByMediaId: Map<String, TransferView> = emptyMap(),
     val transferQueue: List<TransferView> = emptyList(),
     val backup: BackupView = BackupView(enabled = false),
@@ -258,6 +258,7 @@ class MelaViewModel(
     private val accountInfo = MutableStateFlow(AccountInfo())
     private var accountInfoJob: Job? = null
     fun checkConnection() {
+        if (accountManager.state.value == ICloudAccountState.SignedOut) return
         if (accountManager.state.value == ICloudAccountState.Demo) launchRefresh(replaceActive = false)
         if (accountInfoJob?.isActive == true || status.value.accountBusy) return
         accountInfoJob = viewModelScope.launch {
@@ -515,7 +516,13 @@ class MelaViewModel(
         q, selected, collections, batches -> GalleryUiState(query = q, selection = selected, collections = collections, batches = batches)
     }
     val uiState: StateFlow<GalleryUiState> = combine(baseState, browseState, accountInfo, connection) { base, browse, info, connection ->
-        base.copy(accountInfo = info, network = connection, query = browse.query, selection = browse.selection, collections = browse.collections + base.catalogItems.filter { !it.isTrashed && it.deviceFolderId != null }
+        base.copy(accountInfo = info, network = connection, query = browse.query, selection = browse.selection, collections = browse.collections.filter { collection ->
+                when (base.accountState) {
+                    ICloudAccountState.Demo -> true
+                    is ICloudAccountState.SignedIn -> !collection.id.startsWith("shared:demo-library:")
+                    else -> false
+                }
+            } + base.catalogItems.filter { !it.isTrashed && it.deviceFolderId != null }
                 .distinctBy { it.deviceFolderId }.map { GalleryCollection(it.deviceFolderId!!, it.deviceFolderName ?: "") },
             batches = browse.batches.filter { it.account == batchActions?.activeAccount })
     }.stateIn(
@@ -631,6 +638,27 @@ class MelaViewModel(
                 if (error is CancellationException) throw error
                 status.value = status.value.copy(message = error.toUserMessage(R.string.message_could_not_reconnect_to_icloud))
             }
+        }
+    }
+
+    fun startDemo() = selectLibraryMode(demo = true)
+
+    fun connectAccount() = selectLibraryMode(demo = false)
+
+    private fun selectLibraryMode(demo: Boolean) {
+        viewModelScope.launch {
+            try {
+                cancelCloudWork()
+                accountManager.restore()
+                if (accountManager.session.value == null) {
+                    accountManager.selectDemo(demo)
+                    accountChanged()
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                status.value = status.value.copy(message = error.toUserMessage(R.string.message_could_not_restore_the_saved_account_refresh_to_retry))
+            }
+            if (!demo) openAccount()
         }
     }
 

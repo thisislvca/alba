@@ -66,6 +66,7 @@ class MelaGraph(context: Context, val diagnostics: SentryMelaDiagnostics) {
         authentication = authentication,
         sessionStore = AndroidEncryptedSessionStore(appContext),
         telemetry = diagnostics,
+        demoMode = OnboardingPreferences(appContext),
         onLocalSignOut = ::clearSignedOutData,
     )
     private val mediaStore = AndroidMediaStoreSource(appContext)
@@ -83,7 +84,7 @@ class MelaGraph(context: Context, val diagnostics: SentryMelaDiagnostics) {
         openVideo = { appContext.assets.open("fixture_video.mp4") },
         uploadDirectory = java.io.File(appContext.cacheDir, "demo-imports").apply { deleteRecursively(); mkdirs() },
     )
-    private val cloudCatalog = AccountAwareICloudCatalogSource(demoCatalog, liveCatalog) { accountManager.session.value }
+    private val cloudCatalog = AccountAwareICloudCatalogSource(demoCatalog, liveCatalog, { accountManager.state.value == dev.mela.protocol.account.ICloudAccountState.Demo }) { accountManager.session.value }
     val galleryRepository = DefaultGalleryRepository(
         database = database,
         cloudSource = cloudCatalog,

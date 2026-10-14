@@ -16,6 +16,7 @@ import org.junit.runner.RunWith
 class PreviewQueueTest {
     @Test fun fastScrollReplacesObsoleteQueueAndKeepsInflightThumbnails() = runBlocking {
         val graph = ApplicationProvider.getApplicationContext<MelaApplication>().graph
+        graph.accountManager.selectDemo(true)
         check(graph.accountManager.session.value == null) { "Preview queue tests require the demo account" }
         val items = List(120) { index -> GalleryMedia("fixture:queue:$index", "$index.jpg", index.toLong(),
             100, 100, MediaOrigin.ICLOUD, MediaAvailability.CLOUD_ONLY, null, null, 0, 0) }

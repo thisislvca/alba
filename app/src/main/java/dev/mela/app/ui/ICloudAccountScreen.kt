@@ -101,6 +101,7 @@ fun ICloudAccountScreen(
     MelaPageScaffold(
         title = stringResource(when {
             authenticating -> R.string.icloud_account
+            state == ICloudAccountState.SignedOut -> R.string.icloud_account
             else -> page.title
         }),
         onBack = back,
@@ -123,7 +124,7 @@ fun ICloudAccountScreen(
                 { onSubmitTwoFactor(verificationCode); verificationCode = "" },
                 onResendTwoFactor, onSignOut,
             )
-            page == ProfilePage.SIGN_IN -> {
+            page == ProfilePage.SIGN_IN || state == ICloudAccountState.SignedOut -> {
                 if (signedIn?.status == SessionStatus.EXPIRED) {
                     Text(stringResource(R.string.your_saved_library_is_available_sign_in_again_to_reconnect))
                     Spacer(Modifier.height(20.dp))

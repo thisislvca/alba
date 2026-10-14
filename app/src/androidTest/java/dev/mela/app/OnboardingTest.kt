@@ -6,6 +6,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -41,9 +42,19 @@ class OnboardingTest {
         compose.onNodeWithText("Sign in to iCloud").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("welcome").assertDoesNotExist()
         assertTrue(OnboardingPreferences(compose.activity).completed)
+        val graph = (compose.activity.application as MelaApplication).graph
+        assertEquals(dev.mela.protocol.account.ICloudAccountState.SignedOut, graph.accountManager.state.value)
+        assertFalse(OnboardingPreferences(compose.activity).enabled)
+        compose.onNodeWithText("Password").assertIsDisplayed()
+        capture("03-connect-sign-in")
+        compose.onNodeWithText("Demo", substring = true).assertDoesNotExist()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("Sign in to iCloud").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("welcome").assertDoesNotExist()
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithText("Demo", substring = true).assertDoesNotExist()
+        compose.waitUntil(10_000) { kotlinx.coroutines.runBlocking { graph.galleryRepository.observeGallery().first().none { it.id.startsWith("fixture:") } } }
+        capture("04-signed-out-library")
     }
 
     @Test fun demoFromFirstPagePersistsAcrossANewActivity() {

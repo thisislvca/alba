@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
         returnToCaller = savedInstanceState?.getBoolean("returnToCaller") ?: (incoming != null || invitation != null)
         enableEdgeToEdge()
         val onboarding = OnboardingPreferences(this)
-        if (BuildConfig.BENCHMARK_MODE) onboarding.complete()
+        if (BuildConfig.BENCHMARK_MODE) { onboarding.complete(); onboarding.enabled = true }
         setContent {
             var showWelcome by rememberSaveable { mutableStateOf(!onboarding.completed) }
             if (showWelcome && incoming == null && invitation == null) {
@@ -79,10 +79,10 @@ class MainActivity : ComponentActivity() {
                     dev.mela.app.ui.WelcomeScreen(
                         onConnect = {
                             onboarding.complete()
-                            viewModel.openAccount()
+                            viewModel.connectAccount()
                             showWelcome = false
                         },
-                        onDemo = { onboarding.complete(); showWelcome = false },
+                        onDemo = { onboarding.complete(); viewModel.startDemo(); showWelcome = false },
                     )
                 }
                 return@setContent

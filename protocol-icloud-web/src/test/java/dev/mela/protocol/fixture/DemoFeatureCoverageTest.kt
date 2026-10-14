@@ -1,6 +1,7 @@
 package dev.mela.protocol.fixture
 
 import dev.mela.engine.model.*
+import dev.mela.engine.source.CloudCatalogSource
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -11,13 +12,27 @@ class DemoFeatureCoverageTest {
     private val photo = "fixture:icloud:0001"
     private val owner = "shared:demo-library:private:owner:two"
 
+    @Test fun signedOutCatalogNeverFallsBackToFixtures() = runBlocking {
+        val sample = java.lang.reflect.Proxy.newProxyInstance(CloudCatalogSource::class.java.classLoader,
+            arrayOf(CloudCatalogSource::class.java)) { _, method, _ ->
+            throw AssertionError("Signed-out mode reached cloud source: ${method.name}")
+        } as CloudCatalogSource
+        val source = dev.mela.protocol.photos.AccountAwareICloudCatalogSource(sample, sample) { null }
+        assertTrue(source.fetchPage(null, 100).records.isEmpty())
+        assertTrue(source.collections().collections.isEmpty())
+        assertTrue(source.sharedAlbums().records.isEmpty())
+        assertNull(source.accountProfile())
+        assertNull(source.writeAccountId)
+        assertTrue(runCatching { source.writeOriginal("fixture:1", java.io.ByteArrayOutputStream()) }.isFailure)
+    }
+
     @Test fun signedOutCatalogRoutesSampleReadsAndWritesAwayFromTheLiveBackend() = runBlocking {
         val type = dev.mela.engine.source.CloudCatalogSource::class.java
         val live = java.lang.reflect.Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, _ ->
             throw AssertionError("Demo reached live backend: ${method.name}")
         } as dev.mela.engine.source.CloudCatalogSource
         val sample = FixtureICloudCatalogSource(includeSharedAlbums = true, openVideo = { byteArrayOf(1, 2, 3).inputStream() })
-        val source = dev.mela.protocol.photos.AccountAwareICloudCatalogSource(sample, live) { null }
+        val source = dev.mela.protocol.photos.AccountAwareICloudCatalogSource(sample, live, { true }) { null }
         assertEquals("demo-library", source.accountLabel)
         assertEquals(20, source.fetchPage(null, 100).records.size)
         source.setFavorite(photo, true)

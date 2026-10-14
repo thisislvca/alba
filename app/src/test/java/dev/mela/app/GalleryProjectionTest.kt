@@ -16,6 +16,18 @@ import org.junit.Test
 class GalleryProjectionTest {
     private val utc = ZoneId.of("UTC")
 
+    @Test fun signedOutAndAuthenticatingHideCachedDemoMedia() {
+        val fixture = media("fixture:1", MediaOrigin.ICLOUD, "2026-01-03T00:00:00Z")
+        val device = media("device:1", MediaOrigin.DEVICE, "2026-01-03T00:00:00Z")
+        listOf(ICloudAccountState.SignedOut, ICloudAccountState.SigningIn("test@example.test"),
+            ICloudAccountState.AwaitingTwoFactor("test@example.test", dev.mela.protocol.account.TwoFactorDelivery.TRUSTED_DEVICE)).forEach { state ->
+            val projected = projectGalleryContent(listOf(fixture, device), GalleryFilter.ALL, fixture.id, true, state)
+            assertEquals(listOf(device), projected.items)
+            assertNull(projected.selectedMedia)
+            assertEquals(0, projected.cloudCount)
+        }
+    }
+
     @Test
     fun `added dates determine sections and month offsets include headers`() {
         val old = media("a", MediaOrigin.ICLOUD, "2020-01-01T00:00:00Z")
