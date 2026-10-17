@@ -53,6 +53,45 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
+/**
+ * Where a photo grid was, by media id rather than by index. A restored LazyGridState only knows an index, and it is
+ * clamped the first time the grid is measured against fewer items than that (another tab's results, or a catalog that
+ * has not loaded yet), which silently resets the scroll to the top. A restored anchor is re-applied once its photo
+ * is present; any scroll by the user cancels it.
+ */
+internal class GridAnchor(var mediaId: String? = null, var offset: Int = 0, restoring: Boolean = false) {
+    var restoring by mutableStateOf(restoring && mediaId != null)
+
+    companion object {
+        val Saver = listSaver<GridAnchor, Any?>(
+            save = { listOf(it.mediaId, it.offset) },
+            restore = { GridAnchor(it[0] as String?, it[1] as Int, restoring = true) })
+    }
+}
+
+/** Records the first visible photo into [anchor] and, for a restored anchor, scrolls back to it once its photo is present. */
+@Composable
+internal fun KeepGridAnchor(grid: LazyGridState, anchor: GridAnchor, positions: Map<String, Int>, gridIndexOf: (String) -> Int) {
+    val indexOf by rememberUpdatedState(gridIndexOf)
+    LaunchedEffect(grid, anchor) {
+        snapshotFlow { grid.isScrollInProgress }.collect { if (it) anchor.restoring = false }
+    }
+    LaunchedEffect(grid, anchor, positions) {
+        val id = anchor.mediaId
+        if (anchor.restoring && id != null && id in positions) {
+            grid.requestScrollToItem(indexOf(id), anchor.offset)
+            anchor.restoring = false
+        }
+    }
+    LaunchedEffect(grid, anchor, positions) {
+        snapshotFlow {
+            if (anchor.restoring) null
+            else grid.layoutInfo.visibleItemsInfo.firstOrNull { (it.key as? String)?.let(positions::containsKey) == true }
+                ?.let { (it.key as String) to (-it.offset.y).coerceAtLeast(0) }
+        }.collect { found -> if (found != null) { anchor.mediaId = found.first; anchor.offset = found.second } }
+    }
+}
+
 private val QuerySaver = listSaver<GalleryQuery, String>(
     save = { listOf(it.origin?.name.orEmpty(), it.collectionId.orEmpty(), it.filename,
         it.fromDate?.toString().orEmpty(), it.throughDate?.toString().orEmpty(), it.sort.name, it.offlineOnly.toString(), it.date.name, it.trashOnly.toString()) },
@@ -108,6 +147,9 @@ internal fun GalleryHome(
     val libraryGrid = rememberLazyGridState()
     val collectionGrid = rememberLazyGridState()
     val searchGrid = rememberLazyGridState()
+    val libraryAnchor = rememberSaveable(saver = GridAnchor.Saver) { GridAnchor() }
+    val collectionAnchor = rememberSaveable(saver = GridAnchor.Saver) { GridAnchor() }
+    val searchAnchor = rememberSaveable(saver = GridAnchor.Saver) { GridAnchor() }
     val collectionScroll = rememberLazyGridState()
     val collectionPageScroll = rememberLazyGridState()
     val summaries = key(identity) { rememberCollectionPreviews(state.catalogItems, state.collections) }
@@ -331,6 +373,7 @@ internal fun GalleryHome(
                         SearchLanding(bottomSpace = bottomSpace, onDates = { filters = true }, choose = { change(state.query.copy(collectionId = it)) })
                     } else PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = refresh) {
                         PhotoGrid(state, when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid },
+                            when (tab) { GalleryTab.LIBRARY -> libraryAnchor; GalleryTab.COLLECTIONS -> collectionAnchor; GalleryTab.SEARCH -> searchAnchor },
                             visibleDensity, changeDensity, actions, open, toggle, preview, bottomSpace = bottomSpace, permission = tab == GalleryTab.LIBRARY && !state.deviceMediaAccess && !permissionDismissed,
                             dismissPermission = { permissionDismissed = true }, requestPhotos = requestPhotos, clearFilters = { change(GalleryQuery()) },
                             flat = hero,
@@ -414,7 +457,7 @@ private fun TabIcon(tab: GalleryTab) {
 }
 
 @Composable
-private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, density: Int, changeDensity: (Int) -> Unit, actions: LibraryActions, open: (String) -> Unit, toggle: (String) -> Unit,
+private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAnchor, density: Int, changeDensity: (Int) -> Unit, actions: LibraryActions, open: (String) -> Unit, toggle: (String) -> Unit,
     preview: (String) -> Unit, bottomSpace: androidx.compose.ui.unit.Dp, permission: Boolean, dismissPermission: () -> Unit, requestPhotos: () -> Unit, clearFilters: () -> Unit, leading: (@Composable () -> Unit)? = null, flat: Boolean = false, addMedia: (() -> Unit)? = null) {
     val leadingItems = if (leading != null) 1 else 0
     val mediaIds = state.items.map { it.id }
@@ -433,6 +476,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, density: Int, 
             }
     }
     DisposableEffect(Unit) { onDispose { prefetch(emptyList()) } }
+    KeepGridAnchor(grid, anchor, positions) { id -> galleryPosition(state.sections, permission, density >= 160, state.query.date, id, leadingItems, showDateHeaders = !flat) }
     val returningId = LocalPhotoTransition.current?.returningMediaId
     var visibleWhenOpened by rememberSaveable { mutableStateOf(emptyList<String>()) }
     LaunchedEffect(returningId) {
