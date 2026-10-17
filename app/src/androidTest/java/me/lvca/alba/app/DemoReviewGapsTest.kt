@@ -15,6 +15,7 @@ import org.junit.Test
 class DemoReviewGapsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val graph get() = (compose.activity.application as AlbaApplication).graph
     private val repository get() = graph.galleryRepository
     private fun label(id: Int) = compose.activity.getString(id)
