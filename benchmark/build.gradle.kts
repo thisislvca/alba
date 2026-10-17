@@ -1,7 +1,7 @@
 plugins { alias(libs.plugins.android.test) }
 
 android {
-    namespace = "dev.mela.benchmark"
+    namespace = "me.lvca.alba.benchmark"
     compileSdk = 37
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true

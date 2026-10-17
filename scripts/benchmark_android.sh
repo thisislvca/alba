@@ -11,9 +11,9 @@ MODE="${1:-measure}"
 QEMU="$("$ADB" -s "$ANDROID_SERIAL" shell getprop ro.kernel.qemu | tr -d '\r')"
 if [[ "$QEMU" == 1 && "$(uname -s)" == Darwin ]]; then
   source scripts/android_emulator_graphics.sh
-  mela_configure_emulator_graphics
+  alba_configure_emulator_graphics
   RENDERER="$("$ADB" -s "$ANDROID_SERIAL" shell dumpsys SurfaceFlinger | grep -m 1 '^GLES:' || true)"
-  mela_verify_emulator_graphics "$RENDERER"
+  alba_verify_emulator_graphics "$RENDERER"
   ABI="$("$ADB" -s "$ANDROID_SERIAL" shell getprop ro.product.cpu.abi | tr -d '\r')"
   EXPECTED_ABI=x86_64
   [[ "$(uname -m)" != arm64 ]] || EXPECTED_ABI=arm64-v8a
@@ -32,8 +32,8 @@ if [[ "$MODE" == measure ]]; then
   done
 fi
 # This installs only me.lvca.alba.benchmark; it never signs with the release key.
-export MELA_SENTRY_DSN=''
-export MELA_SENTRY_PROPERTIES=/tmp/mela-benchmark-no-sentry.properties
+export ALBA_SENTRY_DSN=''
+export ALBA_SENTRY_PROPERTIES=/tmp/alba-benchmark-no-sentry.properties
 if [[ -z "${JAVA_HOME:-}" && -d "/Applications/Android Studio.app/Contents/jbr/Contents/Home" ]]; then
   export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 fi

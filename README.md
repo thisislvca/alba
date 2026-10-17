@@ -31,7 +31,7 @@ iCloud Shared Photo Library isn't supported. It's different from Shared Albums, 
 
 ## How it works
 
-Alba talks directly to Apple using the web APIs behind iCloud. Your photos don't pass through a Alba server.
+Alba talks directly to Apple using the web APIs behind iCloud. Your photos don't pass through an Alba server.
 
 It keeps a local catalog and downloaded previews on your phone, so you can still browse those when you're offline. Full-size originals are downloaded when you need them. You can also choose to keep them offline.
 
@@ -63,7 +63,7 @@ The website deploys from `main`. App versions are prepared in GitHub Actions, te
 
 ## Tests
 
-CI runs device tests on Android 11 and 16. Locally, create a native Android emulator in Android Studio, then run `MELA_AVD_NAME=your_avd scripts/run_android_tests.sh`. On a Mac, the script requires and checks hardware graphics.
+CI runs device tests on Android 11 and 16. Locally, create a native Android emulator in Android Studio, then run `ALBA_AVD_NAME=your_avd scripts/run_android_tests.sh`. On a Mac, the script requires and checks hardware graphics.
 
 For performance work, set `ANDROID_SERIAL` to your test device. Run `scripts/benchmark_android.sh profile` to update the Baseline Profile, then `scripts/benchmark_android.sh measure` on a physical phone. These use a separate app with demo photos. The older emulator measurement script is only a smoke check.
 

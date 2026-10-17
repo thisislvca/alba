@@ -7,13 +7,13 @@ plugins {
 }
 
 // Release builds stay unsigned. Only the isolated release job receives the upload key.
-val sentryPropertiesFile = file(providers.environmentVariable("MELA_SENTRY_PROPERTIES")
-    .getOrElse("${System.getProperty("user.home")}/.config/mela/sentry/sentry.properties"))
+val sentryPropertiesFile = file(providers.environmentVariable("ALBA_SENTRY_PROPERTIES")
+    .getOrElse("${System.getProperty("user.home")}/.config/alba/sentry/sentry.properties"))
 val sentryProperties = Properties()
 if (sentryPropertiesFile.isFile) {
     sentryProperties.load(providers.fileContents(layout.file(provider { sentryPropertiesFile })).asText.get().reader())
 }
-val sentryDsn = providers.environmentVariable("MELA_SENTRY_DSN")
+val sentryDsn = providers.environmentVariable("ALBA_SENTRY_DSN")
     .getOrElse(sentryProperties.getProperty("dsn", "")).trim()
 val sentryDsnLiteral = "\"" + sentryDsn.replace("\\", "\\\\").replace("\"", "\\\"")
     .replace("\n", "\\n").replace("\r", "\\r") + "\""
@@ -27,7 +27,7 @@ require(appVersionName.matches(Regex("(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\
 require(appVersionCode in 1..2100000000) { "Invalid Alba version code." }
 
 android {
-    namespace = "dev.mela.app"
+    namespace = "me.lvca.alba.app"
     compileSdk = 37
 
     testOptions {
@@ -116,7 +116,7 @@ android {
 sentry {
     ignoredBuildTypes.set(setOf("benchmark", "profile"))
     org.set(sentryProperties.getProperty("org", "mannaworks"))
-    projectName.set(sentryProperties.getProperty("project", "mela-android"))
+    projectName.set(sentryProperties.getProperty("project", "alba-android"))
     sentryProperties.getProperty("authToken")?.takeIf(String::isNotBlank)?.let(authToken::set)
     includeProguardMapping.set(true)
     autoUploadProguardMapping.set(!sentryProperties.getProperty("authToken").isNullOrBlank())

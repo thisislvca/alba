@@ -17,7 +17,7 @@
         android:maxSdkVersion="32" />
 
     <application
-        android:name=".MelaApplication"
+        android:name=".AlbaApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
@@ -27,7 +27,7 @@
         tools:targetApi="33"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Mela"
+        android:theme="@style/Theme.Alba"
         android:usesCleartextTraffic="false">
         <service tools:targetApi="34" android:enabled="@bool/user_transfer_jobs_enabled" android:name=".UserTransferJobService" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="false" />
         <service android:name="androidx.work.impl.foreground.SystemForegroundService" android:foregroundServiceType="dataSync" tools:node="merge" />
@@ -50,11 +50,6 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -90,6 +85,17 @@
                 <data android:mimeType="video/*" />
             </intent-filter>
         </activity>
+        <!-- Launchers pin icons by component name; keep the name used before the package rename. -->
+        <activity-alias
+            android:name="dev.mela.app.MainActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
     </application>
 
 </manifest>

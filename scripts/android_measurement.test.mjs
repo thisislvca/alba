@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { frames, startup, validate } from './validate_android_measurement.mjs';
 
 let directory;
-beforeEach(() => { directory = mkdtempSync(join(tmpdir(), 'mela-measurement-')); });
+beforeEach(() => { directory = mkdtempSync(join(tmpdir(), 'alba-measurement-')); });
 afterEach(() => { rmSync(directory, { recursive: true, force: true }); });
 function sample(text, name = 'sample.txt') {
   const path = join(directory, name);

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.mela.engine"
+    namespace = "me.lvca.alba.engine"
     compileSdk = 37
 
     testOptions {

@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.mela.protocol"
+    namespace = "me.lvca.alba.protocol"
     compileSdk = 37
 
     testOptions {
