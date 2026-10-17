@@ -74,7 +74,7 @@ class UploadIntakeTest {
                     GalleryUiState(accountState = ICloudAccountState.SignedIn("test@example.invalid")),
                     close = {}, connect = { error("Must use supplied screen state only") }, upload = { queued = it })
             }
-            compose.waitUntil(10_000) { compose.onAllNodesWithTag("queue-incoming-upload").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithTag("queue-incoming-upload").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText(localized.getString(R.string.incoming_upload_explanation)).assertIsDisplayed()
             assertNull(queued)
             compose.onNodeWithTag("queue-incoming-upload").performClick()

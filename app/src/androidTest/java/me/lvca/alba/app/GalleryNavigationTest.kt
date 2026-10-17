@@ -49,7 +49,7 @@ class GalleryNavigationTest {
         compose.onNodeWithText("Favorites").assertIsDisplayed()
         capture("collections.png")
         compose.onNodeWithTag("tab-LIBRARY").performClick()
-        compose.onNodeWithTag("media-fixture:icloud:0001").assertIsDisplayed()
+        compose.waitUntilDisplayed(hasTestTag("media-fixture:icloud:0001"))
         compose.onNodeWithTag("tab-SEARCH").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Sea breeze").fetchSemanticsNodes().isNotEmpty() }
         capture("search-restored.png")
@@ -57,16 +57,16 @@ class GalleryNavigationTest {
         compose.onNodeWithTag("search-field").assertTextContains("Sea breeze")
         compose.onNodeWithText("Sea breeze").assertIsDisplayed()
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithText("Sea breeze").assertIsDisplayed()
+        compose.waitUntilDisplayed(hasText("Sea breeze"))
         compose.onNodeWithTag("tab-LIBRARY").performClick()
-        compose.onNodeWithTag("media-fixture:icloud:0001").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("viewer-more").assertIsDisplayed()
+        compose.waitUntilDisplayed(hasTestTag("media-fixture:icloud:0001")).performClick()
+        compose.waitUntilDisplayed(hasTestTag("viewer-more"))
         capture("viewer.png")
         compose.openViewerDetails()
         capture("photo-actions.png")
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
-        compose.onNodeWithTag("media-fixture:icloud:0001").assertIsDisplayed()
+        compose.waitUntilDisplayed(hasTestTag("media-fixture:icloud:0001"))
     }
     @Test fun filtersRestoreAndDoNotLeakIntoCollections() {
         loaded()
@@ -89,7 +89,7 @@ class GalleryNavigationTest {
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         try {
-            compose.waitUntil(10_000) { compose.onAllNodesWithTag("navigation-rail").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithTag("navigation-rail").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("tab-COLLECTIONS").assertIsSelected()
             compose.onNodeWithTag("collection-albums").assertIsDisplayed()
             capture("landscape-collections.png")

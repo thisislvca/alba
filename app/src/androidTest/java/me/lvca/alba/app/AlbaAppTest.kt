@@ -134,7 +134,7 @@ class AlbaAppTest {
         compose.onNodeWithTag(media).performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isNotEmpty() }
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithTag(media).assertIsDisplayed()
+        compose.waitUntilDisplayed(hasTestTag(media))
     }
 
     @Test

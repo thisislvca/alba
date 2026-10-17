@@ -67,9 +67,9 @@ class GalleryWorkflowComponentsTest {
                 state.items.firstOrNull()?.let { media -> MediaTile(media = media, retryVersion = state.previewRetryVersion,
                     onClick = {}, onVisible = { vm.requestPreview(media.id) }) }
             } }
-            compose.waitUntil(10_000) { attempts.get() >= 1 }
+            compose.waitUntil(CI_WAIT_MS) { attempts.get() >= 1 }
             network.value = NetworkStatus(true, false)
-            compose.waitUntil(10_000) { gallery.value.single().previewReference != null }
+            compose.waitUntil(CI_WAIT_MS) { gallery.value.single().previewReference != null }
             val completedAttempts = attempts.get()
             network.value = NetworkStatus(false, false)
             withTimeout(5_000) { vm.uiState.first { it.network?.online == false } }
@@ -113,7 +113,7 @@ class GalleryWorkflowComponentsTest {
         compose.waitUntil(20_000) { compose.onAllNodesWithTag("retry-video").fetchSemanticsNodes().isNotEmpty() }
         broken.set(false)
         compose.onNodeWithTag("retry-video").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodes(SemanticsMatcher.expectValue(
+        compose.waitUntil(CI_WAIT_MS) { compose.onAllNodes(SemanticsMatcher.expectValue(
             androidx.compose.ui.semantics.SemanticsProperties.StateDescription, text(R.string.ready))).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("retry-video").assertDoesNotExist()
     }

@@ -60,7 +60,7 @@ class DemoBackupFlowTest {
         assertEquals(before, permissions.map(compose.activity::checkSelfPermission))
         assertNull(graph.accountManager.session.value)
         compose.onNodeWithText(compose.activity.getString(R.string.demo_sync_refresh)).performScrollTo().performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("Library refreshed", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithText("Library refreshed", substring = true).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(compose.activity.getString(R.string.turn_off_automatic_backup)).performScrollTo().performClick()
         compose.onNodeWithTag("transfer-queue").assertDoesNotExist()
         compose.onNodeWithText(start).assertIsEnabled()

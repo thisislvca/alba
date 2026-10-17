@@ -62,7 +62,7 @@ class GalleryCompletionTest {
         val album = runBlocking { repository.createAlbum("Completion test").also { repository.addToAlbum(it.id, ids) } }
         try {
             compose.runOnUiThread { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].apply { selectItems(ids.toSet(), true); setFavorites(ids, true) } }
-            compose.waitUntil(10_000) { runBlocking { repository.observeGallery().first().filter { it.id in ids }.all { it.isFavorite } } }
+            compose.waitUntil(CI_WAIT_MS) { runBlocking { repository.observeGallery().first().filter { it.id in ids }.all { it.isFavorite } } }
             runBlocking { repository.removeFromAlbum(album.id, ids); repository.setCloudTrashed(ids, true); repository.refresh(false) }
             var items = runBlocking { repository.observeGallery().first().filter { it.id in ids } }
             assertEquals(2, items.size); assertTrue(items.all { it.isTrashed && album.id !in it.collectionIds && it.origin == MediaOrigin.ICLOUD })
@@ -86,8 +86,8 @@ class GalleryCompletionTest {
             assertFalse(runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed })
             compose.onNodeWithText(trash).performScrollTo().performClick()
             compose.onAllNodesWithText(trash).onLast().performClick()
-            compose.waitUntil(10_000) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed } }
-            compose.waitUntil(10_000) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
+            compose.waitUntil(CI_WAIT_MS) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed } }
+            compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
             capture("after-cloud-trash")
             compose.runOnIdle {
                 val lightTheme = compose.activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK != android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -98,7 +98,7 @@ class GalleryCompletionTest {
             val tab = compose.onNodeWithTag("tab-COLLECTIONS").fetchSemanticsNode().boundsInRoot
             assertTrue("Status messages must not cover floating navigation", snackbar.bottom <= tab.top)
             compose.onNodeWithTag("tab-COLLECTIONS").performClick()
-            try { compose.waitUntil(10_000) { compose.onAllNodesWithTag("collections-grid").fetchSemanticsNodes().isNotEmpty() } }
+            try { compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithTag("collections-grid").fetchSemanticsNodes().isNotEmpty() } }
             catch (failure: Throwable) { capture("collections-navigation-failure"); throw failure }
             // Snackbar timeout runs on the injected clock, not waitUntil's wall clock.
             compose.mainClock.advanceTimeBy(5_000)
@@ -113,7 +113,7 @@ class GalleryCompletionTest {
                     androidx.compose.ui.geometry.Offset(width * .5f, height * .65f - extra), 350)
             }
             compose.onNodeWithText(compose.activity.getString(R.string.icloud_recently_deleted)).performClick()
-            try { compose.waitUntil(10_000) { compose.onNodeWithTag("media-$id").isDisplayed() } }
+            try { compose.waitUntil(CI_WAIT_MS) { compose.onNodeWithTag("media-$id").isDisplayed() } }
             catch (failure: Throwable) {
                 capture("recently-deleted-failure")
                 java.io.File(compose.activity.getExternalFilesDir("table-stakes-finish"), "recently-deleted-tree.txt").writeText(compose.onRoot().printToString())
@@ -126,7 +126,7 @@ class GalleryCompletionTest {
             val restore = compose.activity.getString(R.string.restore_from_icloud)
             compose.onNodeWithText(restore).performScrollTo().performClick()
             compose.onAllNodesWithText(restore).onLast().performClick()
-            compose.waitUntil(10_000) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed.not() } }
+            compose.waitUntil(CI_WAIT_MS) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed.not() } }
         } finally { runBlocking { repository.setCloudTrashed(listOf(id), false) } }
     }
 }
