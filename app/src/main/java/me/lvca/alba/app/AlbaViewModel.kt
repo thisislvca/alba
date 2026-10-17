@@ -337,23 +337,31 @@ class AlbaViewModel(
         clearSelection(); closeDetail()
         status.value = status.value.copy(message = UiMessage(if (trashed) R.string.cloud_trashed_success else R.string.cloud_restored_success))
     }
-    suspend fun sharedActivity(id: String, rank: Int) = kotlinx.coroutines.withContext(Dispatchers.IO) { repository.sharedActivity(id, rank) }
-    suspend fun sharedPostDiscussion(id: String) = kotlinx.coroutines.withContext(Dispatchers.IO) { repository.sharedPostDiscussion(id) }
-    suspend fun sharedPostPhotos(id: String) = kotlinx.coroutines.withContext(Dispatchers.IO) { repository.sharedPostPhotos(id) }
-    suspend fun pendingSharedInvitations() = kotlinx.coroutines.withContext(Dispatchers.IO) { repository.pendingSharedInvitations() }
-    suspend fun resolveSharedInvitation(url: String) = kotlinx.coroutines.withContext(Dispatchers.IO) { repository.resolveSharedInvitation(url) }
+    /**
+     * Runs repository work on IO and hands the result back on the main thread. Compose state is written by the
+     * caller right after this returns; resuming on the IO thread lets those writes race the recomposer.
+     */
+    private suspend fun <T> onIoThenMain(block: suspend () -> T): T {
+        val value = kotlinx.coroutines.withContext(Dispatchers.IO) { block() }
+        return kotlinx.coroutines.withContext(Dispatchers.Main.immediate) { value }
+    }
+    suspend fun sharedActivity(id: String, rank: Int) = onIoThenMain { repository.sharedActivity(id, rank) }
+    suspend fun sharedPostDiscussion(id: String) = onIoThenMain { repository.sharedPostDiscussion(id) }
+    suspend fun sharedPostPhotos(id: String) = onIoThenMain { repository.sharedPostPhotos(id) }
+    suspend fun pendingSharedInvitations() = onIoThenMain { repository.pendingSharedInvitations() }
+    suspend fun resolveSharedInvitation(url: String) = onIoThenMain { repository.resolveSharedInvitation(url) }
     suspend fun respondSharedInvitation(id: String, accept: Boolean) {
-        measured(DiagnosticOperation.SHARED_ALBUM) { kotlinx.coroutines.withContext(Dispatchers.IO) {
+        measured(DiagnosticOperation.SHARED_ALBUM) { onIoThenMain {
             repository.respondSharedInvitation(id, accept, java.util.UUID.randomUUID().toString())
             repository.refresh(includeDeviceMedia = false)
         } }
     }
-    suspend fun sharedManagement(id: String) = kotlinx.coroutines.withContext(Dispatchers.IO) { repository.sharedManagement(id) }
-    suspend fun sharedDiscussion(id: String) = kotlinx.coroutines.withContext(Dispatchers.IO) { repository.sharedDiscussion(id) }
+    suspend fun sharedManagement(id: String) = onIoThenMain { repository.sharedManagement(id) }
+    suspend fun sharedDiscussion(id: String) = onIoThenMain { repository.sharedDiscussion(id) }
     suspend fun changeSharedAlbum(id: String, command: me.lvca.alba.engine.model.SharedCommand) {
         val key = "shared-action:" + id + ":" + command.hashCode()
         val operation = savedState.get<String>(key) ?: java.util.UUID.randomUUID().toString().also { savedState[key] = it }
-        measured(DiagnosticOperation.SHARED_ALBUM) { kotlinx.coroutines.withContext(Dispatchers.IO) {
+        measured(DiagnosticOperation.SHARED_ALBUM) { onIoThenMain {
             repository.changeSharedAlbum(id, command, operation)
             repository.refresh(includeDeviceMedia = false)
         } }
