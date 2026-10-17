@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import androidx.test.espresso.Espresso
@@ -22,6 +22,7 @@ import org.junit.Test
 class GalleryWorkflowDeviceTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private fun text(id: Int) = compose.activity.getString(id)
     private fun loaded() = compose.waitForGalleryMedia()
     private fun open(id: String) {

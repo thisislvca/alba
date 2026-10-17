@@ -1,13 +1,14 @@
 package me.lvca.alba.app
 
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import org.junit.Rule
 import org.junit.Test
 
 class AboutScreenTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private fun label(id: Int) = compose.activity.getString(id)
 
     @Test fun aboutShowsFeaturesAndUpcomingAndRestoresWithoutLeavingAccount() {

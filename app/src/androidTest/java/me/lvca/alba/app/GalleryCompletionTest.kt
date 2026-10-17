@@ -20,6 +20,7 @@ import org.junit.Test
 class GalleryCompletionTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val repository get() = (compose.activity.application as AlbaApplication).graph.galleryRepository
     private fun loaded() = compose.waitForGalleryMedia()
     private fun capture(name: String) {

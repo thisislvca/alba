@@ -3,7 +3,7 @@ package me.lvca.alba.app
 import android.Manifest
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import org.junit.Assert.*
@@ -14,6 +14,7 @@ import org.junit.Test
 class DemoBackupFlowTest {
     @get:Rule(order = 1) val onboarding = OnboardingRule(completed = false)
     @get:Rule(order = 2) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 3) val failureCapture = FailureCapture { compose }
 
     @Test fun sampleBackupAndSyncWorkWithoutAnAppleAccountOrPhotoPermission() {
         val graph = (compose.activity.application as AlbaApplication).graph

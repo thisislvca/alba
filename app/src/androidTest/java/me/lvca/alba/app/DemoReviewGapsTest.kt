@@ -2,7 +2,7 @@ package me.lvca.alba.app
 
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.engine.model.*
 import java.io.ByteArrayOutputStream

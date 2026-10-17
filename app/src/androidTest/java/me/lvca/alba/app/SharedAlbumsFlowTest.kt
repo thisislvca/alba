@@ -2,7 +2,7 @@ package me.lvca.alba.app
 
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.flow.first
@@ -15,6 +15,7 @@ import org.junit.Test
 class SharedAlbumsFlowTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val repository get() = (compose.activity.application as AlbaApplication).graph.galleryRepository
     private fun label(id: Int) = compose.activity.getString(id)
     private fun capture(name: String) {

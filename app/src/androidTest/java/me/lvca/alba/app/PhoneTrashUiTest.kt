@@ -19,6 +19,7 @@ import org.junit.Test
 class PhoneTrashUiTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private fun systemButton(id: String): AccessibilityNodeInfo? =
         instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByViewId("android:id/$id")?.firstOrNull()

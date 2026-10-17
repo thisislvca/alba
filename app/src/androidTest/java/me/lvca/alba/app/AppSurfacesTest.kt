@@ -14,6 +14,7 @@ import java.io.File
 class AppSurfacesTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private fun label(id: Int) = compose.activity.getString(id)
     private fun capture(name: String) {
         compose.waitForIdle()

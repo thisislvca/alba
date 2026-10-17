@@ -1,6 +1,6 @@
 package me.lvca.alba.app
 
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.MediaAvailability
@@ -14,6 +14,7 @@ import org.junit.Test
 class UserTransferExecutionTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
 
     @Test fun scheduledTransferCompletesThroughThePlatformRunner() {
         val graph = (compose.activity.application as AlbaApplication).graph

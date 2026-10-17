@@ -3,7 +3,7 @@ package me.lvca.alba.app
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import kotlinx.coroutines.flow.first
@@ -14,6 +14,7 @@ import org.junit.Test
 class OnboardingTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule(completed = false)
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
 
     private fun capture(name: String) {
         compose.waitForIdle()
