@@ -23,7 +23,7 @@ remain synthetic.
 
 ## Material Icons
 
-The vector path data in `MelaIcons.kt` is derived from AndroidX Compose Material Icons 1.7.8.
+The vector path data in `AlbaIcons.kt` is derived from AndroidX Compose Material Icons 1.7.8.
 
 Copyright 2020 The Android Open Source Project
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/android_emulator_graphics.sh"
-mela_configure_emulator_graphics
+alba_configure_emulator_graphics
 
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
 if [[ -z "$SDK_ROOT" ]]; then
@@ -16,13 +16,13 @@ fi
 
 ADB="$SDK_ROOT/platform-tools/adb"
 EMULATOR="$SDK_ROOT/emulator/emulator"
-AVD_NAME="${MELA_AVD_NAME:-Mela_API_37}"
-ARTIFACT_DIR="${MELA_ARTIFACT_DIR:-.artifacts/android-tests}"
+AVD_NAME="${ALBA_AVD_NAME:-Alba_API_37}"
+ARTIFACT_DIR="${ALBA_ARTIFACT_DIR:-.artifacts/android-tests}"
 EMULATOR_LOG="$ARTIFACT_DIR/emulator.log"
 EMULATOR_PID=""
-EMULATOR_PORT="${MELA_EMULATOR_PORT:-5556}"
+EMULATOR_PORT="${ALBA_EMULATOR_PORT:-5556}"
 if [[ ! "$EMULATOR_PORT" =~ ^[0-9]+$ ]] || (( EMULATOR_PORT < 5554 || EMULATOR_PORT > 5682 || EMULATOR_PORT % 2 != 0 )); then
-  echo "MELA_EMULATOR_PORT must be an even port from 5554 through 5682." >&2
+  echo "ALBA_EMULATOR_PORT must be an even port from 5554 through 5682." >&2
   exit 2
 fi
 EMULATOR_SERIAL="emulator-$EMULATOR_PORT"
@@ -60,7 +60,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 if "$ADB" devices | awk -v serial="$EMULATOR_SERIAL" '$1 == serial { found=1 } END { exit !found }'; then
-  echo "$EMULATOR_SERIAL is already in use. Choose another MELA_EMULATOR_PORT." >&2
+  echo "$EMULATOR_SERIAL is already in use. Choose another ALBA_EMULATOR_PORT." >&2
   exit 2
 fi
 
@@ -70,7 +70,7 @@ fi
     -no-window \
     -no-audio \
     -no-boot-anim \
-    -read-only -no-snapshot -gpu "$MELA_GPU_MODE" \
+    -read-only -no-snapshot -gpu "$ALBA_GPU_MODE" \
     -accel on \
     -cores 2 >"$EMULATOR_LOG" 2>&1 &
 EMULATOR_PID=$!
@@ -93,7 +93,7 @@ wait_for_boot
 
 # Optional recovery for hung Android system services. This reboot preserves
 # user data and never suppresses ANRs.
-if [[ "${MELA_REBOOT_EMULATOR:-0}" == "1" ]]; then
+if [[ "${ALBA_REBOOT_EMULATOR:-0}" == "1" ]]; then
   "$ADB" -s "$EMULATOR_SERIAL" reboot
   sleep 2
   wait_for_boot
@@ -102,7 +102,7 @@ fi
 "$ADB" -s "$EMULATOR_SERIAL" shell wm dismiss-keyguard
 
 RENDERER="$($ADB -s "$EMULATOR_SERIAL" shell dumpsys SurfaceFlinger 2>/dev/null | grep -m 1 '^GLES:' || true)"
-mela_verify_emulator_graphics "$RENDERER"
+alba_verify_emulator_graphics "$RENDERER"
 if [[ "$(uname -s)" == Darwin ]]; then
   ABI="$($ADB -s "$EMULATOR_SERIAL" shell getprop ro.product.cpu.abi | tr -d '\r')"
   EXPECTED_ABI=x86_64

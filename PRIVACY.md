@@ -10,7 +10,7 @@ Alba is intended for teens aged 13 and older and adults. It is not directed to c
 
 ## Diagnostics
 
-Builds without a configured Sentry destination send no diagnostics. If you build Alba yourself, you can configure one with `MELA_SENTRY_DSN` or the local Sentry properties file. Configured builds enable crash and performance reporting by default; you can turn it off in About.
+Builds without a configured Sentry destination send no diagnostics. If you build Alba yourself, you can configure one with `ALBA_SENTRY_DSN` or the local Sentry properties file. Configured builds enable crash and performance reporting by default; you can turn it off in About.
 
 Reports may include app and Android versions, device characteristics, an installation identifier, timings, result categories, transfer sizes and how long sign-in sessions last. Official Alba builds use Sentry's US region; other distributors should disclose their own destination.
 

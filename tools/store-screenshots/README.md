@@ -63,7 +63,7 @@ bun run render ../../.artifacts/store-captures/raw
 To refresh the captures, build and install the debug app and instrumentation APK.
 On the owned disposable emulator, clear `me.lvca.alba.dev` app data before
 capturing so prior UI tests do not leave offline items or selections behind. Run
-`dev.mela.app.StoreScreenshotTest` with `-e captureStoreScreenshots true` alone on a disposable English demo emulator
+`me.lvca.alba.app.StoreScreenshotTest` with `-e captureStoreScreenshots true` alone on a disposable English demo emulator
 with a 1080 × 2400 display. Capture paths are the app's external-files directory,
 `store-screenshots`. Copy the twelve PNGs into `.artifacts/store-captures/raw`:
 eleven screens used by the README, including the five store frames, plus an

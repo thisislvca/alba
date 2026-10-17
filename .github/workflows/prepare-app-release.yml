@@ -56,9 +56,9 @@ jobs:
       APP_VERSION_CODE_OFFSET: ${{ vars.APP_VERSION_CODE_OFFSET || '1000' }}
       DRY_RUN: ${{ inputs.dry_run }}
       UPLOAD_TO_PLAY: ${{ inputs.upload_to_play }}
-      MELA_SENTRY_DSN: ${{ vars.ALBA_SENTRY_DSN }}
+      ALBA_SENTRY_DSN: ${{ vars.ALBA_SENTRY_DSN }}
       ALBA_RELEASE_ENVIRONMENT: production
-      MELA_SENTRY_PROPERTIES: /tmp/alba-no-sentry.properties
+      ALBA_SENTRY_PROPERTIES: /tmp/alba-no-sentry.properties
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

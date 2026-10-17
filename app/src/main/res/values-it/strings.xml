@@ -118,9 +118,9 @@
     <string name="media_description">%1$s, %2$s</string>
     <string name="media_types">Tipi di file multimediali</string>
     <string name="medium">Media</string>
-    <string name="mela_can_read_your_personal_library_and_upload_jpeg_originals_directly_from_this_phon">Alba può leggere la tua libreria personale e caricare gli originali di foto e video supportati direttamente da questo telefono. Ogni caricamento viene confrontato con un originale appena scaricato da iCloud prima di essere indicato come verificato.</string>
-    <string name="mela_connects_straight_to_apple_s_icloud_web_services_your_password_is_used_only_for_">Alba si collega direttamente ai servizi web iCloud di Apple. La password viene usata solo per accedere e non viene mai salvata.</string>
-    <string name="mela_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi">Alba ricontrolla prima che i file sul telefono e su iCloud siano identici. Poi Android ti chiede conferma.</string>
+    <string name="alba_can_read_your_personal_library_and_upload_jpeg_originals_directly_from_this_phon">Alba può leggere la tua libreria personale e caricare gli originali di foto e video supportati direttamente da questo telefono. Ogni caricamento viene confrontato con un originale appena scaricato da iCloud prima di essere indicato come verificato.</string>
+    <string name="alba_connects_straight_to_apple_s_icloud_web_services_your_password_is_used_only_for_">Alba si collega direttamente ai servizi web iCloud di Apple. La password viene usata solo per accedere e non viene mai salvata.</string>
+    <string name="alba_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi">Alba ricontrolla prima che i file sul telefono e su iCloud siano identici. Poi Android ti chiede conferma.</string>
     <string name="message_a_previous_upload_of_these_bytes_is_unresolved_and_will_not_be_repeated">Un caricamento precedente di questo file ha esito incerto e non verrà ripetuto.</string>
     <string name="message_a_system_trash_request_may_still_execute_finish_the_android_dialog_or_restart_your_device_and_r">Una richiesta di spostamento nel cestino potrebbe ancora essere eseguita. Completa la finestra di Android oppure riavvia il dispositivo e riapri Alba prima di cambiare account.</string>
     <string name="message_a_system_trash_request_may_still_execute_for_the_previous_icloud_account">Una richiesta di spostamento nel cestino potrebbe ancora essere eseguita per l’account iCloud precedente.</string>
@@ -131,7 +131,7 @@
     <string name="message_account_operation_canceled_the_remaining_batch">Un’operazione sull’account ha annullato gli elementi rimanenti</string>
     <string name="message_album_deleted_its_photos_remain_in_your_library">Album eliminato. Le foto restano nella tua libreria.</string>
     <string name="message_album_is_no_longer_available_refresh_the_library">L’album non è più disponibile. Aggiorna la libreria.</string>
-    <string name="message_android_approved_the_trash_request_mela_is_checking_the_phone_item_its_icloud_copy_remains_veri">Android ha approvato lo spostamento nel cestino. Alba sta verificando l’elemento sul telefono; la copia iCloud resta verificata.</string>
+    <string name="message_android_approved_the_trash_request_alba_is_checking_the_phone_item_its_icloud_copy_remains_veri">Android ha approvato lo spostamento nel cestino. Alba sta verificando l’elemento sul telefono; la copia iCloud resta verificata.</string>
     <string name="message_android_could_not_create_a_gallery_copy">Android non è riuscito a creare una copia nella galleria.</string>
     <string name="message_android_could_not_open_this_photo">Android non è riuscito ad aprire questa foto.</string>
     <string name="message_android_could_not_publish_the_gallery_copy">Android non è riuscito a rendere disponibile la copia nella galleria.</string>
@@ -193,11 +193,11 @@
     <string name="message_icloud_returned_an_incomplete_change_page_the_upload_will_not_be_repeated">iCloud ha restituito dati di aggiornamento incompleti. Il caricamento non verrà ripetuto.</string>
     <string name="message_media_collections_cannot_be_edited">Le raccolte multimediali non possono essere modificate.</string>
     <string name="message_mediastore_changed_during_backup_setup">L’archivio foto è cambiato durante la configurazione del backup</string>
-    <string name="message_mela_currently_uploads_jpeg_originals_only">Per ora Alba carica solo originali JPEG.</string>
-    <string name="message_more_than_one_exact_icloud_copy_matched_mela_will_not_upload_again">Sono state trovate più copie identiche su iCloud. Alba non ripeterà il caricamento.</string>
+    <string name="message_alba_currently_uploads_jpeg_originals_only">Per ora Alba carica solo originali JPEG.</string>
+    <string name="message_more_than_one_exact_icloud_copy_matched_alba_will_not_upload_again">Sono state trovate più copie identiche su iCloud. Alba non ripeterà il caricamento.</string>
     <string name="message_new_camera_jpegs_will_back_up_automatically">Il backup delle nuove foto JPEG della fotocamera sarà automatico.</string>
     <string name="message_no_app_could_open_the_share_sheet">Nessuna app disponibile per la condivisione.</string>
-    <string name="message_no_exact_icloud_copy_was_observed_before_the_check_deadline_mela_will_not_upload_again">Nessuna copia identica trovata su iCloud entro il termine di verifica. Alba non ripeterà il caricamento.</string>
+    <string name="message_no_exact_icloud_copy_was_observed_before_the_check_deadline_alba_will_not_upload_again">Nessuna copia identica trovata su iCloud entro il termine di verifica. Alba non ripeterà il caricamento.</string>
     <string name="message_not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items">Spazio insufficiente per preparare la condivisione. Seleziona meno elementi o file più piccoli.</string>
     <string name="message_nothing_was_removed_from_this_phone">Nessun elemento è stato rimosso da questo telefono.</string>
     <string name="message_only_photos_on_this_phone_can_be_uploaded">È possibile caricare solo foto presenti su questo telefono</string>
@@ -213,7 +213,7 @@
     <string name="message_sign_in_to_icloud_before_enabling_automatic_backup">Accedi a iCloud prima di attivare il backup automatico.</string>
     <string name="message_sign_in_to_icloud_before_uploading">Accedi a iCloud prima di caricare foto</string>
     <string name="message_still_checking_icloud_the_upload_will_not_be_repeated">Verifica di iCloud ancora in corso. Il caricamento non verrà ripetuto.</string>
-    <string name="message_that_uncertain_item_stays_blocked_mela_can_continue_with_other_photos">L’elemento con esito incerto resta bloccato. Alba può continuare con altre foto.</string>
+    <string name="message_that_uncertain_item_stays_blocked_alba_can_continue_with_other_photos">L’elemento con esito incerto resta bloccato. Alba può continuare con altre foto.</string>
     <string name="message_the_account_changed_before_android_consent">L’account è cambiato prima del consenso di Android</string>
     <string name="message_the_account_changed_before_upload">L’account è cambiato prima del caricamento</string>
     <string name="message_the_account_changed_during_the_final_icloud_check">L’account è cambiato durante la verifica finale su iCloud</string>
@@ -246,7 +246,7 @@
     <string name="message_trash_proposal_expired">Richiesta di spostamento nel cestino scaduta</string>
     <string name="message_trash_proposal_has_no_photos">La richiesta di spostamento nel cestino non contiene foto</string>
     <string name="message_unknown_device_photo">Foto del telefono sconosciuta</string>
-    <string name="message_upload_result_was_lost_mela_will_check_icloud_without_uploading_again">Il risultato del caricamento è andato perso. Alba verificherà iCloud senza ripetere il caricamento.</string>
+    <string name="message_upload_result_was_lost_alba_will_check_icloud_without_uploading_again">Il risultato del caricamento è andato perso. Alba verificherà iCloud senza ripetere il caricamento.</string>
     <string name="message_uploading_to_icloud">Caricamento su iCloud</string>
     <string name="message_use_an_album_name_between_1_and_255_characters">Usa un nome di album da 1 a 255 caratteri.</string>
     <string name="message_use_export_original_on_android_9">Su Android 9 usa Esporta originale.</string>
@@ -267,7 +267,7 @@
     <string name="not_now">Non ora</string>
     <string name="off_you_can_still_upload_one_photo_at_a_time_from_the_system_photo_picker">Disattivato. Puoi comunque caricare una foto alla volta dal selettore foto di sistema.</string>
     <string name="offline">Offline</string>
-    <string name="offline_copies_live_only_in_mela_s_private_storage_this_action_never_removes_a_photo_">Le copie offline si trovano solo nello spazio privato di Alba. Questa azione non elimina mai foto da iCloud o dal telefono.</string>
+    <string name="offline_copies_live_only_in_alba_s_private_storage_this_action_never_removes_a_photo_">Le copie offline si trovano solo nello spazio privato di Alba. Questa azione non elimina mai foto da iCloud o dal telefono.</string>
     <string name="offline_saved_library_available">Offline · libreria salvata disponibile</string>
     <string name="offline_saved_photos_available">Offline · foto salvate disponibili</string>
     <string name="oldest_first">Meno recenti prima</string>

@@ -118,9 +118,9 @@
     <string name="media_description">%1$s, %2$s</string>
     <string name="media_types">Media types</string>
     <string name="medium">Medium</string>
-    <string name="mela_can_read_your_personal_library_and_upload_jpeg_originals_directly_from_this_phon">Alba can read your Personal Library and upload supported photo and video originals directly from this phone. Every upload is checked against a freshly downloaded iCloud original before it is called verified.</string>
-    <string name="mela_connects_straight_to_apple_s_icloud_web_services_your_password_is_used_only_for_">Alba connects straight to Apple\'s iCloud web services. Your password is used only for sign-in and is never saved.</string>
-    <string name="mela_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi">Alba rechecks the current phone and iCloud bytes first. Android then asks you to confirm.</string>
+    <string name="alba_can_read_your_personal_library_and_upload_jpeg_originals_directly_from_this_phon">Alba can read your Personal Library and upload supported photo and video originals directly from this phone. Every upload is checked against a freshly downloaded iCloud original before it is called verified.</string>
+    <string name="alba_connects_straight_to_apple_s_icloud_web_services_your_password_is_used_only_for_">Alba connects straight to Apple\'s iCloud web services. Your password is used only for sign-in and is never saved.</string>
+    <string name="alba_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi">Alba rechecks the current phone and iCloud bytes first. Android then asks you to confirm.</string>
     <string name="message_a_previous_upload_of_these_bytes_is_unresolved_and_will_not_be_repeated">A previous upload of these bytes is unresolved and will not be repeated.</string>
     <string name="message_a_system_trash_request_may_still_execute_finish_the_android_dialog_or_restart_your_device_and_r">A system trash request may still execute. Finish the Android dialog, or restart your device and reopen Alba before changing accounts.</string>
     <string name="message_a_system_trash_request_may_still_execute_for_the_previous_icloud_account">A system trash request may still execute for the previous iCloud account.</string>
@@ -131,7 +131,7 @@
     <string name="message_account_operation_canceled_the_remaining_batch">Account operation canceled the remaining batch</string>
     <string name="message_album_deleted_its_photos_remain_in_your_library">Album deleted. Its photos remain in your library.</string>
     <string name="message_album_is_no_longer_available_refresh_the_library">Album is no longer available. Refresh the library.</string>
-    <string name="message_android_approved_the_trash_request_mela_is_checking_the_phone_item_its_icloud_copy_remains_veri">Android approved the trash request. Alba is checking the phone item; its iCloud copy remains verified.</string>
+    <string name="message_android_approved_the_trash_request_alba_is_checking_the_phone_item_its_icloud_copy_remains_veri">Android approved the trash request. Alba is checking the phone item; its iCloud copy remains verified.</string>
     <string name="message_android_could_not_create_a_gallery_copy">Android could not create a gallery copy.</string>
     <string name="message_android_could_not_open_this_photo">Android could not open this photo.</string>
     <string name="message_android_could_not_publish_the_gallery_copy">Android could not publish the gallery copy.</string>
@@ -193,11 +193,11 @@
     <string name="message_icloud_returned_an_incomplete_change_page_the_upload_will_not_be_repeated">iCloud returned an incomplete change page. The upload will not be repeated.</string>
     <string name="message_media_collections_cannot_be_edited">Media collections cannot be edited.</string>
     <string name="message_mediastore_changed_during_backup_setup">MediaStore changed during backup setup</string>
-    <string name="message_mela_currently_uploads_jpeg_originals_only">Alba currently uploads JPEG originals only.</string>
-    <string name="message_more_than_one_exact_icloud_copy_matched_mela_will_not_upload_again">More than one exact iCloud copy matched. Alba will not upload again.</string>
+    <string name="message_alba_currently_uploads_jpeg_originals_only">Alba currently uploads JPEG originals only.</string>
+    <string name="message_more_than_one_exact_icloud_copy_matched_alba_will_not_upload_again">More than one exact iCloud copy matched. Alba will not upload again.</string>
     <string name="message_new_camera_jpegs_will_back_up_automatically">New camera JPEGs will back up automatically.</string>
     <string name="message_no_app_could_open_the_share_sheet">No app could open the share sheet.</string>
-    <string name="message_no_exact_icloud_copy_was_observed_before_the_check_deadline_mela_will_not_upload_again">No exact iCloud copy was observed before the check deadline. Alba will not upload again.</string>
+    <string name="message_no_exact_icloud_copy_was_observed_before_the_check_deadline_alba_will_not_upload_again">No exact iCloud copy was observed before the check deadline. Alba will not upload again.</string>
     <string name="message_not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items">Not enough space to prepare this share. Try fewer or smaller items.</string>
     <string name="message_nothing_was_removed_from_this_phone">Nothing was removed from this phone.</string>
     <string name="message_only_photos_on_this_phone_can_be_uploaded">Only photos on this phone can be uploaded</string>
@@ -213,7 +213,7 @@
     <string name="message_sign_in_to_icloud_before_enabling_automatic_backup">Sign in to iCloud before enabling automatic backup.</string>
     <string name="message_sign_in_to_icloud_before_uploading">Sign in to iCloud before uploading</string>
     <string name="message_still_checking_icloud_the_upload_will_not_be_repeated">Still checking iCloud. The upload will not be repeated.</string>
-    <string name="message_that_uncertain_item_stays_blocked_mela_can_continue_with_other_photos">That uncertain item stays blocked. Alba can continue with other photos.</string>
+    <string name="message_that_uncertain_item_stays_blocked_alba_can_continue_with_other_photos">That uncertain item stays blocked. Alba can continue with other photos.</string>
     <string name="message_the_account_changed_before_android_consent">The account changed before Android consent</string>
     <string name="message_the_account_changed_before_upload">The account changed before upload</string>
     <string name="message_the_account_changed_during_the_final_icloud_check">The account changed during the final iCloud check</string>
@@ -246,7 +246,7 @@
     <string name="message_trash_proposal_expired">Trash proposal expired</string>
     <string name="message_trash_proposal_has_no_photos">Trash proposal has no photos</string>
     <string name="message_unknown_device_photo">Unknown device photo</string>
-    <string name="message_upload_result_was_lost_mela_will_check_icloud_without_uploading_again">Upload result was lost. Alba will check iCloud without uploading again.</string>
+    <string name="message_upload_result_was_lost_alba_will_check_icloud_without_uploading_again">Upload result was lost. Alba will check iCloud without uploading again.</string>
     <string name="message_uploading_to_icloud">Uploading to iCloud</string>
     <string name="message_use_an_album_name_between_1_and_255_characters">Use an album name between 1 and 255 characters.</string>
     <string name="message_use_export_original_on_android_9">Use Export original on Android 9.</string>
@@ -267,7 +267,7 @@
     <string name="not_now">Not now</string>
     <string name="off_you_can_still_upload_one_photo_at_a_time_from_the_system_photo_picker">Off. You can still upload one photo at a time from the system photo picker.</string>
     <string name="offline">Offline</string>
-    <string name="offline_copies_live_only_in_mela_s_private_storage_this_action_never_removes_a_photo_">Offline copies live only in Alba\'s private storage. This action never removes a photo from iCloud or this phone.</string>
+    <string name="offline_copies_live_only_in_alba_s_private_storage_this_action_never_removes_a_photo_">Offline copies live only in Alba\'s private storage. This action never removes a photo from iCloud or this phone.</string>
     <string name="offline_saved_library_available">Offline · saved library available</string>
     <string name="offline_saved_photos_available">Offline · saved photos available</string>
     <string name="oldest_first">Oldest first</string>

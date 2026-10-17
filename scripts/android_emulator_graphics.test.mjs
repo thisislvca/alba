@@ -7,19 +7,19 @@ const policy = fileURLToPath(new URL('./android_emulator_graphics.sh', import.me
 const apple = 'GLES: Google (Apple), Android Emulator OpenGL ES Translator (Apple M4 Pro), OpenGL ES 3.0 (4.1 Metal - 91.7)';
 function check({ os = 'Darwin', arch = 'arm64', mode, required, renderer = apple } = {}) {
   const env = { ...process.env };
-  delete env.MELA_EMULATOR_GPU;
-  delete env.MELA_REQUIRE_HARDWARE_GPU;
-  if (mode !== undefined) env.MELA_EMULATOR_GPU = mode;
-  if (required !== undefined) env.MELA_REQUIRE_HARDWARE_GPU = required;
+  delete env.ALBA_EMULATOR_GPU;
+  delete env.ALBA_REQUIRE_HARDWARE_GPU;
+  if (mode !== undefined) env.ALBA_EMULATOR_GPU = mode;
+  if (required !== undefined) env.ALBA_REQUIRE_HARDWARE_GPU = required;
   return spawnSync('/bin/bash', ['-c', `
     set -euo pipefail
     source "$1"
     uname() { if [[ "$1" == '-s' ]]; then printf '%s' "$test_os"; else printf '%s' "$test_arch"; fi; }
     test_os="$2"
     test_arch="$3"
-    mela_configure_emulator_graphics
-    mela_verify_emulator_graphics "$4"
-    printf 'mode=%s' "$MELA_GPU_MODE"
+    alba_configure_emulator_graphics
+    alba_verify_emulator_graphics "$4"
+    printf 'mode=%s' "$ALBA_GPU_MODE"
   `, 'gpu-policy-test', policy, os, arch, renderer], { env, encoding: 'utf8' });
 }
 

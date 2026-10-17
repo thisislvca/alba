@@ -2,7 +2,7 @@
 set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/android_emulator_graphics.sh"
-mela_configure_emulator_graphics
+alba_configure_emulator_graphics
 
 echo "Emulator smoke measurements only. Use scripts/benchmark_android.sh on a phone for performance results."
 
@@ -19,27 +19,27 @@ fi
 ADB="$SDK_ROOT/platform-tools/adb"
 EMULATOR="$SDK_ROOT/emulator/emulator"
 APKSIGNER="$SDK_ROOT/build-tools/37.0.0/apksigner"
-AVD_NAME="${MELA_AVD_NAME:-Mela_API_37}"
-RUN_LABEL="${MELA_MEASUREMENT_LABEL:-measurement}"
-SETTLE_SECONDS="${MELA_MEASUREMENT_SETTLE_SECONDS:-6}"
-BITMAP_READY_KB="${MELA_MEASUREMENT_BITMAP_READY_KB:-1024}"
-READY_TIMEOUT_SECONDS="${MELA_MEASUREMENT_READY_TIMEOUT_SECONDS:-30}"
-ARTIFACT_DIR="${MELA_MEASUREMENT_DIR:-.artifacts/optimization/$RUN_LABEL}"
+AVD_NAME="${ALBA_AVD_NAME:-Alba_API_37}"
+RUN_LABEL="${ALBA_MEASUREMENT_LABEL:-measurement}"
+SETTLE_SECONDS="${ALBA_MEASUREMENT_SETTLE_SECONDS:-6}"
+BITMAP_READY_KB="${ALBA_MEASUREMENT_BITMAP_READY_KB:-1024}"
+READY_TIMEOUT_SECONDS="${ALBA_MEASUREMENT_READY_TIMEOUT_SECONDS:-30}"
+ARTIFACT_DIR="${ALBA_MEASUREMENT_DIR:-.artifacts/optimization/$RUN_LABEL}"
 EMULATOR_LOG="$ARTIFACT_DIR/emulator.log"
 RESULTS="$ARTIFACT_DIR/metrics.tsv"
 RAW_DIR="$ARTIFACT_DIR/raw"
 UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
 SIGNED_APK="$ARTIFACT_DIR/app-release-benchmark.apk"
-INPUT_APK="${MELA_MEASUREMENT_APK:-}"
-DEBUG_KEYSTORE="${MELA_DEBUG_KEYSTORE:-$HOME/.android/debug.keystore}"
-PACKAGE_NAME="${MELA_MEASUREMENT_PACKAGE:-me.lvca.alba}"
-ACTIVITY_NAME="dev.mela.app.MainActivity"
+INPUT_APK="${ALBA_MEASUREMENT_APK:-}"
+DEBUG_KEYSTORE="${ALBA_DEBUG_KEYSTORE:-$HOME/.android/debug.keystore}"
+PACKAGE_NAME="${ALBA_MEASUREMENT_PACKAGE:-me.lvca.alba}"
+ACTIVITY_NAME="me.lvca.alba.app.MainActivity"
 EMULATOR_PID=""
 ANIMATION_KEYS=(window_animation_scale transition_animation_scale animator_duration_scale)
 ORIGINAL_ANIMATION_SCALES=()
-EMULATOR_PORT="${MELA_EMULATOR_PORT:-5558}"
+EMULATOR_PORT="${ALBA_EMULATOR_PORT:-5558}"
 if [[ ! "$EMULATOR_PORT" =~ ^[0-9]+$ ]] || (( EMULATOR_PORT < 5554 || EMULATOR_PORT > 5682 || EMULATOR_PORT % 2 != 0 )); then
-  echo "MELA_EMULATOR_PORT must be an even port from 5554 through 5682." >&2
+  echo "ALBA_EMULATOR_PORT must be an even port from 5554 through 5682." >&2
   exit 2
 fi
 EMULATOR_SERIAL="emulator-$EMULATOR_PORT"
@@ -91,7 +91,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 if "$ADB" devices | awk -v serial="$EMULATOR_SERIAL" '$1 == serial { found=1 } END { exit !found }'; then
-  echo "$EMULATOR_SERIAL is already in use. Choose another MELA_EMULATOR_PORT." >&2
+  echo "$EMULATOR_SERIAL is already in use. Choose another ALBA_EMULATOR_PORT." >&2
   exit 2
 fi
 if [[ ! -x "$APKSIGNER" ]]; then
@@ -130,7 +130,7 @@ fi
     -no-window \
     -no-audio \
     -no-boot-anim \
-    -gpu "$MELA_GPU_MODE" \
+    -gpu "$ALBA_GPU_MODE" \
     -accel on \
     -cores 2 >"$EMULATOR_LOG" 2>&1 &
 EMULATOR_PID=$!
@@ -152,7 +152,7 @@ if [[ -z "$EMULATOR_SERIAL" ]] || [[ "$($ADB -s "$EMULATOR_SERIAL" shell getprop
 fi
 
 RENDERER="$($ADB -s "$EMULATOR_SERIAL" shell dumpsys SurfaceFlinger 2>/dev/null | grep -m 1 '^GLES:' || true)"
-mela_verify_emulator_graphics "$RENDERER"
+alba_verify_emulator_graphics "$RENDERER"
 if [[ "$(uname -s)" == Darwin ]]; then
   ABI="$("$ADB" -s "$EMULATOR_SERIAL" shell getprop ro.product.cpu.abi | tr -d '\r')"
   EXPECTED_ABI=x86_64
