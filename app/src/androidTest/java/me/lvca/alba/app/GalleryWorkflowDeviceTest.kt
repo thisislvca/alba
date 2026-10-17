@@ -67,7 +67,7 @@ class GalleryWorkflowDeviceTest {
             compose.onNodeWithText(text(R.string.new_album)).performClick()
             compose.onNode(hasSetTextAction()).performTextInput(name)
             compose.onNodeWithText(text(R.string.save)).performClick()
-            compose.waitUntil(10_000) { runBlocking {
+            compose.waitUntil(CI_WAIT_MS) { runBlocking {
                 val album = repository.observeCollections().first().firstOrNull { it.name == name }
                 album != null && repository.observeGallery().first().any { it.id == "fixture:icloud:0016" && album.id in it.collectionIds }
             } }

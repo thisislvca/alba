@@ -96,7 +96,7 @@ class DemoReviewGapsTest {
         sharedAlbums()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasContentDescription(label(R.string.shared_invitations)))
         compose.onNodeWithContentDescription(label(R.string.shared_invitations)).performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("Sample weekend together").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithText("Sample weekend together").fetchSemanticsNodes().isNotEmpty() }
         capture("demo-incoming-invitations")
         compose.onAllNodesWithText(label(R.string.shared_accept))[0].performScrollTo().performClick()
         confirm()
@@ -107,7 +107,7 @@ class DemoReviewGapsTest {
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Family moments"))
         compose.onNodeWithText("Family moments").performClick()
         compose.onNodeWithContentDescription(label(R.string.shared_manage)).performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("Alex (sample)").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithText("Alex (sample)").fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodesWithText(label(R.string.shared_approve))[0].performScrollTo().performClick()
         confirm()
         compose.waitUntil(15_000) { runBlocking { repository.sharedManagement("shared:demo-library:private:owner:two").participants.any { it.id == "sample-alex" } } }

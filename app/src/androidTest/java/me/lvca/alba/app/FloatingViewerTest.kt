@@ -61,7 +61,7 @@ class FloatingViewerTest {
         assertTrue(restoredPhoto.bottom <= restoredDetails.top + 1f)
         compose.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         try {
-            compose.waitUntil(10_000) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
+            compose.waitUntil(CI_WAIT_MS) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
             val landscapePhoto = compose.onNodeWithTag("viewer-photo-viewport").fetchSemanticsNode().boundsInRoot
             val landscapeDetails = compose.onNodeWithTag("photo-details-panel").fetchSemanticsNode().boundsInRoot
             assertTrue(landscapePhoto.height > 0 && landscapePhoto.bottom <= landscapeDetails.top + 1f)
@@ -70,7 +70,7 @@ class FloatingViewerTest {
             android.os.SystemClock.sleep(500)
             capture("07-landscape-details")
         } finally { compose.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
-        compose.waitUntil(10_000) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT }
+        compose.waitUntil(CI_WAIT_MS) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT }
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithTag("photo-details-panel").assertDoesNotExist()
         compose.onNodeWithTag("media-pager").assertIsDisplayed()

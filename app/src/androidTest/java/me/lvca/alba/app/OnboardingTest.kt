@@ -38,7 +38,7 @@ class OnboardingTest {
         compose.onNodeWithText("Continue").assertIsDisplayed()
         compose.onNodeWithText("Continue").performClick()
         compose.onNodeWithText("Connect iCloud").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("Sign in to iCloud").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithText("Sign in to iCloud").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Sign in to iCloud").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("welcome").assertDoesNotExist()
         assertTrue(OnboardingPreferences(compose.activity).completed)
@@ -53,7 +53,7 @@ class OnboardingTest {
         compose.onNodeWithTag("welcome").assertDoesNotExist()
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithText("Demo", substring = true).assertDoesNotExist()
-        compose.waitUntil(10_000) { kotlinx.coroutines.runBlocking { graph.galleryRepository.observeGallery().first().none { it.id.startsWith("fixture:") } } }
+        compose.waitUntil(CI_WAIT_MS) { kotlinx.coroutines.runBlocking { graph.galleryRepository.observeGallery().first().none { it.id.startsWith("fixture:") } } }
         capture("04-signed-out-library")
     }
 

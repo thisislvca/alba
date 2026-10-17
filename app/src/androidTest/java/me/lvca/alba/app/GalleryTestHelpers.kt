@@ -7,6 +7,15 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.geometry.Offset
 
+/** CI emulators use software rendering on two cores; repository work can queue behind a catalog refresh. */
+internal const val CI_WAIT_MS = 30_000L
+
+/** Navigation, recreation and the viewer transition settle asynchronously; assert only once the node is on screen. */
+internal fun ComposeTestRule.waitUntilDisplayed(matcher: SemanticsMatcher): SemanticsNodeInteraction {
+    waitUntil(CI_WAIT_MS) { runCatching { onNode(matcher).assertIsDisplayed() }.isSuccess }
+    return onNode(matcher)
+}
+
 internal fun ComposeTestRule.waitForGalleryMedia(id: String = "fixture:icloud:0020") {
     // Wait for the item in the lazy grid's data, even when phone photos put it offscreen.
     waitUntil(15_000) {
