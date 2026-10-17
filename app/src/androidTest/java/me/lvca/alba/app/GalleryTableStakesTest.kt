@@ -16,6 +16,7 @@ import java.io.File
 class GalleryTableStakesTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private fun loaded() = compose.scrollToGalleryMedia("fixture:icloud:0020")
     private fun capture(name: String) {
         compose.waitForIdle()

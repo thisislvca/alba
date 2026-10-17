@@ -1,7 +1,7 @@
 package me.lvca.alba.app
 
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.engine.model.*
@@ -16,6 +16,7 @@ import java.util.zip.ZipInputStream
 class PhotoExtensionsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private fun loaded() = compose.scrollToGalleryMedia("fixture:icloud:0020")
     private fun galleryText(text: String) = compose.onNodeWithTag("gallery-grid").performScrollToNode(hasText(text))
     private fun open(id: String) {

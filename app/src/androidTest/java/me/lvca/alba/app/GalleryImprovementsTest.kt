@@ -2,7 +2,7 @@ package me.lvca.alba.app
 
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -13,6 +13,7 @@ import org.junit.Test
 class GalleryImprovementsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private fun loaded() = compose.waitForGalleryMedia()
     private fun open(id: String) {
         compose.scrollToGalleryMedia("$id")
