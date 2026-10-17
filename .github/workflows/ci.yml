@@ -101,6 +101,7 @@ jobs:
           path: |
             **/build/reports/androidTests/
             **/build/outputs/androidTest-results/
+            **/build/outputs/managed_device_android_test_additional_output/
           retention-days: 7
 
   checks:
