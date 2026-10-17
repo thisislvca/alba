@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.ui.ICloudAccountScreen
 import me.lvca.alba.app.ui.theme.AlbaTheme
@@ -22,6 +22,7 @@ import org.junit.Test
 class StoreScreenshotTest {
     @get:Rule(order = 1) val onboarding = OnboardingRule()
     @get:Rule(order = 2) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 3) val failureCapture = FailureCapture { compose }
     private val repository get() = (compose.activity.application as AlbaApplication).graph.galleryRepository
 
     private fun capture(name: String) {

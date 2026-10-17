@@ -2,7 +2,7 @@ package me.lvca.alba.app
 
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.ui.mediaDuration
 import kotlinx.coroutines.flow.first
@@ -14,6 +14,7 @@ import org.junit.Test
 class GalleryAppearanceTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val context get() = compose.activity
     private fun capture(name: String) {
         compose.waitForIdle()

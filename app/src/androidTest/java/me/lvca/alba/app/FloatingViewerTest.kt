@@ -12,6 +12,7 @@ import org.junit.Test
 class FloatingViewerTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val id = "fixture:icloud:0016"
     private fun loaded() = compose.waitForGalleryMedia()
     private fun open() {

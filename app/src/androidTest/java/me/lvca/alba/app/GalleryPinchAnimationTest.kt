@@ -13,6 +13,7 @@ import java.io.File
 class GalleryPinchAnimationTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
 
     private val photo get() = compose.onNodeWithTag("media-fixture:icloud:0020")
     private val grid get() = compose.onNodeWithTag("gallery-grid")
