@@ -82,11 +82,11 @@ class IncomingMediaActivityTest {
                 val graph = (context as AlbaApplication).graph
                 val before = kotlinx.coroutines.runBlocking { graph.demoCatalog.fetchPage(null, 100).records.map { it.id }.toSet() }
                 compose.onNodeWithTag("queue-incoming-upload").performClick()
-                compose.onNodeWithTag("confirm-incoming-upload").assertIsDisplayed()
+                compose.waitUntilDisplayed(hasTestTag("confirm-incoming-upload"))
                 compose.onNodeWithText(context.getString(R.string.cancel)).performClick()
                 assertEquals(before, kotlinx.coroutines.runBlocking { graph.demoCatalog.fetchPage(null, 100).records.map { it.id }.toSet() })
                 compose.onNodeWithTag("queue-incoming-upload").performClick()
-                compose.onNodeWithTag("confirm-incoming-upload").performClick()
+                compose.waitUntilDisplayed(hasTestTag("confirm-incoming-upload")).performClick()
                 compose.waitUntil(15_000) {
                     compose.onAllNodesWithText(context.getString(R.string.demo_import_complete)).fetchSemanticsNodes().isNotEmpty()
                 }
