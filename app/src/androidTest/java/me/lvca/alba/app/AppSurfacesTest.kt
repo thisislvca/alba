@@ -35,7 +35,8 @@ class AppSurfacesTest {
         androidx.test.espresso.Espresso.pressBack()
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag("activity-button").performClick()
-        compose.onNodeWithText(label(R.string.no_transfers_yet)).assertIsDisplayed()
+        // Earlier tests in this process may leave transfer history, so check the sheet rather than its empty state.
+        compose.onNodeWithText(label(R.string.uploads_downloads_and_backup)).assertIsDisplayed()
         capture("activity")
         compose.onNodeWithContentDescription(label(R.string.close_surface)).performClick()
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.filter_and_sort)).performClick()
