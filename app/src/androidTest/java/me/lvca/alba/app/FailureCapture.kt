@@ -2,7 +2,7 @@ package me.lvca.alba.app
 
 import android.graphics.Bitmap
 import androidx.compose.ui.test.junit4.ComposeTestRule
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.printToString
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
@@ -15,6 +15,7 @@ import org.junit.runner.Description
  */
 class FailureCapture(private val compose: () -> ComposeTestRule) : TestWatcher() {
     override fun failed(e: Throwable, description: Description) {
+        android.util.Log.e("AlbaFailure", "capturing ${description.methodName}")
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
             ?: File(instrumentation.targetContext.getExternalFilesDir(null), "failures")
@@ -24,9 +25,13 @@ class FailureCapture(private val compose: () -> ComposeTestRule) : TestWatcher()
             val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
             File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             bitmap.recycle()
-        }
+        }.onFailure { android.util.Log.e("AlbaFailure", "$name screenshot failed", it) }
         runCatching {
-            File(directory, "$name-semantics.txt").writeText(compose().onRoot(useUnmergedTree = true).printToString())
-        }
+            val roots = compose().onAllNodes(isRoot(), useUnmergedTree = true)
+            val tree = (0 until roots.fetchSemanticsNodes().size).joinToString("\n=== root ===\n") { roots[it].printToString(maxDepth = Int.MAX_VALUE) }
+            File(directory, "$name-semantics.txt").writeText(tree)
+            // Managed-device runs do not reliably collect additional output, but per-test logcat is always uploaded.
+            tree.chunked(3000).forEachIndexed { index, part -> android.util.Log.e("AlbaFailure", "$name semantics[$index]\n$part") }
+        }.onFailure { android.util.Log.e("AlbaFailure", "$name semantics dump failed", it) }
     }
 }
