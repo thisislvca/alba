@@ -22,7 +22,7 @@ class AlbaAppTest {
 
         compose.scrollToGalleryMedia("fixture:icloud:0001")
         compose.onNodeWithTag("media-fixture:icloud:0001").performClick()
-        compose.onNodeWithContentDescription("IMG_8421.JPG").assertIsDisplayed()
+        compose.waitUntilDisplayed(hasContentDescription("IMG_8421.JPG"))
         compose.openViewerDetails()
         compose.onAllNodesWithText("IMG_8421.JPG").onFirst().assertIsDisplayed()
 
