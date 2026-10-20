@@ -43,6 +43,7 @@ class DefaultGalleryRepository(
     private val dao = database.catalogDao()
     private val library = database.libraryDao()
     private val refreshLock = Mutex()
+    private val editLock = Mutex()
     private val previewPublicationLock = Mutex()
     private val catalogPermits = Semaphore(2)
     private val mediaLocks = Array(MEDIA_LOCK_STRIPES) { Mutex() }
@@ -67,7 +68,17 @@ class DefaultGalleryRepository(
 
     // Serialize edits with refresh so a snapshot obtained before an edit cannot overwrite it.
     private suspend fun <T> edit(block: suspend (String) -> T): T = refreshLock.withLock {
-        exclusiveCatalog { block(cloudSource.accountLabel) }
+        exclusiveCatalog { editLock.withLock { block(cloudSource.accountLabel) } }
+    }
+
+    // Shared-album reads publish nothing locally, so they skip the refresh lock and catalog permits that made
+    // opening a discussion wait for a whole library refresh. They still wait for edits, so a read never sees a
+    // shared change half applied. The account check after the call refuses a result that straddled an account
+    // switch; the refresh lock never fenced these reads, because sign-out changes the account label first and
+    // only then clears the catalog under that lock.
+    private suspend fun <T> readShared(block: suspend () -> T): T = editLock.withLock {
+        val account = cloudSource.accountLabel
+        block().also { checkAccount(account) }
     }
 
     /** Refuses to publish or return a result once the signed-in account is no longer [account]. */
@@ -128,20 +139,18 @@ class DefaultGalleryRepository(
         // Copies have their own remote identities. Only a fresh shared snapshot can publish membership.
     }
 
-    override suspend fun sharedActivity(id: String, rank: Int) = edit { account -> cloudSource.sharedActivity(id, rank).also { checkAccount(account) } }
-    override suspend fun sharedPostDiscussion(id: String) = edit { account -> cloudSource.sharedPostDiscussion(id).also { checkAccount(account) } }
-    override suspend fun sharedPostPhotos(id: String) = edit { account -> cloudSource.sharedPostPhotos(id).also { checkAccount(account) } }
-    override suspend fun pendingSharedInvitations() = edit { account -> cloudSource.pendingSharedInvitations().also { checkAccount(account) } }
-    override suspend fun resolveSharedInvitation(url: String) = edit { account -> cloudSource.resolveSharedInvitation(url).also { checkAccount(account) } }
+    override suspend fun sharedActivity(id: String, rank: Int) = readShared { cloudSource.sharedActivity(id, rank) }
+    override suspend fun sharedPostDiscussion(id: String) = readShared { cloudSource.sharedPostDiscussion(id) }
+    override suspend fun sharedPostPhotos(id: String) = readShared { cloudSource.sharedPostPhotos(id) }
+    override suspend fun pendingSharedInvitations() = readShared { cloudSource.pendingSharedInvitations() }
+    override suspend fun resolveSharedInvitation(url: String) = readShared { cloudSource.resolveSharedInvitation(url) }
     override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String) = edit { account ->
         cloudSource.respondSharedInvitation(id, accept, operationId); checkAccount(account)
     }
-    override suspend fun sharedManagement(id: String) = edit { account ->
-        cloudSource.sharedManagement(id).also { checkAccount(account) }
-    }
-    override suspend fun sharedDiscussion(mediaId: String) = edit { account ->
+    override suspend fun sharedManagement(id: String) = readShared { cloudSource.sharedManagement(id) }
+    override suspend fun sharedDiscussion(mediaId: String) = readShared {
         requireCloudItem(mediaId)
-        cloudSource.sharedDiscussion(mediaId).also { checkAccount(account) }
+        cloudSource.sharedDiscussion(mediaId)
     }
     override suspend fun changeSharedAlbum(id: String, command: SharedCommand, operationId: String) = edit { account ->
         val info = requireNotNull(library.collection(account, id)).toModel().shared ?: error("Not a shared album")
