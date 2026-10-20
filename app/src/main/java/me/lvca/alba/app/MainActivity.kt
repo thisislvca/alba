@@ -9,6 +9,8 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import me.lvca.alba.app.intake.IncomingSession
+import me.lvca.alba.app.platform.OnboardingPreferences
 
 /** Reads what the launching or new intent asks for, keeps it across recreation, and shows [AlbaRoot]. */
 class MainActivity : ComponentActivity() {

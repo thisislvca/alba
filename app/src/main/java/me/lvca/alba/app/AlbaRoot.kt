@@ -42,13 +42,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
-import me.lvca.alba.app.ui.AlbaActions
-import me.lvca.alba.app.ui.AlbaApp
-import me.lvca.alba.app.ui.InvitationActions
-import me.lvca.alba.app.ui.PhotoEditorScreen
-import me.lvca.alba.app.ui.SharedInvitations
-import me.lvca.alba.app.ui.WelcomeScreen
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
@@ -59,6 +52,28 @@ import me.lvca.alba.engine.model.SystemConsentCallback
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
+import me.lvca.alba.app.intake.IncomingRequest
+import me.lvca.alba.app.intake.IncomingSession
+import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
+import me.lvca.alba.app.platform.ExportDocument
+import me.lvca.alba.app.platform.OnboardingPreferences
+import me.lvca.alba.app.platform.PendingExport
+import me.lvca.alba.app.platform.UploadTarget
+import me.lvca.alba.app.platform.deviceLibraryChanges
+import me.lvca.alba.app.platform.hasDevicePhotoAccess
+import me.lvca.alba.app.platform.hasLimitedPhotoAccess
+import me.lvca.alba.app.platform.phoneTrashUris
+import me.lvca.alba.app.platform.requestedDevicePhotoPermissions
+import me.lvca.alba.app.platform.uploadNeedsMediaLocationPermission
+import me.lvca.alba.app.transfers.BackupSetup
+import me.lvca.alba.app.ui.AlbaActions
+import me.lvca.alba.app.ui.AlbaApp
+import me.lvca.alba.app.ui.InvitationActions
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.editor.PhotoEditorScreen
+import me.lvca.alba.app.ui.intake.IncomingMediaScreen
+import me.lvca.alba.app.ui.onboarding.WelcomeScreen
+import me.lvca.alba.app.ui.shared.SharedInvitations
 
 /** A confirmation or choice the root shows over the app. Only one is open at a time. */
 internal sealed interface RootDialog {

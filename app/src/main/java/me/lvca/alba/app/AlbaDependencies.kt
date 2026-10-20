@@ -6,6 +6,13 @@ import me.lvca.alba.engine.model.GalleryRepository
 import me.lvca.alba.engine.model.MaintenanceWakeup
 import me.lvca.alba.engine.model.PhotoCompanion
 import me.lvca.alba.protocol.account.ICloudAccountManager
+import me.lvca.alba.app.demo.DemoMediaImporter
+import me.lvca.alba.app.di.AlbaGraph
+import me.lvca.alba.app.diagnostics.AlbaDiagnostics
+import me.lvca.alba.app.platform.GalleryExporter
+import me.lvca.alba.app.platform.NetworkStatus
+import me.lvca.alba.app.platform.PhotoEditStore
+import me.lvca.alba.app.transfers.TransferScheduler
 
 /**
  * Everything [AlbaViewModel] needs, all required. Production code builds it from [AlbaGraph]; a test replaces single
