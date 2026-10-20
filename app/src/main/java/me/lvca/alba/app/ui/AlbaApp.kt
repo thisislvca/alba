@@ -261,9 +261,9 @@ fun AlbaApp(
                             val selectedMedia = target.media ?: return@SaveableStateProvider
                             val viewerItems = if (target.items.any { it.id == selectedMedia.id }) target.items else listOf(selectedMedia) + target.items
                             val downloadingOriginal = state.batches.any { it.mediaId == selectedMedia.id &&
-                                it.action == me.lvca.alba.engine.companion.BatchAction.KEEP_OFFLINE.name && it.state in setOf("WAITING", "RUNNING") }
+                                it.action == me.lvca.alba.engine.companion.BatchAction.KEEP_OFFLINE.name && it.status.isPending }
                             val stagingUpload = state.batches.any { it.mediaId == selectedMedia.id &&
-                                it.action == me.lvca.alba.engine.companion.BatchAction.UPLOAD.name && it.state in setOf("WAITING", "RUNNING") }
+                                it.action == me.lvca.alba.engine.companion.BatchAction.UPLOAD.name && it.status.isPending }
                             MediaDetailScreen(
                                 currentAlbumId = state.query.collectionId,
                                 gallerySnapshot = galleryLayer,

@@ -53,6 +53,9 @@ interface LibraryDao {
     @Upsert suspend fun putCheckpoint(value: UploadCheckpointEntity)
 }
 
+internal fun BatchItemEntity.toModel() = me.lvca.alba.engine.model.BatchItem(batchId, mediaId, account, action,
+    me.lvca.alba.engine.model.BatchItemState.fromStored(state), message, createdAt)
+
 internal fun CollectionEntity.toModel() = me.lvca.alba.engine.model.GalleryCollection(collectionId, name, parentId, isFolder, position,
     sharedGeneration?.let { me.lvca.alba.engine.model.SharedAlbumInfo(
         me.lvca.alba.engine.model.SharedAlbumGeneration.valueOf(it),

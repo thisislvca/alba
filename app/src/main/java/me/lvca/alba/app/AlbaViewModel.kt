@@ -10,7 +10,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.companion.GalleryBatchActions
-import me.lvca.alba.engine.database.BatchItemEntity
+import me.lvca.alba.engine.model.BatchItem
 import me.lvca.alba.engine.model.AccountChangeResult
 import me.lvca.alba.engine.model.BackupChange
 import me.lvca.alba.engine.model.BackupDraft
@@ -82,7 +82,7 @@ data class GalleryUiState(
     val query: GalleryQuery = GalleryQuery(),
     val selection: Set<String> = emptySet(),
     val collections: List<GalleryCollection> = emptyList(),
-    val batches: List<BatchItemEntity> = emptyList(),
+    val batches: List<BatchItem> = emptyList(),
     val items: List<GalleryMedia> = emptyList(),
     val catalogItems: List<GalleryMedia> = items,
     val sections: List<GallerySection> = buildGallerySections(items),
@@ -849,7 +849,7 @@ class AlbaViewModel(
     fun cancelOfflineDownload() {
         val id = selectedMediaId.value ?: return
         launchBatchWork {
-            uiState.value.batches.filter { it.mediaId == id && it.action == BatchAction.KEEP_OFFLINE.name && it.state in setOf("WAITING", "RUNNING") }
+            uiState.value.batches.filter { it.mediaId == id && it.action == BatchAction.KEEP_OFFLINE.name && it.status.isPending }
                 .map { it.batchId }.distinct().forEach { batchActions?.cancelDownload(it) }
         }
     }
