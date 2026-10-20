@@ -199,6 +199,7 @@
     <string name="message_no_app_could_open_the_share_sheet">Nessuna app disponibile per la condivisione.</string>
     <string name="message_no_exact_icloud_copy_was_observed_before_the_check_deadline_alba_will_not_upload_again">Nessuna copia identica trovata su iCloud entro il termine di verifica. Alba non ripeterà il caricamento.</string>
     <string name="message_not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items">Spazio insufficiente per preparare la condivisione. Seleziona meno elementi o file più piccoli.</string>
+    <string name="message_upload_canceled_select_the_file_again_to_upload_it">Caricamento annullato. Seleziona di nuovo il file per caricarlo.</string>
     <string name="message_nothing_was_removed_from_this_phone">Nessun elemento è stato rimosso da questo telefono.</string>
     <string name="message_only_photos_on_this_phone_can_be_uploaded">È possibile caricare solo foto presenti su questo telefono</string>
     <string name="message_original_staged_uploading_directly_to_icloud">Originale pronto. Caricamento diretto su iCloud.</string>

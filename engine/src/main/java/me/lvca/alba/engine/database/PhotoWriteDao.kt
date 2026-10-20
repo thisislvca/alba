@@ -87,10 +87,14 @@ interface PhotoWriteDao {
     @Query("""
         UPDATE transfers SET state = 'NEEDS_ATTENTION', stateVersion = stateVersion + 1,
             leaseToken = NULL, leaseExpiresAtEpochMillis = NULL,
-            updatedAtEpochMillis = :now, message = 'Upload canceled. Select the file again to upload it.'
+            updatedAtEpochMillis = :now, message = :message
         WHERE accountId = :accountId AND authorityType = 'MANUAL' AND state = 'READY'
     """)
-    suspend fun cancelReadyManualTransfers(accountId: String, now: Long): Int
+    suspend fun cancelReadyManualTransfers(
+        accountId: String,
+        now: Long,
+        message: String = StoredMessage.UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT.code,
+    ): Int
 
     @Query("SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND authorityType = 'MANUAL' AND state IN ('READY', 'SENDING')")
     suspend fun countPendingManualTransfers(accountId: String): Int

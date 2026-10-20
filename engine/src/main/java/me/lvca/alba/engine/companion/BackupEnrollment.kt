@@ -99,27 +99,28 @@ internal class BackupEnrollment(
     }
 
     suspend fun finishBackupEnrollment(draft: BackupDraftId): BackupView {
-        val row = requireNotNull(dao.findBackupDraft(draft.value)) { StoredMessage.BACKUP_SETUP_EXPIRED.code }
-        require(row.phase == "CONSENTED") { StoredMessage.ACCEPT_THE_BACKUP_DISCLOSURE_FIRST.code }
+        val row = refuseIfNull(dao.findBackupDraft(draft.value), StoredMessage.BACKUP_SETUP_EXPIRED)
+        refuseUnless(row.phase == "CONSENTED", StoredMessage.ACCEPT_THE_BACKUP_DISCLOSURE_FIRST)
         val binding = requireActiveBinding()
-        require(row.accountId == binding.accountId && row.authEpoch == binding.authEpoch) {
-            StoredMessage.THE_DESTINATION_ACCOUNT_CHANGED_START_BACKUP_SETUP_AGAIN.code
-        }
-        require(originals.hasAutomaticBackupAccess()) {
-            StoredMessage.AUTOMATIC_BACKUP_NEEDS_FULL_PHOTO_ACCESS_AND_PRECISE_MEDIA_LOCATION_ACCESS.code
-        }
+        refuseUnless(
+            row.accountId == binding.accountId && row.authEpoch == binding.authEpoch,
+            StoredMessage.THE_DESTINATION_ACCOUNT_CHANGED_START_BACKUP_SETUP_AGAIN,
+        )
+        refuseUnless(
+            originals.hasAutomaticBackupAccess(),
+            StoredMessage.AUTOMATIC_BACKUP_NEEDS_FULL_PHOTO_ACCESS_AND_PRECISE_MEDIA_LOCATION_ACCESS,
+        )
 
         val discoveryBaseline = originals.captureEnrollmentBaseline()
         val view = accountGate(binding.accountId).withLock {
             database.withTransaction {
                 val active = requireNotNull(dao.findActiveAccount())
-                require(active.accountId == binding.accountId && active.authEpoch == binding.authEpoch &&
-                    active.operationFence == binding.operationFence
-                ) { StoredMessage.THE_ACCOUNT_CHANGED_WHILE_BACKUP_WAS_BEING_ENABLED.code }
+                refuseUnless(active.accountId == binding.accountId && active.authEpoch == binding.authEpoch &&
+                    active.operationFence == binding.operationFence,
+                    StoredMessage.THE_ACCOUNT_CHANGED_WHILE_BACKUP_WAS_BEING_ENABLED,
+                )
                 val current = dao.findBackupEnrollment(active.accountId)
-                check(dao.completeBackupDraft(draft.value) == 1) {
-                    StoredMessage.THIS_BACKUP_SETUP_WAS_ALREADY_COMPLETED.code
-                }
+                refuseUnless(dao.completeBackupDraft(draft.value) == 1, StoredMessage.THIS_BACKUP_SETUP_WAS_ALREADY_COMPLETED)
                 val enrollment = BackupEnrollmentEntity(
                     enrollmentId = current?.enrollmentId ?: UUID.randomUUID().toString(),
                     accountId = active.accountId,

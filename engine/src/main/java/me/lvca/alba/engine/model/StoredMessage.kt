@@ -102,7 +102,8 @@ enum class StoredMessage(val code: String, val legacyText: String) {
     THIS_PHOTO_HAS_NO_MOTION_CLIP("this_photo_has_no_motion_clip", "This photo has no motion clip."),
     ACCOUNT_CHANGED_DURING_REFRESH("account_changed_during_refresh", "Account changed during refresh"),
     SHARE_UP_TO_2_GB_AT_A_TIME_TRY_FEWER_ITEMS("share_up_to_2_gb_at_a_time_try_fewer_items", "Share up to 2 GB at a time. Try fewer items."),
-    NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS("not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items", "Not enough space to prepare this share. Try fewer or smaller items.");
+    NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS("not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items", "Not enough space to prepare this share. Try fewer or smaller items."),
+    UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT("upload_canceled_select_the_file_again_to_upload_it", "Upload canceled. Select the file again to upload it.");
 
     companion object {
         private val byCode = entries.associateBy { it.code }

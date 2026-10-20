@@ -33,7 +33,7 @@ internal class VerifiedPhotoTrash(
     private val dao = database.photoWriteDao()
 
     suspend fun prepareTrash(items: Set<String>): ReclaimProposal {
-        require(items.isNotEmpty()) { StoredMessage.SELECT_AT_LEAST_ONE_VERIFIED_PHOTO.code }
+        refuseUnless(items.isNotEmpty(), StoredMessage.SELECT_AT_LEAST_ONE_VERIFIED_PHOTO)
         val binding = requireActiveBinding()
         val proposalId = UUID.randomUUID().toString()
         val checked = mutableListOf<ReclaimProposalItemEntity>()
@@ -74,7 +74,7 @@ internal class VerifiedPhotoTrash(
         val expiresAt = checkedAt + RECLAIM_PROPOSAL_LIFETIME_MILLIS
         database.withTransaction {
             val active = requireNotNull(dao.findActiveAccount())
-            require(active.toBinding() == binding) { StoredMessage.THE_ACCOUNT_CHANGED_DURING_THE_FINAL_ICLOUD_CHECK.code }
+            refuseUnless(active.toBinding() == binding, StoredMessage.THE_ACCOUNT_CHANGED_DURING_THE_FINAL_ICLOUD_CHECK)
             dao.insertReclaimProposal(
                 ReclaimProposalEntity(
                     proposalId = proposalId,
@@ -93,14 +93,15 @@ internal class VerifiedPhotoTrash(
     }
 
     suspend fun beginTrash(proposal: ReclaimProposalId): TrashHandoff {
-        val row = requireNotNull(dao.findReclaimProposal(proposal.value)) { StoredMessage.TRASH_PROPOSAL_EXPIRED.code }
-        require(row.state == "READY" && row.expiresAtEpochMillis > now()) { StoredMessage.TRASH_PROPOSAL_EXPIRED.code }
+        val row = refuseIfNull(dao.findReclaimProposal(proposal.value), StoredMessage.TRASH_PROPOSAL_EXPIRED)
+        refuseUnless(row.state == "READY" && row.expiresAtEpochMillis > now(), StoredMessage.TRASH_PROPOSAL_EXPIRED)
         val items = dao.findReclaimProposalItems(proposal.value)
-        require(items.isNotEmpty()) { StoredMessage.TRASH_PROPOSAL_HAS_NO_PHOTOS.code }
+        refuseUnless(items.isNotEmpty(), StoredMessage.TRASH_PROPOSAL_HAS_NO_PHOTOS)
         val binding = requireActiveBinding()
-        require(row.accountId == binding.accountId && row.authEpoch == binding.authEpoch &&
-            row.operationFence == binding.operationFence
-        ) { StoredMessage.THE_ICLOUD_ACCOUNT_CHANGED_BEFORE_ANDROID_CONSENT.code }
+        refuseUnless(row.accountId == binding.accountId && row.authEpoch == binding.authEpoch &&
+            row.operationFence == binding.operationFence,
+            StoredMessage.THE_ICLOUD_ACCOUNT_CHANGED_BEFORE_ANDROID_CONSENT,
+        )
         val intentSender = originals.createTrashRequest(items.map(ReclaimProposalItemEntity::contentUri))
 
         return accountGate(binding.accountId).withLock {
@@ -108,10 +109,11 @@ internal class VerifiedPhotoTrash(
             val handedOffAt = now()
             database.withTransaction {
                 val active = requireNotNull(dao.findActiveAccount())
-                require(active.toBinding() == binding) { StoredMessage.THE_ACCOUNT_CHANGED_BEFORE_ANDROID_CONSENT.code }
-                check(dao.markReclaimProposalHandedOff(proposal.value, handedOffAt) == 1) {
-                    StoredMessage.THIS_TRASH_REQUEST_WAS_ALREADY_USED.code
-                }
+                refuseUnless(active.toBinding() == binding, StoredMessage.THE_ACCOUNT_CHANGED_BEFORE_ANDROID_CONSENT)
+                refuseUnless(
+                    dao.markReclaimProposalHandedOff(proposal.value, handedOffAt) == 1,
+                    StoredMessage.THIS_TRASH_REQUEST_WAS_ALREADY_USED,
+                )
                 dao.insertTrashAttempt(
                     TrashAttemptEntity(
                         trashAttemptId = attemptId,
@@ -148,9 +150,10 @@ internal class VerifiedPhotoTrash(
         } else {
             "TERMINAL_DENIED"
         }
-        check(dao.recordTrashCallback(attempt.value, disposition, result.name, now()) == 1) {
-            StoredMessage.THIS_ANDROID_TRASH_RESULT_IS_NO_LONGER_ACTIVE.code
-        }
+        refuseUnless(
+            dao.recordTrashCallback(attempt.value, disposition, result.name, now()) == 1,
+            StoredMessage.THIS_ANDROID_TRASH_RESULT_IS_NO_LONGER_ACTIVE,
+        )
         if (result == SystemConsentCallback.APPROVED) {
             inspectTrashAttempt(attempt.value)
             runSuspendCatching { scheduler.scheduleSoon() }

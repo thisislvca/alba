@@ -199,6 +199,7 @@
     <string name="message_no_app_could_open_the_share_sheet">No app could open the share sheet.</string>
     <string name="message_no_exact_icloud_copy_was_observed_before_the_check_deadline_alba_will_not_upload_again">No exact iCloud copy was observed before the check deadline. Alba will not upload again.</string>
     <string name="message_not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items">Not enough space to prepare this share. Try fewer or smaller items.</string>
+    <string name="message_upload_canceled_select_the_file_again_to_upload_it">Upload canceled. Select the file again to upload it.</string>
     <string name="message_nothing_was_removed_from_this_phone">Nothing was removed from this phone.</string>
     <string name="message_only_photos_on_this_phone_can_be_uploaded">Only photos on this phone can be uploaded</string>
     <string name="message_original_staged_uploading_directly_to_icloud">Original staged. Uploading directly to iCloud.</string>

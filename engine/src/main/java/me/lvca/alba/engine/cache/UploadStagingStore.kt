@@ -35,6 +35,9 @@ data class StagedExactOriginal(
     val evidence: ExactOriginalEvidence,
 )
 
+/** The staged bytes are gone or no longer match their recorded size and digest. Reading again cannot fix it. */
+class StagedOriginalUnavailableException(message: String) : IllegalArgumentException(message)
+
 class UploadStagingStore(
     context: Context,
     private val availableBytes: (() -> Long)? = null,
@@ -130,13 +133,12 @@ class UploadStagingStore(
         expectedByteCount: Long,
         expectedSha256Hex: String,
     ): OneShotUploadSource = withContext(Dispatchers.IO) {
-        val file = requireNotNull(ownedTokenFile(ownedFileToken)) {
-            "Upload staging token is not owned by Alba"
-        }
-        require(file.isFile && file.canRead()) { "Staged original is missing" }
-        require(file.length() == expectedByteCount) { "Staged original byte count changed" }
+        val file = ownedTokenFile(ownedFileToken)
+            ?: throw StagedOriginalUnavailableException("Upload staging token is not owned by Alba")
+        if (!file.isFile || !file.canRead()) throw StagedOriginalUnavailableException("Staged original is missing")
+        if (file.length() != expectedByteCount) throw StagedOriginalUnavailableException("Staged original byte count changed")
         val actualDigest = file.inputStream().use(::sha256)
-        require(actualDigest == expectedSha256Hex) { "Staged original digest changed" }
+        if (actualDigest != expectedSha256Hex) throw StagedOriginalUnavailableException("Staged original digest changed")
         VerifiedOneShotFile(file, expectedByteCount, expectedSha256Hex)
     }
 

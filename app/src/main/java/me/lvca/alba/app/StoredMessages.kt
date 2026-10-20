@@ -108,4 +108,5 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.ACCOUNT_CHANGED_DURING_REFRESH -> R.string.message_account_changed_during_refresh
     StoredMessage.SHARE_UP_TO_2_GB_AT_A_TIME_TRY_FEWER_ITEMS -> R.string.message_share_up_to_2_gb_at_a_time_try_fewer_items
     StoredMessage.NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS -> R.string.message_not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items
+    StoredMessage.UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT -> R.string.message_upload_canceled_select_the_file_again_to_upload_it
 }

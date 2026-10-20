@@ -1,6 +1,7 @@
 package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
+import me.lvca.alba.engine.cache.StagedOriginalUnavailableException
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AccountEntity
 import me.lvca.alba.engine.database.AccountWriteSlotEntity
@@ -29,6 +30,7 @@ import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.MaintenanceWakeup
 import me.lvca.alba.engine.model.PhotoCompanion
+import me.lvca.alba.engine.model.PhotoCompanionException
 import me.lvca.alba.engine.model.ReclaimProposalId
 import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.StoredMessage
@@ -100,9 +102,9 @@ class DefaultPhotoCompanion(
     }
 
     override suspend fun uploadDeviceMedia(mediaId: String): UploadTicket {
-        val item = requireNotNull(database.catalogDao().findById(mediaId)) { StoredMessage.UNKNOWN_DEVICE_PHOTO.code }
-        require(item.origin == "DEVICE") { StoredMessage.ONLY_PHOTOS_ON_THIS_PHONE_CAN_BE_UPLOADED.code }
-        val contentUri = requireNotNull(item.localUri) { StoredMessage.THIS_PHOTO_IS_NO_LONGER_AVAILABLE_ON_THE_PHONE.code }
+        val item = refuseIfNull(database.catalogDao().findById(mediaId), StoredMessage.UNKNOWN_DEVICE_PHOTO)
+        refuseUnless(item.origin == "DEVICE", StoredMessage.ONLY_PHOTOS_ON_THIS_PHONE_CAN_BE_UPLOADED)
+        val contentUri = refuseIfNull(item.localUri, StoredMessage.THIS_PHOTO_IS_NO_LONGER_AVAILABLE_ON_THE_PHONE)
         val binding = requireActiveBinding()
         return createTransfer(
             binding = binding,
@@ -276,25 +278,28 @@ class DefaultPhotoCompanion(
         val createdAt = now()
         try {
             database.withTransaction {
-                val active = requireNotNull(dao.findActiveAccount()) { StoredMessage.SIGN_IN_TO_ICLOUD_BEFORE_UPLOADING.code }
-                require(active.toBinding() == binding) { StoredMessage.THE_ICLOUD_ACCOUNT_CHANGED_WHILE_STAGING_THIS_PHOTO.code }
+                val active = refuseIfNull(dao.findActiveAccount(), StoredMessage.SIGN_IN_TO_ICLOUD_BEFORE_UPLOADING)
+                refuseUnless(active.toBinding() == binding, StoredMessage.THE_ICLOUD_ACCOUNT_CHANGED_WHILE_STAGING_THIS_PHOTO)
                 if (enrollment != null) {
                     val current = dao.findBackupEnrollment(binding.accountId)
-                    require(current?.enabled == true && current.revision == enrollment.revision &&
+                    refuseUnless(current?.enabled == true && current.revision == enrollment.revision &&
                         current.authorizedAuthEpoch == binding.authEpoch &&
-                        current.permissionFingerprint == originals.permissionFingerprint()
-                    ) { StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED.code }
+                        current.permissionFingerprint == originals.permissionFingerprint(),
+                        StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED,
+                    )
                 }
-                check(
+                refuseUnless(
                     dao.findExistingTransferForBytes(binding.accountId, staged.sha256Hex) == null,
-                ) { StoredMessage.THESE_EXACT_BYTES_ARE_ALREADY_QUEUED_OR_VERIFIED_IN_ICLOUD.code }
-                check(
+                    StoredMessage.THESE_EXACT_BYTES_ARE_ALREADY_QUEUED_OR_VERIFIED_IN_ICLOUD,
+                )
+                refuseUnless(
                     dao.countActiveSuppressions(
                         binding.accountId,
                         staged.evidence.lineageKey,
                         staged.sha256Hex,
                     ) == 0,
-                ) { StoredMessage.A_PREVIOUS_UPLOAD_OF_THESE_BYTES_IS_UNRESOLVED_AND_WILL_NOT_BE_REPEATED.code }
+                    StoredMessage.A_PREVIOUS_UPLOAD_OF_THESE_BYTES_IS_UNRESOLVED_AND_WILL_NOT_BE_REPEATED,
+                )
                 dao.insertStagedSource(
                     StagedSourceEntity(
                         stagedSourceId = sourceId,
@@ -411,31 +416,34 @@ class DefaultPhotoCompanion(
             }
             val armed = database.withTransaction {
                 val active = requireNotNull(dao.findActiveAccount())
-                require(active.toBinding() == binding) { StoredMessage.THE_ACCOUNT_CHANGED_BEFORE_UPLOAD.code }
+                refuseUnless(active.toBinding() == binding, StoredMessage.THE_ACCOUNT_CHANGED_BEFORE_UPLOAD)
                 val fresh = requireNotNull(dao.findTransfer(leased.transferId))
                 if (fresh.state != TransferState.READY || fresh.leaseToken != leaseToken) return@withTransaction null
                 val freshSource = requireNotNull(dao.findStagedSource(fresh.stagedSourceId))
-                require(freshSource.accountId == binding.accountId &&
+                refuseUnless(freshSource.accountId == binding.accountId &&
                     freshSource.authEpoch == binding.authEpoch &&
-                    freshSource.operationFence == binding.operationFence
-                ) { StoredMessage.THE_STAGED_SOURCE_NO_LONGER_HAS_WRITE_AUTHORITY.code }
+                    freshSource.operationFence == binding.operationFence,
+                    StoredMessage.THE_STAGED_SOURCE_NO_LONGER_HAS_WRITE_AUTHORITY,
+                )
                 if (fresh.authorityType == AUTHORITY_AUTOMATIC) {
                     val enrollment = requireNotNull(dao.findBackupEnrollment(binding.accountId))
-                    require(enrollment.enabled && enrollment.enrollmentId == fresh.enrollmentId &&
+                    refuseUnless(enrollment.enabled && enrollment.enrollmentId == fresh.enrollmentId &&
                         enrollment.revision == fresh.enrollmentRevision &&
                         enrollment.authorizedAuthEpoch == binding.authEpoch &&
                         enrollment.permissionFingerprint == originals.permissionFingerprint() &&
-                        originals.hasAutomaticBackupAccess()
-                    ) { StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED.code }
+                        originals.hasAutomaticBackupAccess(),
+                        StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED,
+                    )
                 }
-                check(
+                refuseUnless(
                     dao.countActiveSuppressions(
                         binding.accountId,
                         freshSource.lineageKey,
                         freshSource.sha256Hex,
                     ) == 0,
-                ) { StoredMessage.THIS_UPLOAD_IS_SUPPRESSED_BECAUSE_AN_EARLIER_OUTCOME_IS_UNRESOLVED.code }
-                check(dao.findWriteSlot(binding.accountId) == null) { StoredMessage.ANOTHER_UPLOAD_IS_UNRESOLVED.code }
+                    StoredMessage.THIS_UPLOAD_IS_SUPPRESSED_BECAUSE_AN_EARLIER_OUTCOME_IS_UNRESOLVED,
+                )
+                refuseUnless(dao.findWriteSlot(binding.accountId) == null, StoredMessage.ANOTHER_UPLOAD_IS_UNRESOLVED)
 
                 val attemptId = UUID.randomUUID().toString()
                 val authorizedAt = now()
@@ -455,7 +463,7 @@ class DefaultPhotoCompanion(
                 dao.acquireWriteSlot(
                     AccountWriteSlotEntity(binding.accountId, attemptId, binding.authEpoch, authorizedAt),
                 )
-                check(
+                fenceHolds(
                     dao.armSending(
                         transferId = fresh.transferId,
                         expectedVersion = fresh.stateVersion,
@@ -761,17 +769,27 @@ class DefaultPhotoCompanion(
                 val attempt = requireNotNull(dao.findAttempt(attemptId))
                 try {
                     accountGate(binding.accountId).withLock {
-                        check(dao.findActiveAccount()?.toBinding() == binding)
+                        refuseUnless(dao.findActiveAccount()?.toBinding() == binding, StoredMessage.THE_ACCOUNT_CHANGED_BEFORE_UPLOAD)
                         if (transfer.authorityType == AUTHORITY_AUTOMATIC) {
-                            val enrollment = requireNotNull(dao.findEnabledBackupEnrollment(binding.accountId))
-                            check(enrollment.enrollmentId == transfer.enrollmentId && enrollment.revision == transfer.enrollmentRevision &&
+                            val enrollment = dao.findEnabledBackupEnrollment(binding.accountId)
+                            refuseUnless(enrollment != null &&
+                                enrollment.enrollmentId == transfer.enrollmentId && enrollment.revision == transfer.enrollmentRevision &&
                                 enrollment.authorizedAuthEpoch == binding.authEpoch && originals.hasAutomaticBackupAccess() &&
-                                enrollment.permissionFingerprint == originals.permissionFingerprint())
+                                enrollment.permissionFingerprint == originals.permissionFingerprint(),
+                                StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED,
+                            )
                         }
                         if (transfer.authorityType == AUTHORITY_AUTOMATIC && !automaticBackupPolicy.isUnmetered()) return@withLock
-                        val source = requireNotNull(dao.findStagedSource(transfer.stagedSourceId))
-                        val prepared = protocol.prepareOriginal(binding, source.displayName,
-                            staging.openVerified(source.ownedFileToken, source.byteCount, source.sha256Hex), source.lastModifiedAtEpochMillis)
+                        val source = refuseIfNull(
+                            dao.findStagedSource(transfer.stagedSourceId),
+                            StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN,
+                        )
+                        val upload = try {
+                            staging.openVerified(source.ownedFileToken, source.byteCount, source.sha256Hex)
+                        } catch (_: StagedOriginalUnavailableException) {
+                            throw PhotoCompanionException.Refused(StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN)
+                        }
+                        val prepared = protocol.prepareOriginal(binding, source.displayName, upload, source.lastModifiedAtEpochMillis)
                         if (!protocol.isWriteAuthorized() || (transfer.authorityType == AUTHORITY_AUTOMATIC && !automaticBackupPolicy.isUnmetered())) {
                             prepared.cancel()
                             return@withLock
@@ -783,15 +801,15 @@ class DefaultPhotoCompanion(
                         val acceptance = prepared.startOnce(attemptId)
                         database.withTransaction {
                             dao.insertAcceptance(acceptance.toEntity(attemptId, now()))
-                            check(dao.markReconciling(transfer.transferId, attemptId, now(), now() + RECONCILIATION_DEADLINE_MILLIS, now()) == 1)
+                            fenceHolds(dao.markReconciling(transfer.transferId, attemptId, now(), now() + RECONCILIATION_DEADLINE_MILLIS, now()) == 1)
                         }
                     }
                     return@forEach
                 } catch (error: Throwable) {
                     if (error is CancellationException) throw error
                     if (!protocol.isWriteAuthorized()) return@forEach
-                    // A failed action with durable safe state can continue at the next wake.
-                    if (error !is IllegalStateException && error !is IllegalArgumentException && protocol.canResume(binding, attemptId)) {
+                    // Alba's own refusals are final. Any other failure with durable safe state can continue at the next wake.
+                    if (!error.isFinalRefusal() && protocol.canResume(binding, attemptId)) {
                         if (transfer.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
                         return@forEach
                     }
@@ -920,9 +938,10 @@ class DefaultPhotoCompanion(
             }
 
             if (active != null) {
-                check(dao.countPotentiallyExecutableTrashAttempts() == 0) {
-                    StoredMessage.A_SYSTEM_TRASH_REQUEST_MAY_STILL_EXECUTE_FOR_THE_PREVIOUS_ICLOUD_ACCOUNT.code
-                }
+                refuseUnless(
+                    dao.countPotentiallyExecutableTrashAttempts() == 0,
+                    StoredMessage.A_SYSTEM_TRASH_REQUEST_MAY_STILL_EXECUTE_FOR_THE_PREVIOUS_ICLOUD_ACCOUNT,
+                )
                 dao.markReadyTransfersNeedAttention(
                     active.accountId,
                     now(),
@@ -960,7 +979,7 @@ class DefaultPhotoCompanion(
     }
 
     private suspend fun requireActiveBinding(): AccountBinding = synchronizeAccount()
-        ?: error(StoredMessage.SIGN_IN_TO_ICLOUD_BEFORE_UPLOADING.code)
+        ?: throw PhotoCompanionException.Refused(StoredMessage.SIGN_IN_TO_ICLOUD_BEFORE_UPLOADING)
 
     private fun accountGate(accountId: String): Mutex = accountGates.getOrPut(accountId, ::Mutex)
 
