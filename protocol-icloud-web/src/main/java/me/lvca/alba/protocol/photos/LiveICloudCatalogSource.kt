@@ -12,7 +12,6 @@ import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
 import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.OutputStream
-import java.security.MessageDigest
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.Json
@@ -71,10 +70,9 @@ class LiveICloudCatalogSource(
     @Volatile
     private var boundAuthentication: String? = null
 
-    override val writeAccountId: String? get() = sessionProvider()?.let { session -> MessageDigest.getInstance("SHA-256")
-        .digest("icloud-account\u0000${session.dsid}".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) } }
+    override val writeAccountId: String? get() = sessionProvider()?.let(ICloudAccountIdentity::accountId)
     override val accountLabel: String
-        get() = sessionProvider()?.let(::accountNamespace) ?: "signed-out"
+        get() = sessionProvider()?.let(ICloudAccountIdentity::namespace) ?: "signed-out"
 
     private suspend fun api(path: String, body: JsonObject): JsonObject {
         val session = requireSession()
@@ -245,7 +243,7 @@ class LiveICloudCatalogSource(
         }
     }
     private fun mediaRecordName(id: String, session: AppleSessionSnapshot): String {
-        val prefix = "icloud:${accountNamespace(session)}:"
+        val prefix = "icloud:${ICloudAccountIdentity.namespace(session)}:"
         require(id.startsWith(prefix)) { "Photo belongs to another account." }
         return id.removePrefix(prefix).also { require(it.isNotBlank() && ':' !in it) }
     }
@@ -483,7 +481,7 @@ class LiveICloudCatalogSource(
             ),
         )
         val parsed = parser.parse(response.body)
-        val namespace = accountNamespace(session)
+        val namespace = ICloudAccountIdentity.namespace(session)
         val records = parsed.photos.map { photo ->
             val mediaId = "icloud:$namespace:${photo.assetRecordName}"
             downloads[mediaId] = DownloadReferences(
@@ -738,12 +736,6 @@ class LiveICloudCatalogSource(
     private fun AppleHttpResponse.jsonObjectOrNull(): JsonObject? = runCatching {
         json.parseToJsonElement(body) as? JsonObject
     }.getOrNull()
-
-    private fun accountNamespace(session: AppleSessionSnapshot): String = MessageDigest
-        .getInstance("SHA-256")
-        .digest(session.dsid.toByteArray(Charsets.UTF_8))
-        .take(8)
-        .joinToString("") { byte -> "%02x".format(byte) }
 
     private fun accent(mediaId: String, offset: Int): Long {
         val index = ((mediaId.hashCode().toUInt().toLong() + offset) % ACCENTS.size).toInt()

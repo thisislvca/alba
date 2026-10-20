@@ -1,7 +1,8 @@
 package me.lvca.alba.protocol.auth
 
 import java.math.BigInteger
-import java.security.MessageDigest
+import me.lvca.alba.protocol.sha256
+import me.lvca.alba.protocol.toHex
 import java.security.SecureRandom
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -131,11 +132,6 @@ class AppleSrpClient(
             return ByteArray(width - value.size) + value
         }
 
-        fun sha256(vararg values: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").run {
-            values.forEach(::update)
-            digest()
-        }
-
         fun pbkdf2HmacSha256(
             password: ByteArray,
             salt: ByteArray,
@@ -166,8 +162,5 @@ class AppleSrpClient(
                 aggregate.copyInto(derived, destinationOffset = (block - 1) * hashLength)
             }
             return derived.copyOf(length)
-        }
-
-        fun ByteArray.toHex(): String = joinToString(separator = "") { byte -> "%02x".format(byte) }
-    }
+        }    }
 }

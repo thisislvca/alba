@@ -21,7 +21,6 @@ import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
 import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.OutputStream
-import java.security.MessageDigest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -60,8 +59,8 @@ class LiveICloudPhotoProtocol(
 
     override fun currentDestination(): ICloudDestination? = sessionProvider()?.let { session ->
         ICloudDestination(
-            accountId = accountId(session),
-            authSessionId = stableId(session.dsid, session.clientId),
+            accountId = ICloudAccountIdentity.accountId(session),
+            authSessionId = ICloudAccountIdentity.stableId(session.dsid, session.clientId),
             label = session.accountName,
         )
     }
@@ -299,7 +298,7 @@ class LiveICloudPhotoProtocol(
             resource.long("size")?.toString(),
             resource.string("wrappingKey"),
         ).joinToString(":")
-        val resourceIdentity = stableId(
+        val resourceIdentity = ICloudAccountIdentity.stableId(
             masterName,
             masterTag,
             assetName,
@@ -396,7 +395,7 @@ class LiveICloudPhotoProtocol(
         )
         val session = sessionProvider()
             ?: throw AppleProtocolException(AppleProtocolError.SESSION_EXPIRED, "Sign in to iCloud first.")
-        require(accountId(session) == binding.accountId) { "The iCloud destination account changed" }
+        require(ICloudAccountIdentity.accountId(session) == binding.accountId) { "The iCloud destination account changed" }
         val authentication = "${session.dsid}:${session.clientId}"
         if (boundAuthentication != authentication) {
             transport.restore(session)
@@ -466,12 +465,6 @@ class LiveICloudPhotoProtocol(
         return if (extension == null) cleaned.take(160)
         else cleaned.substringBeforeLast('.').take(159 - extension.length) + "." + extension
     }
-
-    private fun accountId(session: AppleSessionSnapshot): String = stableId("icloud-account", session.dsid)
-
-    private fun stableId(vararg values: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(values.joinToString("\u0000").toByteArray(Charsets.UTF_8))
-        .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
     private fun unavailable(message: String) =
         AppleProtocolException(AppleProtocolError.PHOTOS_UNAVAILABLE, message)

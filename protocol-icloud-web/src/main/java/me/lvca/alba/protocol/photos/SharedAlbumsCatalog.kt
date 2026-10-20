@@ -3,6 +3,7 @@ package me.lvca.alba.protocol.photos
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.*
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.sha256Hex
 import me.lvca.alba.protocol.network.*
 import java.io.OutputStream
 import java.util.Base64
@@ -254,8 +255,6 @@ internal class SharedAlbumsCatalog(
         return result
     }
 
-    private fun digest(value: String) = java.security.MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
     private fun journalBinding() = AccountBinding("shared:${account()}", 0, 0)
     private suspend fun save(key: String, phase: String, data: JsonObject) = requireNotNull(journal)
         .save(journalBinding(), key, UploadCheckpoint(phase, data.toString()))
@@ -265,7 +264,7 @@ internal class SharedAlbumsCatalog(
         require(name.isNotBlank() && name.length <= 255)
         java.util.UUID.fromString(operationId)
         check(authorized()) { "Sign in before creating a shared album." }
-        val key = "shared-create:" + digest("${account()}|$generation|$name")
+        val key = "shared-create:" + sha256Hex("${account()}|$generation|$name")
         val old = requireNotNull(journal) { "Durable shared album storage is unavailable." }.load(journalBinding(), key)
         var data = old?.payload?.let { Json.parseToJsonElement(it).jsonObject }
         if (data == null || (old?.phase == "DONE" && data.text("operationId") != operationId)) {
@@ -340,7 +339,7 @@ internal class SharedAlbumsCatalog(
         require(album.collection.shared?.canContribute == true) { "You do not have permission to add photos." }
         require(album.scope != "legacy") { "Use iCloud Photos to contribute to this legacy album." }
         check(authorized()) { "Sign in before adding shared photos." }
-        val key = "shared-copy:" + digest("${account()}|$id|${names.sorted().joinToString(",")}")
+        val key = "shared-copy:" + sha256Hex("${account()}|$id|${names.sorted().joinToString(",")}")
         val old = requireNotNull(journal).load(journalBinding(), key)
         var data = old?.payload?.let { Json.parseToJsonElement(it).jsonObject }
         var phase = old?.phase ?: "READY"
@@ -401,7 +400,7 @@ internal class SharedAlbumsCatalog(
         val a = fresh(collectionId(mediaId)); require(a.scope == "legacy")
         require(readAlbum(a).any { it.assetRecordName == mediaName(a, mediaId) })
         val current = connection.bound(); val root = requireNotNull(current.webservices["photosupload"])
-        val key = "shared-save:" + digest("${account()}|$mediaId|${source.sha256Hex}")
+        val key = "shared-save:" + sha256Hex("${account()}|$mediaId|${source.sha256Hex}")
         val accepted = PhotosUpload(transport, current, root.trimEnd('/'), fileName, source,
             { response -> connection.checkSession(current); persist(current, response) }, requireNotNull(journal), journalBinding(),
             checkAuthorized = { connection.checkSession(current); check(authorized()) },
@@ -425,7 +424,7 @@ internal class SharedAlbumsCatalog(
         connection.exclusive {
             val a = fresh(id); require(a.collection.shared?.canContribute == true)
             val current = connection.bound(); val root = requireNotNull(current.webservices["photosupload"])
-            val key = "shared-direct:" + digest("${account()}|$id|$fileName|${source.sha256Hex}")
+            val key = "shared-direct:" + sha256Hex("${account()}|$id|$fileName|${source.sha256Hex}")
             val batch = "CPLPost-" + java.util.UUID.nameUUIDFromBytes(key.toByteArray()).toString()
             val accepted = PhotosUpload(transport, current, root.trimEnd('/'), fileName, source,
                 { response -> connection.checkSession(current); persist(current, response) }, requireNotNull(journal), journalBinding(),
@@ -522,7 +521,7 @@ internal class SharedAlbumsCatalog(
         java.util.UUID.fromString(operationId); check(authorized())
         val (kind, value) = invitationValue(id)
         require(kind == "legacy" || accept) { "New-album invitations are declined in iCloud." }
-        val key = "shared-invitation:" + digest("$id|$accept")
+        val key = "shared-invitation:" + sha256Hex("$id|$accept")
         val old = requireNotNull(journal).load(journalBinding(), key)
         suspend fun confirmed(): Boolean = if (kind == "modern") {
             (resolveShare(value)["currentUserParticipant"] as? JsonObject)?.text("acceptanceStatus") == "ACCEPTED"
@@ -743,7 +742,7 @@ internal class SharedAlbumsCatalog(
         java.util.UUID.fromString(operationId)
         require(id.startsWith("shared:${account()}:"))
         check(authorized()) { "Sign in before changing shared albums." }
-        val key = "shared-action:" + digest("${account()}|$id|${command.action}|${command.subject}|${command.value}|${command.enabled}")
+        val key = "shared-action:" + sha256Hex("${account()}|$id|${command.action}|${command.subject}|${command.value}|${command.enabled}")
         val previous = requireNotNull(journal).load(journalBinding(), key)
         if (previous?.phase == "DONE" && Json.parseToJsonElement(previous.payload).jsonObject.text("operationId") == operationId) return@exclusive
         val found = discover().firstOrNull { it.collection.id == id }

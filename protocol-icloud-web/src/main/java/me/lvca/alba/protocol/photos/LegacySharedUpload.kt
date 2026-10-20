@@ -3,6 +3,7 @@ package me.lvca.alba.protocol.photos
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.sha256Hex
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
@@ -30,7 +31,7 @@ internal class LegacySharedUpload(
         require(album.scope == "legacy" && album.collection.shared?.canContribute == true) { "You cannot add photos to this album." }
         // A force-stop may lose the UI operation ID. Bind retries to the actual content instead.
         java.util.UUID.fromString(operationId)
-        val key = "shared-upload:" + digest("${account()}|$id|$fileName|${source.sha256Hex}")
+        val key = "shared-upload:" + sha256Hex("${account()}|$id|$fileName|${source.sha256Hex}")
         val old = requireNotNull(journal).load(journalBinding(), key)
         var phase = old?.phase ?: "READY"
         fun newUpload() = buildJsonObject {
@@ -108,7 +109,5 @@ internal class LegacySharedUpload(
         }
     }
 
-    private fun digest(value: String) = java.security.MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
     private fun JsonObject.text(name: String) = (get(name) as? JsonPrimitive)?.contentOrNull
 }

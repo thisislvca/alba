@@ -1,5 +1,6 @@
 package me.lvca.alba.protocol.auth
 
+import me.lvca.alba.protocol.toHex
 import java.io.ByteArrayOutputStream
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -92,8 +93,8 @@ internal object TrustedDeviceBridgeWire {
     fun decodePushPayload(payload: ByteArray): BridgePushPayload {
         val root = parseJsonObject(payload)
             ?: throw IllegalArgumentException("Could not decode the trusted-device bridge push")
-        val explicitSession = root.strictStringOrNull("sessionUUID")
-        val flowId = root.strictStringOrNull("flowid")
+        val explicitSession = root.strictStringOrNull("sessionUUID", ::malformedField)
+        val flowId = root.strictStringOrNull("flowid", ::malformedField)
         val sessionId = explicitSession ?: flowId
             ?: throw IllegalArgumentException("Bridge push is missing its session identifier")
         val nextStepElement = root["nextStep"]
@@ -119,14 +120,14 @@ internal object TrustedDeviceBridgeWire {
             sessionId = sessionId,
             hasExplicitSessionId = explicitSession != null,
             nextStep = nextStep,
-            ruiUrlKey = root.strictStringOrNull("ruiURLKey"),
-            transactionId = root.strictStringOrNull("txnid"),
-            salt = root.strictStringOrNull("salt"),
-            machineId = root.strictStringOrNull("mid"),
-            idmsData = root.strictStringOrNull("idmsdata"),
+            ruiUrlKey = root.strictStringOrNull("ruiURLKey", ::malformedField),
+            transactionId = root.strictStringOrNull("txnid", ::malformedField),
+            salt = root.strictStringOrNull("salt", ::malformedField),
+            machineId = root.strictStringOrNull("mid", ::malformedField),
+            idmsData = root.strictStringOrNull("idmsdata", ::malformedField),
             akData = root["akdata"],
-            data = root.strictStringOrNull("data"),
-            encryptedCode = root.strictStringOrNull("encryptedCode"),
+            data = root.strictStringOrNull("data", ::malformedField),
+            encryptedCode = root.strictStringOrNull("encryptedCode", ::malformedField),
             errorCode = errorCode,
         )
     }
@@ -269,13 +270,7 @@ internal object TrustedDeviceBridgeWire {
     private fun Map<Int, List<WireValue>>.firstUnsigned(field: Int): Long? =
         (this[field]?.firstOrNull() as? WireValue.Unsigned)?.value
 
-    private fun JsonObject.strictStringOrNull(name: String): String? {
-        val value = this[name] ?: return null
-        val primitive = value as? JsonPrimitive
-            ?: throw IllegalArgumentException("Malformed bridge $name")
-        if (!primitive.isString) throw IllegalArgumentException("Malformed bridge $name")
-        return primitive.contentOrNull?.requireNotBlank(name)
-    }
+    private fun malformedField(name: String): Nothing = throw IllegalArgumentException("Malformed bridge $name")
 
     private fun String.requireNotBlank(name: String): String = also {
         require(it.isNotBlank()) { "Malformed bridge $name" }
@@ -301,4 +296,14 @@ internal object TrustedDeviceBridgeWire {
     private const val MAX_FRAME_BYTES = 1_048_576
     private val SIGNATURE_PREFIX = byteArrayOf(0x01, 0x03)
     private val JSON = Json { ignoreUnknownKeys = true }
+}
+
+/**
+ * The non-blank JSON string [name], or null when it is absent. A present value that is not a
+ * non-blank string is passed to [malformed], which by default treats it as absent too.
+ */
+internal fun JsonObject.strictStringOrNull(name: String, malformed: (String) -> String? = { null }): String? {
+    val value = this[name] ?: return null
+    return (value as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull?.takeIf(String::isNotBlank)
+        ?: malformed(name)
 }
