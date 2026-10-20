@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.ui.res.painterResource
 import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.app.ui.theme.tile
@@ -36,7 +37,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Button
@@ -469,10 +469,11 @@ internal fun MediaTile(
                 Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp))
                 Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
             }
-            if (media.isFavorite && !selected) Icon(Icons.Filled.Favorite,
+            if (media.isFavorite && !selected) FavoriteIcon(true,
                 contentDescription = stringResource(R.string.favorite), tint = onMedia,
                 modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(16.dp))
-            if (selected) Text("✓", color = Color.White, modifier = Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.primary).padding(8.dp))
+            if (selected) Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.primary).padding(6.dp).size(18.dp))
         }
     }
 }

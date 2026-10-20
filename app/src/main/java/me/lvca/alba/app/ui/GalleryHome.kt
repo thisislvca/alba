@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import androidx.compose.ui.semantics.Role
 import me.lvca.alba.app.ui.theme.tile
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateBounds
@@ -325,7 +326,7 @@ internal fun GalleryHome(
                         }
                         if (!hero && state.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || state.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = account))
+                                modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = account))
                         }
                         if (state.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && state.selection.isNotEmpty()) SelectionActions(state, selectAll, clear, batch, actions)

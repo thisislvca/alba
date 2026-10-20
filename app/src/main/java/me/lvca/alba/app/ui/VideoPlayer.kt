@@ -222,6 +222,7 @@ fun VideoPlayer(
             update = { it.player = player; it.keepScreenOn = state == R.string.playing }, modifier = Modifier.size(width, width / videoAspect))
         Box(Modifier.fillMaxSize().clickable(
             interactionSource = remember { MutableInteractionSource() }, indication = null,
+            onClickLabel = stringResource(R.string.toggle_photo_controls),
         ) { overlayVisible = !overlayVisible })
         if (showPlaybackControls && (!isPlaying || overlayVisible || scrubbing)) {
             val darkControls = AlbaTheme.colors.isDark || isPlaying || controlsOnVideo

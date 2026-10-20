@@ -8,7 +8,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -62,7 +61,7 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
                     FilterMenuRow(stringResource(R.string.all_items), state.query.collectionId == null,
                         { change(state.query.copy(collectionId = null)) }, icon = { DensityGridIcon(3, LocalContentColor.current) })
                     FilterMenuRow(stringResource(R.string.favorites), state.query.collectionId == GalleryQuery.FAVORITES,
-                        { change(state.query.copy(collectionId = GalleryQuery.FAVORITES)) }, icon = { Icon(Icons.Filled.Favorite, null, Modifier.size(22.dp)) })
+                        { change(state.query.copy(collectionId = GalleryQuery.FAVORITES)) }, icon = { FavoriteIcon(true, null, Modifier.size(22.dp)) })
                     SmartCollection.entries.forEach { smart ->
                         FilterMenuRow(smart.localizedTitle(), state.query.collectionId == smart.id,
                             { change(state.query.copy(collectionId = smart.id)) }, icon = { Icon(painterResource(smart.icon()), null, Modifier.size(22.dp)) })

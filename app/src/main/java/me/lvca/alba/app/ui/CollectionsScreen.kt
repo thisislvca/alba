@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.graphics.painter.Painter
@@ -122,7 +123,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
 @Composable
 private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: GalleryUiState, preview: (String) -> Unit, tag: String,
     emptyIcon: Painter, click: () -> Unit) {
-    Column(Modifier.clickable(onClick = click).testTag(tag)) {
+    Column(Modifier.clickable(role = Role.Button, onClick = click).testTag(tag)) {
         AlbaCard(shape = MaterialTheme.shapes.medium) {
             if (covers.isEmpty()) Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
                 Icon(emptyIcon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
