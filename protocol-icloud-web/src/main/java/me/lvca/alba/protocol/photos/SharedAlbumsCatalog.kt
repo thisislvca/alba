@@ -15,19 +15,17 @@ import kotlinx.serialization.json.*
 /** The personal library, legacy streams and each CloudKit owner's zones are separate namespaces. */
 internal class SharedAlbumsCatalog(
     private val transport: AppleHttpTransport,
+    private val client: CloudKitClient,
     private val session: () -> AppleSessionSnapshot,
     private val account: () -> String,
-    private val prepare: (AppleSessionSnapshot) -> Unit,
-    private val persist: suspend (AppleSessionSnapshot, AppleHttpResponse?) -> Unit,
     private val authorized: () -> Boolean,
     private val journal: UploadJournal?,
-    private val reject: suspend (AppleSessionSnapshot) -> Unit = {},
 ) : SharedAlbumOperations {
     private val parser = CloudKitPhotoResponseParser()
     private val albums = ConcurrentHashMap<String, SharedAlbumRecord>()
     private val photos = ConcurrentHashMap<String, CloudPhotoAsset>()
     private val legacyContributors = ConcurrentHashMap<String, String>()
-    private val connection = SharedAlbumSession(transport, session, prepare, persist, authorized, reject) {
+    private val connection = SharedAlbumSession(client, session, authorized) {
         albums.clear(); photos.clear(); legacyContributors.clear()
     }
     private fun webAlbumUrl(route: String, identifier: String): String {
@@ -404,9 +402,9 @@ internal class SharedAlbumsCatalog(
         val current = connection.bound(); val root = requireNotNull(current.webservices["photosupload"])
         val key = "shared-save:" + sha256Hex("${account()}|$mediaId|${source.sha256Hex}")
         val accepted = PhotosUpload(transport, current, root.trimEnd('/'), fileName, source,
-            { response -> connection.checkSession(current); persist(current, response) }, requireNotNull(journal), journalBinding(),
+            { response -> connection.checkSession(current); client.persist(current, response) }, requireNotNull(journal), journalBinding(),
             checkAuthorized = { connection.checkSession(current); check(authorized()) },
-            onSessionRejected = reject).startOnce(key)
+            onSessionRejected = client::reject).startOnce(key)
         accepted.uploadJobId?.let { pollUpload(root, it) }
         Unit
     }
@@ -429,9 +427,9 @@ internal class SharedAlbumsCatalog(
             val key = "shared-direct:" + sha256Hex("${account()}|$id|$fileName|${source.sha256Hex}")
             val batch = "CPLPost-" + java.util.UUID.nameUUIDFromBytes(key.toByteArray()).toString()
             val accepted = PhotosUpload(transport, current, root.trimEnd('/'), fileName, source,
-                { response -> connection.checkSession(current); persist(current, response) }, requireNotNull(journal), journalBinding(),
+                { response -> connection.checkSession(current); client.persist(current, response) }, requireNotNull(journal), journalBinding(),
                 checkAuthorized = { connection.checkSession(current); check(authorized()) }, zoneName = a.zone, assetBatchId = batch,
-                onSessionRejected = reject).startOnce(key)
+                onSessionRejected = client::reject).startOnce(key)
             accepted.uploadJobId?.let { job ->
                 var done = false
                 repeat(20) {
@@ -457,7 +455,7 @@ internal class SharedAlbumsCatalog(
     }
 
     suspend fun uploadLegacy(id: String, fileName: String, source: OneShotUploadSource, operationId: String) = connection.exclusive {
-        LegacySharedUpload(transport, account, authorized, journal, connection, persist,
+        LegacySharedUpload(transport, account, authorized, journal, connection, client::persist,
             ::discover, ::readAlbum, ::journalBinding, ::save).upload(id, fileName, source, operationId)
     }
 

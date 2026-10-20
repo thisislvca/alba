@@ -26,7 +26,6 @@ import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.OutputStream
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -38,7 +37,6 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
-import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
 import me.lvca.alba.protocol.network.AppleClientProfile.addUploadClientBuild
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
@@ -57,8 +55,7 @@ class LiveICloudPhotoProtocol(
       catch (_: Exception) { false }
     private val json = Json { ignoreUnknownKeys = true }
 
-    @Volatile
-    private var boundAuthentication: String? = null
+    private val cloudKit = CloudKitClient(transport, onSessionUpdated, onSessionRejected)
 
     override fun currentDestination(): ICloudDestination? = sessionProvider()?.let { session ->
         ICloudDestination(
@@ -107,7 +104,7 @@ class LiveICloudPhotoProtocol(
             fileName = safeFileName(fileName),
             source = source,
             lastModifiedAtEpochMillis = lastModifiedAtEpochMillis,
-            persistSession = { persistTransportState(session, it) },
+            persistSession = { cloudKit.persist(session, it) },
             journal = uploadJournal,
             binding = binding,
             onSessionRejected = onSessionRejected,
@@ -266,7 +263,7 @@ class LiveICloudPhotoProtocol(
         AppleEndpointPolicy.requireAllowed(downloadUrl)
         val counting = CountingOutputStream(output)
         transport.stream(downloadUrl, counting)
-        persistTransportState(session, null)
+        cloudKit.persist(session, null)
         return RemoteOriginalObservation(hydrated.originalResourceIdentity, counting.byteCount)
     }
 
@@ -370,26 +367,8 @@ class LiveICloudPhotoProtocol(
         put("resultsLimit", limit)
     }.toString()
 
-    private suspend fun executeRead(
-        session: AppleSessionSnapshot,
-        request: AppleHttpRequest,
-    ): AppleHttpResponse {
-        val response = transport.execute(request)
-        requireCurrentSession(session)
-        persistTransportState(session, response)
-        if (response.code !in 200..299) {
-            if (response.code == 401 || response.code == 403) onSessionRejected(session)
-            throw AppleProtocolException(
-                if (response.code == 401 || response.code == 403) {
-                    AppleProtocolError.SESSION_EXPIRED
-                } else {
-                    AppleProtocolError.NETWORK
-                },
-                "Apple Photos returned HTTP ${response.code}.",
-            )
-        }
-        return response
-    }
+    private suspend fun executeRead(session: AppleSessionSnapshot, request: AppleHttpRequest): AppleHttpResponse =
+        cloudKit.send(session, request, verify = ::requireCurrentSession)
 
     private fun requireBoundSession(binding: AccountBinding): AppleSessionSnapshot {
         if (!isAuthorized()) throw AppleProtocolException(
@@ -399,11 +378,7 @@ class LiveICloudPhotoProtocol(
         val session = sessionProvider()
             ?: throw AppleProtocolException(AppleProtocolError.SESSION_EXPIRED, "Sign in to iCloud first.")
         require(ICloudAccountIdentity.accountId(session) == binding.accountId) { "The iCloud destination account changed" }
-        val authentication = "${session.dsid}:${session.clientId}"
-        if (boundAuthentication != authentication) {
-            transport.restore(session)
-            boundAuthentication = authentication
-        }
+        cloudKit.bind(session)
         return session
     }
 
@@ -415,28 +390,8 @@ class LiveICloudPhotoProtocol(
         }
     }
 
-    private suspend fun persistTransportState(session: AppleSessionSnapshot, response: AppleHttpResponse?) {
-        val headers = response?.sessionHeaders ?: AppleSessionHeaders()
-        onSessionUpdated(headers.applyTo(session).copy(cookies = transport.snapshotCookies()))
-    }
-
-    private fun cloudKitUrl(session: AppleSessionSnapshot, path: String): String {
-        val root = session.webservices[CLOUDKIT_SERVICE]
-            ?: throw unavailable("iCloud Photos is unavailable for this session")
-        val rootUrl = AppleEndpointPolicy.requireAllowed(root)
-        require(rootUrl.host.contains("ckdatabasews", ignoreCase = true)) {
-            "Apple returned an unexpected Photos database host"
-        }
-        return "$root/database/1/com.apple.photos.cloud/production/private$path"
-            .toHttpUrl()
-            .newBuilder()
-            .addWebClientBuild()
-            .addQueryParameter("clientId", session.clientId)
-            .addQueryParameter("dsid", session.dsid)
-            .addQueryParameter("remapEnums", "true")
-            .build()
-            .toString()
-    }
+    private fun cloudKitUrl(session: AppleSessionSnapshot, path: String): String =
+        cloudKit.withSessionQuery(cloudKit.databaseUrl(session, "private", path), session)
 
     private fun AppleHttpResponse.jsonObject(message: String): JsonObject = runCatching {
         json.parseToJsonElement(body) as? JsonObject
@@ -473,7 +428,6 @@ class LiveICloudPhotoProtocol(
     }
 
     private companion object {
-        const val CLOUDKIT_SERVICE = "ckdatabasews"
         const val UPLOAD_SERVICE = "photosupload"
         const val PRIMARY_ZONE_NAME = "PrimarySync"
         const val PRIMARY_ZONE_TYPE = "REGULAR_CUSTOM_ZONE"

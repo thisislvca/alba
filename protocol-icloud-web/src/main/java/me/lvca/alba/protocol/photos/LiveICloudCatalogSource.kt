@@ -20,7 +20,6 @@ import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.OutputStream
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
@@ -48,16 +47,10 @@ class LiveICloudCatalogSource(
     private val onSessionUpdated: suspend (AppleSessionSnapshot) -> Unit = {},
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
 ) : CloudCatalogSource {
-    private val shared = SharedAlbumsCatalog(
-        transport,
-        ::requireSession,
-        { accountLabel },
-        ::bind,
-        ::persistTransportState,
-        isAuthorized,
-        sharedJournal,
-        onSessionRejected,
-    )
+    private val cloudKit = CloudKitClient(transport, onSessionUpdated, onSessionRejected).apply {
+        onAccountChanged { downloads.clear(); currentRefreshIds.clear() }
+    }
+    private val shared = SharedAlbumsCatalog(transport, cloudKit, ::requireSession, { accountLabel }, isAuthorized, sharedJournal)
     override suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource) = shared.saveLegacySharedPhoto(mediaId, fileName, source)
     override suspend fun sharedActivity(id: String, rank: Int) = shared.sharedActivity(id, rank)
     override suspend fun sharedPostDiscussion(id: String) = shared.sharedPostDiscussion(id)
@@ -77,29 +70,21 @@ class LiveICloudCatalogSource(
     private val downloads = ConcurrentHashMap<String, DownloadReferences>()
     private val currentRefreshIds = ConcurrentHashMap.newKeySet<String>()
 
-    @Volatile
-    private var boundAuthentication: String? = null
-
     override val writeAccountId: String? get() = sessionProvider()?.let(ICloudAccountIdentity::accountId)
     override val accountLabel: String
         get() = sessionProvider()?.let(ICloudAccountIdentity::namespace) ?: "signed-out"
 
     private suspend fun api(path: String, body: JsonObject): JsonObject {
         val session = requireSession()
-        bind(session)
-        val url = cloudKitUrl(session).replace("/records/query?", "/$path?")
-        val raw = transport.execute(AppleHttpRequest("POST", url, JSON_HEADERS, body.toString(), oneShot = path == "records/modify"))
-        persistTransportState(session, raw)
+        cloudKit.bind(session)
+        val raw = cloudKit.exchange(session, AppleHttpRequest("POST", cloudKitUrl(session, path), JSON_HEADERS, body.toString(), oneShot = path == "records/modify"))
         // CloudKit reports an expired change token as a typed error, sometimes with a non-2xx status.
         val parsed = raw.jsonObjectOrNull()
         if (path == "changes/zone" && (raw.code == 410 || parsed?.let(CloudKitErrors::requiresSyncReset) == true)) throw CatalogResetRequired()
-        if (raw.code !in 200..299) {
-            if (raw.code == 401 || raw.code == 403) onSessionRejected(session)
-            throw photosHttpError(raw)
-        }
+        cloudKit.requireSuccess(session, raw)
         val root = parsed ?: Json.parseToJsonElement(raw.body).jsonObject
         if (CloudKitErrors.requiresSyncReset(root)) throw CatalogResetRequired()
-        check(root["errors"]?.jsonArray.isNullOrEmpty()) { "Apple rejected the library request" }
+        check(!CloudKitErrors.rejectedRequest(root)) { "Apple rejected the library request" }
         return root
     }
     private fun zone() = buildJsonObject { put("zoneName", PRIMARY_ZONE_NAME); put("zoneType", PRIMARY_ZONE_TYPE) }
@@ -353,19 +338,19 @@ class LiveICloudCatalogSource(
 
     override suspend fun accountProfile(): CloudAccountProfile {
         val session = requireSession()
-        bind(session)
+        cloudKit.bind(session)
         val profile = ICloudAccountProfileService(transport).load(session)
         check(sessionProvider()?.let { it.dsid == session.dsid && it.clientId == session.clientId } == true) {
             "The iCloud account changed while checking the profile."
         }
-        persistTransportState(session)
+        cloudKit.persist(session, null)
         return profile
     }
 
     override suspend fun storageUsage(): CloudStorageUsage {
         val session = requireSession()
-        bind(session)
-        val response = execute(session, AppleHttpRequest("POST", setupUrl("storageUsageInfo", session), JSON_HEADERS))
+        cloudKit.bind(session)
+        val response = cloudKit.send(session, AppleHttpRequest("POST", setupUrl("storageUsageInfo", session), JSON_HEADERS))
         check(sessionProvider()?.dsid == session.dsid) { "Account changed while checking storage." }
         return ICloudStorageParser.parse(response.body)
     }
@@ -466,18 +451,18 @@ class LiveICloudCatalogSource(
     override suspend fun fetchPage(cursor: String?, limit: Int): CloudCatalogPage {
         require(limit in 1..100) { "iCloud page size must be between 1 and 100" }
         val session = requireSession()
-        bind(session)
+        cloudKit.bind(session)
         val pageCursor = PageCursor.decode(cursor)
         if (cursor == null) {
             preparePhotos(session)
             currentRefreshIds.clear()
         }
 
-        val response = execute(
+        val response = cloudKit.send(
             session = session,
             request = AppleHttpRequest(
                 method = "POST",
-                url = cloudKitUrl(session),
+                url = cloudKitUrl(session, "records/query"),
                 headers = JSON_HEADERS,
                 body = photoQueryBody(
                     offset = pageCursor.offset,
@@ -564,7 +549,7 @@ class LiveICloudCatalogSource(
         selectUrl: (DownloadReferences) -> String,
     ) {
         val session = requireSession()
-        bind(session)
+        cloudKit.bind(session)
         require(mediaId.startsWith("icloud:$accountLabel:"))
         val references = downloads[mediaId] ?: freshReferences(mediaId)
         check(selectUrl(references).isNotBlank()) { "No poster image available" }
@@ -573,11 +558,11 @@ class LiveICloudCatalogSource(
             if (expired.status !in setOf(401, 403, 404, 410)) throw expired
             transport.stream(selectUrl(freshReferences(mediaId)), output)
         }
-        persistTransportState(session)
+        cloudKit.persist(session, null)
     }
 
     private suspend fun preparePhotos(session: AppleSessionSnapshot) {
-        val webAccess = execute(
+        val webAccess = cloudKit.send(
             session,
             AppleHttpRequest(
                 method = "POST",
@@ -595,11 +580,11 @@ class LiveICloudCatalogSource(
             )
         }
 
-        val indexing = execute(
+        val indexing = cloudKit.send(
             session = session,
             request = AppleHttpRequest(
                 method = "POST",
-                url = cloudKitUrl(session),
+                url = cloudKitUrl(session, "records/query"),
                 headers = JSON_HEADERS,
                 body = buildJsonObject {
                     putJsonObject("query") { put("recordType", "CheckIndexingState") }
@@ -611,7 +596,6 @@ class LiveICloudCatalogSource(
                 }.toString(),
             ),
         )
-        if (indexing.code !in 200..299) throw photosHttpError(indexing)
         val state = indexing.jsonObjectOrNull()
             ?.get("records")
             ?.let { it as? kotlinx.serialization.json.JsonArray }
@@ -626,70 +610,14 @@ class LiveICloudCatalogSource(
         }
     }
 
-    private suspend fun execute(
-        session: AppleSessionSnapshot,
-        request: AppleHttpRequest,
-    ): AppleHttpResponse {
-        val response = transport.execute(request)
-        persistTransportState(session, response)
-        if (response.code !in 200..299) {
-            if (response.code == 401 || response.code == 403) onSessionRejected(session)
-            throw photosHttpError(response)
-        }
-        return response
-    }
-
-    private fun photosHttpError(response: AppleHttpResponse): AppleProtocolException =
-        AppleProtocolException(
-            error = if (response.code == 401 || response.code == 403) {
-                AppleProtocolError.SESSION_EXPIRED
-            } else {
-                AppleProtocolError.NETWORK
-            },
-            message = when (response.code) {
-                401, 403 -> "The iCloud session expired. Sign in again."
-                429 -> "Apple is limiting Photos requests. Wait a moment and refresh."
-                else -> "Apple Photos returned HTTP ${response.code}."
-            },
-        )
-
-    private fun bind(session: AppleSessionSnapshot) {
-        val authentication = "${session.dsid}:${session.clientId}"
-        if (boundAuthentication == authentication) return
-        transport.restore(session)
-        downloads.clear()
-        currentRefreshIds.clear()
-        boundAuthentication = authentication
-    }
-
-    private suspend fun persistTransportState(session: AppleSessionSnapshot, response: AppleHttpResponse? = null) {
-        val headers = response?.sessionHeaders ?: AppleSessionHeaders()
-        onSessionUpdated(headers.applyTo(session).copy(cookies = transport.snapshotCookies()))
-    }
-
     private fun requireSession(): AppleSessionSnapshot = sessionProvider()
         ?: throw AppleProtocolException(
             AppleProtocolError.SESSION_EXPIRED,
             "Sign in to iCloud to load the live library.",
         )
 
-    private fun cloudKitUrl(session: AppleSessionSnapshot): String {
-        val root = session.webservices["ckdatabasews"]
-            ?: throw AppleProtocolException(
-                AppleProtocolError.PHOTOS_UNAVAILABLE,
-                "iCloud Photos is unavailable for this account.",
-            )
-        return "$root/database/1/com.apple.photos.cloud/production/private/records/query"
-            .toHttpUrl()
-            .newBuilder()
-            .addWebClientBuild()
-            .addQueryParameter("clientId", session.clientId)
-            .addQueryParameter("dsid", session.dsid)
-            .addQueryParameter("remapEnums", "true")
-            .addQueryParameter("getCurrentSyncToken", "true")
-            .build()
-            .toString()
-    }
+    private fun cloudKitUrl(session: AppleSessionSnapshot, path: String): String =
+        cloudKit.withSessionQuery(cloudKit.databaseUrl(session, "private", path), session, currentSyncToken = true)
 
     private fun setupUrl(path: String, session: AppleSessionSnapshot): String =
         "$SETUP_ENDPOINT/$path".toHttpUrl().newBuilder()

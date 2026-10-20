@@ -23,6 +23,9 @@ internal object CloudKitErrors {
         }
     }
 
+    /** True when CloudKit rejected the request as a whole, which it can do with a 2xx status. */
+    fun rejectedRequest(root: JsonObject): Boolean = root.serverErrorCode() != null || root.array("errors").isNotEmpty()
+
     /** True when CloudKit no longer accepts the saved change token and the catalog must be rebuilt. */
     fun requiresSyncReset(root: JsonObject): Boolean = serverErrorCodes(root).any { it in SYNC_TOKEN_RESET_CODES }
 
