@@ -11,6 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import java.time.YearMonth
 import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.app.ui.theme.AlbaTheme
 
@@ -28,4 +29,22 @@ internal fun AlbaPreviewSurface(content: @Composable ColumnScope.() -> Unit) {
             Column(Modifier.padding(AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md), content = content)
         }
     }
+}
+
+// Previews of existing stateless leaf components. The design-system components preview in their own files.
+
+@AlbaPreviews
+@Composable
+private fun GalleryChromePreview() = AlbaPreviewSurface {
+    MonthHeader(YearMonth.of(2026, 10), 128)
+    FloatingGridDate(YearMonth.of(2026, 10), dates = {})
+    FloatingGalleryNavigation(GalleryTab.LIBRARY, navigate = {})
+    FloatingGalleryNavigation(GalleryTab.SEARCH, navigate = {})
+}
+
+@AlbaPreviews
+@Composable
+private fun EmptyStatesPreview() = AlbaPreviewSurface {
+    AlbaSheetHeading("Browse by date", "Jump to any month", dismiss = {})
+    EmptyLibrary()
 }

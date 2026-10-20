@@ -3,6 +3,7 @@ package me.lvca.alba.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -121,6 +122,9 @@ internal inline fun attempt(block: () -> Unit): Boolean = try {
 
 @AlbaPreviews
 @Composable
-private fun AlbaLoadStatePreview() = AlbaPreviewSurface {
-    AlbaLoadState(loading = true, failed = true, failureMessage = "Could not load the latest changes.", onReload = {})
+private fun AlbaSheetBodyPreview() = AlbaPreviewSurface {
+    AlbaSheetBody("Manage album", dismiss = {}, subtitle = "Family moments") {
+        AlbaLoadState(loading = true, failed = true, failureMessage = "Could not load the latest changes.", onReload = {})
+        AlbaCard(contentPadding = PaddingValues(AlbaSpacing.lg)) { Text("You are the owner of this album.") }
+    }
 }
