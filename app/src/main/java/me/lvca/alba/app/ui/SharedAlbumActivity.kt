@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,7 +14,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,17 +30,17 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
     val scope = rememberCoroutineScope()
     suspend fun load(reset: Boolean) {
         if (busy) return
+        val rank = if (reset) 0 else next ?: return
         busy = true; failed = false
         try {
-            val rank = if (reset) 0 else next ?: return
-            val page = actions.sharedActivity(album.id, rank)
-            if (!reset) check(page.posts.none { row -> posts.any { it.id == row.id } }) { "Activity changed. Refresh again." }
-            page.nextRank?.let { check(it > rank && page.posts.isNotEmpty()) }
-            posts = if (reset) page.posts else posts + page.posts
-            next = page.nextRank
-        } catch (e: CancellationException) { throw e }
-        catch (_: Exception) { failed = true }
-        finally { busy = false }
+            failed = !attempt {
+                val page = actions.sharedActivity(album.id, rank)
+                if (!reset) check(page.posts.none { row -> posts.any { it.id == row.id } }) { "Activity changed. Refresh again." }
+                page.nextRank?.let { check(it > rank && page.posts.isNotEmpty()) }
+                posts = if (reset) page.posts else posts + page.posts
+                next = page.nextRank
+            }
+        } finally { busy = false }
     }
     LaunchedEffect(album.id, revision) { load(true) }
     val byId = remember(media) { media.associateBy { it.id } }
@@ -53,12 +53,10 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
                 var previewFailed by remember(post.id) { mutableStateOf(false) }
                 LaunchedEffect(post.id, revision) {
                     previewFailed = false
-                    try { photos = actions.sharedPostPhotos(post.id); previews[post.id] = photos; photos.forEach(preview) }
-                    catch (e: CancellationException) { throw e }
-                    catch (_: Exception) { previewFailed = true }
+                    previewFailed = !attempt { photos = actions.sharedPostPhotos(post.id); previews[post.id] = photos; photos.forEach(preview) }
                 }
-                AlbaCard {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AlbaCard(contentPadding = PaddingValues(AlbaSpacing.lg)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
                         Text(if (post.isMine) stringResource(R.string.shared_you) else post.author, style = MaterialTheme.typography.titleSmall)
                         if (post.timestamp > 0) Text(timestampLabel(post.timestamp), style = MaterialTheme.typography.labelMedium)
                         Text(post.caption.ifBlank { stringResource(R.string.shared_post_items) })

@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.rememberScrollState
@@ -29,12 +30,11 @@ internal fun SharedAlbumDetails(album: GalleryCollection, dismiss: () -> Unit) {
     val info = requireNotNull(album.shared)
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     AlbaBottomSheet(onDismissRequest = dismiss, modifier = Modifier.testTag("shared-album-details")) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            AlbaSheetHeading(album.name, dismiss = dismiss)
+        AlbaSheetBody(album.name, dismiss, spacing = AlbaSpacing.lg) {
             Text(stringResource(if (info.generation == SharedAlbumGeneration.MODERN) R.string.shared_new_title else R.string.shared_legacy_title), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(if (info.generation == SharedAlbumGeneration.MODERN) R.string.shared_new_body else R.string.shared_legacy_body), style = MaterialTheme.typography.bodyLarge)
-            AlbaCard {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            AlbaCard(contentPadding = PaddingValues(18.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(stringResource(when(info.role) {
                         SharedAlbumRole.MANAGER -> R.string.shared_role_manager
                         SharedAlbumRole.COMMENTER -> R.string.shared_role_commenter
@@ -53,7 +53,6 @@ internal fun SharedAlbumDetails(album: GalleryCollection, dismiss: () -> Unit) {
                 OutlinedButton(onClick = { uriHandler.openUri(url) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_manage_icloud)) }
             }
             Button(onClick = dismiss, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_understood)) }
-            Spacer(Modifier.height(24.dp))
         }
     }
 }

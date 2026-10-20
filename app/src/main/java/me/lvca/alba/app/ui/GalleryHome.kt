@@ -417,15 +417,13 @@ internal fun GalleryHome(
             dismissButton = { TextButton(onClick = { deleteAlbum = null }) { Text(stringResource(R.string.cancel)) } })
     }
     if (activity) AlbaBottomSheet(onDismissRequest = { activity = false }) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AlbaSheetHeading(stringResource(R.string.activity), stringResource(R.string.uploads_downloads_and_backup), dismiss = { activity = false })
+        AlbaSheetBody(stringResource(R.string.activity), dismiss = { activity = false }, subtitle = stringResource(R.string.uploads_downloads_and_backup)) {
             Button(onClick = if (signedIn?.status == SessionStatus.VERIFIED || state.accountState == ICloudAccountState.Demo) upload else { { activity = false; account() } },
                 modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) { Icon(AlbaIcons.CloudUpload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.upload_photos)) }
             OutlinedButton(onClick = { activity = false; account() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
             if (state.transferQueue.isEmpty() && state.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
             if (state.transferQueue.isNotEmpty()) TransferQueueCard(state.transferQueue, continueUpload, demo = state.accountState == ICloudAccountState.Demo)
             BatchProgress(state, retry, actions.cancelDownloadBatch)
-            Spacer(Modifier.height(24.dp))
         }
     }
     if (sharedPicker && collection?.shared != null) SharedContributionPicker(state.catalogItems.filter {

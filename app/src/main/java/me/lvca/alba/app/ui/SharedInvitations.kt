@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,48 +13,41 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.SharedInvitation
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SharedInvitations(actions: InvitationActions, dismiss: () -> Unit, initialUrl: String = "", invalidLink: Boolean = false, demo: Boolean = false) {
-    var pending by remember { mutableStateOf<List<SharedInvitation>>(emptyList()) }
+    val invitations = rememberLoadable(initial = emptyList<SharedInvitation>()) { actions.pendingSharedInvitations() }
+    val pending = invitations.value
     var resolved by remember { mutableStateOf<SharedInvitation?>(null) }
     var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf(false) }
-    var revision by remember { mutableIntStateOf(0) }
+    var acting by remember { mutableStateOf(false) }
+    val busy = acting || invitations.loading
     var confirmation by remember { mutableStateOf<Pair<SharedInvitation, Boolean>?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(revision) {
-        busy = true; error = false
-        try { pending = actions.pendingSharedInvitations() }
-        catch(e: CancellationException) { throw e }
-        catch(_: Exception) { error = true }
-        finally { busy = false }
+    fun act(change: suspend () -> Unit) {
+        acting = true; invitations.failed = false
+        scope.launch {
+            try { invitations.failed = !attempt { change() } }
+            finally { acting = false }
+        }
     }
     AlbaBottomSheet(onDismissRequest = { if (!busy) dismiss() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            AlbaSheetHeading(stringResource(R.string.shared_invitations), stringResource(R.string.shared_invitation_help), dismiss, !busy)
+        AlbaSheetBody(stringResource(R.string.shared_invitations), dismiss, subtitle = stringResource(R.string.shared_invitation_help),
+            dismissEnabled = !busy, spacing = AlbaSpacing.lg) {
             if (demo) Text(stringResource(R.string.demo_shared_notice))
             if (invalidLink && url.isBlank()) Text(stringResource(R.string.shared_invalid_link), color = MaterialTheme.colorScheme.error)
-            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (error) Text(stringResource(R.string.shared_action_failed), color = MaterialTheme.colorScheme.error)
+            AlbaLoadState(busy, invitations.failed, stringResource(R.string.shared_action_failed))
             OutlinedTextField(url, { url = it; resolved = null }, label = { Text(stringResource(R.string.shared_invitation_link)) },
                 singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("shared-invitation-link"))
             OutlinedButton(onClick = {
-                busy = true; error = false; resolved = null
-                scope.launch {
-                    try { resolved = actions.resolveSharedInvitation(url) }
-                    catch(e: CancellationException) { throw e }
-                    catch(_: Exception) { error = true }
-                    finally { busy = false }
-                }
+                resolved = null
+                act { resolved = actions.resolveSharedInvitation(url) }
             }, enabled = !busy && url.isNotBlank()) { Text(stringResource(R.string.shared_invitation_preview)) }
             (pending + listOfNotNull(resolved)).distinctBy { it.id }.forEach { invitation ->
-                AlbaCard {
-                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                AlbaCard(contentPadding = PaddingValues(AlbaSpacing.lg)) {
+                    Column {
                         Text(invitation.name, style = MaterialTheme.typography.titleMedium)
                         Row {
                             TextButton(onClick = { confirmation = invitation to true }, enabled = !busy) { Text(stringResource(R.string.shared_accept)) }
@@ -62,21 +56,16 @@ internal fun SharedInvitations(actions: InvitationActions, dismiss: () -> Unit, 
                     }
                 }
             }
-            if (!busy && !error && pending.isEmpty() && resolved == null) Text(stringResource(R.string.shared_no_invitations))
-            TextButton(onClick = { revision++ }, enabled = !busy) { Text(stringResource(R.string.shared_reload)) }
+            if (!busy && !invitations.failed && pending.isEmpty() && resolved == null) Text(stringResource(R.string.shared_no_invitations))
+            TextButton(onClick = invitations::reload, enabled = !busy) { Text(stringResource(R.string.shared_reload)) }
         }
     }
     confirmation?.let { (invitation, accept) ->
         AlertDialog(onDismissRequest = { confirmation = null }, title = { Text(stringResource(if(accept) R.string.shared_accept else R.string.shared_decline)) },
             text = { Column { Text(invitation.name); Text(stringResource(if(accept) R.string.shared_accept_notice else R.string.shared_decline_notice)) } },
             confirmButton = { TextButton(onClick = {
-                confirmation = null; busy = true; error = false
-                scope.launch {
-                    try { actions.respondSharedInvitation(invitation.id, accept); resolved = null; url = ""; revision++ }
-                    catch(e: CancellationException) { throw e }
-                    catch(_: Exception) { error = true }
-                    finally { busy = false }
-                }
+                confirmation = null
+                act { actions.respondSharedInvitation(invitation.id, accept); resolved = null; url = ""; invitations.reload() }
             }) { Text(stringResource(R.string.shared_confirm)) } },
             dismissButton = { TextButton(onClick = { confirmation = null }) { Text(stringResource(R.string.shared_cancel)) } })
     }
