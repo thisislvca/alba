@@ -62,6 +62,12 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.viewer.sharedPhoto
+import android.media.MediaMetadataRetriever
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.unit.IntSize
+import java.io.FileNotFoundException
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 
 private data class TransitionThumbnailKey(val mediaId: String, val sourceRevision: String)
 
@@ -124,9 +130,9 @@ fun MediaThumbnail(
         decodeFailure = null; decoding = true
         val decoded = try { thumbnailMemoryCache.get(key) ?: withContext(Dispatchers.IO) {
             decodeThumbnail(context, key.reference, key.targetSidePx, key.fullImage)
-        } } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        } } catch (e: CancellationException) { throw e }
         catch (_: SecurityException) { decodeFailure = ThumbnailFailure.ACCESS; null }
-        catch (_: java.io.FileNotFoundException) { decodeFailure = ThumbnailFailure.MISSING; null }
+        catch (_: FileNotFoundException) { decodeFailure = ThumbnailFailure.MISSING; null }
         catch (_: Exception) { decodeFailure = ThumbnailFailure.DECODE; null }
         finally { decoding = false }
         decoded?.also { loaded ->
@@ -145,7 +151,7 @@ fun MediaThumbnail(
     } }
 
     val thumbnailOwner = remember { Any() }
-    androidx.compose.runtime.DisposableEffect(sharedMediaId, sourceRevision, bitmap) {
+    DisposableEffect(sharedMediaId, sourceRevision, bitmap) {
         val key = sharedMediaId?.let { TransitionThumbnailKey(it, sourceRevision) }
         val loaded = bitmap
         if (key != null && loaded != null) visibleThumbnails.getOrPut(key) { mutableMapOf() }[thumbnailOwner] = loaded
@@ -160,10 +166,10 @@ fun MediaThumbnail(
     val tap by rememberUpdatedState(onTap)
     val zoomChanged by rememberUpdatedState(onZoomChanged)
     LaunchedEffect(zoom > 1f) { zoomChanged(zoom > 1f) }
-    var bounds by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    var bounds by remember { mutableStateOf(IntSize.Zero) }
     fun clamp(value: Offset): Offset {
         val loaded = bitmap ?: return Offset.Zero
-        return constrainPhotoPan(value, bounds, androidx.compose.ui.unit.IntSize(loaded.width, loaded.height), zoom)
+        return constrainPhotoPan(value, bounds, IntSize(loaded.width, loaded.height), zoom)
     }
     val transformState = rememberTransformableState { scale, pan, _ ->
         zoom = (zoom * scale).coerceIn(1f, 5f)
@@ -254,10 +260,10 @@ private fun decodeThumbnail(context: Context, reference: String, targetSidePx: I
     val contentReference = reference.startsWith("content://")
     val isVideo = contentReference && context.contentResolver.getType(reference.toUri())?.startsWith("video/") == true
     val bitmap = if (isVideo && fullImage) {
-        val retriever = android.media.MediaMetadataRetriever()
+        val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(context, reference.toUri())
-            retriever.getScaledFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC, targetSidePx, targetSidePx)
+            retriever.getScaledFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, targetSidePx, targetSidePx)
         } finally { retriever.release() }
     } else if (contentReference && !fullImage && Build.VERSION.SDK_INT >= 29) {
         context.contentResolver.loadThumbnail(reference.toUri(), Size(targetSidePx, targetSidePx), null)
@@ -273,7 +279,7 @@ private fun decodeThumbnail(context: Context, reference: String, targetSidePx: I
         }
     }
     if (!contentReference) File(reference).setLastModified(System.currentTimeMillis())
-    return bitmap ?: throw java.io.IOException("No decodable frame")
+    return bitmap ?: throw IOException("No decodable frame")
 }
 
 private fun thumbnailCacheKilobytes(): Int = (Runtime.getRuntime().maxMemory() / 1_024L / 8L)
@@ -285,8 +291,8 @@ private const val MAX_CACHE_KB = 16 * 1_024
 
 
 /** Clamp to the fitted image, not the letterboxed viewport, so panning cannot lose the photo. */
-internal fun constrainPhotoPan(offset: Offset, viewport: androidx.compose.ui.unit.IntSize,
-    image: androidx.compose.ui.unit.IntSize, zoom: Float): Offset {
+internal fun constrainPhotoPan(offset: Offset, viewport: IntSize,
+    image: IntSize, zoom: Float): Offset {
     if (image.width <= 0 || image.height <= 0) return Offset.Zero
     val fit = minOf(viewport.width.toFloat() / image.width, viewport.height.toFloat() / image.height)
     val horizontal = ((image.width * fit * zoom - viewport.width) / 2).coerceAtLeast(0f)

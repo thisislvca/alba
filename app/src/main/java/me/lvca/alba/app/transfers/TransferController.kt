@@ -49,6 +49,7 @@ import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.work.BackgroundSessionDecision
 import me.lvca.alba.app.work.backgroundSessionDecision
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 /** Batches, uploads and automatic backup, as the UI shows them. */
 data class TransferState(
@@ -72,7 +73,7 @@ data class BackupSetup(
  * Moves media in and out of the library: batch downloads and removals, uploads, automatic backup and the verified
  * trash handoff. Upload and backup behaviour comes from a [TransferMode], so the demo is a mode rather than a branch.
  */
-@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class TransferController(
     private val scope: CoroutineScope,
     private val savedState: SavedStateHandle,

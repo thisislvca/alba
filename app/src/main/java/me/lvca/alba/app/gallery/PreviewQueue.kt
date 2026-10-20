@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.withPermit
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
 import me.lvca.alba.app.diagnostics.DiagnosticOperation
 import me.lvca.alba.app.diagnostics.DiagnosticOutcome
+import me.lvca.alba.engine.cache.InsufficientStorageException
 
 /** Main-thread confined queue: keeps visible work bounded and retires obsolete look-ahead. */
 internal class PreviewQueue(
@@ -79,7 +80,7 @@ internal class PreviewQueue(
                     throw error
                 }
                 span.finish(DiagnosticOutcome.FAILED, error = error)
-                if (error is me.lvca.alba.engine.cache.InsufficientStorageException) storageBlocked = true
+                if (error is InsufficientStorageException) storageBlocked = true
                 if (selectedMediaId() == mediaId || storageBlocked) {
                     onFailure(error)
                 }

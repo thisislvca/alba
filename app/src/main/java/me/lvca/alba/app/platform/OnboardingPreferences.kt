@@ -2,9 +2,10 @@ package me.lvca.alba.app.platform
 
 import android.content.Context
 import androidx.core.content.edit
+import me.lvca.alba.protocol.account.DemoModeStore
 
 /** Installation-level introduction; independent of Apple accounts and backup consent. */
-internal class OnboardingPreferences(context: Context) : me.lvca.alba.protocol.account.DemoModeStore {
+internal class OnboardingPreferences(context: Context) : DemoModeStore {
     override var enabled: Boolean
         get() = preferences.getBoolean("demo-explicitly-selected", false)
         set(value) { preferences.edit { putBoolean("demo-explicitly-selected", value) } }

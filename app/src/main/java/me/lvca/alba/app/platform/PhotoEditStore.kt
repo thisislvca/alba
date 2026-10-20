@@ -13,6 +13,11 @@ import androidx.exifinterface.media.ExifInterface
 import me.lvca.alba.engine.model.*
 import java.io.File
 import kotlinx.coroutines.*
+import android.graphics.ColorSpace
+import android.net.Uri
+import android.provider.DocumentsContract
+import java.io.OutputStream
+import kotlin.math.sqrt
 
 /** Editing always publishes a new local JPEG. Cloud and local originals are never overwritten. */
 class PhotoEditStore(context: Context, private val repository: OriginalExporter) {
@@ -25,7 +30,7 @@ class PhotoEditStore(context: Context, private val repository: OriginalExporter)
         try {
             file.outputStream().use { target ->
                 var bytes = 0L
-                val output = object : java.io.OutputStream() {
+                val output = object : OutputStream() {
                     override fun write(b: Int) = write(byteArrayOf(b.toByte()))
                     override fun write(b: ByteArray, off: Int, len: Int) { bytes += len; check(bytes <= 100_000_000L); target.write(b, off, len) }
                 }
@@ -51,7 +56,7 @@ suspend fun renderPhotoEdit(file: File, crop: PhotoCrop, quarterTurns: Int,
         val region = crop.pixels(info.size.width, info.size.height)
         // Rotation temporarily owns both the decoded region and the rotated output.
         val bytes = region.width().toLong() * region.height() * if (quarterTurns % 4 == 0) 4L else 8L
-        val scale = minOf(1.0, kotlin.math.sqrt(memoryBudget.toDouble() / bytes.coerceAtLeast(1)))
+        val scale = minOf(1.0, sqrt(memoryBudget.toDouble() / bytes.coerceAtLeast(1)))
         if (scale < 1.0 && !allowSmallerCopy) {
             val width = (region.width() * scale).toInt().coerceAtLeast(1)
             val height = (region.height() * scale).toInt().coerceAtLeast(1)
@@ -62,7 +67,7 @@ suspend fun renderPhotoEdit(file: File, crop: PhotoCrop, quarterTurns: Int,
         decoder.setTargetSize(targetWidth, targetHeight)
         decoder.crop = crop.pixels(targetWidth, targetHeight)
         decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-        decoder.setTargetColorSpace(android.graphics.ColorSpace.get(android.graphics.ColorSpace.Named.SRGB))
+        decoder.setTargetColorSpace(ColorSpace.get(ColorSpace.Named.SRGB))
     }
     if (quarterTurns % 4 == 0) decoded else Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height,
         Matrix().apply { postRotate((quarterTurns % 4) * 90f) }, true).also { if (it !== decoded) decoded.recycle() }
@@ -74,8 +79,8 @@ private fun editMemoryBudget(): Long {
     return minOf(runtime.maxMemory() * 3 / 5, available - 32 * 1024 * 1024).coerceAtLeast(8 * 1024 * 1024)
 }
 
-suspend fun saveEditedCopy(context: Context, media: GalleryMedia, bitmap: Bitmap, document: android.net.Uri? = null,
-    source: File? = null): android.net.Uri = withContext(Dispatchers.IO) {
+suspend fun saveEditedCopy(context: Context, media: GalleryMedia, bitmap: Bitmap, document: Uri? = null,
+    source: File? = null): Uri = withContext(Dispatchers.IO) {
     val prepared = prepareEditedCopy(context, bitmap, source)
     try { publishEditedCopy(context, media, prepared, document) } finally { prepared.delete() }
 }
@@ -94,7 +99,7 @@ internal suspend fun prepareEditedCopy(context: Context, bitmap: Bitmap, source:
 }
 
 internal suspend fun publishEditedCopy(context: Context, media: GalleryMedia, prepared: File,
-    document: android.net.Uri? = null): android.net.Uri = withContext(Dispatchers.IO) {
+    document: Uri? = null): Uri = withContext(Dispatchers.IO) {
     val resolver = context.contentResolver
     val uri = document ?: run {
         check(Build.VERSION.SDK_INT >= 29)
@@ -111,7 +116,7 @@ internal suspend fun publishEditedCopy(context: Context, media: GalleryMedia, pr
         ensureActive()
         if (document == null) check(resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1)
     } catch (e: Throwable) {
-        withContext(NonCancellable) { runCatching { if (document == null) resolver.delete(uri, null, null) else android.provider.DocumentsContract.deleteDocument(resolver, uri) } }
+        withContext(NonCancellable) { runCatching { if (document == null) resolver.delete(uri, null, null) else DocumentsContract.deleteDocument(resolver, uri) } }
         throw e
     }
     uri

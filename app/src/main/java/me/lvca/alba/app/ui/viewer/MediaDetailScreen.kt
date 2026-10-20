@@ -76,6 +76,8 @@ import me.lvca.alba.app.ui.shared.SharedPhotoControls
 import me.lvca.alba.app.ui.timeLabel
 import me.lvca.alba.app.ui.timestampLabel
 import me.lvca.alba.app.ui.transfers.DeviceUploadControls
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import kotlinx.coroutines.CancellationException
 
 @Composable
 internal fun MediaDetailScreen(
@@ -89,7 +91,7 @@ internal fun MediaDetailScreen(
     isDownloadingOriginal: Boolean,
     actions: MediaScreenActions,
     onPageSettled: (String) -> Unit,
-    gallerySnapshot: androidx.compose.ui.graphics.layer.GraphicsLayer? = null,
+    gallerySnapshot: GraphicsLayer? = null,
     onViewerLightBars: (Boolean) -> Unit = {},
 ) {
     // AlbaRoot owns system-bar contrast for the active destination. Restoring an
@@ -168,7 +170,7 @@ internal fun MediaDetailScreen(
             try {
                 progress.collect { event -> motion.moveTo(if (wasExpanded) -detailsHeightPx * (1f - event.progress) else heightPx * .4f * event.progress) }
                 if (wasExpanded) showDetails(false) else actions.closeMedia()
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            } catch (cancelled: CancellationException) {
                 motion.settle(scope, if (wasExpanded) -detailsHeightPx else 0f)
             }
         }
@@ -213,7 +215,7 @@ internal fun MediaDetailScreen(
                         if (active && item.origin == MediaOrigin.ICLOUD && item.kind != MediaKind.VIDEO) {
                             loading = true; failed = false
                             try { actions.loadViewer(item.id) }
-                            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                            catch (e: CancellationException) { throw e }
                             catch (_: Exception) { failed = true }
                             finally { loading = false }
                         }

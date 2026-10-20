@@ -10,6 +10,7 @@ import me.lvca.alba.app.diagnostics.DiagnosticOperation
 import me.lvca.alba.app.diagnostics.DiagnosticOutcome
 import me.lvca.alba.app.work.BackgroundSessionDecision
 import me.lvca.alba.app.work.backgroundSessionDecision
+import me.lvca.alba.engine.model.WakeReason
 
 class BackupWakeWorker(
     context: Context,
@@ -48,7 +49,7 @@ class BackupWakeWorker(
                     return Result.success()
                 }
             }
-            val summary = app.graph.maintenance.wake(me.lvca.alba.engine.model.WakeReason.BACKGROUND)
+            val summary = app.graph.maintenance.wake(WakeReason.BACKGROUND)
             span.finish(
                 DiagnosticOutcome.SUCCESS,
                 mapOf(

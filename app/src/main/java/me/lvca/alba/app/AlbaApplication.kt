@@ -6,10 +6,11 @@ import me.lvca.alba.app.diagnostics.DiagnosticOperation
 import me.lvca.alba.app.diagnostics.DiagnosticOutcome
 import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 import me.lvca.alba.app.work.LegacyWorkerFactory
+import androidx.work.Configuration
 
-class AlbaApplication : Application(), androidx.work.Configuration.Provider {
-    override val workManagerConfiguration: androidx.work.Configuration
-        get() = androidx.work.Configuration.Builder()
+class AlbaApplication : Application(), Configuration.Provider {
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
             // Keep WorkManager IDs separate from the user-initiated transfer job.
             .setJobSchedulerJobIdRange(10_000, 19_999)
             .setWorkerFactory(LegacyWorkerFactory())

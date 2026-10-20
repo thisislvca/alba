@@ -15,6 +15,12 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.toArgb
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import android.graphics.Bitmap
+import android.graphics.BlurMaskFilter
+import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
 
 /** Original vector geometry for Alba's account card. */
 @Composable
@@ -81,20 +87,20 @@ internal fun Modifier.profileAvatarCloud(shadowColor: Color): Modifier = drawWit
     // Rasterize only the soft inset edge: BlurMaskFilter is inconsistent on hardware canvases.
     // The small bitmap is cached with the drawing size/density, never regenerated per frame.
     val margin = 56.dp.toPx()
-    val bitmap = android.graphics.Bitmap.createBitmap(
+    val bitmap = Bitmap.createBitmap(
         (size.width + margin * 2).toInt().coerceAtLeast(1),
         (size.height + margin * 2).toInt().coerceAtLeast(1),
-        android.graphics.Bitmap.Config.ARGB_8888,
+        Bitmap.Config.ARGB_8888,
     )
-    val canvas = android.graphics.Canvas(bitmap)
+    val canvas = Canvas(bitmap)
     canvas.translate(margin, margin)
     canvas.clipPath(cloud.asAndroidPath())
-    val edgeShadow = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        style = android.graphics.Paint.Style.STROKE
+    val edgeShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
         strokeWidth = 12.dp.toPx()
-        maskFilter = android.graphics.BlurMaskFilter(7.dp.toPx(), android.graphics.BlurMaskFilter.Blur.NORMAL)
-        shader = android.graphics.LinearGradient(0f, 0f, 0f, 118.dp.toPx(),
-            intArrayOf(shadowColor.toArgb(), shadowColor.copy(alpha = 0f).toArgb()), floatArrayOf(0f, 1f), android.graphics.Shader.TileMode.CLAMP)
+        maskFilter = BlurMaskFilter(7.dp.toPx(), BlurMaskFilter.Blur.NORMAL)
+        shader = LinearGradient(0f, 0f, 0f, 118.dp.toPx(),
+            intArrayOf(shadowColor.toArgb(), shadowColor.copy(alpha = 0f).toArgb()), floatArrayOf(0f, 1f), Shader.TileMode.CLAMP)
     }
     canvas.drawPath(cloud.asAndroidPath(), edgeShadow)
     val shadow = bitmap.asImageBitmap()

@@ -20,6 +20,15 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
+import android.content.ClipData
+import android.content.Intent
+import android.os.StatFs
+import android.provider.DocumentsContract
+import androidx.core.content.FileProvider
+import java.io.File
+import java.util.UUID
+import java.util.zip.Deflater
+import me.lvca.alba.engine.model.MediaOrigin
 
 /** Publishes new copies only; it never modifies the source or asks for broad storage access. */
 class GalleryExporter(context: Context, private val repository: OriginalExporter) {
@@ -27,21 +36,21 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
     private val resolver = appContext.contentResolver
 
     /** Only completed copies in this directory are exposed to the chosen share target. */
-    suspend fun prepareShare(items: List<GalleryMedia>): android.content.Intent = withContext(Dispatchers.IO) {
+    suspend fun prepareShare(items: List<GalleryMedia>): Intent = withContext(Dispatchers.IO) {
         require(items.isNotEmpty() && items.size <= 50) { StoredMessage.CHOOSE_BETWEEN_1_AND_50_PHOTOS_TO_SHARE_AT_ONCE.code }
-        val root = java.io.File(appContext.cacheDir, "shares").apply { mkdirs() }
+        val root = File(appContext.cacheDir, "shares").apply { mkdirs() }
         val expiry = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         root.listFiles()?.filter { it.lastModified() < expiry }?.forEach { it.deleteRecursively() }
-        val directory = java.io.File(root, java.util.UUID.randomUUID().toString()).apply { check(mkdirs()) }
+        val directory = File(root, UUID.randomUUID().toString()).apply { check(mkdirs()) }
         try {
-            val context = kotlinx.coroutines.currentCoroutineContext()
+            val context = currentCoroutineContext()
             var total = 0L
             var nextSpaceCheck = 0L
             val uris = items.mapIndexed { index, media ->
-                kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                val file = java.io.File(directory, "${index + 1}-${exportName(media)}")
+                currentCoroutineContext().ensureActive()
+                val file = File(directory, "${index + 1}-${exportName(media)}")
                 file.outputStream().use { raw ->
-                    val output = object : java.io.OutputStream() {
+                    val output = object : OutputStream() {
                         override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
                         override fun write(bytes: ByteArray, offset: Int, length: Int) {
                             context.ensureActive()
@@ -49,7 +58,7 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
                             check(total <= 2_000_000_000L) { StoredMessage.SHARE_UP_TO_2_GB_AT_A_TIME_TRY_FEWER_ITEMS.code }
                             if (total >= nextSpaceCheck) {
                                 // Leave headroom without evicting unrelated application caches for a share.
-                                check(android.os.StatFs(directory.path).availableBytes > 16_000_000L) {
+                                check(StatFs(directory.path).availableBytes > 16_000_000L) {
                                     StoredMessage.NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS.code
                                 }
                                 nextSpaceCheck = total + 1_000_000L
@@ -57,26 +66,26 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
                             raw.write(bytes, offset, length)
                         }
                     }
-                    if (media.origin == me.lvca.alba.engine.model.MediaOrigin.DEVICE) {
+                    if (media.origin == MediaOrigin.DEVICE) {
                         val uri = requireNotNull(media.originalReference) { "Phone photo is no longer available." }.toUri()
                         require(uri.scheme == "content")
                         checkNotNull(resolver.openInputStream(uri)).use { it.copyTo(output) }
                     } else repository.exportOriginal(media.id, output)
                 }
-                androidx.core.content.FileProvider.getUriForFile(appContext, "${appContext.packageName}.shares", file)
+                FileProvider.getUriForFile(appContext, "${appContext.packageName}.shares", file)
             }
-            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            currentCoroutineContext().ensureActive()
             val mimes = items.map { it.mimeType }.distinct()
             val mime = if (mimes.size == 1) mimes.single() else if (mimes.all { it.startsWith("image/") }) "image/*"
                 else if (mimes.all { it.startsWith("video/") }) "video/*" else "*/*"
-            android.content.Intent(if (uris.size == 1) android.content.Intent.ACTION_SEND else android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+            Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
                 type = mime
-                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                clipData = android.content.ClipData.newUri(resolver, appContext.getString(R.string.photos), uris.first()).apply {
-                    uris.drop(1).forEach { addItem(android.content.ClipData.Item(it)) }
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData = ClipData.newUri(resolver, appContext.getString(R.string.photos), uris.first()).apply {
+                    uris.drop(1).forEach { addItem(ClipData.Item(it)) }
                 }
-                if (uris.size == 1) putExtra(android.content.Intent.EXTRA_STREAM, uris.single())
-                else putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, ArrayList(uris))
+                if (uris.size == 1) putExtra(Intent.EXTRA_STREAM, uris.single())
+                else putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
             }
         } catch (error: Throwable) {
             directory.deleteRecursively()
@@ -85,7 +94,7 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
     }
 
     suspend fun clearShares() = withContext(Dispatchers.IO) {
-        java.io.File(appContext.cacheDir, "shares").deleteRecursively()
+        File(appContext.cacheDir, "shares").deleteRecursively()
         Unit
     }
 
@@ -107,7 +116,7 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
                 pending += uri
                 checkNotNull(resolver.openOutputStream(uri, "w")).use { output ->
                     repository.exportOriginal(media.id, StorageWriteGuard(output, currentCoroutineContext(), {
-                        android.os.StatFs((appContext.getExternalFilesDir(null) ?: appContext.filesDir).path).availableBytes
+                        StatFs((appContext.getExternalFilesDir(null) ?: appContext.filesDir).path).availableBytes
                     }), motion)
                 }
             }
@@ -131,7 +140,7 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
             }
         } catch (error: Throwable) {
             // Remove only the new document created for this export; never touch its source.
-            withContext(NonCancellable) { runCatching { android.provider.DocumentsContract.deleteDocument(resolver, uri) } }
+            withContext(NonCancellable) { runCatching { DocumentsContract.deleteDocument(resolver, uri) } }
             throw error
         }
     }
@@ -139,7 +148,7 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
     internal suspend fun writeLivePhotoArchive(media: GalleryMedia, output: OutputStream) {
         require(media.kind == MediaKind.LIVE_PHOTO)
         ZipOutputStream(output).use { zip ->
-            zip.setLevel(java.util.zip.Deflater.NO_COMPRESSION)
+            zip.setLevel(Deflater.NO_COMPRESSION)
             for (motion in listOf(false, true)) {
                 zip.putNextEntry(ZipEntry(exportName(media, motion)).apply { time = media.capturedAtEpochMillis })
                 repository.exportOriginal(media.id, zip, motion)

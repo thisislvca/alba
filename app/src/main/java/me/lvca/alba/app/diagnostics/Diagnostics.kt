@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import me.lvca.alba.app.BuildConfig
+import android.content.SharedPreferences
+import io.sentry.protocol.SentryTransaction
+import java.util.UUID
 
 enum class DiagnosticOperation(val wireName: String, val sampleRate: Double) {
     APP_INITIALIZED("app.initialized", 1.0),
@@ -97,7 +100,7 @@ class SentryAlbaDiagnostics(context: Context) : AlbaDiagnostics, AccountTelemetr
     private val preferences = appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     private val sessionStore = SessionLifetimeStore(preferences)
     private val installationId = preferences.getString(INSTALLATION_ID, null)
-        ?: java.util.UUID.randomUUID().toString().also {
+        ?: UUID.randomUUID().toString().also {
             preferences.edit().putString(INSTALLATION_ID, it).apply()
         }
     private val initialized = AtomicBoolean(false)
@@ -342,7 +345,7 @@ class SentryAlbaDiagnostics(context: Context) : AlbaDiagnostics, AccountTelemetr
         return event
     }
 
-    private fun sanitize(transaction: io.sentry.protocol.SentryTransaction): io.sentry.protocol.SentryTransaction {
+    private fun sanitize(transaction: SentryTransaction): SentryTransaction {
         transaction.user = anonymousUser()
         transaction.request = null
         transaction.serverName = null
@@ -367,7 +370,7 @@ private data class SessionLifetime(
 )
 
 private class SessionLifetimeStore(
-    private val preferences: android.content.SharedPreferences,
+    private val preferences: SharedPreferences,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     @Synchronized

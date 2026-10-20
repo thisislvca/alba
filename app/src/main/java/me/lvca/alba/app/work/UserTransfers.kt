@@ -20,6 +20,7 @@ import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.UserTransferJobService
 import me.lvca.alba.app.UserTransferWorker
+import java.io.IOException
 
 private const val TRANSFER_JOB_ID = 1701
 internal const val TRANSFER_NOTIFICATION_ID = 1702
@@ -51,7 +52,7 @@ internal suspend fun runUserTransfers(app: AlbaApplication) {
     graph.accountManager.restore()
     when (backgroundSessionDecision(graph.accountManager.state.value, graph.accountManager.session.value != null)) {
         BackgroundSessionDecision.PAUSE -> return
-        BackgroundSessionDecision.RETRY -> throw java.io.IOException("Account verification is unavailable")
+        BackgroundSessionDecision.RETRY -> throw IOException("Account verification is unavailable")
         BackgroundSessionDecision.RUN -> Unit
     }
     while (graph.batches.runPending()) currentCoroutineContext().ensureActive()

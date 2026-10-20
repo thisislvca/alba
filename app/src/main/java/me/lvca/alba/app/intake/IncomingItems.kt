@@ -7,6 +7,8 @@ import android.provider.OpenableColumns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
+import java.io.FileNotFoundException
+import kotlinx.coroutines.CancellationException
 
 internal data class IncomingItem(val uri: Uri, val name: String, val mime: String?, val failure: Int? = null)
 internal suspend fun inspectIncoming(context: Context, value: String): IncomingItem = withContext(Dispatchers.IO) {
@@ -18,8 +20,8 @@ internal suspend fun inspectIncoming(context: Context, value: String): IncomingI
     } ?: context.getString(R.string.photos)
     if (mime == null) context.contentResolver.openInputStream(uri)?.use { /* distinguish lost access from an unsupported type */ }
     IncomingItem(uri, name, mime)
-    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+    } catch (e: CancellationException) { throw e }
     catch (_: SecurityException) { IncomingItem(uri, context.getString(R.string.photos), null, R.string.incoming_access_lost) }
-    catch (_: java.io.FileNotFoundException) { IncomingItem(uri, context.getString(R.string.photos), null, R.string.incoming_file_missing) }
+    catch (_: FileNotFoundException) { IncomingItem(uri, context.getString(R.string.photos), null, R.string.incoming_file_missing) }
     catch (_: Exception) { IncomingItem(uri, context.getString(R.string.photos), null, R.string.incoming_unsupported) }
 }

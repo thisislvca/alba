@@ -35,6 +35,11 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.viewer.VideoPlayer
+import android.content.ClipData
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 
 @Composable
 internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: ICloudAccountState, message: UiMessage?,
@@ -51,10 +56,10 @@ internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: I
     var zoomed by remember(request, pager.currentPage) { mutableStateOf(false) }
     var shareFailed by remember(request) { mutableStateOf(false) }
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val view = androidx.compose.ui.platform.LocalView.current
+        val view = LocalView.current
         DisposableEffect(view) {
-            (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { window ->
-                androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+            (view.parent as? DialogWindowProvider)?.window?.let { window ->
+                WindowCompat.getInsetsController(window, view).apply {
                     isAppearanceLightStatusBars = false; isAppearanceLightNavigationBars = false
                 }
             }
@@ -72,7 +77,7 @@ internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: I
                             shareFailed = false
                             runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                                 type = item.mime; putExtra(Intent.EXTRA_STREAM, item.uri)
-                                clipData = android.content.ClipData.newRawUri(item.name, item.uri)
+                                clipData = ClipData.newRawUri(item.name, item.uri)
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }, shareLabel)) }.onFailure { shareFailed = true }
                         }) { Icon(Icons.Outlined.Share, stringResource(R.string.share)) } }
@@ -111,7 +116,7 @@ internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: I
                 }
             }
             if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(if (demo) R.string.demo_upload_title else R.string.upload_phone_jpegs)) },
-                text = { Text(if (demo) stringResource(R.string.demo_upload_disclosure) else androidx.compose.ui.res.pluralStringResource(R.plurals.incoming_upload_confirm, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) }, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) })) },
+                text = { Text(if (demo) stringResource(R.string.demo_upload_disclosure) else pluralStringResource(R.plurals.incoming_upload_confirm, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) }, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) })) },
                 confirmButton = { TextButton(modifier = Modifier.testTag("confirm-incoming-upload"), onClick = {
                     confirm = false; sent = true
                     upload(items.orEmpty().filter { UploadMediaFormat.isCandidate(it.mime) }.map { it.uri })

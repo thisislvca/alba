@@ -28,12 +28,16 @@ import me.lvca.alba.app.platform.networkStatus
 import me.lvca.alba.app.transfers.TransferScheduler
 import me.lvca.alba.app.work.UserTransferScheduler
 import me.lvca.alba.app.work.WorkManagerWakeupScheduler
+import java.io.File
+import me.lvca.alba.engine.companion.GalleryBatchActions
+import me.lvca.alba.engine.database.RoomUploadCheckpointStore
+import me.lvca.alba.protocol.photos.EncryptedUploadJournal
 
 class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
     private val appContext = context.applicationContext
     val database = AlbaDatabase.create(appContext)
-    private val uploadJournal = me.lvca.alba.protocol.photos.EncryptedUploadJournal(
-        me.lvca.alba.engine.database.RoomUploadCheckpointStore(database),
+    private val uploadJournal = EncryptedUploadJournal(
+        RoomUploadCheckpointStore(database),
     )
     private val transport = OkHttpAppleTransport()
     private val authentication = AppleAuthenticationService(transport, telemetry = diagnostics)
@@ -57,9 +61,9 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         includeSharedAlbums = true,
         openPhoto = { index -> appContext.assets.open(if (index in setOf(19, 20)) "demo/ocean.webp" else "demo/${index.toString().padStart(2, '0')}.webp") },
         openVideo = { appContext.assets.open("fixture_video.mp4") },
-        uploadDirectory = java.io.File(appContext.cacheDir, "demo-imports").apply { deleteRecursively(); mkdirs() },
+        uploadDirectory = File(appContext.cacheDir, "demo-imports").apply { deleteRecursively(); mkdirs() },
     )
-    private val cloudCatalog = AccountAwareICloudCatalogSource(demoCatalog, liveCatalog, { accountManager.state.value == me.lvca.alba.protocol.account.ICloudAccountState.Demo }) { accountManager.session.value }
+    private val cloudCatalog = AccountAwareICloudCatalogSource(demoCatalog, liveCatalog, { accountManager.state.value == ICloudAccountState.Demo }) { accountManager.session.value }
     val galleryRepository = DefaultGalleryRepository(
         database = database,
         cloudSource = cloudCatalog,
@@ -88,7 +92,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         automaticBackupPolicy = AndroidAutomaticBackupPolicy(appContext),
     )
     val maintenance: MaintenanceWakeup = photos
-    val batches = me.lvca.alba.engine.companion.GalleryBatchActions(database.libraryDao(), galleryRepository, photos,
+    val batches = GalleryBatchActions(database.libraryDao(), galleryRepository, photos,
         saveToPhone = { id ->
             val media = galleryRepository.findMedia(id)
                 ?: error(StoredMessage.THE_PHOTO_IS_NO_LONGER_AVAILABLE.code)

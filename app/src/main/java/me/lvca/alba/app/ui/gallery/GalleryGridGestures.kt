@@ -9,6 +9,8 @@ import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 
 /** Selection uses a fixed starting snapshot so dragging back never leaves stray selected items. */
 internal fun selectionRange(ids: List<String>, anchor: String, end: String): Set<String> {
@@ -24,7 +26,7 @@ internal fun Modifier.galleryGestures(grid: LazyGridState, mediaIds: List<String
     val selectNow by rememberUpdatedState(select)
     val resizeNow by rememberUpdatedState(resize)
     val indexNow by rememberUpdatedState(indexForKey)
-    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val haptic = LocalHapticFeedback.current
     val sizeNow by rememberUpdatedState(tileSize)
     val edge = with(LocalDensity.current) { 64.dp.toPx() }
     var pointer by remember { mutableStateOf<Offset?>(null) }
@@ -64,7 +66,7 @@ internal fun Modifier.galleryGestures(grid: LazyGridState, mediaIds: List<String
             val press = awaitLongPressOrCancellation(down.id)
             if (press != null) {
                 hit(press.position)?.let { id ->
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     baseline = selected; selecting = id !in baseline; previous = emptySet()
                     anchor = id; pointer = press.position; update(press.position)
                 }
