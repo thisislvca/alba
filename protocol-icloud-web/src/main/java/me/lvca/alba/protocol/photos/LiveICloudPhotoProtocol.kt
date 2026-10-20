@@ -36,7 +36,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
 import me.lvca.alba.protocol.network.AppleClientProfile.addUploadClientBuild
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
@@ -78,7 +77,7 @@ class LiveICloudPhotoProtocol(
         ).jsonObject("Apple returned an invalid Photos zone response")
         val zone = response.array("zones")
             .mapNotNull { it as? JsonObject }
-            .firstOrNull { it.obj("zoneID")?.text("zoneName") == PRIMARY_ZONE_NAME }
+            .firstOrNull { it.obj("zoneID")?.text("zoneName") == PrimarySyncZone.NAME }
             ?: throw unavailable("Apple did not return the Personal Library zone")
         return zone.text("syncToken")
             ?: throw unavailable("Apple did not return a Photos change token")
@@ -185,7 +184,7 @@ class LiveICloudPhotoProtocol(
                 method = "POST",
                 url = cloudKitUrl(session, "/changes/zone"),
                 headers = JSON_HEADERS,
-                body = changesBody(afterChangeToken, limit),
+                body = PrimarySyncZone.changesBody(afterChangeToken, limit).toString(),
             ),
         ).jsonObject("Apple returned invalid Photos changes")
         val zone = response.array("zones").firstOrNull() as? JsonObject
@@ -325,20 +324,7 @@ class LiveICloudPhotoProtocol(
                 method = "POST",
                 url = cloudKitUrl(session, "/records/lookup"),
                 headers = JSON_HEADERS,
-                body = buildJsonObject {
-                    putJsonArray("records") {
-                        recordNames.distinct().forEach { name ->
-                            add(buildJsonObject { put("recordName", name) })
-                        }
-                    }
-                    putJsonObject("zoneID") {
-                        put("zoneName", PRIMARY_ZONE_NAME)
-                        put("zoneType", PRIMARY_ZONE_TYPE)
-                    }
-                    putJsonArray("desiredKeys") {
-                        LOOKUP_KEYS.forEach { add(JsonPrimitive(it)) }
-                    }
-                }.toString(),
+                body = PrimarySyncZone.lookupBody(recordNames.distinct(), LOOKUP_KEYS).toString(),
             ),
         ).jsonObject("Apple returned an invalid Photos record lookup")
         return response.array("records").mapNotNull { it as? JsonObject }
@@ -347,25 +333,7 @@ class LiveICloudPhotoProtocol(
     private suspend fun lookupRecordsInBatches(
         session: AppleSessionSnapshot,
         recordNames: List<String>,
-    ): List<JsonObject> = buildList {
-        recordNames.distinct().chunked(RECORD_LOOKUP_BATCH_SIZE).forEach { names ->
-            addAll(lookupRecords(session, names))
-        }
-    }
-
-    private fun changesBody(token: String, limit: Int): String = buildJsonObject {
-        putJsonArray("zones") {
-            add(buildJsonObject {
-                putJsonObject("zoneID") {
-                    put("zoneName", PRIMARY_ZONE_NAME)
-                    put("zoneType", PRIMARY_ZONE_TYPE)
-                }
-                put("syncToken", token)
-                put("reverse", false)
-            })
-        }
-        put("resultsLimit", limit)
-    }.toString()
+    ): List<JsonObject> = PrimarySyncZone.lookupInBatches(recordNames, RECORD_LOOKUP_BATCH_SIZE) { lookupRecords(session, it) }
 
     private suspend fun executeRead(session: AppleSessionSnapshot, request: AppleHttpRequest): AppleHttpResponse =
         cloudKit.send(session, request, verify = ::requireCurrentSession)
@@ -429,8 +397,6 @@ class LiveICloudPhotoProtocol(
 
     private companion object {
         const val UPLOAD_SERVICE = "photosupload"
-        const val PRIMARY_ZONE_NAME = "PrimarySync"
-        const val PRIMARY_ZONE_TYPE = "REGULAR_CUSTOM_ZONE"
         const val MASTER_RECORD_TYPE = "CPLMaster"
         const val ASSET_RECORD_TYPE = "CPLAsset"
         const val ORIGINAL_RESOURCE_KEY = "resOriginalRes"

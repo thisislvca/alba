@@ -33,7 +33,7 @@ internal class PhotosUpload(
     private val checkAuthorized: () -> Unit = {},
     private val lastModifiedAtEpochMillis: Long? = null,
     private val now: () -> Instant = { Instant.now() },
-    private val zoneName: String = "PrimarySync",
+    private val zoneName: String = PrimarySyncZone.NAME,
     private val assetBatchId: String? = null,
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
 ) : PreparedICloudUpload {

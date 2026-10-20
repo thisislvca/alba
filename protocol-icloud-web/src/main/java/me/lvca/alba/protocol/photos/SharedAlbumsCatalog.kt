@@ -62,11 +62,8 @@ internal class SharedAlbumsCatalog(
             val mapped = items.map { photo ->
                 val id = photoId(album, photo.assetRecordName)
                 loaded[id] = photo
-                RemoteMediaRecord(id, photo.fileName, photo.capturedAtEpochMillis, photo.width, photo.height,
-                    photo.sourceRevision, 0xff294e63, 0xff497187, photo.kind, photo.mimeType, photo.durationMillis,
-                    photo.masterRecordName, photo.assetRecordName,
-                    photo.resourceFingerprint.ifBlank { "${album.ctag}:${photo.masterRecordName}" },
-                    photo.motionMimeType, photo.addedAtEpochMillis, byteCount = photo.byteCount)
+                photo.toRemoteMediaRecord(id, SHARED_ACCENT_START, SHARED_ACCENT_END,
+                    resourceFingerprint = photo.resourceFingerprint.ifBlank { "${album.ctag}:${photo.masterRecordName}" })
             }
             records += mapped
             check(records.size <= 100000) { "Shared library is too large for a single snapshot." }
@@ -354,7 +351,7 @@ internal class SharedAlbumsCatalog(
         if (phase == "STARTING") error("The contribution result is uncertain. Check the album in iCloud before adding these photos again.")
         if (phase == "READY") {
             val zones = connection.ck("private", "zones/list", buildJsonObject {})["zones"]!!.jsonArray
-            val source = zones.map { it.jsonObject["zoneID"]!!.jsonObject }.first { it.text("zoneName") == "PrimarySync" }
+            val source = zones.map { it.jsonObject["zoneID"]!!.jsonObject }.first { it.text("zoneName") == PrimarySyncZone.NAME }
             save(key, "STARTING", pending)
             val response = connection.ck("private", "records/copy/start", buildJsonObject {
                 put("sourceZoneID", source); put("targetZoneID", album.zoneId()); put("targetShareName", "cloudkit.zoneshare")
@@ -1045,7 +1042,7 @@ internal class SharedAlbumsCatalog(
         if (old?.phase == "DONE") return
         if (old?.phase != "POLLING") {
             require(readAlbum(a).any { it.assetRecordName == asset })
-            val target = connection.ck("private", "zones/list", buildJsonObject {})["zones"]!!.jsonArray.map { it.jsonObject["zoneID"]!!.jsonObject }.first { it.text("zoneName") == "PrimarySync" }
+            val target = connection.ck("private", "zones/list", buildJsonObject {})["zones"]!!.jsonArray.map { it.jsonObject["zoneID"]!!.jsonObject }.first { it.text("zoneName") == PrimarySyncZone.NAME }
             save(key, "SENDING", pending)
             val result = connection.ck("private", "records/copy/start", buildJsonObject {
                 put("sourceZoneID", a.zoneId()); put("targetZoneID", target); put("sourceShareName", "cloudkit.zoneshare")
@@ -1071,5 +1068,10 @@ internal class SharedAlbumsCatalog(
 
     private fun filter(name: String, value: JsonPrimitive, type: String) = buildJsonObject {
         put("fieldName", name); put("comparator", "EQUALS"); putJsonObject("fieldValue") { put("type", type); put("value", value) }
+    }
+
+    private companion object {
+        const val SHARED_ACCENT_START = 0xff294e63
+        const val SHARED_ACCENT_END = 0xff497187
     }
 }

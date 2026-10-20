@@ -44,6 +44,33 @@ internal data class CloudPhotoAsset(
     val byteCount: Long? = null,
 )
 
+/** The engine record for this asset, published under [id]. */
+internal fun CloudPhotoAsset.toRemoteMediaRecord(
+    id: String,
+    accentStartArgb: Long,
+    accentEndArgb: Long,
+    resourceFingerprint: String = this.resourceFingerprint,
+) = me.lvca.alba.engine.source.RemoteMediaRecord(
+    id = id,
+    fileName = fileName,
+    capturedAtEpochMillis = capturedAtEpochMillis,
+    width = width,
+    height = height,
+    sourceRevision = sourceRevision,
+    accentStartArgb = accentStartArgb,
+    accentEndArgb = accentEndArgb,
+    kind = kind,
+    mimeType = mimeType,
+    durationMillis = durationMillis,
+    masterRecordName = masterRecordName,
+    assetRecordName = assetRecordName,
+    resourceFingerprint = resourceFingerprint,
+    motionMimeType = motionMimeType,
+    addedAtEpochMillis = addedAtEpochMillis,
+    isTrashed = isTrashed,
+    byteCount = byteCount,
+)
+
 internal data class ParsedCloudPhotoPage(
     val photos: List<CloudPhotoAsset>,
     val logicalAssetCount: Int,

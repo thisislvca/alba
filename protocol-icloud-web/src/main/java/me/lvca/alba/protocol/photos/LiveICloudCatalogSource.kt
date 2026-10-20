@@ -87,24 +87,20 @@ class LiveICloudCatalogSource(
         check(!CloudKitErrors.rejectedRequest(root)) { "Apple rejected the library request" }
         return root
     }
-    private fun zone() = buildJsonObject { put("zoneName", PRIMARY_ZONE_NAME); put("zoneType", PRIMARY_ZONE_TYPE) }
     override suspend fun captureSyncToken(): String {
         val response = api("zones/list", buildJsonObject {})
         return response["zones"]!!.jsonArray.map { it.jsonObject }.first {
-            it["zoneID"]!!.jsonObject["zoneName"]!!.jsonPrimitive.content == PRIMARY_ZONE_NAME
+            it["zoneID"]!!.jsonObject["zoneName"]!!.jsonPrimitive.content == PrimarySyncZone.NAME
         }["syncToken"]!!.jsonPrimitive.content
     }
-    private suspend fun lookup(names: Collection<String>): List<JsonObject> = names.distinct().chunked(50).flatMap { batch ->
-        if (batch.isEmpty()) emptyList() else api("records/lookup", buildJsonObject {
-            put("zoneID", zone()); putJsonArray("records") { batch.forEach { add(buildJsonObject { put("recordName", it) }) } }
-        })["records"]!!.jsonArray.map { it.jsonObject }
+    private suspend fun lookup(names: Collection<String>): List<JsonObject> = PrimarySyncZone.lookupInBatches(names, 50) { batch ->
+        api("records/lookup", PrimarySyncZone.lookupBody(batch))["records"]!!.jsonArray.map { it.jsonObject }
     }
-    private fun mapped(photo: CloudPhotoAsset): RemoteMediaRecord {
-        val id = "icloud:${accountLabel}:${photo.assetRecordName}"
+    /** Maps [photo] to the engine record and remembers its signed download URLs. */
+    private fun mapped(photo: CloudPhotoAsset, namespace: String = accountLabel): RemoteMediaRecord {
+        val id = "icloud:$namespace:${photo.assetRecordName}"
         downloads[id] = DownloadReferences(photo.previewDownloadUrl, photo.originalDownloadUrl, photo.playbackUrl, photo.motionDownloadUrl, photo.displayDownloadUrl)
-        return RemoteMediaRecord(id, photo.fileName, photo.capturedAtEpochMillis, photo.width, photo.height,
-            photo.sourceRevision, accent(id, 0), accent(id, 1), photo.kind, photo.mimeType, photo.durationMillis,
-            photo.masterRecordName, photo.assetRecordName, photo.resourceFingerprint, photo.motionMimeType, photo.addedAtEpochMillis, photo.isTrashed, photo.byteCount)
+        return photo.toRemoteMediaRecord(id, accent(id, 0), accent(id, 1))
     }
     private suspend fun hydrate(assetNames: Collection<String>, includeTrashed: Boolean = false): List<CloudPhotoAsset> {
         val assets = lookup(assetNames)
@@ -116,10 +112,7 @@ class LiveICloudCatalogSource(
         return parsed
     }
     override suspend fun changes(token: String, known: List<RemoteMediaRecord>): CloudChanges {
-        val root = api("changes/zone", buildJsonObject {
-            put("resultsLimit", 200)
-            putJsonArray("zones") { add(buildJsonObject { put("zoneID", zone()); put("syncToken", token); put("reverse", false) }) }
-        })
+        val root = api("changes/zone", PrimarySyncZone.changesBody(token, 200))
         val result = root["zones"]!!.jsonArray.single().jsonObject
         if (result["serverErrorCode"] != null) throw CatalogResetRequired()
         val deleted = mutableSetOf<String>()
@@ -155,7 +148,7 @@ class LiveICloudCatalogSource(
         do {
             check(visited.add("$offset:${marker.orEmpty()}")) { "Repeated collection cursor" }
             val page = api("records/query", buildJsonObject {
-                put("zoneID", zone()); put("resultsLimit", 200)
+                put("zoneID", PrimarySyncZone.zoneId()); put("resultsLimit", 200)
                 putJsonObject("query") {
                     put("recordType", type)
                     putJsonArray("filterBy") {
@@ -249,7 +242,7 @@ class LiveICloudCatalogSource(
     private suspend fun modify(session: AppleSessionSnapshot, operations: List<JsonObject>): List<JsonObject> {
         checkIdentity(session)
         val root = api("records/modify", buildJsonObject {
-            put("zoneID", zone()); put("atomic", true); put("operations", JsonArray(operations))
+            put("zoneID", PrimarySyncZone.zoneId()); put("atomic", true); put("operations", JsonArray(operations))
         })
         checkIdentity(session)
         val results = root["records"]?.jsonArray?.map { it.jsonObject }.orEmpty()
@@ -473,31 +466,7 @@ class LiveICloudCatalogSource(
         )
         val parsed = parser.parse(response.body)
         val namespace = ICloudAccountIdentity.namespace(session)
-        val records = parsed.photos.map { photo ->
-            val mediaId = "icloud:$namespace:${photo.assetRecordName}"
-            downloads[mediaId] = DownloadReferences(
-                previewUrl = photo.previewDownloadUrl,
-                displayUrl = photo.displayDownloadUrl,
-                originalUrl = photo.originalDownloadUrl,
-                playbackUrl = photo.playbackUrl,
-                motionUrl = photo.motionDownloadUrl,
-            )
-            currentRefreshIds += mediaId
-            RemoteMediaRecord(
-                id = mediaId,
-                fileName = photo.fileName,
-                capturedAtEpochMillis = photo.capturedAtEpochMillis,
-                addedAtEpochMillis = photo.addedAtEpochMillis,
-                width = photo.width,
-                height = photo.height,
-                sourceRevision = photo.sourceRevision,
-                accentStartArgb = accent(mediaId, 0),
-                accentEndArgb = accent(mediaId, 1),
-                kind = photo.kind, mimeType = photo.mimeType, durationMillis = photo.durationMillis,
-                masterRecordName = photo.masterRecordName, assetRecordName = photo.assetRecordName,
-                resourceFingerprint = photo.resourceFingerprint, motionMimeType = photo.motionMimeType, byteCount = photo.byteCount,
-            )
-        }
+        val records = parsed.photos.map { photo -> mapped(photo, namespace).also { currentRefreshIds += it.id } }
         val accumulatedCount = pageCursor.accumulatedCount + parsed.logicalAssetCount
         val nextOffset = pageCursor.offset + accumulatedCount
         val nextCursor = when {
@@ -589,8 +558,8 @@ class LiveICloudCatalogSource(
                 body = buildJsonObject {
                     putJsonObject("query") { put("recordType", "CheckIndexingState") }
                     putJsonObject("zoneID") {
-                        put("zoneName", PRIMARY_ZONE_NAME)
-                        put("zoneType", PRIMARY_ZONE_TYPE)
+                        put("zoneName", PrimarySyncZone.NAME)
+                        put("zoneType", PrimarySyncZone.TYPE)
                     }
                     put("resultsLimit", 1)
                 }.toString(),
@@ -654,8 +623,8 @@ class LiveICloudCatalogSource(
             }
         }
         putJsonObject("zoneID") {
-            put("zoneName", PRIMARY_ZONE_NAME)
-            put("zoneType", PRIMARY_ZONE_TYPE)
+            put("zoneName", PrimarySyncZone.NAME)
+            put("zoneType", PrimarySyncZone.TYPE)
         }
         putJsonArray("desiredKeys") {
             PHOTO_DESIRED_KEYS.forEach { add(JsonPrimitive(it)) }
@@ -717,8 +686,6 @@ class LiveICloudCatalogSource(
 
     private companion object {
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
-        const val PRIMARY_ZONE_NAME = "PrimarySync"
-        const val PRIMARY_ZONE_TYPE = "REGULAR_CUSTOM_ZONE"
         const val PHOTO_LIST_RECORD_TYPE = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"
         const val RECORDS_PER_PHOTO = 2
         val JSON_HEADERS = mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE)
