@@ -153,7 +153,7 @@ internal class VerifiedPhotoTrash(
         }
         if (result == SystemConsentCallback.APPROVED) {
             inspectTrashAttempt(attempt.value)
-            runCatching { scheduler.scheduleSoon() }
+            runSuspendCatching { scheduler.scheduleSoon() }
         } else {
             resolveDeniedTrashAttempt(attempt.value)
         }
@@ -171,7 +171,7 @@ internal class VerifiedPhotoTrash(
         val obligations = dao.findTrashObligations(attemptId)
         var allResolved = obligations.isNotEmpty()
         obligations.forEach { obligation ->
-            val state = runCatching { originals.readTrashState(obligation.contentUri) }.getOrNull()
+            val state = runSuspendCatching { originals.readTrashState(obligation.contentUri) }.getOrNull()
             val resolved = state != null && (rebooted || (approved && state.isTrashed))
             allResolved = allResolved && resolved
             dao.updateTrashObligation(

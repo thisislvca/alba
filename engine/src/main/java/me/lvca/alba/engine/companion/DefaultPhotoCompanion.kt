@@ -185,7 +185,7 @@ class DefaultPhotoCompanion(
         dao.findStagedSource(row.stagedSourceId)?.let { source ->
             releaseStage(source)
         }
-        runCatching { scheduler.scheduleSoon() }
+        runSuspendCatching { scheduler.scheduleSoon() }
     }
 
     override suspend fun wake(reason: WakeReason): WakeSummary = maintenanceGate.withLock {
@@ -229,7 +229,7 @@ class DefaultPhotoCompanion(
                     StoredMessage.A_SYSTEM_TRASH_REQUEST_MAY_STILL_EXECUTE_FINISH_THE_ANDROID_DIALOG_OR_RESTART_YOUR_DEVICE_AND_R.code,
                 )
             }
-            runCatching { scheduler.setAutomaticBackupEnabled(false) }
+            runSuspendCatching { scheduler.setAutomaticBackupEnabled(false) }
             return AccountChangeResult.Allowed
         }
         val result = accountGate(active.accountId).withLock {
@@ -256,7 +256,7 @@ class DefaultPhotoCompanion(
         }
         if (result is AccountChangeResult.Allowed) {
             deleteReleasableStages()
-            runCatching { scheduler.setAutomaticBackupEnabled(false) }
+            runSuspendCatching { scheduler.setAutomaticBackupEnabled(false) }
         }
         return result
     }
@@ -354,7 +354,7 @@ class DefaultPhotoCompanion(
             staging.deleteOwned(staged.ownedFileToken)
             throw error
         }
-        if (authorityType == AUTHORITY_AUTOMATIC) runCatching { scheduler.scheduleSoon() }
+        if (authorityType == AUTHORITY_AUTOMATIC) runSuspendCatching { scheduler.scheduleSoon() }
         return UploadTicket(TransferId(transferId))
     }
 
@@ -377,6 +377,8 @@ class DefaultPhotoCompanion(
         val uploadSource = try {
             staging.openVerified(source.ownedFileToken, source.byteCount, source.sha256Hex)
         } catch (error: Throwable) {
+            // A cancelled check says nothing about the staged file; keep it and let the lease expire.
+            if (error is CancellationException) throw error
             dao.markLeasedTransferNeedsAttention(
                 leased.transferId,
                 leaseToken,
@@ -389,12 +391,14 @@ class DefaultPhotoCompanion(
         val preUploadToken = try {
             protocol.captureChangeToken(binding)
         } catch (error: Throwable) {
+            if (error is CancellationException) throw error
             dao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.COULD_NOT_READ_THE_ICLOUD_CHANGE_CURSOR.code)
             return 0
         }
         val prepared = try {
             protocol.prepareOriginal(binding, source.displayName, uploadSource, source.lastModifiedAtEpochMillis)
         } catch (error: Throwable) {
+            if (error is CancellationException) throw error
             dao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.COULD_NOT_PREPARE_THE_ICLOUD_UPLOAD.code)
             return 0
         }
@@ -874,7 +878,7 @@ class DefaultPhotoCompanion(
                 ),
             )
         }
-        if (page.moreComing) runCatching { scheduler.scheduleSoon() }
+        if (page.moreComing) runSuspendCatching { scheduler.scheduleSoon() }
         // Cached rows can belong to an older enrollment; use only the scoped page.
         val item = page.items.firstOrNull()
         if (item == null) {
@@ -951,7 +955,7 @@ class DefaultPhotoCompanion(
             dao.upsertAccount(account)
             account.toBinding()
         }
-        if (replacedActiveAccount) runCatching { scheduler.setAutomaticBackupEnabled(false) }
+        if (replacedActiveAccount) runSuspendCatching { scheduler.setAutomaticBackupEnabled(false) }
         return binding
     }
 
