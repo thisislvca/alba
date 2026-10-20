@@ -11,9 +11,9 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import me.lvca.alba.app.intake.incomingSharedInvitation
-import me.lvca.alba.app.ui.SharedAlbumActivity
-import me.lvca.alba.app.ui.SharedAlbumControls
-import me.lvca.alba.app.ui.SharedInvitations
+import me.lvca.alba.app.ui.shared.SharedAlbumActivity
+import me.lvca.alba.app.ui.shared.SharedAlbumControls
+import me.lvca.alba.app.ui.shared.SharedInvitations
 
 class SharedCompletionTest {
     @get:Rule val compose = createComposeRule()

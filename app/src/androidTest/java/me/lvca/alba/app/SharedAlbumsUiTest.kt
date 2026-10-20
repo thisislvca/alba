@@ -15,11 +15,11 @@ import java.io.File
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
-import me.lvca.alba.app.ui.AlbumChooser
-import me.lvca.alba.app.ui.SharedAlbumBadge
-import me.lvca.alba.app.ui.SharedAlbumDetails
-import me.lvca.alba.app.ui.SharedContributionPicker
-import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.collections.AlbumChooser
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.shared.SharedAlbumBadge
+import me.lvca.alba.app.ui.shared.SharedAlbumDetails
+import me.lvca.alba.app.ui.shared.SharedContributionPicker
 
 class SharedAlbumsUiTest {
     @get:Rule val compose = createComposeRule()

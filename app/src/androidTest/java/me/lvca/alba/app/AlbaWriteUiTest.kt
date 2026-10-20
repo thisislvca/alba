@@ -23,7 +23,7 @@ import me.lvca.alba.app.actions.MediaWork
 import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.AlbaApp
-import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 
 class AlbaWriteUiTest {
     @get:Rule

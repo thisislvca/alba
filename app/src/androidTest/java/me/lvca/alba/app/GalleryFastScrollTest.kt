@@ -18,8 +18,8 @@ import androidx.compose.ui.unit.dp
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
-import me.lvca.alba.app.ui.GalleryFastScroll
-import me.lvca.alba.app.ui.GalleryScrollLabel
+import me.lvca.alba.app.ui.gallery.GalleryFastScroll
+import me.lvca.alba.app.ui.gallery.GalleryScrollLabel
 
 class GalleryFastScrollTest {
     @get:Rule val compose = createComposeRule()

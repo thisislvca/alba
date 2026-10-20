@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
-import me.lvca.alba.app.ui.mediaDuration
+import me.lvca.alba.app.ui.gallery.mediaDuration
 
 /** Exercises the new entry points against the real demo repository and video previews. */
 class GalleryAppearanceTest {

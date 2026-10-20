@@ -69,10 +69,11 @@ import me.lvca.alba.app.transfers.BackupSetup
 import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.app.ui.AlbaApp
 import me.lvca.alba.app.ui.InvitationActions
-import me.lvca.alba.app.ui.PhotoEditorScreen
-import me.lvca.alba.app.ui.SharedInvitations
-import me.lvca.alba.app.ui.WelcomeScreen
-import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.editor.PhotoEditorScreen
+import me.lvca.alba.app.ui.intake.IncomingMediaScreen
+import me.lvca.alba.app.ui.onboarding.WelcomeScreen
+import me.lvca.alba.app.ui.shared.SharedInvitations
 
 /** A confirmation or choice the root shows over the app. Only one is open at a time. */
 internal sealed interface RootDialog {

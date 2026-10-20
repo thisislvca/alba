@@ -18,7 +18,7 @@ import java.io.File
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import me.lvca.alba.app.ui.MediaThumbnail
+import me.lvca.alba.app.ui.gallery.MediaThumbnail
 
 @RunWith(AndroidJUnit4::class)
 class ThumbnailRevisionTest {

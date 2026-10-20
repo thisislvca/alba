@@ -20,8 +20,8 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.unit.dp
 import org.junit.Rule
 import org.junit.Test
-import me.lvca.alba.app.ui.GridAnchor
-import me.lvca.alba.app.ui.KeepGridAnchor
+import me.lvca.alba.app.ui.gallery.GridAnchor
+import me.lvca.alba.app.ui.gallery.KeepGridAnchor
 
 class GridAnchorTest {
     @get:Rule val compose = createComposeRule()

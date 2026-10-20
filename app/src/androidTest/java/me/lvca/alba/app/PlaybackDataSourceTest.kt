@@ -5,7 +5,7 @@ import me.lvca.alba.engine.source.MediaRead
 import java.io.ByteArrayInputStream
 import org.junit.Assert.*
 import org.junit.Test
-import me.lvca.alba.app.ui.LibraryDataSource
+import me.lvca.alba.app.ui.viewer.LibraryDataSource
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackDataSourceTest {

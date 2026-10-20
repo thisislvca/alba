@@ -9,7 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
-import me.lvca.alba.app.ui.loadThumbnail
+import me.lvca.alba.app.ui.gallery.loadThumbnail
 
 @RunWith(AndroidJUnit4::class)
 class PreviewDecodeTest {

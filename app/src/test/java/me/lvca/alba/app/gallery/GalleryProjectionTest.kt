@@ -36,12 +36,12 @@ class GalleryProjectionTest {
         val fallback = media("b", MediaOrigin.DEVICE, "2026-08-01T00:00:00Z")
         val sections = buildGallerySections(listOf(old, fallback), utc, me.lvca.alba.engine.model.GalleryDate.ADDED)
         assertEquals(listOf(java.time.YearMonth.of(2026, 9), java.time.YearMonth.of(2026, 8)), sections.map { it.month })
-        assertEquals(listOf(0, 2), me.lvca.alba.app.ui.galleryMonthOffsets(sections, false))
-        assertEquals(listOf(1, 3), me.lvca.alba.app.ui.galleryMonthOffsets(sections, true))
-        assertEquals(listOf(1, 2), me.lvca.alba.app.ui.galleryMonthOffsets(sections, false, days = true, leadingItems = 1, showDateHeaders = false))
-        assertEquals(1, me.lvca.alba.app.ui.galleryPosition(sections, false, true, me.lvca.alba.engine.model.GalleryDate.CAPTURED, sections.first().items.first().id, leadingItems = 1, showDateHeaders = false))
-        assertEquals(listOf(2, 4), me.lvca.alba.app.ui.galleryMonthOffsets(sections, true, leadingItems = 1))
-        assertEquals(3, me.lvca.alba.app.ui.galleryPosition(sections, true, false, me.lvca.alba.engine.model.GalleryDate.CAPTURED, sections.first().items.first().id, leadingItems = 1))
+        assertEquals(listOf(0, 2), me.lvca.alba.app.ui.gallery.galleryMonthOffsets(sections, false))
+        assertEquals(listOf(1, 3), me.lvca.alba.app.ui.gallery.galleryMonthOffsets(sections, true))
+        assertEquals(listOf(1, 2), me.lvca.alba.app.ui.gallery.galleryMonthOffsets(sections, false, days = true, leadingItems = 1, showDateHeaders = false))
+        assertEquals(1, me.lvca.alba.app.ui.gallery.galleryPosition(sections, false, true, me.lvca.alba.engine.model.GalleryDate.CAPTURED, sections.first().items.first().id, leadingItems = 1, showDateHeaders = false))
+        assertEquals(listOf(2, 4), me.lvca.alba.app.ui.gallery.galleryMonthOffsets(sections, true, leadingItems = 1))
+        assertEquals(3, me.lvca.alba.app.ui.gallery.galleryPosition(sections, true, false, me.lvca.alba.engine.model.GalleryDate.CAPTURED, sections.first().items.first().id, leadingItems = 1))
     }
 
     @Test

@@ -22,8 +22,8 @@ import org.junit.Test
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.transfers.TransferState
-import me.lvca.alba.app.ui.ICloudAccountScreen
-import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.account.ICloudAccountScreen
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 
 class LocalizedAccountTest {
     @get:Rule val compose = createComposeRule()

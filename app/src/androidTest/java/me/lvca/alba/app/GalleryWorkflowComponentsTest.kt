@@ -18,12 +18,12 @@ import org.junit.Rule
 import org.junit.Test
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.platform.NetworkStatus
-import me.lvca.alba.app.ui.AlbaPageScaffold
-import me.lvca.alba.app.ui.AlbumChooser
-import me.lvca.alba.app.ui.MediaTile
-import me.lvca.alba.app.ui.PhoneStorageDetails
-import me.lvca.alba.app.ui.VideoPlayer
-import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.account.PhoneStorageDetails
+import me.lvca.alba.app.ui.collections.AlbumChooser
+import me.lvca.alba.app.ui.designsystem.AlbaPageScaffold
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.gallery.MediaTile
+import me.lvca.alba.app.ui.viewer.VideoPlayer
 
 class GalleryWorkflowComponentsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

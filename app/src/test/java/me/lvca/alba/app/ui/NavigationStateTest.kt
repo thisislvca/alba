@@ -11,6 +11,7 @@ import org.junit.Test
 import me.lvca.alba.app.RootDialog
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.ui.gallery.GallerySheet
 
 class NavigationStateTest {
     private val scope = SaverScope { true }

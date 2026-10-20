@@ -7,10 +7,10 @@ import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
-import me.lvca.alba.app.ui.SharedAlbumControls
-import me.lvca.alba.app.ui.SharedInvitations
-import me.lvca.alba.app.ui.SharedPhotoControls
-import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.shared.SharedAlbumControls
+import me.lvca.alba.app.ui.shared.SharedInvitations
+import me.lvca.alba.app.ui.shared.SharedPhotoControls
 
 class SharedAlbumControlsTest {
     @get:Rule val compose = createComposeRule()
