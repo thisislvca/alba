@@ -1,5 +1,8 @@
 package me.lvca.alba.app.ui
 
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.painter.Painter
 import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.app.ui.theme.mosaicCell
 import androidx.compose.ui.res.stringResource
@@ -36,7 +39,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
         when (page) {
             CollectionsPage.SHARED -> it.shared != null
             CollectionsPage.DEVICE -> it.id.startsWith("device-folder:")
-            else -> it.parentId == folder && it.shared == null && !it.id.startsWith("smart:") && !it.id.startsWith("device-folder:")
+            else -> it.parentId == folder && it.isPersonal
         }
     } }
     LazyVerticalGrid(columns = GridCells.Adaptive(150.dp), state = scroll, modifier = Modifier.fillMaxSize().testTag("collections-grid"),
@@ -56,16 +59,16 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
                 }
             }
             item {
-                MosaicCard(stringResource(R.string.albums), summaries["hub:albums"]?.media.orEmpty(), state, preview, "collection-albums") { openPage(CollectionsPage.ALBUMS) }
+                MosaicCard(stringResource(R.string.albums), summaries["hub:albums"]?.media.orEmpty(), state, preview, "collection-albums", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.ALBUMS) }
             }
             item {
-                MosaicCard(stringResource(R.string.shared_albums), summaries["hub:shared"]?.media.orEmpty(), state, preview, "collection-shared") { openPage(CollectionsPage.SHARED) }
+                MosaicCard(stringResource(R.string.shared_albums), summaries["hub:shared"]?.media.orEmpty(), state, preview, "collection-shared", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.SHARED) }
             }
             item {
-                MosaicCard(stringResource(R.string.on_this_phone), summaries["hub:device"]?.media.orEmpty(), state, preview, "collection-device") { openPage(CollectionsPage.DEVICE) }
+                MosaicCard(stringResource(R.string.on_this_phone), summaries["hub:device"]?.media.orEmpty(), state, preview, "collection-device", rememberVectorPainter(AlbaIcons.PhoneAndroid)) { openPage(CollectionsPage.DEVICE) }
             }
             item {
-                MosaicCard(stringResource(R.string.videos), summaries[SmartCollection.VIDEOS.id]?.media.orEmpty(), state, preview, "collection-videos") { openCollection(SmartCollection.VIDEOS.id) }
+                MosaicCard(stringResource(R.string.videos), summaries[SmartCollection.VIDEOS.id]?.media.orEmpty(), state, preview, "collection-videos", painterResource(R.drawable.icloud_videos)) { openCollection(SmartCollection.VIDEOS.id) }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -117,12 +120,12 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
 }
 
 @Composable
-private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: GalleryUiState, preview: (String) -> Unit, tag: String, click: () -> Unit) {
+private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: GalleryUiState, preview: (String) -> Unit, tag: String,
+    emptyIcon: Painter, click: () -> Unit) {
     Column(Modifier.clickable(onClick = click).testTag(tag)) {
         AlbaCard(shape = MaterialTheme.shapes.medium) {
             if (covers.isEmpty()) Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
-                if (tag == "collection-device") Icon(AlbaIcons.PhoneAndroid, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                else Icon(androidx.compose.ui.res.painterResource(if (tag == "collection-videos") R.drawable.icloud_videos else R.drawable.icloud_albums), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(emptyIcon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             else if (covers.size == 1) CoverImage(covers.first(), state.previewRetryVersion, preview, Modifier.fillMaxWidth().aspectRatio(1f))
             else Column(Modifier.fillMaxWidth().aspectRatio(1f).padding(4.dp).clip(MaterialTheme.shapes.small), verticalArrangement = Arrangement.spacedBy(3.dp)) {

@@ -17,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.*
@@ -127,9 +126,9 @@ internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLa
                 val y = if (metrics.maxScroll > 0) (metrics.topOf(year.index) / metrics.maxScroll).coerceIn(0f, 1f) * travel else 0f
                 if (y - lastY >= handlePx * .65f) {
                     lastY = y
-                    Surface(Modifier.align(Alignment.TopEnd).offset { IntOffset(0, y.roundToInt()) }.padding(end = 48.dp).testTag("fast-scroll-year-${year.year}"), shape = CircleShape,
-                        color = Color.Black.copy(alpha = .82f), contentColor = Color.White) {
-                        Text(year.year.toString(), Modifier.padding(horizontal = 10.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium)
+                    MediaPill(Modifier.align(Alignment.TopEnd).offset { IntOffset(0, y.roundToInt()) }.padding(end = 48.dp).testTag("fast-scroll-year-${year.year}"),
+                        strong = true, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp)) {
+                        Text(year.year.toString(), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.AlbaTheme
 import androidx.compose.ui.res.stringResource
 import me.lvca.alba.app.R
 import android.content.Context
@@ -221,13 +222,14 @@ fun MediaThumbnail(
                 ThumbnailFailure.DECODE -> R.string.photo_decode_failed
                 null -> if (decoding) R.string.loading else R.string.photo_preview_unavailable
             })
+            val onMedia = AlbaTheme.colors.onMedia
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
-                if (decoding) CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                if (decoding) CircularProgressIndicator(Modifier.size(24.dp), color = onMedia, strokeWidth = 2.dp)
                 else Icon(if (failure == null) AlbaIcons.CloudQueue else Icons.Outlined.Info,
                     contentDescription = listOfNotNull(contentDescription, label).joinToString(". "),
-                    tint = Color.White.copy(alpha = .85f), modifier = Modifier.size(28.dp))
+                    tint = onMedia.copy(alpha = .85f), modifier = Modifier.size(28.dp))
                 if (contentScale == ContentScale.Fit && !decoding) {
-                    Text(label, color = Color.White, modifier = Modifier.padding(top = 12.dp))
+                    Text(label, color = onMedia, modifier = Modifier.padding(top = 12.dp))
                     if (reference != null) TextButton(onClick = { localRetry++ }, modifier = Modifier.testTag("retry-decode")) { Text(stringResource(R.string.retry_photo)) }
                 }
             }

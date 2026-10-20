@@ -88,9 +88,7 @@ internal fun ProfileOverview(
                         Box(Modifier.padding(top = 18.dp)) { AccountAvatar(profile?.photo, avatarSize = 88.dp) }
                     }
                     Spacer(Modifier.weight(1f))
-                    if (demo) Surface(color = profileColors.badge, contentColor = profileColors.onCard, shape = CircleShape) {
-                        Text(stringResource(R.string.demo_badge), Modifier.padding(horizontal = 10.dp, vertical = 5.dp), style = MaterialTheme.typography.labelMedium)
-                    }
+                    if (demo) DemoBadge(color = profileColors.badge, contentColor = profileColors.onCard, large = true)
                     allowance?.let {
                         Surface(color = profileColors.badge, contentColor = profileColors.onCard, shape = MaterialTheme.shapes.small) {
                             Text(Formatter.formatShortFileSize(context, it.totalBytes), Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.titleSmall)
@@ -137,17 +135,14 @@ internal fun ProfileOverview(
             onClick = { onNavigate(ProfilePage.BACKUP) })
         if (diagnostics != null) {
             ProfileDivider()
-            val phoneSummary = diagnostics.phoneStorage?.let {
-                stringResource(R.string.phone_storage_usage, Formatter.formatShortFileSize(context, it.totalBytes), Formatter.formatShortFileSize(context, it.availableBytes))
-            } ?: stringResource(R.string.profile_device_detail)
+            val phoneSummary = diagnostics.phoneStorage?.let { phoneStorageSummary(it) } ?: stringResource(R.string.profile_device_detail)
             ProfileRow(stringResource(R.string.phone_storage_title), phoneSummary,
                 AlbaIcons.DownloadForOffline, profileColors.phoneTile, "profile-phone", onClick = { onNavigate(ProfilePage.PHONE) })
             diagnostics.phoneStorage?.let { usage ->
                 Column(Modifier.padding(start = 60.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(R.string.saved_thumbnails to usage.previewBytes, R.string.viewing_cache to usage.viewerBytes,
-                        R.string.offline_originals to usage.originalBytes).forEach { (label, bytes) ->
+                    usage.byCategory().forEach { (category, bytes) ->
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(stringResource(label), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(category.title()), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(Formatter.formatShortFileSize(context, bytes), style = MaterialTheme.typography.bodySmall)
                         }
                     }

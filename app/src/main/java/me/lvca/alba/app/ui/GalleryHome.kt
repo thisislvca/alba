@@ -261,7 +261,7 @@ internal fun GalleryHome(
             if (wide) NavigationRail(Modifier.statusBarsPadding().testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
                 Spacer(Modifier.height(24.dp))
                 GalleryTab.entries.forEach { destination -> NavigationRailItem(selected = tab == destination,
-                    onClick = { navigate(destination) }, icon = { TabIcon(destination) }, label = { Text(stringResource(destination.title)) },
+                    onClick = { navigate(destination) }, icon = { Icon(destination.icon(), null, Modifier.size(24.dp)) }, label = { Text(stringResource(destination.title)) },
                     modifier = Modifier.testTag("tab-${destination.name}")) }
             }
             Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll.nestedScrollConnection), contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -282,9 +282,7 @@ internal fun GalleryHome(
                                 if (!wide && tab == GalleryTab.LIBRARY) Spacer(Modifier.weight(1f))
                                 else Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(stringResource(R.string.brand_name), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                    if (state.accountState == ICloudAccountState.Demo) Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                                        Text(stringResource(R.string.demo_badge), Modifier.padding(horizontal = 6.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                                    }
+                                    if (state.accountState == ICloudAccountState.Demo) DemoBadge()
                                 }
                             }
                             if (hero) {
@@ -320,12 +318,8 @@ internal fun GalleryHome(
                                     }
                                 }
                                 IconButton(onClick = account, modifier = Modifier.testTag("account-button").semantics { contentDescription = contextAccountLabel }) {
-                                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(36.dp)) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            if (signedIn != null) Text(signedIn.appleId.take(1).uppercase(), style = MaterialTheme.typography.titleMedium)
-                                            else Icon(Icons.Outlined.AccountCircle, null, Modifier.size(28.dp))
-                                        }
-                                    }
+                                    InitialAvatar(signedIn?.appleId, 36.dp, color = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer, textStyle = MaterialTheme.typography.titleMedium)
                                 }
                             }
                         }
@@ -351,7 +345,7 @@ internal fun GalleryHome(
                                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
 
-                                if (inCollection && collection != null && collection.shared == null && !collection.id.startsWith("smart:") && !collection.id.startsWith("device-folder:")) {
+                                if (inCollection && collection != null && collection.isPersonal) {
                                     IconButton(enabled = state.canEditLibrary(), onClick = { editAlbum = collection.id }) { Icon(Icons.Outlined.Edit, stringResource(R.string.rename_album)) }
                                     IconButton(enabled = state.canEditLibrary(), onClick = { deleteAlbum = collection.id }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                                 }
@@ -443,15 +437,6 @@ internal fun GalleryHome(
         if (id == "new") actions.createAlbum(name) else actions.renameAlbum(id, name)
         editAlbum = null
     } }
-}
-
-@Composable
-private fun TabIcon(tab: GalleryTab) {
-    when (tab) {
-        GalleryTab.LIBRARY -> Icon(androidx.compose.ui.res.painterResource(R.drawable.icloud_library), null, Modifier.size(24.dp))
-        GalleryTab.COLLECTIONS -> Icon(androidx.compose.ui.res.painterResource(R.drawable.icloud_albums), null, Modifier.size(24.dp))
-        GalleryTab.SEARCH -> Icon(Icons.Outlined.Search, null)
-    }
 }
 
 @Composable

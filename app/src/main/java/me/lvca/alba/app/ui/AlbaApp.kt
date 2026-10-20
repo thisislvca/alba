@@ -1,5 +1,7 @@
 package me.lvca.alba.app.ui
 
+import androidx.compose.ui.res.painterResource
+import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.app.ui.theme.tile
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -450,58 +452,27 @@ internal fun MediaTile(
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
             )
-            if (media.kind == MediaKind.VIDEO || media.availability == MediaAvailability.ORIGINAL_CACHED) Box(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(44.dp).background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .6f)))))
+            val onMedia = AlbaTheme.colors.onMedia
+            if (media.kind == MediaKind.VIDEO || media.availability == MediaAvailability.ORIGINAL_CACHED)
+                MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(44.dp))
             if (media.availability == MediaAvailability.ORIGINAL_CACHED) Icon(
-                AlbaIcons.DownloadForOffline, contentDescription = stringResource(R.string.available_offline), tint = Color.White,
+                AlbaIcons.DownloadForOffline, contentDescription = stringResource(R.string.available_offline), tint = onMedia,
                 modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).size(18.dp))
             if (media.kind == MediaKind.VIDEO) {
                 val duration = mediaDuration(media.durationMillis)
-                if (duration != null) Text(duration, color = Color.White, style = MaterialTheme.typography.labelMedium,
+                if (duration != null) Text(duration, color = onMedia, style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.align(Alignment.BottomEnd).padding(horizontal = 7.dp, vertical = 5.dp))
-                else Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, stringResource(R.string.videos), tint = Color.White,
+                else Icon(Icons.Filled.PlayArrow, stringResource(R.string.videos), tint = onMedia,
                     modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(18.dp))
             }
-            if (media.kind == MediaKind.LIVE_PHOTO) Row(
-                Modifier.align(Alignment.TopStart).padding(6.dp).background(Color.Black.copy(alpha = .65f), CircleShape).padding(horizontal = 7.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Icon(androidx.compose.ui.res.painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp), tint = Color.White)
-                Text(stringResource(R.string.live_badge), color = Color.White, style = MaterialTheme.typography.labelSmall)
+            if (media.kind == MediaKind.LIVE_PHOTO) MediaPill(Modifier.align(Alignment.TopStart).padding(6.dp)) {
+                Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp))
+                Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
             }
             if (media.isFavorite && !selected) Icon(Icons.Filled.Favorite,
-                contentDescription = stringResource(R.string.favorite), tint = Color.White,
+                contentDescription = stringResource(R.string.favorite), tint = onMedia,
                 modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(16.dp))
             if (selected) Text("✓", color = Color.White, modifier = Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.primary).padding(8.dp))
-        }
-    }
-}
-
-@Composable
-private fun AvailabilityBadge(
-    availability: MediaAvailability,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = Color.Black.copy(alpha = 0.62f),
-        contentColor = Color.White,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = availability.icon(),
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = availability.shortLabel(),
-                style = MaterialTheme.typography.labelMedium,
-            )
         }
     }
 }
@@ -640,21 +611,6 @@ internal fun DeviceUploadControls(
             }
         }
     }
-}
-
-private fun MediaAvailability.icon(): ImageVector = when (this) {
-    MediaAvailability.CLOUD_ONLY -> AlbaIcons.CloudQueue
-    MediaAvailability.PREVIEW_CACHED -> AlbaIcons.CloudDone
-    MediaAvailability.ORIGINAL_CACHED -> AlbaIcons.DownloadForOffline
-    MediaAvailability.DEVICE_ORIGINAL -> AlbaIcons.PhoneAndroid
-}
-
-@Composable
-private fun MediaAvailability.shortLabel(): String = when (this) {
-    MediaAvailability.CLOUD_ONLY -> stringResource(R.string.cloud)
-    MediaAvailability.PREVIEW_CACHED -> stringResource(R.string.preview)
-    MediaAvailability.ORIGINAL_CACHED -> stringResource(R.string.offline)
-    MediaAvailability.DEVICE_ORIGINAL -> stringResource(R.string.phone)
 }
 
 @Composable

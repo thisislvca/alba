@@ -67,7 +67,7 @@ internal fun SelectionActions(state: GalleryUiState, selectAll: () -> Unit, clea
                             onClick = { more = false; actions.trash(selectedItems, state.query.trashOnly) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.add_to_album)) }, enabled = editable && !hasShared && !state.query.trashOnly && hasCloud && !hasPhone && selectedItems.size <= 50,
                             onClick = { more = false; addingToAlbum = true })
-                        val album = state.collections.firstOrNull { it.id == state.query.collectionId && it.shared == null && !it.isFolder && it.shared == null && !it.id.startsWith("smart:") && !it.id.startsWith("device-folder:") }
+                        val album = state.collections.firstOrNull { it.id == state.query.collectionId && it.isUserAlbum }
                         if (album != null && !state.query.trashOnly) DropdownMenuItem(text = { Text(stringResource(R.string.remove_from_album)) },
                             enabled = editable && hasCloud && !hasPhone && selectedItems.size <= 50,
                             onClick = { more = false; actions.removeFromAlbum(album.id, selectedItems.map { it.id }) })
@@ -132,6 +132,13 @@ internal fun BatchProgress(state: GalleryUiState, retry: (String) -> Unit, cance
     }
 }
 
+/** A personal iCloud album or folder: not shared, not a smart collection and not a phone folder. */
+internal val GalleryCollection.isPersonal: Boolean
+    get() = shared == null && !id.startsWith("smart:") && !id.startsWith("device-folder:")
+
+/** A personal album that holds photos, as opposed to a folder of albums. */
+internal val GalleryCollection.isUserAlbum: Boolean get() = isPersonal && !isFolder
+
 internal fun GalleryUiState.canEditLibrary() = (accountState == ICloudAccountState.Demo ||
     (accountState as? ICloudAccountState.SignedIn)?.status == me.lvca.alba.protocol.account.SessionStatus.VERIFIED) &&
     activeDownloadId == null && !accountBusy
@@ -170,7 +177,7 @@ internal fun AlbumChooser(collections: List<GalleryCollection>, dismiss: () -> U
     AlbaBottomSheet(onDismissRequest = dismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             AlbaSheetHeading(stringResource(R.string.add_to_album), dismiss = dismiss)
-            val albums = collections.filter { !it.isFolder && it.shared == null && !it.id.startsWith("smart:") && !it.id.startsWith("device-folder:") }
+            val albums = collections.filter { it.isUserAlbum }
             TextButton(onClick = { creating = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.new_album))
             }

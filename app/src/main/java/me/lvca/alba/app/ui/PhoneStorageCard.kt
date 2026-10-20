@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.engine.model.LocalMediaStorage
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -41,13 +42,8 @@ internal fun PhoneStorageDetails(state: GalleryUiState, actions: StorageActions)
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.phone_storage_title), style = MaterialTheme.typography.titleMedium)
             state.phoneStorage?.let { usage ->
-                Text(stringResource(R.string.phone_storage_usage, bytes(usage.totalBytes), bytes(usage.availableBytes)))
-                LocalMediaCategory.entries.forEach { category ->
-                    val size = when (category) {
-                        LocalMediaCategory.PREVIEWS -> usage.previewBytes
-                        LocalMediaCategory.VIEWERS -> usage.viewerBytes
-                        LocalMediaCategory.ORIGINALS -> usage.originalBytes
-                    }
+                Text(phoneStorageSummary(usage))
+                usage.byCategory().forEach { (category, size) ->
                     HorizontalDivider()
                     Text(stringResource(category.title()), style = MaterialTheme.typography.labelLarge)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -80,7 +76,24 @@ internal fun PhoneStorageDetails(state: GalleryUiState, actions: StorageActions)
     }
 }
 
-private fun LocalMediaCategory.title(): Int = when (this) {
+/** What Alba keeps on the phone, per category, in the order every storage view lists it. */
+internal fun LocalMediaStorage.byCategory(): List<Pair<LocalMediaCategory, Long>> = LocalMediaCategory.entries.map { category ->
+    category to when (category) {
+        LocalMediaCategory.PREVIEWS -> previewBytes
+        LocalMediaCategory.VIEWERS -> viewerBytes
+        LocalMediaCategory.ORIGINALS -> originalBytes
+    }
+}
+
+/** "Alba uses X; Y free on this phone." */
+@Composable
+internal fun phoneStorageSummary(usage: LocalMediaStorage): String {
+    val context = LocalContext.current
+    return stringResource(R.string.phone_storage_usage, Formatter.formatShortFileSize(context, usage.totalBytes),
+        Formatter.formatShortFileSize(context, usage.availableBytes))
+}
+
+internal fun LocalMediaCategory.title(): Int = when (this) {
     LocalMediaCategory.VIEWERS -> R.string.viewing_cache
     LocalMediaCategory.PREVIEWS -> R.string.saved_thumbnails
     LocalMediaCategory.ORIGINALS -> R.string.offline_originals

@@ -290,7 +290,7 @@ internal fun MediaDetailScreen(
                                     DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,
                                         { libraryActions.favorite(media.id, !media.isFavorite) }, { ICloudIcon(R.drawable.icloud_favorites) })
                                     DetailAction(stringResource(R.string.add_to_album), canEdit && !media.isTrashed, { choosingAlbum = true }, { ICloudIcon(R.drawable.icloud_albums) })
-                                    collections.firstOrNull { it.id == currentAlbumId && !it.isFolder && it.shared == null && !it.id.startsWith("smart:") }?.let { album ->
+                                    collections.firstOrNull { it.id == currentAlbumId && it.isUserAlbum }?.let { album ->
                                         if (!media.isTrashed) DetailAction(stringResource(R.string.remove_from_album), canEdit,
                                             { libraryActions.removeFromAlbum(album.id, listOf(media.id)) }, { ICloudIcon(R.drawable.icloud_albums) })
                                     }
