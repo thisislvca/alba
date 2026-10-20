@@ -49,11 +49,8 @@ interface LibraryDao {
     suspend fun stopPendingBatches(): Int
     @Query("UPDATE batch_items SET state = 'FAILED', message = :message WHERE batchId = :id AND state = 'WAITING'")
     suspend fun failWaitingBatch(id: String, message: String)
-    @Query("UPDATE batch_items SET state = :state, message = :message WHERE batchId = :batchId AND mediaId = :mediaId")
-    suspend fun finishBatch(batchId: String, mediaId: String, state: String, message: String?)
     @Query("SELECT * FROM upload_checkpoints WHERE attemptId = :id") suspend fun checkpoint(id: String): UploadCheckpointEntity?
     @Upsert suspend fun putCheckpoint(value: UploadCheckpointEntity)
-    @Query("DELETE FROM upload_checkpoints WHERE attemptId = :id") suspend fun deleteCheckpoint(id: String)
 }
 
 internal fun CollectionEntity.toModel() = me.lvca.alba.engine.model.GalleryCollection(collectionId, name, parentId, isFolder, position,

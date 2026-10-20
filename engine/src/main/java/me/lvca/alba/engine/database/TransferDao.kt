@@ -4,7 +4,6 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Upsert
 import me.lvca.alba.engine.model.StoredMessage
 import kotlinx.coroutines.flow.Flow
 
@@ -19,19 +18,14 @@ data class TransferProjection(
     val message: String?,
 )
 
-data class BackupProjection(
-    val enabled: Boolean,
-    val destinationLabel: String,
-    val scope: String,
-)
-
 data class ReleasableStageProjection(
     val stagedSourceId: String,
     val ownedFileToken: String,
 )
 
+/** The upload state machine: staged sources, transfers, attempts, the per-account write slot and suppressions. */
 @Dao
-interface PhotoWriteDao {
+interface TransferDao {
     @Query(
         """
         SELECT t.transferId, t.mediaId, t.displayName, t.state,
@@ -43,26 +37,6 @@ interface PhotoWriteDao {
         """,
     )
     fun observeTransfers(): Flow<List<TransferProjection>>
-
-    @Query(
-        """
-        SELECT e.enabled, a.destinationLabel, e.scope
-        FROM backup_enrollments e
-        JOIN accounts a ON a.accountId = e.accountId
-        WHERE a.active = 1
-        LIMIT 1
-        """,
-    )
-    fun observeBackup(): Flow<BackupProjection?>
-
-    @Query("SELECT * FROM accounts WHERE active = 1 LIMIT 1")
-    suspend fun findActiveAccount(): AccountEntity?
-
-    @Query("SELECT * FROM accounts WHERE accountId = :accountId")
-    suspend fun findAccount(accountId: String): AccountEntity?
-
-    @Query("UPDATE accounts SET active = 0, operationFence = operationFence + 1, updatedAtEpochMillis = :now WHERE active = 1")
-    suspend fun deactivateActiveAccounts(now: Long): Int
 
     @Query(
         """
@@ -98,9 +72,6 @@ interface PhotoWriteDao {
 
     @Query("SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND authorityType = 'MANUAL' AND state IN ('READY', 'SENDING')")
     suspend fun countPendingManualTransfers(accountId: String): Int
-
-    @Upsert
-    suspend fun upsertAccount(account: AccountEntity)
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertStagedSource(source: StagedSourceEntity)
@@ -379,28 +350,6 @@ interface PhotoWriteDao {
     )
     suspend fun abandonUnresolved(transferId: String, attemptId: String, now: Long, message: String = StoredMessage.THIS_UNCERTAIN_ITEM_REMAINS_BLOCKED_FROM_UPLOAD_OTHER_PHOTOS_MAY_CONTINUE.code): Int
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertRemotePair(pair: RemoteAssetPairEntity)
-
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertReconciliationMatch(match: ReconciliationMatchEntity): Long
-
-    @Query(
-        """
-        SELECT p.* FROM remote_asset_pairs p
-        JOIN reconciliation_matches m ON m.remotePairId = p.remotePairId
-        WHERE m.attemptId = :attemptId
-        ORDER BY p.remotePairId
-        """,
-    )
-    suspend fun findReconciliationMatches(attemptId: String): List<RemoteAssetPairEntity>
-
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertAssetLink(link: AssetLinkEntity)
-
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertVerificationProof(proof: VerificationProofEntity)
-
     @Query(
         """
         UPDATE transfers
@@ -431,21 +380,6 @@ interface PhotoWriteDao {
     )
     suspend fun countActiveSuppressions(accountId: String, lineageKey: String, sha256Hex: String): Int
 
-    @Query("SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND state NOT IN ('VERIFIED', 'ABANDONED')")
-    suspend fun countOpenTransfers(accountId: String): Int
-
-    @Query(
-        """
-        SELECT COUNT(*) FROM transfers
-        WHERE accountId = :accountId AND (
-            state = 'READY' OR
-            (state IN ('OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE') AND
-             (reconciliationDueAtEpochMillis IS NULL OR reconciliationDueAtEpochMillis <= :now))
-        )
-        """,
-    )
-    suspend fun countDueWork(accountId: String, now: Long): Int
-
     @Query("""
         SELECT MIN(COALESCE(reconciliationDueAtEpochMillis, :now)) FROM transfers
         WHERE accountId = :accountId AND (:allowAutomatic OR authorityType != 'AUTOMATIC') AND state IN ('OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE')
@@ -459,202 +393,6 @@ interface PhotoWriteDao {
     """)
     suspend fun countRunnableReady(accountId: String, allowAutomatic: Boolean, allowManual: Boolean = true): Int
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertBackupDraft(draft: BackupEnrollmentDraftEntity)
-
-    @Query("SELECT * FROM backup_enrollment_drafts WHERE draftId = :draftId")
-    suspend fun findBackupDraft(draftId: String): BackupEnrollmentDraftEntity?
-
-    @Query(
-        """
-        UPDATE backup_enrollment_drafts
-        SET phase = 'CONSENTED', acceptedAtEpochMillis = :acceptedAt
-        WHERE draftId = :draftId AND phase = 'SHOWN' AND expiresAtEpochMillis > :acceptedAt
-        """,
-    )
-    suspend fun acceptBackupDraft(draftId: String, acceptedAt: Long): Int
-
-    @Query(
-        """
-        UPDATE backup_enrollment_drafts SET phase = 'COMPLETED'
-        WHERE draftId = :draftId AND phase = 'CONSENTED'
-        """,
-    )
-    suspend fun completeBackupDraft(draftId: String): Int
-
-    @Upsert
-    suspend fun upsertBackupEnrollment(enrollment: BackupEnrollmentEntity)
-
-    @Query("SELECT * FROM backup_enrollments WHERE accountId = :accountId LIMIT 1")
-    suspend fun findBackupEnrollment(accountId: String): BackupEnrollmentEntity?
-
-    @Query("SELECT * FROM backup_enrollments WHERE accountId = :accountId AND enabled = 1 LIMIT 1")
-    suspend fun findEnabledBackupEnrollment(accountId: String): BackupEnrollmentEntity?
-
-    @Query(
-        """
-        UPDATE backup_enrollments
-        SET enabled = 0, revision = revision + 1, operationFence = :operationFence,
-            updatedAtEpochMillis = :now
-        WHERE accountId = :accountId AND enabled = 1
-        """,
-    )
-    suspend fun disableBackup(accountId: String, operationFence: Long, now: Long): Int
-
-    @Upsert
-    suspend fun upsertLocalAssets(assets: List<LocalAssetEntity>)
-
     @Query("SELECT * FROM transfers WHERE accountId = :accountId AND mediaId = :mediaId AND state NOT IN ('NEEDS_ATTENTION', 'UNSUPPORTED', 'ABANDONED') LIMIT 1")
     suspend fun findTransferForMedia(accountId: String, mediaId: String): TransferEntity?
-
-    @Query("SELECT * FROM local_assets WHERE localAssetId = :localAssetId")
-    suspend fun findLocalAsset(localAssetId: String): LocalAssetEntity?
-
-    @Query("SELECT * FROM media_store_checkpoints WHERE checkpointId = :checkpointId")
-    suspend fun findMediaStoreCheckpoint(checkpointId: String): MediaStoreCheckpointEntity?
-
-    @Upsert
-    suspend fun upsertMediaStoreCheckpoint(checkpoint: MediaStoreCheckpointEntity)
-
-    @Query(
-        """
-        SELECT l.* FROM local_assets l
-        LEFT JOIN transfers t ON t.mediaId = l.localAssetId AND t.accountId = :accountId
-          AND t.state NOT IN ('NEEDS_ATTENTION', 'UNSUPPORTED', 'ABANDONED')
-        WHERE t.transferId IS NULL AND l.mimeType IN ('image/jpeg', 'image/jpg')
-          AND (:volumeName = 'external' OR l.volumeName = :volumeName) AND l.volumeVersion = :volumeVersion
-          AND l.permissionFingerprint = :permissionFingerprint
-        ORDER BY l.generationModified, l.mediaStoreId
-        LIMIT 1
-        """,
-    )
-    suspend fun findNextUnqueuedLocalAsset(
-        accountId: String,
-        volumeName: String,
-        volumeVersion: String,
-        permissionFingerprint: String,
-    ): LocalAssetEntity?
-
-    @Query(
-        """
-        SELECT p.* FROM verification_proofs p
-        WHERE p.mediaId = :mediaId AND p.accountId = :accountId
-          AND p.invalidatedAtEpochMillis IS NULL
-        ORDER BY p.verifiedAtEpochMillis DESC LIMIT 1
-        """,
-    )
-    suspend fun findCurrentProof(mediaId: String, accountId: String): VerificationProofEntity?
-
-    @Query("SELECT * FROM verification_proofs WHERE proofId = :proofId")
-    suspend fun findProof(proofId: String): VerificationProofEntity?
-
-    @Query("SELECT * FROM asset_links WHERE linkId = :linkId")
-    suspend fun findAssetLink(linkId: String): AssetLinkEntity?
-
-    @Query("SELECT * FROM remote_asset_pairs WHERE remotePairId = :pairId")
-    suspend fun findRemotePair(pairId: String): RemoteAssetPairEntity?
-
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertReclaimProposal(proposal: ReclaimProposalEntity)
-
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertReclaimProposalItems(items: List<ReclaimProposalItemEntity>)
-
-    @Query("SELECT * FROM reclaim_proposals WHERE proposalId = :proposalId")
-    suspend fun findReclaimProposal(proposalId: String): ReclaimProposalEntity?
-
-    @Query("SELECT * FROM reclaim_proposal_items WHERE proposalId = :proposalId")
-    suspend fun findReclaimProposalItems(proposalId: String): List<ReclaimProposalItemEntity>
-
-    @Query(
-        """
-        UPDATE reclaim_proposals
-        SET state = 'HANDED_OFF'
-        WHERE proposalId = :proposalId AND state = 'READY'
-          AND expiresAtEpochMillis > :now
-        """,
-    )
-    suspend fun markReclaimProposalHandedOff(proposalId: String, now: Long): Int
-
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertTrashAttempt(attempt: TrashAttemptEntity)
-
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertTrashObligations(obligations: List<TrashObligationEntity>)
-
-    @Query("SELECT * FROM trash_attempts WHERE trashAttemptId = :attemptId")
-    suspend fun findTrashAttempt(attemptId: String): TrashAttemptEntity?
-
-    @Query("SELECT * FROM trash_obligations WHERE trashAttemptId = :attemptId")
-    suspend fun findTrashObligations(attemptId: String): List<TrashObligationEntity>
-
-    @Query(
-        """
-        UPDATE trash_attempts
-        SET consentDisposition = :disposition, callbackAtEpochMillis = :now,
-            callbackResult = :callbackResult
-        WHERE trashAttemptId = :attemptId
-          AND consentDisposition IN ('HANDED_OFF_EXECUTION_POSSIBLE', 'RESULT_UNKNOWN_EXECUTION_STILL_POSSIBLE')
-        """,
-    )
-    suspend fun recordTrashCallback(
-        attemptId: String,
-        disposition: String,
-        callbackResult: String,
-        now: Long,
-    ): Int
-
-    @Query(
-        """
-        UPDATE trash_attempts
-        SET consentDisposition = 'RESULT_UNKNOWN_EXECUTION_STILL_POSSIBLE'
-        WHERE consentDisposition = 'HANDED_OFF_EXECUTION_POSSIBLE'
-        """,
-    )
-    suspend fun recoverTrashHandoffs(): Int
-
-    @Query(
-        """
-        UPDATE trash_obligations
-        SET uriState = :state, trashExpiresAtEpochMillis = :expiresAt,
-            resolvedAtEpochMillis = :resolvedAt
-        WHERE trashAttemptId = :attemptId AND mediaId = :mediaId
-        """,
-    )
-    suspend fun updateTrashObligation(
-        attemptId: String,
-        mediaId: String,
-        state: String,
-        expiresAt: Long?,
-        resolvedAt: Long?,
-    ): Int
-
-    @Query(
-        """
-        UPDATE trash_attempts
-        SET consentDisposition = :disposition
-        WHERE trashAttemptId = :attemptId
-        """,
-    )
-    suspend fun setTrashDisposition(attemptId: String, disposition: String): Int
-
-    @Query(
-        """
-        SELECT * FROM trash_attempts
-        WHERE consentDisposition IN ('CALLBACK_OBSERVED_APPROVED', 'RESULT_UNKNOWN_EXECUTION_STILL_POSSIBLE')
-        """,
-    )
-    suspend fun findApprovedTrashAttempts(): List<TrashAttemptEntity>
-
-    @Query(
-        """
-        SELECT COUNT(*) FROM trash_attempts
-        WHERE consentDisposition IN (
-            'HANDED_OFF_EXECUTION_POSSIBLE',
-            'RESULT_UNKNOWN_EXECUTION_STILL_POSSIBLE',
-            'CALLBACK_OBSERVED_APPROVED'
-        )
-        """,
-    )
-    suspend fun countPotentiallyExecutableTrashAttempts(): Int
 }

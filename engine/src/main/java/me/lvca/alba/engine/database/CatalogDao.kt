@@ -6,12 +6,6 @@ import androidx.room.Upsert
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
-data class CatalogCacheState(
-    val mediaId: String,
-    val previewCachePath: String?,
-    val originalCachePath: String?,
-)
-
 data class DisplayLink(val cloudId: String, val deviceId: String, val accountId: String)
 
 private const val CATALOG_WITH_CACHE = """
@@ -94,15 +88,6 @@ interface CatalogDao {
 
     @Query(CATALOG_WITH_CACHE + " WHERE c.mediaId = :mediaId")
     suspend fun findById(mediaId: String): CatalogItemEntity?
-
-    @Query(
-        """
-        SELECT c.mediaId, cache.previewCachePath, cache.originalCachePath
-        FROM catalog_items c LEFT JOIN media_cache cache ON cache.mediaId = c.mediaId
-        WHERE c.origin = :origin
-        """,
-    )
-    suspend fun findCacheStateByOrigin(origin: String): List<CatalogCacheState>
 
     @Query("SELECT * FROM media_cache")
     fun observeCache(): Flow<List<MediaCacheEntity>>

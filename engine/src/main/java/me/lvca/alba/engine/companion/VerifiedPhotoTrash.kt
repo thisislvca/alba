@@ -30,7 +30,10 @@ internal class VerifiedPhotoTrash(
     private val requireActiveBinding: suspend () -> AccountBinding,
     private val accountGate: (String) -> Mutex,
 ) {
-    private val dao = database.photoWriteDao()
+    private val accountDao = database.accountDao()
+    private val transferDao = database.transferDao()
+    private val trashDao = database.trashDao()
+    private val verificationDao = database.verificationDao()
 
     suspend fun prepareTrash(items: Set<String>): ReclaimProposal {
         refuseUnless(items.isNotEmpty(), StoredMessage.SELECT_AT_LEAST_ONE_VERIFIED_PHOTO)
@@ -40,11 +43,11 @@ internal class VerifiedPhotoTrash(
         val checkedAt = now()
 
         for (mediaId in items) {
-            val proof = dao.findCurrentProof(mediaId, binding.accountId)
+            val proof = verificationDao.findCurrentProof(mediaId, binding.accountId)
                 ?: return blockedProposal(proposalId, StoredMessage.THIS_PHOTO_DOES_NOT_HAVE_A_CURRENT_EXACT_ICLOUD_PROOF.code)
-            val source = dao.findStagedSource(proof.stagedSourceId)
+            val source = transferDao.findStagedSource(proof.stagedSourceId)
                 ?: return blockedProposal(proposalId, StoredMessage.THE_LOCAL_PROOF_SOURCE_IS_UNAVAILABLE.code)
-            val pairEntity = dao.findRemotePair(proof.remotePairId)
+            val pairEntity = verificationDao.findRemotePair(proof.remotePairId)
                 ?: return blockedProposal(proposalId, StoredMessage.THE_ICLOUD_RECORD_PROOF_IS_UNAVAILABLE.code)
             require(source.accountId == binding.accountId && proof.accountId == binding.accountId)
 
@@ -73,9 +76,9 @@ internal class VerifiedPhotoTrash(
 
         val expiresAt = checkedAt + RECLAIM_PROPOSAL_LIFETIME_MILLIS
         database.withTransaction {
-            val active = requireNotNull(dao.findActiveAccount())
+            val active = requireNotNull(accountDao.findActiveAccount())
             refuseUnless(active.toBinding() == binding, StoredMessage.THE_ACCOUNT_CHANGED_DURING_THE_FINAL_ICLOUD_CHECK)
-            dao.insertReclaimProposal(
+            trashDao.insertReclaimProposal(
                 ReclaimProposalEntity(
                     proposalId = proposalId,
                     accountId = binding.accountId,
@@ -87,15 +90,15 @@ internal class VerifiedPhotoTrash(
                     blockedReason = null,
                 ),
             )
-            dao.insertReclaimProposalItems(checked)
+            trashDao.insertReclaimProposalItems(checked)
         }
         return ReclaimProposal(ReclaimProposalId(proposalId), items, expiresAt)
     }
 
     suspend fun beginTrash(proposal: ReclaimProposalId): TrashHandoff {
-        val row = refuseIfNull(dao.findReclaimProposal(proposal.value), StoredMessage.TRASH_PROPOSAL_EXPIRED)
+        val row = refuseIfNull(trashDao.findReclaimProposal(proposal.value), StoredMessage.TRASH_PROPOSAL_EXPIRED)
         refuseUnless(row.state == "READY" && row.expiresAtEpochMillis > now(), StoredMessage.TRASH_PROPOSAL_EXPIRED)
-        val items = dao.findReclaimProposalItems(proposal.value)
+        val items = trashDao.findReclaimProposalItems(proposal.value)
         refuseUnless(items.isNotEmpty(), StoredMessage.TRASH_PROPOSAL_HAS_NO_PHOTOS)
         val binding = requireActiveBinding()
         refuseUnless(row.accountId == binding.accountId && row.authEpoch == binding.authEpoch &&
@@ -108,13 +111,13 @@ internal class VerifiedPhotoTrash(
             val attemptId = UUID.randomUUID().toString()
             val handedOffAt = now()
             database.withTransaction {
-                val active = requireNotNull(dao.findActiveAccount())
+                val active = requireNotNull(accountDao.findActiveAccount())
                 refuseUnless(active.toBinding() == binding, StoredMessage.THE_ACCOUNT_CHANGED_BEFORE_ANDROID_CONSENT)
                 refuseUnless(
-                    dao.markReclaimProposalHandedOff(proposal.value, handedOffAt) == 1,
+                    trashDao.markReclaimProposalHandedOff(proposal.value, handedOffAt) == 1,
                     StoredMessage.THIS_TRASH_REQUEST_WAS_ALREADY_USED,
                 )
-                dao.insertTrashAttempt(
+                trashDao.insertTrashAttempt(
                     TrashAttemptEntity(
                         trashAttemptId = attemptId,
                         proposalId = proposal.value,
@@ -128,7 +131,7 @@ internal class VerifiedPhotoTrash(
                         bootSessionId = originals.bootSessionId(),
                     ),
                 )
-                dao.insertTrashObligations(items.map { item ->
+                trashDao.insertTrashObligations(items.map { item ->
                     TrashObligationEntity(
                         trashAttemptId = attemptId,
                         mediaId = item.mediaId,
@@ -151,7 +154,7 @@ internal class VerifiedPhotoTrash(
             "TERMINAL_DENIED"
         }
         refuseUnless(
-            dao.recordTrashCallback(attempt.value, disposition, result.name, now()) == 1,
+            trashDao.recordTrashCallback(attempt.value, disposition, result.name, now()) == 1,
             StoredMessage.THIS_ANDROID_TRASH_RESULT_IS_NO_LONGER_ACTIVE,
         )
         if (result == SystemConsentCallback.APPROVED) {
@@ -163,21 +166,21 @@ internal class VerifiedPhotoTrash(
     }
 
     suspend fun inspectApprovedTrashAttempts() {
-        dao.findApprovedTrashAttempts().forEach { inspectTrashAttempt(it.trashAttemptId) }
+        trashDao.findApprovedTrashAttempts().forEach { inspectTrashAttempt(it.trashAttemptId) }
     }
 
     private suspend fun inspectTrashAttempt(attemptId: String) {
-        val attempt = dao.findTrashAttempt(attemptId) ?: return
+        val attempt = trashDao.findTrashAttempt(attemptId) ?: return
         val approved = attempt.consentDisposition == "CALLBACK_OBSERVED_APPROVED"
         val currentBoot = originals.bootSessionId()
         val rebooted = attempt.bootSessionId != null && currentBoot != null && attempt.bootSessionId != currentBoot
-        val obligations = dao.findTrashObligations(attemptId)
+        val obligations = trashDao.findTrashObligations(attemptId)
         var allResolved = obligations.isNotEmpty()
         obligations.forEach { obligation ->
             val state = runSuspendCatching { originals.readTrashState(obligation.contentUri) }.getOrNull()
             val resolved = state != null && (rebooted || (approved && state.isTrashed))
             allResolved = allResolved && resolved
-            dao.updateTrashObligation(
+            trashDao.updateTrashObligation(
                 attemptId, obligation.mediaId,
                 when {
                     state?.isTrashed == true -> "TRASHED_RECOVERABLE"
@@ -190,12 +193,12 @@ internal class VerifiedPhotoTrash(
         }
         // An untrashed row is not proof that Android's consent request cannot still execute.
         // Reboot destroys the old PendingIntent; unreadable URIs still require recovery.
-        if (allResolved) dao.setTrashDisposition(attemptId, if (rebooted) "TERMINAL_RECOVERED_AFTER_REBOOT" else "TERMINAL_EXECUTED")
+        if (allResolved) trashDao.setTrashDisposition(attemptId, if (rebooted) "TERMINAL_RECOVERED_AFTER_REBOOT" else "TERMINAL_EXECUTED")
     }
 
     private suspend fun resolveDeniedTrashAttempt(attemptId: String) {
-        dao.findTrashObligations(attemptId).forEach { obligation ->
-            dao.updateTrashObligation(
+        trashDao.findTrashObligations(attemptId).forEach { obligation ->
+            trashDao.updateTrashObligation(
                 attemptId,
                 obligation.mediaId,
                 "NOT_EXECUTED",
