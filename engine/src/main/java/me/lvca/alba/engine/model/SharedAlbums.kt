@@ -27,8 +27,33 @@ data class SharedDiscussion(val comments: List<SharedComment>, val canComment: B
 data class SharedPost(val id: String, val author: String, val isMine: Boolean, val timestamp: Long, val caption: String)
 data class SharedActivityPage(val posts: List<SharedPost>, val nextRank: Int?)
 
-enum class SharedAction { POST_COMMENT, POST_REACTION, POST_DELETE_COMMENT, CREATE_INVITE_LINK, REVOKE_INVITE_LINKS, APPROVE_REQUEST, DENY_REQUEST, UNBLOCK, RENAME, INVITE, REMOVE_PARTICIPANT, ROLE, PUBLIC_ACCESS, CONTRIBUTIONS,
-    ACCESS_REQUESTS, TEMPORARY, DELETE_ALBUM, LEAVE, REMOVE_MEDIA, COMMENT, DELETE_COMMENT, REACTION, SAVE_TO_LIBRARY, COVER }
+enum class SharedAction {
+    POST_COMMENT,
+    POST_REACTION,
+    POST_DELETE_COMMENT,
+    CREATE_INVITE_LINK,
+    REVOKE_INVITE_LINKS,
+    APPROVE_REQUEST,
+    DENY_REQUEST,
+    UNBLOCK,
+    RENAME,
+    INVITE,
+    REMOVE_PARTICIPANT,
+    ROLE,
+    PUBLIC_ACCESS,
+    CONTRIBUTIONS,
+    ACCESS_REQUESTS,
+    TEMPORARY,
+    DELETE_ALBUM,
+    LEAVE,
+    REMOVE_MEDIA,
+    COMMENT,
+    DELETE_COMMENT,
+    REACTION,
+    SAVE_TO_LIBRARY,
+    COVER
+}
+
 /** IDs are scoped by the album; the protocol rechecks membership and permissions before every write. */
 data class SharedCommand(val action: SharedAction, val subject: String = "", val value: String = "", val enabled: Boolean = false)
 

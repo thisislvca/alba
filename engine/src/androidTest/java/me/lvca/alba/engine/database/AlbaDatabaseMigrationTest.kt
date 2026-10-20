@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -118,10 +118,10 @@ class AlbaDatabaseMigrationTest {
             assertEquals(null, migrated.catalogDao().checkpoint("icloud:account"))
             assertNotNull(migrated.catalogDao().checkpoint("device:primary"))
             assertEquals("UPLOADED", migrated.libraryDao().checkpoint("attempt")?.phase)
-            val acceptance = requireNotNull(migrated.photoWriteDao().findAcceptance("attempt"))
+            val acceptance = requireNotNull(migrated.transferDao().findAcceptance("attempt"))
             assertEquals("master", acceptance.masterRecordName)
             assertEquals(null, acceptance.uploadJobId)
-            val stage = requireNotNull(migrated.photoWriteDao().findStagedSource("stage"))
+            val stage = requireNotNull(migrated.transferDao().findStagedSource("stage"))
             assertTrue(stage.formatValidated)
             assertEquals("00000000-0000-0000-0000-000000000001.jpeg", stage.ownedFileToken)
             assertEquals(null, stage.lastModifiedAtEpochMillis)
@@ -216,8 +216,8 @@ class AlbaDatabaseMigrationTest {
         try {
             val legacy = migrated.uploadTransferDao().findLatestForMedia("device:1", "old-label")
             assertNotNull(legacy)
-            assertEquals(0, migrated.photoWriteDao().observeTransfers().first().size)
-            assertEquals(null, migrated.photoWriteDao().findActiveAccount())
+            assertEquals(0, migrated.transferDao().observeTransfers().first().size)
+            assertEquals(null, migrated.accountDao().findActiveAccount())
         } finally {
             migrated.close()
         }
@@ -243,7 +243,7 @@ class AlbaDatabaseMigrationTest {
         val migrated = AlbaDatabase.create(context)
         try {
             assertEquals("fixture.jpg", migrated.catalogDao().findById("fixture:1")?.fileName)
-            assertEquals(null, migrated.photoWriteDao().findActiveAccount())
+            assertEquals(null, migrated.accountDao().findActiveAccount())
         } finally {
             migrated.close()
         }

@@ -2,17 +2,17 @@ package me.lvca.alba.engine.repository
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.companion.*
 import me.lvca.alba.engine.database.*
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.*
-import java.io.OutputStream
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.OutputStream
+import java.util.concurrent.atomic.AtomicInteger
 
 class LibraryFeaturesTest {
     @Test fun incrementalRefreshKeepsCachesAndFailedSnapshotKeepsVisibleState() = runBlocking {
@@ -72,16 +72,16 @@ class LibraryFeaturesTest {
             val id = actions.enqueue(BatchAction.KEEP_OFFLINE, listOf("one", "two", "bad", "one"))
             actions.runPending()
             assertEquals(3, actions.observe().first().size)
-            assertEquals(2, actions.observe().first().count { it.state == "DONE" })
+            assertEquals(2, actions.observe().first().count { it.status == BatchItemState.DONE })
             assertTrue(maximum.get() <= 2)
             fail = false; actions.retry(id); actions.runPending()
-            assertTrue(actions.observe().first().all { it.state == "DONE" })
+            assertTrue(actions.observe().first().all { it.status == BatchItemState.DONE })
             actions.enqueue(BatchAction.KEEP_OFFLINE, listOf("old-account"))
             account = "b"; actions.runPending()
-            assertEquals("STOPPED", actions.observe().first().last().state)
+            assertEquals(BatchItemState.STOPPED, actions.observe().first().last().status)
             db.libraryDao().putBatches(listOf(BatchItemEntity("restart", "uncertain-upload", "b", "UPLOAD", "RUNNING", null, Long.MAX_VALUE)))
             actions.runPending()
-            assertEquals("NEEDS_ATTENTION", actions.observe().first().last().state)
+            assertEquals(BatchItemState.NEEDS_ATTENTION, actions.observe().first().last().status)
             actions.enqueue(BatchAction.KEEP_OFFLINE, listOf("same-account-new-login"))
             actions.cancelActive()
             assertTrue(db.libraryDao().pendingBatches().isEmpty())

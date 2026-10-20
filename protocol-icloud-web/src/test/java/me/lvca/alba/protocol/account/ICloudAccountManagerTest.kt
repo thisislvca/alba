@@ -1,12 +1,12 @@
 package me.lvca.alba.protocol.account
 
+import kotlinx.coroutines.*
 import me.lvca.alba.protocol.auth.AppleAuthenticationService
 import me.lvca.alba.protocol.network.*
-import java.io.IOException
-import java.io.OutputStream
-import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.IOException
+import java.io.OutputStream
 
 class ICloudAccountManagerTest {
     @Test fun demoRequiresExplicitSelectionAndSignOutClearsIt() = runBlocking {
@@ -290,8 +290,6 @@ class ICloudAccountManagerTest {
         }
     }
     private class ValidationTransport(var code: Int, private val photosAvailable: Boolean = true) : AppleHttpTransport {
-        private var headers = AppleSessionHeaders()
-        override val sessionHeaders: AppleSessionHeaders get() = headers
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             if (code == 0) throw IOException("Offline")
             val services = if (photosAvailable) """{"ckdatabasews":{"url":"https://p01-ckdatabasews.icloud.com"}}""" else "{}"
@@ -299,14 +297,7 @@ class ICloudAccountManagerTest {
         }
         override suspend fun stream(url: String, output: OutputStream) = error("Unused")
         override fun snapshotCookies() = emptyList<PersistedCookie>()
-        override fun restore(snapshot: AppleSessionSnapshot) {
-            headers = AppleSessionHeaders(
-                accountCountryCode = snapshot.accountCountryCode,
-                sessionId = snapshot.sessionId,
-                sessionToken = snapshot.sessionToken,
-                trustToken = snapshot.trustToken,
-            )
-        }
+        override fun restore(snapshot: AppleSessionSnapshot) = Unit
         override fun clear() = Unit
     }
     companion object {

@@ -5,13 +5,13 @@ import android.content.Context
 import android.provider.MediaStore
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
-import me.lvca.alba.engine.cache.UploadStagingStore
-import me.lvca.alba.engine.cache.InsufficientStorageException
-import java.io.File
-import java.security.MessageDigest
 import kotlinx.coroutines.*
+import me.lvca.alba.engine.cache.InsufficientStorageException
+import me.lvca.alba.engine.cache.UploadStagingStore
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
+import java.security.MessageDigest
 
 class UploadFormatsTest {
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
@@ -25,7 +25,7 @@ class UploadFormatsTest {
         val cases = listOf("jpeg.jpg" to "image/jpeg", "png.png" to "image/png", "heic.heic" to "image/heic",
             "webp.webp" to "image/webp", "avc.mp4" to "video/mp4", "hevc.mov" to "video/quicktime",
             "avc.mov" to "video/quicktime", "hevc.mp4" to "video/mp4")
-        for ((name,mime) in cases) {
+        for ((name, mime) in cases) {
             val bytes = fixture(name)
             val video = mime.startsWith("video/")
             val collection = if (video) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
@@ -52,7 +52,7 @@ class UploadFormatsTest {
                     assertArrayEquals(bytes, upload.openOnce().use { it.readBytes() })
                     assertTrue(runCatching { upload.openOnce() }.isFailure)
                 } finally { staging.deleteOwned(staged.ownedFileToken) }
-            } finally { resolver.delete(uri,null,null) }
+            } finally { resolver.delete(uri, null, null) }
         }
     }
 
@@ -65,15 +65,15 @@ class UploadFormatsTest {
             val result = runCatching { staging.stageExact { output ->
                 val format = UploadMediaFormat.detect(bytes.take(4096).toByteArray())
                 output.write(bytes)
-                ExactOriginalEvidence("content://test/$name",name,format.mimeType,"lineage","revision","USER_SELECTION",false,true,true,bytes.size.toLong(),digest(bytes))
+                ExactOriginalEvidence("content://test/$name", name, format.mimeType, "lineage", "revision", "USER_SELECTION", false, true, true, bytes.size.toLong(), digest(bytes))
             } }
             assertTrue("$name must be rejected: $result", result.exceptionOrNull() is UnsupportedUploadException)
-            assertEquals(before,folder.list()!!.toSet())
+            assertEquals(before, folder.list()!!.toSet())
         }
     }
 
     @Test fun lowStorageAndCancellationRemovePartialOriginals() = runBlocking {
-        val folder = File(context.filesDir,"upload_staging").apply { mkdirs() }
+        val folder = File(context.filesDir, "upload_staging").apply { mkdirs() }
         val before = folder.list()!!.toSet()
         val bytes = fixture("png.png")
         val noSpace = runCatching { UploadStagingStore(context, availableBytes = { 0L }).stageExact { output ->
@@ -81,7 +81,7 @@ class UploadFormatsTest {
             error("Storage guard should stop this write")
         } }
         assertTrue(noSpace.exceptionOrNull() is InsufficientStorageException)
-        assertEquals(before,folder.list()!!.toSet())
+        assertEquals(before, folder.list()!!.toSet())
         val job = launch { UploadStagingStore(context).stageExact { output ->
             currentCoroutineContext().cancel()
             output.write(bytes)
@@ -89,6 +89,6 @@ class UploadFormatsTest {
         } }
         job.join()
         assertTrue(job.isCancelled)
-        assertEquals(before,folder.list()!!.toSet())
+        assertEquals(before, folder.list()!!.toSet())
     }
 }

@@ -8,6 +8,13 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AccountWriteSlotEntity
 import me.lvca.alba.engine.database.AlbaDatabase
@@ -39,18 +46,6 @@ import me.lvca.alba.engine.source.ExactOriginalSource
 import me.lvca.alba.engine.source.LocalDiscoveryCheckpoint
 import me.lvca.alba.engine.source.LocalDiscoveryPage
 import me.lvca.alba.engine.source.LocalTrashState
-import java.io.IOException
-import java.io.OutputStream
-import java.security.MessageDigest
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -60,6 +55,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.IOException
+import java.io.OutputStream
+import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(AndroidJUnit4::class)
 class DefaultPhotoCompanionTest {
@@ -145,7 +145,7 @@ class DefaultPhotoCompanionTest {
         assertEquals(0, protocol.uploadStarts.get())
         assertEquals(TransferViewState.NEEDS_ATTENTION, restarted.observeTransfers().first().single().state)
         assertFalse(restarted.hasPendingUserUploads())
-        assertNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
+        assertNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
     }
 
     @Test
@@ -158,7 +158,7 @@ class DefaultPhotoCompanionTest {
         assertEquals(0, protocol.uploadStarts.get())
         assertEquals(1, protocol.uploadCancels.get())
         assertFalse(photos.hasPendingUserUploads())
-        assertNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
+        assertNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
     }
 
     @Test
@@ -180,8 +180,8 @@ class DefaultPhotoCompanionTest {
         restarted.runUserUploads()
         assertEquals(1, protocol.uploadStarts.get())
         assertFalse(restarted.hasPendingUserUploads())
-        assertNotNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
-        assertTrue(database.photoWriteDao().findTransfer(ticket.id.value)?.state in setOf(me.lvca.alba.engine.database.TransferState.OUTCOME_UNKNOWN, me.lvca.alba.engine.database.TransferState.RECONCILING, me.lvca.alba.engine.database.TransferState.READ_FAILURE))
+        assertNotNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
+        assertTrue(database.transferDao().findTransfer(ticket.id.value)?.state in setOf(me.lvca.alba.engine.database.TransferState.OUTCOME_UNKNOWN, me.lvca.alba.engine.database.TransferState.RECONCILING, me.lvca.alba.engine.database.TransferState.READ_FAILURE))
     }
 
     @Test
@@ -196,7 +196,7 @@ class DefaultPhotoCompanionTest {
         photos.cancelUserUploads()
         photos.wake(WakeReason.BACKGROUND)
         assertEquals(1, protocol.uploadStarts.get())
-        assertTrue(database.photoWriteDao().findEnabledBackupEnrollment(ACCOUNT_ID)?.enabled == true)
+        assertTrue(database.backupDao().findEnabledBackupEnrollment(ACCOUNT_ID)?.enabled == true)
         assertEquals(1, photos.observeTransfers().first().count { it.state == TransferViewState.NEEDS_ATTENTION })
         assertEquals(1, photos.observeTransfers().first().count { it.state == TransferViewState.VERIFIED })
     }
@@ -215,9 +215,9 @@ class DefaultPhotoCompanionTest {
         assertNotNull(transfer.verifiedAtEpochMillis)
         assertEquals(1, protocol.uploadStarts.get())
         assertEquals(SOURCE_BYTES.toList(), protocol.uploadedBytes.single().toList())
-        val storedTransfer = requireNotNull(database.photoWriteDao().findTransfer(transfer.id.value))
+        val storedTransfer = requireNotNull(database.transferDao().findTransfer(transfer.id.value))
         val stagedSource = requireNotNull(
-            database.photoWriteDao().findStagedSource(storedTransfer.stagedSourceId),
+            database.transferDao().findStagedSource(storedTransfer.stagedSourceId),
         )
         assertNotNull(stagedSource.releasedAtEpochMillis)
         assertEquals(NOW - 1234, stagedSource.lastModifiedAtEpochMillis)
@@ -234,8 +234,8 @@ class DefaultPhotoCompanionTest {
         val photos = companion(source, protocol, clock = { time })
         val ticket = photos.uploadSelected(UserSelectedPhoto("content://picker/processing", "processing.jpg"))
         photos.syncNow()
-        val row = requireNotNull(database.photoWriteDao().findTransfer(ticket.id.value))
-        assertEquals("job", database.photoWriteDao().findAcceptance(requireNotNull(row.activeAttemptId))?.uploadJobId)
+        val row = requireNotNull(database.transferDao().findTransfer(ticket.id.value))
+        assertEquals("job", database.transferDao().findAcceptance(requireNotNull(row.activeAttemptId))?.uploadJobId)
         assertEquals(TransferViewState.CHECKING_ICLOUD, photos.observeTransfers().first().single().state)
         assertEquals(0, protocol.candidateReads)
         assertEquals(1, protocol.uploadStarts.get())
@@ -264,7 +264,7 @@ class DefaultPhotoCompanionTest {
         assertEquals(me.lvca.alba.engine.model.StoredMessage.UPLOAD_PROCESSING_FAILED.code, transfer.message)
         assertEquals(0, protocol.candidateReads)
         assertEquals(1, protocol.uploadStarts.get())
-        assertNotNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
+        assertNotNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
         photos.continuePastUnresolved(ticket.id)
         assertTrue(runCatching { photos.uploadSelected(UserSelectedPhoto("content://picker/failed-again", "failed.jpg")) }.isFailure)
         assertEquals(1, protocol.uploadStarts.get())
@@ -290,13 +290,13 @@ class DefaultPhotoCompanionTest {
         val photos = companion(FakeOriginalSource(context), protocol, clock = { time })
         val ticket = photos.uploadSelected(UserSelectedPhoto("content://picker/stuck", "stuck.jpg"))
         photos.syncNow()
-        time = requireNotNull(database.photoWriteDao().findTransfer(ticket.id.value)?.reconciliationDeadlineEpochMillis) + 1
+        time = requireNotNull(database.transferDao().findTransfer(ticket.id.value)?.reconciliationDeadlineEpochMillis) + 1
         photos.syncNow()
         assertEquals(TransferViewState.UNRESOLVED, photos.observeTransfers().first().single().state)
         assertEquals(1, protocol.candidateReads)
         assertEquals(1, protocol.uploadStarts.get())
         photos.continuePastUnresolved(ticket.id)
-        assertNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
+        assertNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
     }
 
     @Test
@@ -324,7 +324,7 @@ class DefaultPhotoCompanionTest {
         val transfer = photos.observeTransfers().first().single()
         assertEquals(TransferViewState.CHECKING_ICLOUD, transfer.state)
         assertEquals(1, protocol.uploadStarts.get())
-        assertNotNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
+        assertNotNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
     }
 
     @Test
@@ -332,7 +332,7 @@ class DefaultPhotoCompanionTest {
         val protocol = FakeProtocol(UploadMode.ACCEPT, remoteBytes = null)
         val photos = companion(FakeOriginalSource(context), protocol)
         val ticket = photos.uploadSelected(UserSelectedPhoto("content://picker/recovery", "recovery.jpg"))
-        val dao = database.photoWriteDao()
+        val dao = database.transferDao()
         val transfer = requireNotNull(dao.findTransfer(ticket.id.value))
         val lease = "test-lease"
         assertEquals(
@@ -382,14 +382,14 @@ class DefaultPhotoCompanionTest {
         val protocol = FakeProtocol(UploadMode.ACCEPT, SOURCE_BYTES)
         val photos = companion(FakeOriginalSource(context), protocol)
         val ticket = photos.uploadSelected(UserSelectedPhoto("content://picker/corrupt", "corrupt.jpg"))
-        val transfer = requireNotNull(database.photoWriteDao().findTransfer(ticket.id.value))
-        val source = requireNotNull(database.photoWriteDao().findStagedSource(transfer.stagedSourceId))
+        val transfer = requireNotNull(database.transferDao().findTransfer(ticket.id.value))
+        val source = requireNotNull(database.transferDao().findStagedSource(transfer.stagedSourceId))
         java.io.File(context.filesDir, "upload_staging/${source.ownedFileToken}").writeBytes(byteArrayOf(1, 2, 3))
 
         runCatching { photos.syncNow() }
 
         assertEquals(0, protocol.uploadStarts.get())
-        assertNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
+        assertNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
         assertEquals(TransferViewState.NEEDS_ATTENTION, photos.observeTransfers().first().single().state)
     }
 
@@ -421,10 +421,10 @@ class DefaultPhotoCompanionTest {
         photos.syncNow()
 
         assertEquals(TransferViewState.UNRESOLVED, photos.observeTransfers().first().single().state)
-        assertNotNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
+        assertNotNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
         photos.continuePastUnresolved(ticket.id)
         assertEquals(TransferViewState.SKIPPED, photos.observeTransfers().first().single().state)
-        assertNull(database.photoWriteDao().findWriteSlot(ACCOUNT_ID))
+        assertNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
         assertEquals(1, protocol.uploadStarts.get())
     }
 
@@ -518,7 +518,7 @@ class DefaultPhotoCompanionTest {
         photos.wake(WakeReason.PROCESS_STARTED)
         assertEquals(1, protocol.uploadStarts.get())
         val transfer = photos.observeTransfers().first().single()
-        assertEquals(me.lvca.alba.engine.database.TransferState.SENDING, database.photoWriteDao().findTransfer(transfer.id.value)?.state)
+        assertEquals(me.lvca.alba.engine.database.TransferState.SENDING, database.transferDao().findTransfer(transfer.id.value)?.state)
         unmetered = true
         photos.wake(WakeReason.FOREGROUND)
         assertEquals(2, protocol.uploadStarts.get())
@@ -534,8 +534,8 @@ class DefaultPhotoCompanionTest {
         photos.acceptBackupDisclosure(draft.id)
         photos.finishBackupEnrollment(draft.id)
         photos.syncNow()
-        val row = requireNotNull(database.photoWriteDao().findTransfer(photos.observeTransfers().first().single().id.value))
-        database.photoWriteDao().markReadFailure(row.transferId, requireNotNull(row.activeAttemptId), NOW, NOW, "Check pending")
+        val row = requireNotNull(database.transferDao().findTransfer(photos.observeTransfers().first().single().id.value))
+        database.transferDao().markReadFailure(row.transferId, requireNotNull(row.activeAttemptId), NOW, NOW, "Check pending")
         val before = protocol.candidateReads
         unmetered = false
         val wake = photos.wake(WakeReason.FOREGROUND)
@@ -557,8 +557,22 @@ class DefaultPhotoCompanionTest {
             error("Session became offline")
         }
         photos.wake(WakeReason.USER_TRANSFER)
-        val row = requireNotNull(database.photoWriteDao().findTransfer(photos.observeTransfers().first().single().id.value))
+        val row = requireNotNull(database.transferDao().findTransfer(photos.observeTransfers().first().single().id.value))
         assertEquals(me.lvca.alba.engine.database.TransferState.SENDING, row.state)
+        assertEquals(1, protocol.uploadStarts.get())
+    }
+
+    @Test
+    fun deterministicResumeFailureEndsInReconciliationInsteadOfLooping() = runBlocking {
+        val protocol = FakeProtocol(UploadMode.THROW_BEFORE_BODY, null).apply { safeResume = true }
+        val photos = companion(FakeOriginalSource(context), protocol)
+        photos.uploadSelected(UserSelectedPhoto("content://picker/changed", "changed.jpg"))
+        photos.syncNow()
+        // The protocol's own checks fail the same way on every attempt, e.g. when the source file changed.
+        protocol.beforePrepare = { error("Upload filename changed") }
+        photos.wake(WakeReason.USER_TRANSFER)
+        val row = requireNotNull(database.transferDao().findTransfer(photos.observeTransfers().first().single().id.value))
+        assertTrue(row.state != me.lvca.alba.engine.database.TransferState.SENDING)
         assertEquals(1, protocol.uploadStarts.get())
     }
 

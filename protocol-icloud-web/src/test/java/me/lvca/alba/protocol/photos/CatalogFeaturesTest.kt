@@ -1,14 +1,14 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.engine.source.CatalogResetRequired
-import me.lvca.alba.engine.model.*
-import me.lvca.alba.protocol.account.*
-import me.lvca.alba.protocol.network.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
-import java.io.*
+import me.lvca.alba.engine.model.*
+import me.lvca.alba.engine.source.CatalogResetRequired
+import me.lvca.alba.protocol.account.*
+import me.lvca.alba.protocol.network.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.*
 
 class CatalogFeaturesTest {
     private val session = AppleSessionSnapshot("test@example.com", "client", "IT", "session", "token", null,
@@ -58,7 +58,6 @@ class CatalogFeaturesTest {
         var expire = false; var expiredToken = false; var opens = 0; var lookups = 0; var lastUrl = ""
         var masterRevision = "m1"
         var posterFingerprint = "poster-bytes"
-        override val sessionHeaders = AppleSessionHeaders()
         private val master get() = """{"recordName":"master","recordType":"CPLMaster","recordChangeTag":"$masterRevision","fields":{"filenameEnc":{"value":"dmlkZW8ubXA0"},"itemType":{"value":"public.mpeg-4"},"resOriginalFingerprint":{"value":"hash"},"resOriginalRes":{"value":{"downloadURL":"https://cws.icloud-content.com/original"}},"resVidMedRes":{"value":{"downloadURL":"https://cws.icloud-content.com/play"}},"resJPEGMedRes":{"value":{"downloadURL":"https://cws.icloud-content.com/poster","fileChecksum":"$posterFingerprint"}}}}"""
         private val asset = """{"recordName":"asset","recordType":"CPLAsset","recordChangeTag":"a1","fields":{"masterRef":{"value":{"recordName":"master"}},"assetDate":{"value":1777777777000},"duration":{"value":3000,"type":"INT64"}}}"""
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {

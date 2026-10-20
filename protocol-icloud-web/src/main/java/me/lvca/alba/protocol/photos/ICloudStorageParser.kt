@@ -1,8 +1,8 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.CloudStorageUsage
 import me.lvca.alba.engine.model.StorageCategory
-import kotlinx.serialization.json.*
 
 internal object ICloudStorageParser {
     fun parse(body: String, now: Long = System.currentTimeMillis()): CloudStorageUsage {

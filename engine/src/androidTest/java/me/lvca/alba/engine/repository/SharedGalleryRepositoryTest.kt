@@ -2,15 +2,15 @@ package me.lvca.alba.engine.repository
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.*
-import java.io.OutputStream
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.OutputStream
 
 class SharedGalleryRepositoryTest {
     @Test fun firstRefreshStillPublishesPersonalPhotosWhenSharedServiceIsUnavailable() = runBlocking {
@@ -69,30 +69,30 @@ class SharedGalleryRepositoryTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, AlbaDatabase::class.java).build()
         val cache = MediaFileCache(context).also { it.clearAll() }
-        val image = android.graphics.Bitmap.createBitmap(8,8,android.graphics.Bitmap.Config.ARGB_8888)
-        val bytes = java.io.ByteArrayOutputStream().also { image.compress(android.graphics.Bitmap.CompressFormat.JPEG,90,it) }.toByteArray()
+        val image = android.graphics.Bitmap.createBitmap(8, 8, android.graphics.Bitmap.Config.ARGB_8888)
+        val bytes = java.io.ByteArrayOutputStream().also { image.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
         image.recycle()
         val source = Source().apply { contributor = true }
         val device = object : DeviceCatalogSource {
-            override suspend fun scanImages() = listOf(DeviceMediaRecord("device:test","phone.jpg",1000,8,8,"content://media/external/images/media/1","revision",byteCount=bytes.size.toLong()))
+            override suspend fun scanImages() = listOf(DeviceMediaRecord("device:test", "phone.jpg", 1000, 8, 8, "content://media/external/images/media/1", "revision", byteCount = bytes.size.toLong()))
             override suspend fun writeOriginal(contentUri: String, output: OutputStream): DeviceOriginalEvidence {
-                assertEquals("content://media/external/images/media/1",contentUri); output.write(bytes)
-                return DeviceOriginalEvidence(bytes.size.toLong(),"unused")
+                assertEquals("content://media/external/images/media/1", contentUri); output.write(bytes)
+                return DeviceOriginalEvidence(bytes.size.toLong(), "unused")
             }
         }
         val repo = DefaultGalleryRepository(db, source, device, cache)
         try {
             repo.refresh(true)
-            repo.contributeToSharedAlbum(Source.ALBUM,listOf("device:test"),java.util.UUID.randomUUID().toString())
-            assertArrayEquals(bytes,source.uploaded)
+            repo.contributeToSharedAlbum(Source.ALBUM, listOf("device:test"), java.util.UUID.randomUUID().toString())
+            assertArrayEquals(bytes, source.uploaded)
             assertTrue(repo.observeGallery().first().any { it.id == "device:test" })
-            assertEquals(1,repo.observeGallery().first().count { it.isShared })
-            assertEquals(0,source.edits)
+            assertEquals(1, repo.observeGallery().first().count { it.isShared })
+            assertEquals(0, source.edits)
         } finally { cache.clearAll(); db.close() }
     }
 
     private class Source : CloudCatalogSource {
-        var contributor = false; var uploaded = byteArrayOf();
+        var contributor = false; var uploaded = byteArrayOf()
         var offline = false; var revoked = false; var edits = 0; var known = emptyList<RemoteMediaRecord>(); var personalName = "same.jpg"
         override val accountLabel = "test"
         private fun record(id: String) = RemoteMediaRecord(id, if(id == "icloud:test:asset") personalName else "same.jpg", 1000, 640, 480, "m:a", 0, 0,
@@ -111,9 +111,9 @@ class SharedGalleryRepositoryTest {
                 shared = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, if(contributor) SharedAlbumRole.CONTRIBUTOR else SharedAlbumRole.VIEWER))), mapOf(ALBUM to setOf(SHARED))))
         }
         override suspend fun uploadSharedPhoto(id: String, fileName: String, source: OneShotUploadSource, operationId: String) {
-            assertEquals(ALBUM,id); assertEquals("phone.jpg",fileName)
+            assertEquals(ALBUM, id); assertEquals("phone.jpg", fileName)
             uploaded = source.openOnce().use { it.readBytes() }
-            assertEquals(source.byteCount,uploaded.size.toLong())
+            assertEquals(source.byteCount, uploaded.size.toLong())
             assertEquals(java.security.MessageDigest.getInstance("SHA-256").digest(uploaded).joinToString("") { "%02x".format(it) }, source.sha256Hex)
             assertTrue(runCatching { source.openOnce() }.isFailure)
         }

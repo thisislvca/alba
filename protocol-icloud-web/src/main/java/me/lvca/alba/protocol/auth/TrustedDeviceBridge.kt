@@ -1,17 +1,5 @@
 package me.lvca.alba.protocol.auth
 
-import me.lvca.alba.protocol.network.AppleEndpointPolicy
-import me.lvca.alba.protocol.network.AppleHttpRequest
-import me.lvca.alba.protocol.network.AppleHttpTransport
-import java.math.BigInteger
-import java.security.KeyPairGenerator
-import java.security.SecureRandom
-import java.security.Signature
-import java.security.interfaces.ECPublicKey
-import java.security.spec.ECGenParameterSpec
-import java.time.Clock
-import java.util.Base64
-import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -21,6 +9,19 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
+import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.network.AppleHttpRequest
+import me.lvca.alba.protocol.network.AppleHttpTransport
+import me.lvca.alba.protocol.toHex
+import java.math.BigInteger
+import java.security.KeyPairGenerator
+import java.security.SecureRandom
+import java.security.Signature
+import java.security.interfaces.ECPublicKey
+import java.security.spec.ECGenParameterSpec
+import java.time.Clock
+import java.util.Base64
+import java.util.UUID
 
 internal data class TrustedDeviceBridgeState(
     val connectionPath: String,
@@ -383,12 +384,6 @@ internal class TrustedDeviceBridge(
             "sandbox" -> "websocket.sandbox.push.apple.com"
             else -> throw BridgePromptException("Apple did not return a bridge host")
         }
-    }
-
-    private fun JsonObject.strictStringOrNull(name: String): String? {
-        val value = this[name] ?: return null
-        val primitive = value as? JsonPrimitive ?: return null
-        return primitive.takeIf { it.isString }?.contentOrNull?.takeIf(String::isNotBlank)
     }
 
     internal data class BridgeKeyMaterial(

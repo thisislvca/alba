@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="launcher_background">#FFFFFF</color>
+    <!-- AlbaTheme's colorScheme.background, so the window matches the first Compose frame. -->
+    <color name="window_background">#F2F2F7</color>
 </resources>

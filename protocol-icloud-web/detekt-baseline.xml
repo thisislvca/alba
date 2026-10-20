@@ -1,0 +1,296 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser$asset.fieldText("isHidden") in setOf("1", "true") || asset.fieldText("isExpunged") in setOf("1", "true") || (trashed &amp;&amp; !includeTrashed)</ID>
+    <ID>ComplexCondition:ICloudAccountManager.kt$ICloudAccountManager$!force &amp;&amp; current != ICloudAccountState.Restoring &amp;&amp; (current !is ICloudAccountState.SignedIn || current.status == SessionStatus.VERIFIED)</ID>
+    <ID>ComplexCondition:ICloudAccountManager.kt$ICloudAccountManager$current.dsid != snapshot.dsid || current.clientId != snapshot.clientId || current.sessionId != snapshot.sessionId || current.sessionToken != snapshot.sessionToken</ID>
+    <ID>ComplexCondition:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$limit != null &amp;&amp; limit &gt; 0 &amp;&amp; multiplier != null &amp;&amp; limit &lt;= Long.MAX_VALUE / multiplier</ID>
+    <ID>ComplexCondition:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$!isAuthorized() || current == null || current.dsid != session.dsid || current.clientId != session.clientId</ID>
+    <ID>ComplexCondition:PhotosUpload.kt$PhotosUpload$saved["fileName"] == null || saved["lastModDate"] == null || saved["localTimeZoneId"] == null || saved["timeZoneOffset"] == null</ID>
+    <ID>CyclomaticComplexMethod:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser$private fun parsePhoto(master: JsonObject, asset: JsonObject, includeTrashed: Boolean, legacy: Boolean): CloudPhotoAsset?</ID>
+    <ID>CyclomaticComplexMethod:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$override suspend fun changeSharedAlbum(id: String, command: me.lvca.alba.engine.model.SharedCommand, operationId: String)</ID>
+    <ID>CyclomaticComplexMethod:ICloudWebSession.kt$ICloudWebSession$private fun snapshotFromAccountResponse( appleId: String, clientId: String, response: AppleHttpResponse, fallback: AppleSessionSnapshot? = null, ): AppleSessionSnapshot</ID>
+    <ID>CyclomaticComplexMethod:LegacySharedUpload.kt$LegacySharedUpload$suspend fun upload(id: String, fileName: String, source: OneShotUploadSource, operationId: String)</ID>
+    <ID>CyclomaticComplexMethod:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$override suspend fun collections(): CollectionSnapshot</ID>
+    <ID>CyclomaticComplexMethod:ModernShareEdits.kt$ModernShareEdits$fun properties(share: JsonObject, command: SharedCommand, pending: JsonObject): JsonObject</ID>
+    <ID>CyclomaticComplexMethod:PhotosUpload.kt$PhotosUpload$override suspend fun startOnce(attemptId: String): UploadAcceptance</ID>
+    <ID>CyclomaticComplexMethod:SharedAlbumActions.kt$SharedAlbumActions$suspend fun change(id: String, command: SharedCommand, operationId: String)</ID>
+    <ID>CyclomaticComplexMethod:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseCopyResponse) throw IOException("lost copy result")</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseCopyStatus) { loseCopyStatus = false; throw IOException("offline") }</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseLegacyCommentResponse) throw IOException("lost comment")</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseLegacyPut) { loseLegacyPut = false; throw IOException("lost publish") }</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseLegacyStatus) { loseLegacyStatus = false; throw IOException("offline") }</ID>
+    <ID>InstanceOfCheckForException:ICloudAccountProfileService.kt$ICloudAccountProfileService$error is CancellationException</ID>
+    <ID>LongParameterList:SharedAlbumBackend.kt$SharedAlbumBackend$( album: SharedAlbumRecord, asset: String, post: Boolean, reaction: Boolean, value: String, thread: SharedDiscussion, pending: JsonObject, markSending: suspend (JsonObject) -&gt; Unit, )</ID>
+    <ID>LongParameterList:SharedAlbumTransfers.kt$SharedAlbumTransfers$( private val transport: AppleHttpTransport, private val client: CloudKitClient, private val connection: SharedAlbumSession, private val ids: SharedAlbumIds, private val journal: SharedAlbumJournal, private val account: () -&gt; String, private val authorized: () -&gt; Boolean, private val discover: suspend () -&gt; List&lt;SharedAlbumRecord&gt;, private val fresh: suspend (String) -&gt; SharedAlbumRecord, private val legacy: LegacySharedAlbums, private val modern: ModernSharedAlbums, )</ID>
+    <ID>LoopWithTooManyJumpStatements:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$for</ID>
+    <ID>LoopWithTooManyJumpStatements:ModernSharedAlbums.kt$ModernSharedAlbums$for</ID>
+    <ID>LoopWithTooManyJumpStatements:TrustedDeviceBridge.kt$TrustedDeviceBridge$for</ID>
+    <ID>LoopWithTooManyJumpStatements:TrustedDeviceBridge.kt$TrustedDeviceBridge$while</ID>
+    <ID>MagicNumber:AccountTelemetry.kt$1_000_000L</ID>
+    <ID>MagicNumber:AppleAuthenticationService.kt$AppleAuthenticationService$200</ID>
+    <ID>MagicNumber:AppleAuthenticationService.kt$AppleAuthenticationService$299</ID>
+    <ID>MagicNumber:AppleAuthenticationService.kt$AppleAuthenticationService$399</ID>
+    <ID>MagicNumber:AppleEndpointPolicy.kt$AppleEndpointPolicy$443</ID>
+    <ID>MagicNumber:AppleSrpClient.kt$AppleSrpClient.Companion$0x80</ID>
+    <ID>MagicNumber:AppleSrpClient.kt$AppleSrpClient.Companion$16</ID>
+    <ID>MagicNumber:AppleSrpClient.kt$AppleSrpClient.Companion$24</ID>
+    <ID>MagicNumber:AppleSrpClient.kt$AppleSrpClient.Companion$8</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$0xff</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$10</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$11</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$12</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$128</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$13</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$14</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$15</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$16</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$18</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$24</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$3</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$4</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$5</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$6</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$7</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$8</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$9</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitClient$200</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitClient$299</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitFailures$401</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitFailures$403</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitFailures$429</ID>
+    <ID>MagicNumber:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser$1_000</ID>
+    <ID>MagicNumber:Digests.kt$0xff</ID>
+    <ID>MagicNumber:ICloudAccountIdentity.kt$ICloudAccountIdentity$8</ID>
+    <ID>MagicNumber:ICloudAccountManager.kt$ICloudAccountManager$10_000</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService$200</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService$299</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService$8_000</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$0x47</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$0x4e</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$0x50</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$10</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$12</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$13</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$26</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$30</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$4</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$40</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$8</ID>
+    <ID>MagicNumber:ICloudWebSession.kt$ICloudWebSession$200</ID>
+    <ID>MagicNumber:ICloudWebSession.kt$ICloudWebSession$299</ID>
+    <ID>MagicNumber:ICloudWebSession.kt$ICloudWebSession$401</ID>
+    <ID>MagicNumber:ICloudWebSession.kt$ICloudWebSession$403</ID>
+    <ID>MagicNumber:KeystoreAesGcm.kt$KeystoreAesGcm$256</ID>
+    <ID>MagicNumber:LegacySharedAlbums.kt$LegacySharedAlbums$100</ID>
+    <ID>MagicNumber:LegacySharedAlbums.kt$LegacySharedAlbums$100000</ID>
+    <ID>MagicNumber:LegacySharedTimestamp.kt$3</ID>
+    <ID>MagicNumber:LegacySharedTimestamp.kt$6</ID>
+    <ID>MagicNumber:LegacySharedUpload.kt$LegacySharedUpload$1000</ID>
+    <ID>MagicNumber:LegacySharedUpload.kt$LegacySharedUpload$20</ID>
+    <ID>MagicNumber:LegacySharedUpload.kt$LegacySharedUpload$200</ID>
+    <ID>MagicNumber:LegacySharedUpload.kt$LegacySharedUpload$299</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$100</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$10000</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$200</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$3</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$401</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$403</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$404</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$410</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$100</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$12</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$159</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$160</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$500</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$10</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$100</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$1000</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$100000</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$20</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$200</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$2000</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$4</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$8</ID>
+    <ID>MagicNumber:OkHttpAppleTransport.kt$OkHttpAppleTransport$206</ID>
+    <ID>MagicNumber:PersonalLibraryDatabase.kt$PersonalLibraryDatabase$100</ID>
+    <ID>MagicNumber:PersonalLibraryDatabase.kt$PersonalLibraryDatabase$200</ID>
+    <ID>MagicNumber:PersonalLibraryDatabase.kt$PersonalLibraryDatabase$200_000</ID>
+    <ID>MagicNumber:PersonalLibraryDatabase.kt$PersonalLibraryDatabase$410</ID>
+    <ID>MagicNumber:PersonalLibraryEdits.kt$PersonalLibraryEdits$1024</ID>
+    <ID>MagicNumber:PersonalLibraryEdits.kt$PersonalLibraryEdits$255</ID>
+    <ID>MagicNumber:PersonalLibraryEdits.kt$PersonalLibraryEdits$50</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$200</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$299</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$401</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$403</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$409</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$60</ID>
+    <ID>MagicNumber:SharedAlbumActions.kt$SharedAlbumActions$1000</ID>
+    <ID>MagicNumber:SharedAlbumActions.kt$SharedAlbumActions$255</ID>
+    <ID>MagicNumber:SharedAlbumIds.kt$SharedAlbumIds$3</ID>
+    <ID>MagicNumber:SharedAlbumIds.kt$SharedAlbumIds$4</ID>
+    <ID>MagicNumber:SharedAlbumIds.kt$SharedAlbumIds$6</ID>
+    <ID>MagicNumber:SharedAlbumTransfers.kt$SharedAlbumTransfers$50</ID>
+    <ID>MagicNumber:SharedAlbumsCatalog.kt$SharedAlbumsCatalog$10000</ID>
+    <ID>MagicNumber:SharedAlbumsCatalog.kt$SharedAlbumsCatalog$100000</ID>
+    <ID>MagicNumber:SharedAlbumsCatalog.kt$SharedAlbumsCatalog$255</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$1024</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$320f</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$4</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$640</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$85</ID>
+    <ID>MagicNumber:TrustedDeviceBridge.kt$TrustedDeviceBridge$1_000L</ID>
+    <ID>MagicNumber:TrustedDeviceBridge.kt$TrustedDeviceBridge$8</ID>
+    <ID>MagicNumber:TrustedDeviceBridge.kt$TrustedDeviceBridge.Companion$0x04</ID>
+    <ID>MagicNumber:TrustedDeviceBridge.kt$TrustedDeviceBridge.Companion$32</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$16</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver$0xff</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver$32</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver$64</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver$8</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$0x03</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$0x04</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$3</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$32</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$33</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$4</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$65</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeSocket.kt$OkHttpBridgeSocketFactory$15</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0x07</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0x7f</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0x80</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0xfe</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0xff</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$10</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$3</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$4</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$5</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$63</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$7</ID>
+    <ID>MagicNumber:UploadJournal.kt$EncryptedUploadJournal$13</ID>
+    <ID>MagicNumber:UploadJournal.kt$EncryptedUploadJournal$29</ID>
+    <ID>MaxLineLength:AccountAwareICloudCatalogSource.kt$AccountAwareICloudCatalogSource$override suspend fun changeSharedAlbum(id: String, command: me.lvca.alba.engine.model.SharedCommand, operationId: String)</ID>
+    <ID>MaxLineLength:AccountAwareICloudCatalogSource.kt$AccountAwareICloudCatalogSource$override suspend fun contributeToSharedAlbum(id: String, mediaIds: List&lt;String&gt;, operationId: String)</ID>
+    <ID>MaxLineLength:AccountAwareICloudCatalogSource.kt$AccountAwareICloudCatalogSource$override suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration)</ID>
+    <ID>MaxLineLength:AccountAwareICloudCatalogSource.kt$AccountAwareICloudCatalogSource$override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String)</ID>
+    <ID>MaxLineLength:AccountAwareICloudCatalogSource.kt$AccountAwareICloudCatalogSource$override suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource)</ID>
+    <ID>MaxLineLength:AccountAwareICloudCatalogSource.kt$AccountAwareICloudCatalogSource$override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource, operationId: String)</ID>
+    <ID>MaxLineLength:AppleAuthenticationServiceTest.kt$AppleAuthenticationServiceTest.Companion$const val SERVER_PUBLIC_B = "rGvbQTJKmpvxZt5eE4lYL69ytmUZh+4H/DGSlD21YFCjcynLtKCZ7YGT4HV3Z6E91SMSq0sDMQ3Nf0ip2gT9UOgIOWntt2ewz2CVF5oWOrNmGgX71fqq6CkYqZYvC5O4Vfl5k+yXXuqoDXQK2/T/dHNZ0EHVwz6nHSgeRGsUdzvKl7Q6I/uAFna9IHpDbGSB8dK5B4cXRhpbnTLmiPh3SFRFI7UksNV9Xqd6J3XS7PoDLPvb9S+zeGFgJ5AE5Xrmr4dOcwPOUymczAQce8MI2CpWmPOo0MOCca41+Onb+7aUtcgD2J965DXeI21SX1R1m2XjcvzWjvIPpxEflu8yXg=="</ID>
+    <ID>MaxLineLength:AppleSrpClientTest.kt$AppleSrpClientTest.Companion$const val EXPECTED_PUBLIC_A = "WWKC5lGbUicZ8GGZTq9NM565bksojXKuRFBKI3lyFJY4TbUaPHRwOlIxJabg9EN9fdONWjIXcMVpgiwU7jmX+8OPCefkcefv+H+BuCLZeiwvvA+F7h/7xFzfsCbSxKqY1oh7aZ6ZbjnTo2E4/FOioW/8Dv2NW9QBbYiWnHQBx2cemzZYkhHtTA2Aoy2E5gIK7ytvZZgzdI9AvqZnV6xehj4rb8CuGL/M5jpjSjr0lY0KzkI7bk78d1JwUK+6kktafen8s5pThjvjhG2s7mE4G/VNDtGqCEMGZL6dygWmseXdueUEdXP106xep13Zn3dF2ACVRyJZDRU2dYGsL3xMdQ=="</ID>
+    <ID>MaxLineLength:AppleSrpClientTest.kt$AppleSrpClientTest.Companion$const val SERVER_PUBLIC_B = "rGvbQTJKmpvxZt5eE4lYL69ytmUZh+4H/DGSlD21YFCjcynLtKCZ7YGT4HV3Z6E91SMSq0sDMQ3Nf0ip2gT9UOgIOWntt2ewz2CVF5oWOrNmGgX71fqq6CkYqZYvC5O4Vfl5k+yXXuqoDXQK2/T/dHNZ0EHVwz6nHSgeRGsUdzvKl7Q6I/uAFna9IHpDbGSB8dK5B4cXRhpbnTLmiPh3SFRFI7UksNV9Xqd6J3XS7PoDLPvb9S+zeGFgJ5AE5Xrmr4dOcwPOUymczAQce8MI2CpWmPOo0MOCca41+Onb+7aUtcgD2J965DXeI21SX1R1m2XjcvzWjvIPpxEflu8yXg=="</ID>
+    <ID>MaxLineLength:CatalogFeaturesTest.kt$CatalogFeaturesTest.Transport$private val asset = """{"recordName":"asset","recordType":"CPLAsset","recordChangeTag":"a1","fields":{"masterRef":{"value":{"recordName":"master"}},"assetDate":{"value":1777777777000},"duration":{"value":3000,"type":"INT64"}}}"""</ID>
+    <ID>MaxLineLength:CatalogFeaturesTest.kt$CatalogFeaturesTest.Transport$private val master get() = """{"recordName":"master","recordType":"CPLMaster","recordChangeTag":"$masterRevision","fields":{"filenameEnc":{"value":"dmlkZW8ubXA0"},"itemType":{"value":"public.mpeg-4"},"resOriginalFingerprint":{"value":"hash"},"resOriginalRes":{"value":{"downloadURL":"https://cws.icloud-content.com/original"}},"resVidMedRes":{"value":{"downloadURL":"https://cws.icloud-content.com/play"}},"resJPEGMedRes":{"value":{"downloadURL":"https://cws.icloud-content.com/poster","fileChecksum":"$posterFingerprint"}}}}"""</ID>
+    <ID>MaxLineLength:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser$if (asset.fieldText("isHidden") in setOf("1", "true") || asset.fieldText("isExpunged") in setOf("1", "true") || (trashed &amp;&amp; !includeTrashed)) return null</ID>
+    <ID>MaxLineLength:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser$kind = when { movie -&gt; me.lvca.alba.engine.model.MediaKind.VIDEO; motionUrl != null -&gt; me.lvca.alba.engine.model.MediaKind.LIVE_PHOTO; else -&gt; me.lvca.alba.engine.model.MediaKind.PHOTO }</ID>
+    <ID>MaxLineLength:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser$playbackUrl = if (movie || motionUrl != null) master.assetUrl("resVidMedRes") ?: master.assetUrl("resVidFullRes") ?: motionUrl ?: originalUrl else originalUrl</ID>
+    <ID>MaxLineLength:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser.Companion$val RESOURCE_PREFIXES = listOf("resOriginal", "resJPEGMed", "resJPEGLarge", "resJPEGFull", "resJPEGThumb", "resVidMed", "resVidFull", "resOriginalVidCompl")</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$if (command.value.isNotBlank()) comments += me.lvca.alba.engine.model.SharedComment(operationId, "You", command.value, System.currentTimeMillis(), true, true, reaction)</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$listOf(me.lvca.alba.engine.model.SharedParticipant("demo-owner", "Demo owner", me.lvca.alba.engine.model.SharedAlbumRole.OWNER, isCurrentUser = album.shared?.canManage == true))</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.CREATE_INVITE_LINK -&gt; management[id] = state.copy(invitationLinks = state.invitationLinks + "https://example.invalid/alba-demo-invitation/$operationId")</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.DELETE_ALBUM -&gt; { sharedAlbums.removeAll { it.id == id }; sharedFixtures.keys.removeAll { it.startsWith("$id:") }; extraRecords.keys.removeAll { it.startsWith("$id:") } }</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.INVITE -&gt; management[id] = state.copy(participants = state.participants + me.lvca.alba.engine.model.SharedParticipant(operationId, command.value, me.lvca.alba.engine.model.SharedAlbumRole.CONTRIBUTOR, pending = true))</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.LEAVE -&gt; { require(info.role != me.lvca.alba.engine.model.SharedAlbumRole.OWNER); sharedAlbums.removeAll { it.id == id }; sharedFixtures.keys.removeAll { it.startsWith("$id:") }; extraRecords.keys.removeAll { it.startsWith("$id:") } }</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.POST_COMMENT</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.POST_DELETE_COMMENT, me.lvca.alba.engine.model.SharedAction.DELETE_COMMENT -&gt; { require(comments.any { it.id == command.value &amp;&amp; it.canDelete }); comments.removeAll { it.id == command.value } }</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.PUBLIC_ACCESS -&gt; management[id] = state.copy(publicAccess = command.enabled, publicUrl = if (command.enabled) "https://example.invalid/alba-demo/$id" else null)</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.REMOVE_MEDIA -&gt; { require(info.canManage); require(command.subject in sharedIds(id)); sharedFixtures.remove(command.subject); extraRecords.remove(command.subject); discussions.remove(command.subject) }</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.REMOVE_PARTICIPANT -&gt; management[id] = state.copy(participants = state.participants.filter { it.id != command.subject })</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.RENAME -&gt; sharedAlbums[sharedAlbums.indexOfFirst { it.id == id }] = state.album.copy(name = command.value)</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.ROLE -&gt; management[id] = state.copy(participants = state.participants.map { if (it.id != command.subject) it else it.copy(role = when(command.value) { "manager" -&gt; me.lvca.alba.engine.model.SharedAlbumRole.MANAGER; "commenter" -&gt; me.lvca.alba.engine.model.SharedAlbumRole.COMMENTER; else -&gt; me.lvca.alba.engine.model.SharedAlbumRole.CONTRIBUTOR }) })</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.SAVE_TO_LIBRARY -&gt; { require(command.subject in sharedIds(id)); copyMedia(command.subject, "fixture:saved:$operationId") }</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$me.lvca.alba.engine.model.SharedAction.UNBLOCK -&gt; management[id] = state.copy(blocked = state.blocked.filterNot { it.id == command.subject })</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$override suspend</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$requests = if (id.endsWith(":two")) listOf(SharedAccessRequest("sample-alex", "Alex (sample)"), SharedAccessRequest("sample-sam", "Sam (sample)")) else emptyList()</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$return me.lvca.alba.engine.model.SharedActivityPage(if (rank == 0) listOf(me.lvca.alba.engine.model.SharedPost("post:$id:demo-post", "Demo owner", true, 1790205441000, album.name)) else emptyList(), null)</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$return me.lvca.alba.engine.model.SharedDiscussion(discussions[mediaId].orEmpty().toList(), info.canComment, info.generation, canRemovePhoto = info.canManage)</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$return me.lvca.alba.engine.source.CollectionSnapshot(albums.toList() + smart.map { me.lvca.alba.engine.model.GalleryCollection(it.id, it.title) }, members.toMap() + demoMembers)</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$shared = me.lvca.alba.engine.model.SharedAlbumInfo(me.lvca.alba.engine.model.SharedAlbumGeneration.LEGACY, me.lvca.alba.engine.model.SharedAlbumRole.VIEWER)</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$shared = me.lvca.alba.engine.model.SharedAlbumInfo(me.lvca.alba.engine.model.SharedAlbumGeneration.MODERN, me.lvca.alba.engine.model.SharedAlbumRole.OWNER, participantCount = 1)</ID>
+    <ID>MaxLineLength:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource.FixtureRecord$kind = when (index) { 19 -&gt; me.lvca.alba.engine.model.MediaKind.VIDEO; 20 -&gt; me.lvca.alba.engine.model.MediaKind.LIVE_PHOTO; else -&gt; me.lvca.alba.engine.model.MediaKind.PHOTO }</ID>
+    <ID>MaxLineLength:ICloudAccountProfileTest.kt$ICloudAccountProfileTest$ICloudAccountProfileService.parseOwnPhotoUrl("""{"meCardId":"me","contacts":[{"contactId":"me","photo":{"url":"https://gateway.icloud.com/contacts/123/ck/card/photo"}}]}""")</ID>
+    <ID>MaxLineLength:ICloudAccountProfileTest.kt$ICloudAccountProfileTest$assertNull(ICloudAccountProfileService.parseOwnPhotoUrl("""{"meCardId":"me","contacts":[{"contactId":"someone-else","photo":{"url":"https://gateway.icloud.com/image"}}]}"""))</ID>
+    <ID>MaxLineLength:ICloudAccountProfileTest.kt$ICloudAccountProfileTest$assertTrue(runCatching { ICloudAccountProfileService.parseOwnPhotoUrl("""{"meCardId":"me","contacts":[{"contactId":"me","photo":{"url":"https://untrusted.example/photo"}}]}""") }.isFailure)</ID>
+    <ID>MaxLineLength:ICloudAccountProfileTest.kt$ICloudAccountProfileTest$val plan = ICloudAccountProfileService.parsePlan("""{"featureKey":"cloud.storage","summary":{$summary},"includedWithAccountPurchasedPlan":{"includedInPlan":true}}""")!!</ID>
+    <ID>MaxLineLength:LegacySharedAlbums.kt$LegacySharedAlbums$check(page.logicalAssetCount == end - offset &amp;&amp; page.photos.size == page.logicalAssetCount) { "Shared album changed during loading. Refresh again." }</ID>
+    <ID>MaxLineLength:LegacySharedUpload.kt$LegacySharedUpload$check(receipt.text("size")?.toLong() == source.byteCount &amp;&amp; listOf("referenceChecksum", "fileChecksum", "wrappingKey", "receipt").all { !receipt.text(it).isNullOrBlank() })</ID>
+    <ID>MaxLineLength:LegacySharedUpload.kt$LegacySharedUpload$check(saved.text("target") == id &amp;&amp; saved.text("fileName") == fileName &amp;&amp; saved.text("sha256") == source.sha256Hex &amp;&amp; saved.text("size")?.toLong() == source.byteCount) { "Shared upload source or destination changed." }</ID>
+    <ID>MaxLineLength:LibraryEditingTest.kt$LibraryEditingTest$val storage = ICloudStorageParser.parse("""{"storageUsageInfo":{"usedStorageInBytes":600,"totalStorageInBytes":500},"storageUsageByMedia":[{"displayLabel":"Photos","usageInBytes":550}]}""", 10)</ID>
+    <ID>MaxLineLength:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$downloads[id] = DownloadReferences(photo.previewDownloadUrl, photo.originalDownloadUrl, photo.playbackUrl, photo.motionDownloadUrl, photo.displayDownloadUrl)</ID>
+    <ID>MaxLineLength:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$override suspend fun changeSharedAlbum(id: String, command: me.lvca.alba.engine.model.SharedCommand, operationId: String)</ID>
+    <ID>MaxLineLength:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$override suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration)</ID>
+    <ID>MaxLineLength:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$override suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource)</ID>
+    <ID>MaxLineLength:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: OneShotUploadSource, operationId: String)</ID>
+    <ID>MaxLineLength:ModernShareEdits.kt$ModernShareEdits$"participantId" to (if (share.text("publicPermission") == "READ_WRITE") pending.getValue("recordName") else person.getValue("participantId"))</ID>
+    <ID>MaxLineLength:ModernShareEdits.kt$ModernShareEdits$"permission" to JsonPrimitive("READ_WRITE")</ID>
+    <ID>MaxLineLength:ModernShareEdits.kt$ModernShareEdits$SharedAction.INVITE -&gt; put("participants", JsonArray(participants + SharedParticipants.invitedContributor(pending.getValue("recordName"), buildJsonObject { put("emailAddress", command.value) }, approvedRequester = true)))</ID>
+    <ID>MaxLineLength:ModernShareEdits.kt$ModernShareEdits$person.text("type") == "OWNER" || identity["userRecordName"] != null || contact["emailAddress"] != null || contact["phoneNumber"] != null</ID>
+    <ID>MaxLineLength:ModernShareEdits.kt$ModernShareEdits$put</ID>
+    <ID>MaxLineLength:ModernShareEdits.kt$ModernShareEdits$put("participants", JsonArray(participants + SharedParticipants.invitedContributor(pending.getValue("recordName"), SharedParticipants.lookupInfo(identity), approvedRequester = true)))</ID>
+    <ID>MaxLineLength:ModernSharedAlbums.kt$ModernSharedAlbums$user?.text("acceptanceStatus") == "ACCEPTED" &amp;&amp; user.text("permission") == "READ_WRITE" &amp;&amp; user.text("customRole") == "commenter" -&gt; SharedAlbumRole.COMMENTER</ID>
+    <ID>MaxLineLength:PersonalLibraryEdits.kt$PersonalLibraryEdits$check(assets.size == names.size &amp;&amp; assets.all { it["serverErrorCode"] == null &amp;&amp; !it.isRemovedFromLibrary() &amp;&amp; it.recordType() == "CPLAsset" }) { "Some photos are no longer available. Refresh the library." }</ID>
+    <ID>MaxLineLength:PersonalLibraryEdits.kt$PersonalLibraryEdits$operation("delete", buildJsonObject { put("recordName", record.recordName()!!); put("recordType", "CPLContainerRelation"); put("recordChangeTag", tag) })</ID>
+    <ID>MaxLineLength:PersonalLibraryEdits.kt$PersonalLibraryEdits$put("recordName", record.recordName()!!)</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest$assertEquals(setOf(SharedAlbumRole.OWNER, SharedAlbumRole.VIEWER, SharedAlbumRole.CONTRIBUTOR), snapshot.collections.collections.map { it.shared!!.role }.toSet())</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest$assertTrue(runCatching { s.changeSharedAlbum(album.id, SharedCommand(SharedAction.REMOVE_PARTICIPANT, "owner-participant"), UUID.randomUUID().toString()) }.isFailure)</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest$assertTrue(runCatching { s.changeSharedAlbum(owner.id, SharedCommand(SharedAction.COMMENT, other.id, "wrong"), UUID.randomUUID().toString()) }.isFailure)</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest$assertTrue(runCatching { s.changeSharedAlbum(photo.id.substringBeforeLast(':'), SharedCommand(SharedAction.REMOVE_MEDIA, photo.id), UUID.randomUUID().toString()) }.isFailure)</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest$assertTrue(runCatching { s.respondSharedInvitation(invitation.id.replace("invitation:${s.accountLabel}:", "invitation:someone-else:"), true, UUID.randomUUID().toString()) }.isFailure)</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest$for</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest$val album = s.sharedAlbums().collections.collections.first { it.shared!!.generation == SharedAlbumGeneration.MODERN &amp;&amp; it.shared!!.role == SharedAlbumRole.OWNER }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$Json.parseToJsonElement("""{"recordName":"$assetName","recordType":"CPLAsset","recordChangeTag":"a1","fields":{$date"contributedBy":{"value":"$legacyAuthor"},"masterRef":{"value":{"recordName":"master-$index"}},"duration":{"value":8733}}}""").jsonObject</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$Json.parseToJsonElement("""{"recordName":"master-$index","recordType":"CPLMaster","recordChangeTag":"m1","fields":{"filenameEnc":{"value":"$encoded","type":"BYTES"},"resOriginalFileType":{"value":"${if (legacy) "public.mpeg-4" else "public.jpeg"}"},"originalCreationDate":{"value":1777777777000},"resOriginalRes":{"value":{"downloadURL":"https://cws.icloud-content.com/original-$index","fileChecksum":"hash","size":0}},"resOriginalFileSize":{"value":2000},"resJPEGMedRes":{"value":{"downloadURL":"https://cws.icloud-content.com/preview-$index","fileChecksum":"preview"}}}}""").jsonObject</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$createdLegacy = buildJsonObject { put("albumguid", body.getValue("albumguid")); put("ownerdsid", "owner"); put("albumlocation", "$albumHost/owner/sharedstreams/"); put("sharingtype", "owned"); put("attributes", body.getValue("attributes")) }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$createdShare = JsonObject(record + ("oneTimeStableUrlInfo" to buildJsonObject { put("oneTimeLinks", JsonArray(links.map { JsonObject(it.jsonObject + ("sharingLink" to JsonPrimitive("OnlyLink"))) })) }))</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(path.endsWith("records/accept")) { acceptedModern = true; if(loseInviteResponse) { loseInviteResponse = false; throw IOException("lost invitation") } }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(pendingRequest) putJsonArray("requesters") { add(buildJsonObject { putJsonObject("requesterInformation") { put("userRecordName", "waiting-user") } }) }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$override suspend</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$path.endsWith("addcomment") -&gt; { if(loseLegacyCommentResponse) throw IOException("lost comment"); buildJsonObject { put("commentposition", "1") } }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$path.endsWith("copy/start") -&gt; { copyStarts++; if(loseCopyResponse) throw IOException("lost copy result"); buildJsonObject { put("jobID", "copy-job") } }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$path.endsWith("copy/status") -&gt; { if(loseCopyStatus) { loseCopyStatus = false; throw IOException("offline") }; buildJsonObject { put("status", "COMPLETED"); put("jobID", "copy-job") } }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$path.endsWith("webgetalbumslist") -&gt; Json.parseToJsonElement("""{"albums":[{"albumguid":"legacy","ownerdsid":"other","albumlocation":"$albumHost/other/sharedstreams/","albumctag":"v1","sharingtype":"subscribed","iswebuploadsupported":"1","attributes":{"name":"Same name","allowcontributions":"${if(legacyContributes) 1 else 0}"}}]}""").jsonObject.let { root -&gt; JsonObject(root + ("albums" to JsonArray((if(legacyJoined) root["albums"]!!.jsonArray else emptyList()) + listOfNotNull(createdLegacy)))) }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$path.endsWith("webgetalbumview") -&gt; buildJsonObject { put("callerId", "me"); putJsonArray("albums") { add(buildJsonObject { put("albumguid", "legacy"); putJsonObject("attributes") {} }) } }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$path.endsWith("webgetpendingalbums") -&gt; buildJsonObject { putJsonArray("albums") { if(pendingLegacy) add(buildJsonObject { put("albumguid", "legacy"); putJsonObject("attributes") { put("name", "Invited family") } }) } }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$path.endsWith("webputasset") -&gt; { legacyPuts++; registeredAsset = body["assetguid"]!!.jsonPrimitive.content; if(loseLegacyPut) { loseLegacyPut = false; throw IOException("lost publish") }; buildJsonObject { put("albumguid", body.getValue("albumguid")); put("assetguid", body.getValue("assetguid")); put("uploadjobid", "legacy-job") } }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$path.endsWith("webuploadstatus") -&gt; { if(loseLegacyStatus) { loseLegacyStatus = false; throw IOException("offline") }; JsonArray(listOf(buildJsonObject { put("status", "COMPLETED"); put("uploadjobid", "legacy-job") })) }</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$private</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$private fun zone(name: String, owner: String = "owner")</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$put("share", JsonObject(share("shared") + ("currentUserParticipant" to buildJsonObject { put("acceptanceStatus", if(acceptedModern) "ACCEPTED" else "INVITED") })))</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$return AppleHttpResponse(200, emptyMap(), """{"singleFile":{"size":4,"fileChecksum":"a","referenceChecksum":"b","wrappingKey":"c","receipt":"d"}}""")</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$val rank = query["filterBy"]!!.jsonArray.first { it.jsonObject["fieldName"]!!.jsonPrimitive.content == "startRank" }.jsonObject["fieldValue"]!!.jsonObject["value"]!!.jsonPrimitive.int</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$val record = if(name != "cloudkit.zoneshare") comments[name] ?: if (name.startsWith("CPLPost-") &amp;&amp; activityCount &gt; 0) post(name.removePrefix("CPLPost-").toInt()) else createdPost else if(target == createdZone?.get("zoneName")?.jsonPrimitive?.content) createdShare else share(scope)</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$var customRole = "contributor";</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$var loseLegacyPut = false;</ID>
+    <ID>MaxLineLength:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$zoneCreates++</ID>
+    <ID>MaxLineLength:SharedCoverImage.kt$SharedCoverImage$val thumbnail = android.graphics.Bitmap.createScaledBitmap(bitmap, maxOf(1, (bitmap.width * ratio).toInt()), maxOf(1, (bitmap.height * ratio).toInt()), true)</ID>
+    <ID>NestedBlockDepth:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$private fun parseJsonObject(payload: ByteArray): JsonObject?</ID>
+    <ID>RethrowCaughtException:TrustedDeviceBridge.kt$TrustedDeviceBridge$throw cancelled</ID>
+    <ID>ReturnCount:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$override suspend fun uploadProcessingStatus( binding: AccountBinding, acceptance: UploadAcceptance, ): UploadProcessingStatus</ID>
+    <ID>SpreadOperator:TrustedDeviceBridgeSocket.kt$OkHttpBridgeSocketFactory.BridgeWebSocketListener$(*payload)</ID>
+    <ID>ThrowsCount:AppleAuthenticationService.kt$AppleAuthenticationService$private suspend fun requestTwoFactor(appleId: String, clientId: String): PendingAuth</ID>
+    <ID>ThrowsCount:AppleAuthenticationService.kt$AppleAuthenticationService$private suspend fun resendTwoFactorInternal()</ID>
+    <ID>ThrowsCount:AppleAuthenticationService.kt$AppleAuthenticationService$private suspend fun submitTwoFactorInternal(code: String): AppleSessionSnapshot</ID>
+    <ID>ThrowsCount:ICloudWebSession.kt$ICloudWebSession$private fun snapshotFromAccountResponse( appleId: String, clientId: String, response: AppleHttpResponse, fallback: AppleSessionSnapshot? = null, ): AppleSessionSnapshot</ID>
+    <ID>ThrowsCount:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$private suspend fun hydrate(assetNames: Collection&lt;String&gt;, includeTrashed: Boolean = false): List&lt;CloudPhotoAsset&gt;</ID>
+    <ID>ThrowsCount:LiveICloudCatalogSource.kt$LiveICloudCatalogSource.PageCursor.Companion$fun decode(value: String?): PageCursor</ID>
+    <ID>ThrowsCount:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$fun decodePushPayload(payload: ByteArray): BridgePushPayload</ID>
+    <ID>TooGenericExceptionCaught:AccountTelemetry.kt$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:AppleAuthenticationService.kt$AppleAuthenticationService$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:DemoImportedMedia.kt$DemoImportedMedia.Companion$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ICloudAccountManager.kt$ICloudAccountManager$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ICloudAccountProfileService.kt$ICloudAccountProfileService$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ICloudWebSession.kt$ICloudWebSession$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:OkHttpAppleTransport.kt$OkHttpAppleTransport$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SharedAlbumsCatalog.kt$SharedAlbumsCatalog$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:TrustedDeviceBridge.kt$TrustedDeviceBridge$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:TrustedDeviceBridgeSocket.kt$OkHttpBridgeSocketFactory$error: Throwable</ID>
+    <ID>TooManyFunctions:AccountAwareICloudCatalogSource.kt$AccountAwareICloudCatalogSource : CloudCatalogSource</ID>
+    <ID>TooManyFunctions:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource : CloudCatalogSource</ID>
+    <ID>TooManyFunctions:LiveICloudCatalogSource.kt$LiveICloudCatalogSource : CloudCatalogSource</ID>
+    <ID>TopLevelPropertyNaming:CloudKitJson.kt$private val TRUE_FLAGS = setOf("true", "1")</ID>
+    <ID>UseRequire:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$throw IllegalArgumentException("Malformed bridge error code")</ID>
+    <ID>UseRequire:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$throw IllegalArgumentException("Malformed bridge protobuf varint")</ID>
+  </CurrentIssues>
+</SmellBaseline>

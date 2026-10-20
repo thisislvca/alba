@@ -1,8 +1,8 @@
 package me.lvca.alba.engine.model
 
-import java.time.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.time.*
 
 class GalleryQueryTest {
     @Test fun largeLibraryKeepsOrderAndUpdatedFilesAcrossCacheChanges() {

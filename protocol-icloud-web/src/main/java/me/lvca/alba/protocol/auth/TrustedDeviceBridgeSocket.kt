@@ -1,16 +1,16 @@
 package me.lvca.alba.protocol.auth
 
-import me.lvca.alba.protocol.network.AppleClientProfile
-import me.lvca.alba.protocol.network.AppleEndpointPolicy
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
+import me.lvca.alba.protocol.network.AppleClientProfile
+import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import java.util.concurrent.TimeUnit
 
 internal interface BridgeSocket {
     suspend fun readMessage(): ByteArray

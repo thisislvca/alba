@@ -3,16 +3,17 @@ package me.lvca.alba.protocol.fixture
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import me.lvca.alba.engine.model.MediaKind
 import me.lvca.alba.engine.source.MediaRead
 import me.lvca.alba.engine.source.RemoteMediaRecord
 import me.lvca.alba.engine.source.UploadMediaFormat
+import me.lvca.alba.protocol.toHex
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.security.MessageDigest
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 
 /** Actual selected bytes in private temporary storage. Never an iCloud upload or a backup receipt. */
 internal class DemoImportedMedia(val file: File, private val name: String, private val format: UploadMediaFormat,
@@ -84,7 +85,7 @@ internal class DemoImportedMedia(val file: File, private val name: String, priva
                         output.write(buffer, 0, count)
                     }
                 }
-                val hash = digest.digest().joinToString("") { "%02x".format(it) }
+                val hash = digest.digest().toHex()
                 require(expectedBytes == null || total == expectedBytes)
                 require(expectedHash == null || hash.equals(expectedHash, ignoreCase = true))
                 val format = java.io.RandomAccessFile(file, "r").use { input ->

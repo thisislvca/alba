@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google()
         mavenCentral()
@@ -19,6 +20,4 @@ rootProject.name = "Alba"
 include(":app")
 include(":engine")
 include(":protocol-icloud-web")
-
-
 include(":benchmark")

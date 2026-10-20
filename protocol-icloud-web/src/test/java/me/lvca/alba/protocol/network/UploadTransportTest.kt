@@ -1,6 +1,5 @@
 package me.lvca.alba.protocol.network
 
-import java.io.ByteArrayInputStream
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -10,6 +9,7 @@ import okio.Buffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
 
 class UploadTransportTest {
     @Test

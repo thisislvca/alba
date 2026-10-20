@@ -1,26 +1,26 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.engine.model.CloudAccountProfile
-import me.lvca.alba.engine.model.CloudPlanSource
-import me.lvca.alba.engine.model.CloudStoragePlan
-import me.lvca.alba.protocol.account.AppleSessionSnapshot
-import me.lvca.alba.protocol.network.AppleHttpRequest
-import me.lvca.alba.protocol.network.AppleHttpTransport
-import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.*
+import me.lvca.alba.engine.model.CloudAccountProfile
+import me.lvca.alba.engine.model.CloudPlanSource
+import me.lvca.alba.engine.model.CloudStoragePlan
+import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
+import me.lvca.alba.protocol.network.AppleHttpRequest
+import me.lvca.alba.protocol.network.AppleHttpTransport
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import java.io.ByteArrayOutputStream
 
 /** Read-only endpoints also used by pyicloud's AccountService; no family inventory is requested. */
 internal class ICloudAccountProfileService(private val transport: AppleHttpTransport) {
     suspend fun load(session: AppleSessionSnapshot): CloudAccountProfile = coroutineScope {
         val suffix = if (session.accountCountryCode.equals("CN", ignoreCase = true)) ".cn" else ""
         fun url(base: String) = base.toHttpUrl().newBuilder()
-            .addQueryParameter("clientBuildNumber", "2534Project66")
-            .addQueryParameter("clientMasteringNumber", "2534B22")
+            .addWebClientBuild()
             .addQueryParameter("clientId", session.clientId)
             .addQueryParameter("dsid", session.dsid)
         val plan = async { optional {
@@ -33,7 +33,7 @@ internal class ICloudAccountProfileService(private val transport: AppleHttpTrans
         } }
         val photo = async { optional {
             // iCloud.com uses the signed-in user's own contact card, not the address book.
-            val ownPhoto = optional photoLookup@ {
+            val ownPhoto = optional photoLookup@{
                 val contactsRoot = session.webservices["contacts"] ?: return@photoLookup null
                 val response = transport.execute(AppleHttpRequest("GET",
                     url("${contactsRoot.trimEnd('/')}/co/mecard/").build().toString()))
@@ -69,8 +69,7 @@ internal class ICloudAccountProfileService(private val transport: AppleHttpTrans
     companion object {
         private const val MAX_PHOTO_BYTES = 2 * 1024 * 1024
         private fun isPhoto(bytes: ByteArray): Boolean =
-            bytes.size >= 12 && (
-                (bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte() && bytes[2] == 0xff.toByte()) ||
+            bytes.size >= 12 && ((bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte() && bytes[2] == 0xff.toByte()) ||
                 bytes.take(8).toByteArray().contentEquals(byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 13, 10, 26, 10)) ||
                 (String(bytes, 0, 4, Charsets.US_ASCII) == "RIFF" && String(bytes, 8, 4, Charsets.US_ASCII) == "WEBP"))
 

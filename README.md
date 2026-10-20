@@ -55,6 +55,24 @@ Use JDK 21 and Android SDK 37 with build tools 37.0.0. Set `JAVA_HOME` and `ANDR
 
 APKs are in `app/build/outputs/apk/`. `:app:assembleRelease` always produces an unsigned release. Official bundles are signed in an isolated GitHub Actions job; see [RELEASING.md](RELEASING.md).
 
+Shared Android settings (SDK levels, Java 17, managed test devices) live in the convention plugins under `build-logic/`.
+
+### Static analysis
+
+CI runs ktlint and detekt on every module:
+
+```sh
+./gradlew ktlintCheck detekt
+```
+
+ktlint rules are configured in `.editorconfig` and detekt overrides in `config/detekt/detekt.yml`. The code is ktlint-clean; `./gradlew ktlintFormat` fixes most findings. Detekt findings that predate the checks are recorded per module in `detekt-baseline.xml`, so only new findings fail the build. Fix old findings rather than adding new ones; after a deliberate cleanup, regenerate the baselines with:
+
+```sh
+./gradlew detektBaseline
+```
+
+Reports are written to `<module>/build/reports/detekt/` and `<module>/build/reports/ktlint/`.
+
 JavaScript tools use the Node LTS version pinned in `.nvmrc`. Run `nvm install` and `nvm use` from the repository root before using website, screenshot or release scripts. Script checks: `node --test 'scripts/**/*.test.mjs'`. Bun is used to install the website and screenshot packages from their lockfiles.
 
 ## Releases

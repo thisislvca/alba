@@ -1,9 +1,9 @@
 package me.lvca.alba.engine.model
 
 import android.content.IntentSender
+import kotlinx.coroutines.flow.Flow
 import java.io.InputStream
 import java.io.OutputStream
-import kotlinx.coroutines.flow.Flow
 
 @JvmInline
 value class TransferId(val value: String)

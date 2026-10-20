@@ -1,7 +1,7 @@
 import java.util.Properties
 
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.alba.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.sentry)
 }
@@ -28,28 +28,10 @@ require(appVersionCode in 1..2100000000) { "Invalid Alba version code." }
 
 android {
     namespace = "me.lvca.alba.app"
-    compileSdk = 37
-
-    testOptions {
-        managedDevices {
-            localDevices {
-                for (api in listOf(30, 36)) {
-                    create("pixel2Api$api") {
-                        device = "Pixel 2"
-                        apiLevel = api
-                        testedAbi = if (System.getProperty("os.arch") in setOf("aarch64", "arm64")) "arm64-v8a" else "x86_64"
-                        systemImageSource = "aosp"
-                    }
-                }
-            }
-        }
-    }
 
     defaultConfig {
         buildConfigField("boolean", "BENCHMARK_MODE", "false")
         applicationId = "me.lvca.alba"
-        minSdk = 30
-        targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
         resourceConfigurations += listOf("en", "it")
@@ -58,8 +40,6 @@ android {
             "SENTRY_DSN",
             sentryDsnLiteral,
         )
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -93,11 +73,6 @@ android {
         }
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
@@ -108,7 +83,6 @@ android {
     }
 
     lint {
-        abortOnError = true
         checkReleaseBuilds = true
     }
 }
@@ -125,12 +99,6 @@ sentry {
     telemetry.set(false)
     tracingInstrumentation { enabled.set(false) }
     autoInstallation { enabled.set(false) }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-    }
 }
 
 dependencies {
@@ -154,6 +122,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.compose.icons.core)
+    implementation(libs.compose.ui.tooling.preview)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

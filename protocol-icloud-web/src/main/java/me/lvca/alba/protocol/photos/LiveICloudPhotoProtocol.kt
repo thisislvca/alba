@@ -1,5 +1,14 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.CandidatePage
 import me.lvca.alba.engine.model.ICloudDestination
@@ -9,32 +18,26 @@ import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.RemoteOriginalObservation
 import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.RemoteRecordRef
-import me.lvca.alba.engine.model.UploadProcessingStatus
 import me.lvca.alba.engine.model.UploadAcceptance
+import me.lvca.alba.engine.model.UploadProcessingStatus
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.array
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
+import me.lvca.alba.protocol.boolean
+import me.lvca.alba.protocol.fieldObject
+import me.lvca.alba.protocol.isTombstone
+import me.lvca.alba.protocol.long
+import me.lvca.alba.protocol.network.AppleClientProfile
+import me.lvca.alba.protocol.network.AppleClientProfile.addUploadClientBuild
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import java.io.OutputStream
-import java.security.MessageDigest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
+import me.lvca.alba.protocol.obj
+import me.lvca.alba.protocol.text
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import java.io.OutputStream
 
 class LiveICloudPhotoProtocol(
     private val transport: AppleHttpTransport,
@@ -51,13 +54,12 @@ class LiveICloudPhotoProtocol(
       catch (_: Exception) { false }
     private val json = Json { ignoreUnknownKeys = true }
 
-    @Volatile
-    private var boundAuthentication: String? = null
+    private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected)
 
     override fun currentDestination(): ICloudDestination? = sessionProvider()?.let { session ->
         ICloudDestination(
-            accountId = accountId(session),
-            authSessionId = stableId(session.dsid, session.clientId),
+            accountId = ICloudAccountIdentity.accountId(session),
+            authSessionId = ICloudAccountIdentity.stableId(session.dsid, session.clientId),
             label = session.accountName,
         )
     }
@@ -75,9 +77,9 @@ class LiveICloudPhotoProtocol(
         ).jsonObject("Apple returned an invalid Photos zone response")
         val zone = response.array("zones")
             .mapNotNull { it as? JsonObject }
-            .firstOrNull { it.obj("zoneID")?.string("zoneName") == PRIMARY_ZONE_NAME }
+            .firstOrNull { it.obj("zoneID")?.text("zoneName") == PrimarySyncZone.NAME }
             ?: throw unavailable("Apple did not return the Personal Library zone")
-        return zone.string("syncToken")
+        return zone.text("syncToken")
             ?: throw unavailable("Apple did not return a Photos change token")
     }
 
@@ -101,7 +103,7 @@ class LiveICloudPhotoProtocol(
             fileName = safeFileName(fileName),
             source = source,
             lastModifiedAtEpochMillis = lastModifiedAtEpochMillis,
-            persistSession = { persistTransportState(session) },
+            persistSession = { cloudKit.persist(session, it) },
             journal = uploadJournal,
             binding = binding,
             onSessionRejected = onSessionRejected,
@@ -131,13 +133,12 @@ class LiveICloudPhotoProtocol(
         val url = "${root.trimEnd('/')}/photosupload/uploadStatus".toHttpUrl().newBuilder()
             .addQueryParameter("dsid", session.dsid)
             .addQueryParameter("clientId", session.clientId)
-            .addQueryParameter("clientBuildNumber", "2634Build25")
-            .addQueryParameter("clientMasteringNumber", "2634Build25")
+            .addUploadClientBuild()
             .build().toString()
         val response = executeRead(session, AppleHttpRequest(
             method = "POST",
             url = url,
-            headers = mapOf("Content-Type" to "text/plain;charset=UTF-8"),
+            headers = mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE),
             body = buildJsonObject {
                 putJsonArray("uploadJobIds") { add(JsonPrimitive(jobId)) }
             }.toString(),
@@ -183,32 +184,32 @@ class LiveICloudPhotoProtocol(
                 method = "POST",
                 url = cloudKitUrl(session, "/changes/zone"),
                 headers = JSON_HEADERS,
-                body = changesBody(afterChangeToken, limit),
+                body = PrimarySyncZone.changesBody(afterChangeToken, limit).toString(),
             ),
         ).jsonObject("Apple returned invalid Photos changes")
         val zone = response.array("zones").firstOrNull() as? JsonObject
             ?: throw unavailable("Apple returned no Personal Library changes")
         val changedRecords = zone.array("records").mapNotNull { it as? JsonObject }
         val changedAssets = changedRecords.filter {
-            it.string("recordType") == ASSET_RECORD_TYPE && !it.recordDeleted()
+            it.text("recordType") == ASSET_RECORD_TYPE && !it.isTombstone()
         }
         val changedCandidateNames = linkedSetOf<Pair<String, String>>()
         val unresolvedAssetNames = changedAssets.mapNotNull { asset ->
-            asset.string("recordName")
-                ?.takeIf { asset.fieldObject("masterRef")?.string("recordName") == null }
+            asset.text("recordName")
+                ?.takeIf { asset.fieldObject("masterRef")?.text("recordName") == null }
         }
         val resolvedAssetsByName = lookupRecordsInBatches(session, unresolvedAssetNames)
             .asSequence()
-            .filter { it.string("recordType") == ASSET_RECORD_TYPE }
-            .mapNotNull { asset -> asset.string("recordName")?.let { it to asset } }
+            .filter { it.text("recordType") == ASSET_RECORD_TYPE }
+            .mapNotNull { asset -> asset.text("recordName")?.let { it to asset } }
             .toMap()
 
         changedAssets.forEach { asset ->
-            val assetName = asset.string("recordName") ?: return@forEach
-            val masterName = asset.fieldObject("masterRef")?.string("recordName")
+            val assetName = asset.text("recordName") ?: return@forEach
+            val masterName = asset.fieldObject("masterRef")?.text("recordName")
                 ?: resolvedAssetsByName[assetName]
                     ?.fieldObject("masterRef")
-                    ?.string("recordName")
+                    ?.text("recordName")
             if (masterName != null) {
                 val names = masterName to assetName
                 candidateNames += names
@@ -223,7 +224,7 @@ class LiveICloudPhotoProtocol(
             }
         }
         val hydratedRecords = lookupRecordsInBatches(session, namesToHydrate).associateBy { record ->
-            RecordIdentity(record.string("recordType"), record.string("recordName"))
+            RecordIdentity(record.text("recordType"), record.text("recordName"))
         }
         val candidates = candidateNames.mapNotNull { names ->
             val (masterName, assetName) = names
@@ -235,7 +236,7 @@ class LiveICloudPhotoProtocol(
         }
         return CandidatePage(
             candidates = candidates,
-            nextChangeToken = zone.string("syncToken"),
+            nextChangeToken = zone.text("syncToken"),
             moreComing = zone.boolean("moreComing") ?: false,
         )
     }
@@ -255,13 +256,13 @@ class LiveICloudPhotoProtocol(
         require(hydrated.originalResourceIdentity == pair.originalResourceIdentity) {
             "The iCloud original changed before verification"
         }
-        val master = records.first { it.string("recordType") == MASTER_RECORD_TYPE }
-        val downloadUrl = master.fieldObject(ORIGINAL_RESOURCE_KEY)?.string("downloadURL")
+        val master = records.first { it.text("recordType") == MASTER_RECORD_TYPE }
+        val downloadUrl = master.fieldObject(ORIGINAL_RESOURCE_KEY)?.text("downloadURL")
             ?: throw unavailable("The iCloud original resource is unavailable")
         AppleEndpointPolicy.requireAllowed(downloadUrl)
         val counting = CountingOutputStream(output)
         transport.stream(downloadUrl, counting)
-        persistTransportState(session)
+        cloudKit.persist(session, null)
         return RemoteOriginalObservation(hydrated.originalResourceIdentity, counting.byteCount)
     }
 
@@ -271,7 +272,7 @@ class LiveICloudPhotoProtocol(
         assetName: String,
     ): RemotePairCandidate? = parseHydratedPair(
         records.associateBy { record ->
-            RecordIdentity(record.string("recordType"), record.string("recordName"))
+            RecordIdentity(record.text("recordType"), record.text("recordName"))
         },
         masterName,
         assetName,
@@ -284,19 +285,19 @@ class LiveICloudPhotoProtocol(
     ): RemotePairCandidate? {
         val master = records[RecordIdentity(MASTER_RECORD_TYPE, masterName)] ?: return null
         val asset = records[RecordIdentity(ASSET_RECORD_TYPE, assetName)] ?: return null
-        val masterTag = master.string("recordChangeTag") ?: return null
-        val assetTag = asset.string("recordChangeTag") ?: return null
-        val relation = asset.fieldObject("masterRef")?.string("recordName") == masterName
-        val masterDeleted = master.recordDeleted()
-        val assetDeleted = asset.recordDeleted()
+        val masterTag = master.text("recordChangeTag") ?: return null
+        val assetTag = asset.text("recordChangeTag") ?: return null
+        val relation = asset.fieldObject("masterRef")?.text("recordName") == masterName
+        val masterDeleted = master.isTombstone()
+        val assetDeleted = asset.isTombstone()
         val resource = master.fieldObject(ORIGINAL_RESOURCE_KEY) ?: return null
         val resourceFingerprint = listOfNotNull(
-            resource.string("fileChecksum"),
-            resource.string("referenceChecksum"),
+            resource.text("fileChecksum"),
+            resource.text("referenceChecksum"),
             resource.long("size")?.toString(),
-            resource.string("wrappingKey"),
+            resource.text("wrappingKey"),
         ).joinToString(":")
-        val resourceIdentity = stableId(
+        val resourceIdentity = ICloudAccountIdentity.stableId(
             masterName,
             masterTag,
             assetName,
@@ -323,20 +324,7 @@ class LiveICloudPhotoProtocol(
                 method = "POST",
                 url = cloudKitUrl(session, "/records/lookup"),
                 headers = JSON_HEADERS,
-                body = buildJsonObject {
-                    putJsonArray("records") {
-                        recordNames.distinct().forEach { name ->
-                            add(buildJsonObject { put("recordName", name) })
-                        }
-                    }
-                    putJsonObject("zoneID") {
-                        put("zoneName", PRIMARY_ZONE_NAME)
-                        put("zoneType", PRIMARY_ZONE_TYPE)
-                    }
-                    putJsonArray("desiredKeys") {
-                        LOOKUP_KEYS.forEach { add(JsonPrimitive(it)) }
-                    }
-                }.toString(),
+                body = PrimarySyncZone.lookupBody(recordNames.distinct(), LOOKUP_KEYS).toString(),
             ),
         ).jsonObject("Apple returned an invalid Photos record lookup")
         return response.array("records").mapNotNull { it as? JsonObject }
@@ -345,46 +333,10 @@ class LiveICloudPhotoProtocol(
     private suspend fun lookupRecordsInBatches(
         session: AppleSessionSnapshot,
         recordNames: List<String>,
-    ): List<JsonObject> = buildList {
-        recordNames.distinct().chunked(RECORD_LOOKUP_BATCH_SIZE).forEach { names ->
-            addAll(lookupRecords(session, names))
-        }
-    }
+    ): List<JsonObject> = PrimarySyncZone.lookupInBatches(recordNames, RECORD_LOOKUP_BATCH_SIZE) { lookupRecords(session, it) }
 
-    private fun changesBody(token: String, limit: Int): String = buildJsonObject {
-        putJsonArray("zones") {
-            add(buildJsonObject {
-                putJsonObject("zoneID") {
-                    put("zoneName", PRIMARY_ZONE_NAME)
-                    put("zoneType", PRIMARY_ZONE_TYPE)
-                }
-                put("syncToken", token)
-                put("reverse", false)
-            })
-        }
-        put("resultsLimit", limit)
-    }.toString()
-
-    private suspend fun executeRead(
-        session: AppleSessionSnapshot,
-        request: AppleHttpRequest,
-    ): AppleHttpResponse {
-        val response = transport.execute(request)
-        requireCurrentSession(session)
-        persistTransportState(session)
-        if (response.code !in 200..299) {
-            if (response.code == 401 || response.code == 403) onSessionRejected(session)
-            throw AppleProtocolException(
-                if (response.code == 401 || response.code == 403) {
-                    AppleProtocolError.SESSION_EXPIRED
-                } else {
-                    AppleProtocolError.NETWORK
-                },
-                "Apple Photos returned HTTP ${response.code}.",
-            )
-        }
-        return response
-    }
+    private suspend fun executeRead(session: AppleSessionSnapshot, request: AppleHttpRequest): AppleHttpResponse =
+        cloudKit.send(session, request, verify = ::requireCurrentSession)
 
     private fun requireBoundSession(binding: AccountBinding): AppleSessionSnapshot {
         if (!isAuthorized()) throw AppleProtocolException(
@@ -393,12 +345,8 @@ class LiveICloudPhotoProtocol(
         )
         val session = sessionProvider()
             ?: throw AppleProtocolException(AppleProtocolError.SESSION_EXPIRED, "Sign in to iCloud first.")
-        require(accountId(session) == binding.accountId) { "The iCloud destination account changed" }
-        val authentication = "${session.dsid}:${session.clientId}"
-        if (boundAuthentication != authentication) {
-            transport.restore(session)
-            boundAuthentication = authentication
-        }
+        require(ICloudAccountIdentity.accountId(session) == binding.accountId) { "The iCloud destination account changed" }
+        cloudKit.bind(session)
         return session
     }
 
@@ -410,58 +358,12 @@ class LiveICloudPhotoProtocol(
         }
     }
 
-    private suspend fun persistTransportState(session: AppleSessionSnapshot) {
-        val headers = transport.sessionHeaders
-        onSessionUpdated(
-            session.copy(
-                accountCountryCode = headers.accountCountryCode ?: session.accountCountryCode,
-                sessionId = headers.sessionId ?: session.sessionId,
-                sessionToken = headers.sessionToken ?: session.sessionToken,
-                trustToken = headers.trustToken ?: session.trustToken,
-                cookies = transport.snapshotCookies(),
-            ),
-        )
-    }
-
-    private fun cloudKitUrl(session: AppleSessionSnapshot, path: String): String {
-        val root = session.webservices[CLOUDKIT_SERVICE]
-            ?: throw unavailable("iCloud Photos is unavailable for this session")
-        val rootUrl = AppleEndpointPolicy.requireAllowed(root)
-        require(rootUrl.host.contains("ckdatabasews", ignoreCase = true)) {
-            "Apple returned an unexpected Photos database host"
-        }
-        return "$root/database/1/com.apple.photos.cloud/production/private$path"
-            .toHttpUrl()
-            .newBuilder()
-            .addQueryParameter("clientBuildNumber", CLIENT_BUILD)
-            .addQueryParameter("clientMasteringNumber", CLIENT_MASTERING)
-            .addQueryParameter("clientId", session.clientId)
-            .addQueryParameter("dsid", session.dsid)
-            .addQueryParameter("remapEnums", "true")
-            .build()
-            .toString()
-    }
+    private fun cloudKitUrl(session: AppleSessionSnapshot, path: String): String =
+        cloudKit.withSessionQuery(cloudKit.databaseUrl(session, "private", path), session)
 
     private fun AppleHttpResponse.jsonObject(message: String): JsonObject = runCatching {
         json.parseToJsonElement(body) as? JsonObject
     }.getOrNull() ?: throw AppleProtocolException(AppleProtocolError.MALFORMED_RESPONSE, message)
-
-    private fun JsonObject.array(name: String): JsonArray = this[name] as? JsonArray ?: JsonArray(emptyList())
-
-    private fun JsonObject.obj(name: String): JsonObject? = this[name] as? JsonObject
-
-    private fun JsonObject.string(name: String): String? = (this[name] as? JsonPrimitive)?.contentOrNull
-
-    private fun JsonObject.long(name: String): Long? = (this[name] as? JsonPrimitive)?.longOrNull
-
-    private fun JsonObject.boolean(name: String): Boolean? = (this[name] as? JsonPrimitive)?.booleanOrNull
-
-    private fun JsonObject.fieldObject(name: String): JsonObject? =
-        (((this["fields"] as? JsonObject)?.get(name) as? JsonObject)?.get("value") as? JsonObject)
-
-    private fun JsonObject.recordDeleted(): Boolean = boolean("deleted") == true ||
-        string("deleted") == "true" ||
-        runCatching { this["deleted"]?.jsonPrimitive?.longOrNull == 1L }.getOrDefault(false)
 
     private fun safeFileName(value: String): String {
         val cleaned = value.substringAfterLast('/').substringAfterLast('\\')
@@ -472,12 +374,6 @@ class LiveICloudPhotoProtocol(
         return if (extension == null) cleaned.take(160)
         else cleaned.substringBeforeLast('.').take(159 - extension.length) + "." + extension
     }
-
-    private fun accountId(session: AppleSessionSnapshot): String = stableId("icloud-account", session.dsid)
-
-    private fun stableId(vararg values: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(values.joinToString("\u0000").toByteArray(Charsets.UTF_8))
-        .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
     private fun unavailable(message: String) =
         AppleProtocolException(AppleProtocolError.PHOTOS_UNAVAILABLE, message)
@@ -500,17 +396,12 @@ class LiveICloudPhotoProtocol(
     }
 
     private companion object {
-        const val CLOUDKIT_SERVICE = "ckdatabasews"
         const val UPLOAD_SERVICE = "photosupload"
-        const val CLIENT_BUILD = "2534Project66"
-        const val CLIENT_MASTERING = "2534B22"
-        const val PRIMARY_ZONE_NAME = "PrimarySync"
-        const val PRIMARY_ZONE_TYPE = "REGULAR_CUSTOM_ZONE"
         const val MASTER_RECORD_TYPE = "CPLMaster"
         const val ASSET_RECORD_TYPE = "CPLAsset"
         const val ORIGINAL_RESOURCE_KEY = "resOriginalRes"
         const val RECORD_LOOKUP_BATCH_SIZE = 100
-        val JSON_HEADERS = mapOf("Content-Type" to "plain/text")
+        val JSON_HEADERS = mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE)
         val LOOKUP_KEYS = listOf(
             "filenameEnc",
             "itemType",

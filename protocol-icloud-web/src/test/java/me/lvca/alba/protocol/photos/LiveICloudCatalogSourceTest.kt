@@ -1,5 +1,6 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.PersistedCookie
 import me.lvca.alba.protocol.auth.AppleProtocolError
@@ -7,28 +8,20 @@ import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import me.lvca.alba.protocol.network.AppleSessionHeaders
-import java.io.ByteArrayOutputStream
-import java.io.OutputStream
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.io.OutputStream
 
 class LiveICloudCatalogSourceTest {
     @Test
     fun `authentication rejection expires the exact catalog session`() = runBlocking {
         var rejected: AppleSessionSnapshot? = null
         val transport = object : AppleHttpTransport {
-            override val sessionHeaders = AppleSessionHeaders(
-                accountCountryCode = SESSION.accountCountryCode,
-                sessionId = SESSION.sessionId,
-                sessionToken = SESSION.sessionToken,
-                trustToken = SESSION.trustToken,
-            )
             override suspend fun execute(request: AppleHttpRequest) =
                 AppleHttpResponse(401, emptyMap(), "{}")
             override suspend fun stream(url: String, output: OutputStream) = error("Not used")
@@ -47,6 +40,52 @@ class LiveICloudCatalogSourceTest {
         assertTrue(error is AppleProtocolException)
         assertEquals(AppleProtocolError.SESSION_EXPIRED, (error as AppleProtocolException).error)
         assertEquals(SESSION, rejected)
+    }
+
+    @Test fun syncTokenErrorTextInsideRecordContentDoesNotResetTheCatalog() = runBlocking {
+        val changes = """
+            {"zones":[{"zoneID":{"zoneName":"PrimarySync"},"syncToken":"next-token","moreComing":false,"records":[
+              {"recordName":"album-1","recordType":"CPLAlbum","fields":{
+                "albumNameEnc":{"value":"SYNC_TOKEN_EXPIRED"},"title":{"value":"INVALID_SYNC_TOKEN"}}},
+              {"recordName":"INVALID_SYNC_TOKEN","deleted":true}
+            ]}]}
+        """.trimIndent()
+        val source = LiveICloudCatalogSource(ChangesTransport(200, changes), { SESSION })
+
+        val result = source.changes("saved-token", emptyList())
+
+        assertEquals("next-token", result.nextToken)
+        assertEquals(setOf("INVALID_SYNC_TOKEN"), result.deletedRecordNames)
+        assertTrue(result.upserts.isEmpty())
+    }
+
+    @Test fun typedSyncTokenErrorsStillResetTheCatalog() = runBlocking {
+        val cases = listOf(
+            400 to """{"uuid":"request","serverErrorCode":"SYNC_TOKEN_EXPIRED","reason":"expired"}""",
+            200 to """{"zones":[{"zoneID":{"zoneName":"PrimarySync"},"serverErrorCode":"INVALID_SYNC_TOKEN"}]}""",
+            200 to """{"zones":[{"zoneID":{"zoneName":"PrimarySync"},"syncToken":"next","records":[
+                {"recordName":"asset-1","serverErrorCode":"SYNC_TOKEN_EXPIRED"}]}]}""",
+            410 to "{}",
+            // Captured from iCloud.com on 2026-10-20: a corrupt saved token is a zone-level BAD_REQUEST with HTTP 200.
+            200 to """{"zones":[{"serverErrorCode":"BAD_REQUEST","reason":"Invalid continuation format"}]}""",
+        )
+        for ((code, body) in cases) {
+            val source = LiveICloudCatalogSource(ChangesTransport(code, body), { SESSION })
+            val error = runCatching { source.changes("saved-token", emptyList()) }.exceptionOrNull()
+            assertTrue("HTTP $code $body", error is me.lvca.alba.engine.source.CatalogResetRequired)
+        }
+    }
+
+    private class ChangesTransport(private val code: Int, private val body: String) : AppleHttpTransport {
+        override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
+            assertTrue(request.url.contains("/changes/zone"))
+            assertEquals("text/plain;charset=UTF-8", request.headers["Content-Type"])
+            return AppleHttpResponse(code, emptyMap(), body)
+        }
+        override suspend fun stream(url: String, output: OutputStream) = error("Not used")
+        override fun snapshotCookies() = SESSION.cookies
+        override fun restore(snapshot: AppleSessionSnapshot) = Unit
+        override fun clear() = Unit
     }
 
     @Test fun scrollingUsesTheSmallThumbnailAndOpeningUsesTheFullJpeg() = runBlocking {
@@ -205,15 +244,7 @@ class LiveICloudCatalogSourceTest {
         val streamedUrls = mutableListOf<String>()
         private var page = 0
 
-        override val sessionHeaders = AppleSessionHeaders(
-            accountCountryCode = SESSION.accountCountryCode,
-            sessionId = SESSION.sessionId,
-            sessionToken = SESSION.sessionToken,
-            trustToken = SESSION.trustToken,
-        )
-
-        override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
-            return when {
+        override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse = when {
                 request.url.contains("requestWebAccessState") -> response(
                     "{\"isICDRSDisabled\":$webAccessDisabled}",
                 )
@@ -232,7 +263,6 @@ class LiveICloudCatalogSourceTest {
                 request.url.contains("/records/lookup") -> response("""{"records":[{"recordName":"asset-1","serverErrorCode":"NOT_FOUND"}]}""")
                 else -> error("Unexpected request: ${request.method} ${request.url}")
             }
-        }
 
         override suspend fun stream(url: String, output: OutputStream) {
             streamedUrls += url

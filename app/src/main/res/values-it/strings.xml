@@ -50,7 +50,6 @@
     <string name="clear_dates">Rimuovi date</string>
     <string name="clear_filters">Rimuovi filtri</string>
     <string name="clear_search">Cancella ricerca</string>
-    <string name="cloud">Cloud</string>
     <string name="cloud_only">Solo nel cloud</string>
     <string name="cloud_phone_counts">%1$s · %2$s</string>
     <string name="code_sent_device">Apple ha inviato un codice a sei cifre a un dispositivo Apple autorizzato.</string>
@@ -199,6 +198,7 @@
     <string name="message_no_app_could_open_the_share_sheet">Nessuna app disponibile per la condivisione.</string>
     <string name="message_no_exact_icloud_copy_was_observed_before_the_check_deadline_alba_will_not_upload_again">Nessuna copia identica trovata su iCloud entro il termine di verifica. Alba non ripeterà il caricamento.</string>
     <string name="message_not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items">Spazio insufficiente per preparare la condivisione. Seleziona meno elementi o file più piccoli.</string>
+    <string name="message_upload_canceled_select_the_file_again_to_upload_it">Caricamento annullato. Seleziona di nuovo il file per caricarlo.</string>
     <string name="message_nothing_was_removed_from_this_phone">Nessun elemento è stato rimosso da questo telefono.</string>
     <string name="message_only_photos_on_this_phone_can_be_uploaded">È possibile caricare solo foto presenti su questo telefono</string>
     <string name="message_original_staged_uploading_directly_to_icloud">Originale pronto. Caricamento diretto su iCloud.</string>
@@ -279,7 +279,6 @@
     <string name="panoramas">Panoramiche</string>
     <string name="password">Password</string>
     <string name="personal_icloud_library">Libreria iCloud personale</string>
-    <string name="phone">Telefono</string>
     <string name="photo_details_and_actions">Dettagli e azioni della foto</string>
     <string name="photo_size">Dimensione foto</string>
     <string name="photos">Foto</string>
@@ -290,7 +289,6 @@
     <string name="play_live_photo">Riproduci Live Photo</string>
     <string name="playing">Riproduzione</string>
     <string name="preparing_to_share">Preparazione della condivisione…</string>
-    <string name="preview">Anteprima</string>
     <string name="preview_cached">Anteprima salvata</string>
     <string name="range_dates">%1$s – %2$s</string>
     <string name="ready">Pronto</string>
@@ -446,6 +444,7 @@
     <string name="rotation_on_save">Rotazione: %1$d°</string>
     <string name="edit_failed_retry">Impossibile preparare o salvare la modifica · Riprova</string>
     <string name="local_action_failed">Android non ha completato l’operazione. Controlla l’accesso alle foto e riprova.</string>
+    <string name="action_still_running">Questa azione è ancora in corso. Riprova quando sarà terminata.</string>
     <string name="restore_photo">Ripristina</string>
     <string name="trash_phone_copy">Sposta la copia del telefono nel cestino</string>
     <string name="trash_restore_explanation">Android gestisce la scadenza del cestino. Il ripristino conserva la foto sul telefono.</string>
@@ -787,4 +786,6 @@
     <string name="demo_cleanup_complete">Copia demo rimossa — nessuna foto reale eliminata</string>
     <string name="demo_shared_notice">Demo: inviti, persone e link di esempio. Non viene inviato o pubblicato nulla. Le modifiche si azzerano al riavvio dell’app.</string>
     <string name="demo_import_requested">Importazione demo richiesta</string>
+    <string name="label_with_detail">%1$s · %2$s</string>
+    <string name="month_span">%1$s – %2$s</string>
 </resources>

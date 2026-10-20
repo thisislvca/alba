@@ -3,6 +3,7 @@ package me.lvca.alba.protocol.photos
 import me.lvca.alba.engine.source.CloudCatalogPage
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.fixture.isDemoId
 import java.io.OutputStream
 
 class AccountAwareICloudCatalogSource(
@@ -71,7 +72,7 @@ class AccountAwareICloudCatalogSource(
     }
 
     private fun sourceForMedia(mediaId: String): CloudCatalogSource {
-        if (mediaId.startsWith("fixture:") || mediaId.startsWith("shared:demo-library:")) {
+        if (isDemoId(mediaId)) {
             check(demoEnabled() && sessionProvider() == null) { "Demo media is not available outside demo mode" }
             return demoSource
         }

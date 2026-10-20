@@ -1,0 +1,106 @@
+package me.lvca.alba.app.albums
+
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.test.espresso.Espresso
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import me.lvca.alba.app.AlbaApplication
+import me.lvca.alba.app.MainActivity
+import me.lvca.alba.app.R
+import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.LONG_WAIT
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.openGalleryMedia
+import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.waitForGalleryMedia
+import me.lvca.alba.engine.model.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+
+class AlbumsTest {
+    @get:Rule(order = 0) val onboarding = OnboardingRule()
+    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
+    private fun text(id: Int) = compose.activity.getString(id)
+
+    @Test fun favoriteEditingKeepsDetailOpenAndAlbumCreateRenameAddWork() {
+        compose.scrollToGalleryMedia("fixture:icloud:0020")
+        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+        compose.onNodeWithText("Favorites").performClick()
+        compose.openGalleryMedia("fixture:icloud:0001")
+        compose.openViewerDetails()
+        compose.onNodeWithText("Unfavorite").performScrollTo().performClick()
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithText("Favorite").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Favorite").performScrollTo().performClick()
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithText("Unfavorite").fetchSemanticsNodes().isNotEmpty() }
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithContentDescription("Back to gallery").performClick()
+        compose.onNodeWithContentDescription("Back to collections").performClick()
+        compose.onNodeWithTag("collection-albums").performClick()
+        compose.onNodeWithText("New album").performClick()
+        compose.onNodeWithText("Album name").performTextInput("Extension test")
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithContentDescription("Album options").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Album options").performClick()
+        compose.onNodeWithText("Rename album").performClick()
+        compose.onNodeWithText("Album name").performTextReplacement("Extension renamed")
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithText("Extension renamed").fetchSemanticsNodes().isNotEmpty() }
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.onNodeWithTag("tab-LIBRARY").performClick()
+        compose.onNodeWithTag("tab-LIBRARY").assertIsSelected()
+        compose.openGalleryMedia("fixture:icloud:0001")
+        compose.openViewerDetails()
+        compose.onNodeWithText("Add to album").performScrollTo().performClick()
+        compose.onNodeWithText("Extension renamed").performClick()
+        val graph = (compose.activity.application as AlbaApplication).graph
+        compose.waitUntil(SHORT_WAIT) { runBlocking {
+            val album = graph.galleryRepository.observeCollections().first().firstOrNull { it.name == "Extension renamed" }
+            album != null && graph.galleryRepository.observeGallery().first().first { it.id == "fixture:icloud:0001" }.collectionIds.contains(album.id)
+        } }
+    }
+
+    @Test fun creatingAnAlbumFromTheViewerAddsTheCurrentPhoto() {
+        compose.waitForGalleryMedia()
+        val repository = (compose.activity.application as AlbaApplication).graph.galleryRepository
+        val name = "Workflow ${System.nanoTime()}"
+        try {
+            compose.openGalleryMedia("fixture:icloud:0016")
+            compose.openViewerDetails()
+            compose.onNodeWithText(text(R.string.add_to_album)).performScrollTo().performClick()
+            compose.onNodeWithText(text(R.string.new_album)).performClick()
+            compose.onNode(hasSetTextAction()).performTextInput(name)
+            compose.onNodeWithText(text(R.string.save)).performClick()
+            compose.waitUntil(LONG_WAIT) { runBlocking {
+                val album = repository.observeCollections().first().firstOrNull { it.name == name }
+                album != null && repository.observeGallery().first().any { it.id == "fixture:icloud:0016" && album.id in it.collectionIds }
+            } }
+        } finally { runBlocking { repository.observeCollections().first().filter { it.name == name }.forEach { repository.deleteAlbum(it.id) } } }
+    }
+
+    @Test fun albumDeleteRequiresConfirmationAndKeepsLibraryPhotos() {
+        compose.waitForGalleryMedia()
+        val repository = (compose.activity.application as AlbaApplication).graph.galleryRepository
+        val originalCount = runBlocking { repository.observeGallery().first().size }
+        val album = runBlocking {
+            repository.createAlbum("Delete test").also { repository.addToAlbum(it.id, listOf("fixture:icloud:0001")) }
+        }
+        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+        compose.onNodeWithTag("collection-albums").performClick()
+        compose.onNodeWithText("Delete test").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Album options").performClick()
+        compose.onNodeWithText("Delete album").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        assertTrue(runBlocking { repository.observeCollections().first().any { it.id == album.id } })
+        compose.onNodeWithContentDescription("Album options").performClick()
+        compose.onNodeWithText("Delete album").performClick()
+        compose.onNodeWithText("Delete album", useUnmergedTree = true).performClick()
+        compose.waitUntil(SHORT_WAIT) { runBlocking { repository.observeCollections().first().none { it.id == album.id } } }
+        assertEquals(originalCount, runBlocking { repository.observeGallery().first().size })
+        assertTrue(runBlocking { repository.observeGallery().first().any { it.id == "fixture:icloud:0001" } })
+    }
+}

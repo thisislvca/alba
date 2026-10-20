@@ -1,15 +1,15 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.*
 import me.lvca.alba.protocol.network.*
-import java.io.*
-import java.util.UUID
-import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.*
+import java.util.UUID
 
 class SharedAlbumsCatalogTest {
     private fun session(dsid: String = "123") = AppleSessionSnapshot("test@example.com", "client", "IT", "session", "token", null,
@@ -188,24 +188,24 @@ class SharedAlbumsCatalogTest {
         assertFalse(t.requests.any { it.oneShot })
     }
     @Test fun modernCommentHasEncryptedTextAndExactAssetReferenceAndRecoversLostResponse() = runBlocking {
-        val t = Transport().apply { loseCommentResponse = true }; val j = Journal(); val s = source(t,j)
+        val t = Transport().apply { loseCommentResponse = true }; val j = Journal(); val s = source(t, j)
         val snap = s.sharedAlbums(); val album = snap.collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER }
         val media = snap.collections.members.getValue(album.id).single()
         val command = SharedCommand(SharedAction.COMMENT, media, "Hello family")
         assertTrue(runCatching { s.changeSharedAlbum(album.id, command, UUID.randomUUID().toString()) }.isFailure)
-        source(t,j).changeSharedAlbum(album.id, command, UUID.randomUUID().toString())
+        source(t, j).changeSharedAlbum(album.id, command, UUID.randomUUID().toString())
         assertEquals(1, t.commentWrites)
         val fields = t.comments.values.single()["fields"]!!.jsonObject
-        assertEquals("Hello family",fields["commentText"]!!.jsonObject["value"]!!.jsonPrimitive.content)
+        assertEquals("Hello family", fields["commentText"]!!.jsonObject["value"]!!.jsonPrimitive.content)
         assertTrue(fields["commentText"]!!.jsonObject["isEncrypted"]!!.jsonPrimitive.boolean)
-        assertEquals("asset-0",fields["associatedAssetRef"]!!.jsonObject["value"]!!.jsonObject["recordName"]!!.jsonPrimitive.content)
+        assertEquals("asset-0", fields["associatedAssetRef"]!!.jsonObject["value"]!!.jsonObject["recordName"]!!.jsonPrimitive.content)
     }
     @Test fun foreignMediaCannotBeUsedForACommentInAnotherAlbum() = runBlocking {
         val t = Transport(); val s = source(t); val snap = s.sharedAlbums()
         val owner = snap.collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER }
         val other = snap.records.first { !it.id.startsWith(owner.id) }
         assertTrue(runCatching { s.changeSharedAlbum(owner.id, SharedCommand(SharedAction.COMMENT, other.id, "wrong"), UUID.randomUUID().toString()) }.isFailure)
-        assertEquals(0,t.commentWrites)
+        assertEquals(0, t.commentWrites)
     }
     @Test fun legacyDiscussionUsesNumericTypesAndOwnerShard() = runBlocking {
         val t = Transport(); val s = source(t); val snap = s.sharedAlbums()
@@ -214,8 +214,8 @@ class SharedAlbumsCatalogTest {
         s.changeSharedAlbum(album.id, SharedCommand(SharedAction.COMMENT, media, "Test"), UUID.randomUUID().toString())
         val request = t.requests.last { it.url.contains("addcomment") }
         val body = Json.parseToJsonElement(request.body!!).jsonObject
-        assertEquals("0",body["commenttype"]!!.jsonPrimitive.content)
-        assertEquals("asset-0",body["assetguid"]!!.jsonPrimitive.content)
+        assertEquals("0", body["commenttype"]!!.jsonPrimitive.content)
+        assertEquals("asset-0", body["assetguid"]!!.jsonPrimitive.content)
         val timestamp = body["commenttimestamp"]!!.jsonPrimitive.content
         assertTrue(timestamp.matches(Regex("[0-9]+\\.[0-9]{6}")))
         assertTrue(kotlin.math.abs(System.currentTimeMillis() - legacyCommentTime(timestamp)) < 5000)
@@ -241,49 +241,49 @@ class SharedAlbumsCatalogTest {
         assertEquals(0L, legacyCommentTime("1e100"))
     }
     @Test fun lostLegacyCommentResponseIsNotReplayed() = runBlocking {
-        val t = Transport().apply { loseLegacyCommentResponse = true }; val j = Journal(); val s = source(t,j)
+        val t = Transport().apply { loseLegacyCommentResponse = true }; val j = Journal(); val s = source(t, j)
         val snap = s.sharedAlbums(); val album = snap.collections.collections.first { it.shared!!.generation == SharedAlbumGeneration.LEGACY }
         val command = SharedCommand(SharedAction.COMMENT, snap.collections.members.getValue(album.id).single(), "Test")
-        repeat(2) { assertTrue(runCatching { source(t,j).changeSharedAlbum(album.id,command,UUID.randomUUID().toString()) }.isFailure) }
-        assertEquals(1,t.requests.count { it.url.contains("addcomment") })
+        repeat(2) { assertTrue(runCatching { source(t, j).changeSharedAlbum(album.id, command, UUID.randomUUID().toString()) }.isFailure) }
+        assertEquals(1, t.requests.count { it.url.contains("addcomment") })
     }
     @Test fun shareUpdatesUseChangeTagAndDoNotOverwriteUnrelatedProperties() = runBlocking {
         val t = Transport(); val s = source(t); val album = s.sharedAlbums().collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER }
-        s.changeSharedAlbum(album.id,SharedCommand(SharedAction.RENAME,value="Renamed"),UUID.randomUUID().toString())
+        s.changeSharedAlbum(album.id, SharedCommand(SharedAction.RENAME, value = "Renamed"), UUID.randomUUID().toString())
         val r = t.requests.last { it.url.contains("records/modify") }
         val op = Json.parseToJsonElement(r.body!!).jsonObject["operations"]!!.jsonArray.single().jsonObject
-        assertEquals("update",op["operationType"]!!.jsonPrimitive.content)
-        assertEquals("v1",op["record"]!!.jsonObject["recordChangeTag"]!!.jsonPrimitive.content)
+        assertEquals("update", op["operationType"]!!.jsonPrimitive.content)
+        assertEquals("v1", op["record"]!!.jsonObject["recordChangeTag"]!!.jsonPrimitive.content)
         assertFalse(op["record"]!!.jsonObject.containsKey("participants"))
         assertTrue(r.oneShot)
     }
     @Test fun ownersCannotLeaveAndNoOneCanRemoveTheOwner() = runBlocking {
         val t = Transport(); val s = source(t); val album = s.sharedAlbums().collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER }
-        assertTrue(runCatching { s.changeSharedAlbum(album.id,SharedCommand(SharedAction.LEAVE),UUID.randomUUID().toString()) }.isFailure)
-        assertTrue(runCatching { s.changeSharedAlbum(album.id,SharedCommand(SharedAction.REMOVE_PARTICIPANT,"owner-participant"),UUID.randomUUID().toString()) }.isFailure)
+        assertTrue(runCatching { s.changeSharedAlbum(album.id, SharedCommand(SharedAction.LEAVE), UUID.randomUUID().toString()) }.isFailure)
+        assertTrue(runCatching { s.changeSharedAlbum(album.id, SharedCommand(SharedAction.REMOVE_PARTICIPANT, "owner-participant"), UUID.randomUUID().toString()) }.isFailure)
         assertFalse(t.requests.any { it.oneShot })
     }
     @Test fun invitePersistsStableParticipantAndNeverReplaysLostResponse() = runBlocking {
-        val t = Transport().apply { loseShareResponse = true }; val j = Journal(); val s = source(t,j)
+        val t = Transport().apply { loseShareResponse = true }; val j = Journal(); val s = source(t, j)
         val album = s.sharedAlbums().collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER }
-        val command = SharedCommand(SharedAction.INVITE,value="test@example.com")
-        repeat(2) { assertTrue(runCatching { source(t,j).changeSharedAlbum(album.id,command,UUID.randomUUID().toString()) }.isFailure) }
-        assertEquals(1,t.shareCreates)
+        val command = SharedCommand(SharedAction.INVITE, value = "test@example.com")
+        repeat(2) { assertTrue(runCatching { source(t, j).changeSharedAlbum(album.id, command, UUID.randomUUID().toString()) }.isFailure) }
+        assertEquals(1, t.shareCreates)
         val participant = t.createdShare!!["participants"]!!.jsonArray.last().jsonObject
-        assertEquals("contributor",participant["customRole"]!!.jsonPrimitive.content)
+        assertEquals("contributor", participant["customRole"]!!.jsonPrimitive.content)
         assertTrue(participant["participantId"]!!.jsonPrimitive.content.isNotEmpty())
     }
     @Test fun modernSaveCopiesTowardPrimarySyncAndResumesKnownJob() = runBlocking {
-        val t = Transport().apply { loseCopyStatus = true }; val j = Journal(); val s = source(t,j)
+        val t = Transport().apply { loseCopyStatus = true }; val j = Journal(); val s = source(t, j)
         val snap = s.sharedAlbums(); val album = snap.collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER }
-        val command = SharedCommand(SharedAction.SAVE_TO_LIBRARY,snap.collections.members.getValue(album.id).single())
-        assertTrue(runCatching { s.changeSharedAlbum(album.id,command,UUID.randomUUID().toString()) }.isFailure)
-        source(t,j).changeSharedAlbum(album.id,command,UUID.randomUUID().toString())
-        assertEquals(1,t.copyStarts)
+        val command = SharedCommand(SharedAction.SAVE_TO_LIBRARY, snap.collections.members.getValue(album.id).single())
+        assertTrue(runCatching { s.changeSharedAlbum(album.id, command, UUID.randomUUID().toString()) }.isFailure)
+        source(t, j).changeSharedAlbum(album.id, command, UUID.randomUUID().toString())
+        assertEquals(1, t.copyStarts)
         val request = t.requests.first { it.url.contains("copy/start") }
         val body = Json.parseToJsonElement(request.body!!).jsonObject
-        assertEquals("cloudkit.zoneshare",body["sourceShareName"]!!.jsonPrimitive.content)
-        assertEquals("PrimarySync",body["targetZoneID"]!!.jsonObject["zoneName"]!!.jsonPrimitive.content)
+        assertEquals("cloudkit.zoneshare", body["sourceShareName"]!!.jsonPrimitive.content)
+        assertEquals("PrimarySync", body["targetZoneID"]!!.jsonObject["zoneName"]!!.jsonPrimitive.content)
         assertFalse(body.containsKey("targetShareName"))
     }
 
@@ -294,10 +294,10 @@ class SharedAlbumsCatalogTest {
         val record = t.createdShare!!
         assertEquals("NONE", record["publicPermission"]!!.jsonPrimitive.content)
         val people = record["participants"]!!.jsonArray.map { it.jsonObject }
-        assertEquals("owner-participant",people.first()["participantId"]!!.jsonPrimitive.content)
-        assertEquals("USER",people.last()["type"]!!.jsonPrimitive.content)
-        assertNotEquals("public-person",people.last()["participantId"]!!.jsonPrimitive.content)
-        assertEquals("contributor",people.last()["customRole"]!!.jsonPrimitive.content)
+        assertEquals("owner-participant", people.first()["participantId"]!!.jsonPrimitive.content)
+        assertEquals("USER", people.last()["type"]!!.jsonPrimitive.content)
+        assertNotEquals("public-person", people.last()["participantId"]!!.jsonPrimitive.content)
+        assertEquals("contributor", people.last()["customRole"]!!.jsonPrimitive.content)
     }
     @Test fun enablingPublicAccessAlsoApprovesPendingRequests() = runBlocking {
         val t = Transport().apply { pendingRequest = true }; val s = source(t)
@@ -315,32 +315,32 @@ class SharedAlbumsCatalogTest {
         assertTrue(s.sharedDiscussion(photo.id).canRemovePhoto)
         t.legacyAuthor = "someone-else"
         assertFalse(s.sharedDiscussion(photo.id).canRemovePhoto)
-        assertTrue(runCatching { s.changeSharedAlbum(photo.id.substringBeforeLast(':'),SharedCommand(SharedAction.REMOVE_MEDIA,photo.id),UUID.randomUUID().toString()) }.isFailure)
+        assertTrue(runCatching { s.changeSharedAlbum(photo.id.substringBeforeLast(':'), SharedCommand(SharedAction.REMOVE_MEDIA, photo.id), UUID.randomUUID().toString()) }.isFailure)
         assertFalse(t.requests.any { it.url.contains("deleteassets") })
     }
 
     @Test fun legacyInvitationAcceptanceRecoversLostResponseWithoutResubscribing() = runBlocking {
         val t = Transport().apply { pendingLegacy = true; legacyJoined = false; loseInviteResponse = true }
-        val j = Journal(); val s = source(t,j); val invitation = s.pendingSharedInvitations().single()
-        assertEquals("Invited family",invitation.name); assertTrue(invitation.canDecline)
-        assertTrue(runCatching { s.respondSharedInvitation(invitation.id,true,UUID.randomUUID().toString()) }.isFailure)
-        source(t,j).respondSharedInvitation(invitation.id,true,UUID.randomUUID().toString())
-        assertEquals(1,t.requests.count { it.url.toHttpUrl().encodedPath.endsWith("/subscribe") })
+        val j = Journal(); val s = source(t, j); val invitation = s.pendingSharedInvitations().single()
+        assertEquals("Invited family", invitation.name); assertTrue(invitation.canDecline)
+        assertTrue(runCatching { s.respondSharedInvitation(invitation.id, true, UUID.randomUUID().toString()) }.isFailure)
+        source(t, j).respondSharedInvitation(invitation.id, true, UUID.randomUUID().toString())
+        assertEquals(1, t.requests.count { it.url.toHttpUrl().encodedPath.endsWith("/subscribe") })
         assertTrue(s.pendingSharedInvitations().isEmpty())
     }
     @Test fun modernInvitationOnlyAcceptsAlbumLinksAndRecoversAcceptanceResponseLoss() = runBlocking {
-        val t = Transport().apply { loseInviteResponse = true }; val j = Journal(); val s = source(t,j)
+        val t = Transport().apply { loseInviteResponse = true }; val j = Journal(); val s = source(t, j)
         val invitation = s.resolveSharedInvitation("https://www.icloud.com/photos/#/sharedalbums/sc,TestLink/")
-        assertEquals(SharedAlbumGeneration.MODERN,invitation.generation)
+        assertEquals(SharedAlbumGeneration.MODERN, invitation.generation)
         assertFalse(t.requests.any { it.oneShot })
-        assertTrue(runCatching { s.respondSharedInvitation(invitation.id,true,UUID.randomUUID().toString()) }.isFailure)
-        source(t,j).respondSharedInvitation(invitation.id,true,UUID.randomUUID().toString())
-        assertEquals(1,t.requests.count { it.url.contains("/public/records/accept") })
+        assertTrue(runCatching { s.respondSharedInvitation(invitation.id, true, UUID.randomUUID().toString()) }.isFailure)
+        source(t, j).respondSharedInvitation(invitation.id, true, UUID.randomUUID().toString())
+        assertEquals(1, t.requests.count { it.url.contains("/public/records/accept") })
         val before = t.requests.size
         assertTrue(runCatching { s.resolveSharedInvitation("https://evil.example/photos/#/sharedalbums/sc,TestLink/") }.isFailure)
-        assertEquals(before,t.requests.size)
-        assertTrue(runCatching { s.respondSharedInvitation(invitation.id.replace("invitation:${s.accountLabel}:","invitation:someone-else:"),true,UUID.randomUUID().toString()) }.isFailure)
-        assertEquals(before,t.requests.size)
+        assertEquals(before, t.requests.size)
+        assertTrue(runCatching { s.respondSharedInvitation(invitation.id.replace("invitation:${s.accountLabel}:", "invitation:someone-else:"), true, UUID.randomUUID().toString()) }.isFailure)
+        assertEquals(before, t.requests.size)
     }
     @Test fun acceptsFirstPartyCopiedPhotosHostButRejectsLookalikesAndNonstandardPorts() = runBlocking {
         val t = Transport(); val s = source(t)
@@ -363,28 +363,28 @@ class SharedAlbumsCatalogTest {
     @Test fun declineOnlyTargetsPendingLegacyInvitations() = runBlocking {
         val t = Transport().apply { pendingLegacy = true; legacyJoined = false }; val s = source(t)
         val invitation = s.pendingSharedInvitations().single()
-        s.respondSharedInvitation(invitation.id,false,UUID.randomUUID().toString())
+        s.respondSharedInvitation(invitation.id, false, UUID.randomUUID().toString())
         assertTrue(s.pendingSharedInvitations().isEmpty())
-        assertEquals(1,t.requests.count { it.url.toHttpUrl().encodedPath.endsWith("/unsubscribe") })
+        assertEquals(1, t.requests.count { it.url.toHttpUrl().encodedPath.endsWith("/unsubscribe") })
     }
 
     @Test fun oneTimeLinkIsPrivateAndLostResponseDoesNotCreateAnotherInvitation() = runBlocking {
-        val t = Transport().apply { reflectShareWrites = true; loseShareResponse = true }; val j = Journal(); val s = source(t,j)
+        val t = Transport().apply { reflectShareWrites = true; loseShareResponse = true }; val j = Journal(); val s = source(t, j)
         val album = s.sharedAlbums().collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER }
         val command = SharedCommand(SharedAction.CREATE_INVITE_LINK)
-        assertTrue(runCatching { s.changeSharedAlbum(album.id,command,UUID.randomUUID().toString()) }.isFailure)
-        source(t,j).changeSharedAlbum(album.id,command,UUID.randomUUID().toString())
-        assertEquals(1,t.shareCreates)
+        assertTrue(runCatching { s.changeSharedAlbum(album.id, command, UUID.randomUUID().toString()) }.isFailure)
+        source(t, j).changeSharedAlbum(album.id, command, UUID.randomUUID().toString())
+        assertEquals(1, t.shareCreates)
         val record = t.createdShare!!; assertFalse(record.containsKey("publicPermission"))
-        assertEquals("contributor",record["participants"]!!.jsonArray.last().jsonObject["customRole"]!!.jsonPrimitive.content)
-        assertEquals("https://photos.icloud.com/shared/album/OnlyLink",s.sharedManagement(album.id).invitationLinks.single())
-        s.changeSharedAlbum(album.id,SharedCommand(SharedAction.REVOKE_INVITE_LINKS),UUID.randomUUID().toString())
+        assertEquals("contributor", record["participants"]!!.jsonArray.last().jsonObject["customRole"]!!.jsonPrimitive.content)
+        assertEquals("https://photos.icloud.com/shared/album/OnlyLink", s.sharedManagement(album.id).invitationLinks.single())
+        s.changeSharedAlbum(album.id, SharedCommand(SharedAction.REVOKE_INVITE_LINKS), UUID.randomUUID().toString())
         assertTrue(s.sharedManagement(album.id).invitationLinks.isEmpty())
-        assertEquals("owner-participant",t.createdShare!!["participants"]!!.jsonArray.single().jsonObject["participantId"]!!.jsonPrimitive.content)
+        assertEquals("owner-participant", t.createdShare!!["participants"]!!.jsonArray.single().jsonObject["participantId"]!!.jsonPrimitive.content)
     }
 
     @Test fun denyRecordsBlockAndUnblockPreservesOtherPeopleAndRecoversLostReply() = runBlocking {
-        val t = Transport().apply { pendingRequest = true; reflectShareWrites = true }; val j = Journal(); val s = source(t,j)
+        val t = Transport().apply { pendingRequest = true; reflectShareWrites = true }; val j = Journal(); val s = source(t, j)
         val album = s.sharedAlbums().collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER }
         s.changeSharedAlbum(album.id, SharedCommand(SharedAction.DENY_REQUEST, "waiting-user"), UUID.randomUUID().toString())
         assertEquals("waiting-user", s.sharedManagement(album.id).blocked.single().id)
@@ -393,7 +393,7 @@ class SharedAlbumsCatalogTest {
         val command = SharedCommand(SharedAction.UNBLOCK, "waiting-user")
         assertTrue(runCatching { s.changeSharedAlbum(album.id, command, UUID.randomUUID().toString()) }.isFailure)
         val writes = t.shareCreates
-        source(t,j).changeSharedAlbum(album.id, command, UUID.randomUUID().toString())
+        source(t, j).changeSharedAlbum(album.id, command, UUID.randomUUID().toString())
         assertEquals(writes, t.shareCreates)
         assertTrue(s.sharedManagement(album.id).blocked.isEmpty())
         assertEquals("owner-participant", s.sharedManagement(album.id).participants.single().id)
@@ -402,7 +402,7 @@ class SharedAlbumsCatalogTest {
         assertEquals(writes, t.shareCreates)
     }
     @Test fun activityUsesRankPagingAndPostCommentsHaveSeparateReferenceAndRecovery() = runBlocking {
-        val t = Transport().apply { activityCount = 26 }; val j = Journal(); val s = source(t,j)
+        val t = Transport().apply { activityCount = 26 }; val j = Journal(); val s = source(t, j)
         val album = s.sharedAlbums().collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER }
         val first = s.sharedActivity(album.id, 0); val second = s.sharedActivity(album.id, first.nextRank!!)
         assertEquals(25, first.posts.size); assertEquals(1, second.posts.size); assertNull(second.nextRank)
@@ -410,18 +410,18 @@ class SharedAlbumsCatalogTest {
         val post = first.posts.first()
         val command = SharedCommand(SharedAction.POST_COMMENT, post.id, "A whole post")
         t.loseCommentResponse = true
-        assertTrue(runCatching { s.changeSharedAlbum(album.id,command,UUID.randomUUID().toString()) }.isFailure)
-        source(t,j).changeSharedAlbum(album.id,command,UUID.randomUUID().toString())
-        assertEquals(1,t.commentWrites)
+        assertTrue(runCatching { s.changeSharedAlbum(album.id, command, UUID.randomUUID().toString()) }.isFailure)
+        source(t, j).changeSharedAlbum(album.id, command, UUID.randomUUID().toString())
+        assertEquals(1, t.commentWrites)
         val fields = t.comments.values.single()["fields"]!!.jsonObject
         assertNotNull(fields["postRef"]); assertNull(fields["associatedAssetRef"])
         assertEquals("CPLPost-0", fields["postRef"]!!.jsonObject["value"]!!.jsonObject["recordName"]!!.jsonPrimitive.content)
         val another = s.sharedAlbums().collections.collections.first { it.shared!!.role == SharedAlbumRole.CONTRIBUTOR }
-        assertTrue(runCatching { s.changeSharedAlbum(another.id,command,UUID.randomUUID().toString()) }.isFailure)
-        assertEquals(1,t.commentWrites)
-        assertEquals(1,s.sharedPostPhotos(post.id).size)
+        assertTrue(runCatching { s.changeSharedAlbum(another.id, command, UUID.randomUUID().toString()) }.isFailure)
+        assertEquals(1, t.commentWrites)
+        assertEquals(1, s.sharedPostPhotos(post.id).size)
         t.splitPostPreview = true
-        assertEquals(2,s.sharedPostPhotos(post.id).size)
+        assertEquals(2, s.sharedPostPhotos(post.id).size)
     }
 
     private class Journal : UploadJournal {
@@ -432,7 +432,7 @@ class SharedAlbumsCatalogTest {
     private class Transport : AppleHttpTransport {
         val requests = mutableListOf<AppleHttpRequest>()
         var customRole = "contributor"; var loseCommentResponse = false; var loseLegacyCommentResponse = false; var loseCopyStatus = false; var commentWrites = 0
-        val comments = mutableMapOf<String,JsonObject>()
+        val comments = mutableMapOf<String, JsonObject>()
         var legacyComments = JsonArray(emptyList())
         var legacyCount = 1; var repeatPage = false; var legacyContributes = false; var albumHost = "https://p55-sharedstreams.icloud.com"
         var loseLegacyPut = false; var registeredAsset: String? = null; var createdLegacy: JsonObject? = null; var legacyCreates = 0; var loseLegacyCreate = false
@@ -440,7 +440,6 @@ class SharedAlbumsCatalogTest {
         var loseShareResponse = false; var loseCopyResponse = false; var losePostResponse = false; var loseLegacyStatus = false
         var zoneCreates = 0; var shareCreates = 0; var copyStarts = 0; var postCreates = 0
         var createdZone: JsonObject? = null; var createdShare: JsonObject? = null; var createdPost: JsonObject? = null
-        override val sessionHeaders = AppleSessionHeaders()
         private fun zone(name: String, owner: String = "owner") = buildJsonObject { put("zoneName", name); put("ownerRecordName", owner); put("zoneType", "REGULAR_CUSTOM_ZONE") }
         var activityCount = 0
         var splitPostPreview = false
@@ -455,11 +454,11 @@ class SharedAlbumsCatalogTest {
         var responseCode = 200
         private fun share(scope: String): JsonObject { val base = Json.parseToJsonElement("""{"recordName":"cloudkit.zoneshare","recordType":"cloudkit.share","fields":{"cloudkit.title":{"value":"Same name"}},"recordChangeTag":"v1","participants":[{"participantId":"owner-participant","type":"OWNER","userIdentity":{"userRecordName":"owner"}}],"currentUserParticipant":{"type":"${if(scope == "private") "OWNER" else "USER"}","acceptanceStatus":"ACCEPTED","permission":"READ_WRITE","customRole":"$customRole"}}""").jsonObject
             return JsonObject(base + buildJsonObject {
-                put("publicPermission",if(publicShare) "READ_WRITE" else "NONE")
-                if(publicShare) put("participants",JsonArray(base["participants"]!!.jsonArray + buildJsonObject {
-                    put("participantId","public-person"); put("type","PUBLIC_USER"); put("permission","READ_WRITE")
+                put("publicPermission", if(publicShare) "READ_WRITE" else "NONE")
+                if(publicShare) put("participants", JsonArray(base["participants"]!!.jsonArray + buildJsonObject {
+                    put("participantId", "public-person"); put("type", "PUBLIC_USER"); put("permission", "READ_WRITE")
                 }))
-                if(pendingRequest) putJsonArray("requesters") { add(buildJsonObject { putJsonObject("requesterInformation") { put("userRecordName","waiting-user") } }) }
+                if(pendingRequest) putJsonArray("requesters") { add(buildJsonObject { putJsonObject("requesterInformation") { put("userRecordName", "waiting-user") } }) }
             } + (if(reflectShareWrites) createdShare.orEmpty() else emptyMap()))
         }
 
@@ -480,7 +479,7 @@ class SharedAlbumsCatalogTest {
             val scope = if ("/shared/" in path) "shared" else "private"
             val target = (body["zoneID"] as? JsonObject)?.get("zoneName")?.jsonPrimitive?.content
             val result: JsonElement = when {
-                path.endsWith("webgetpendingalbums") -> buildJsonObject { putJsonArray("albums") { if(pendingLegacy) add(buildJsonObject { put("albumguid","legacy"); putJsonObject("attributes") { put("name","Invited family") } }) } }
+                path.endsWith("webgetpendingalbums") -> buildJsonObject { putJsonArray("albums") { if(pendingLegacy) add(buildJsonObject { put("albumguid", "legacy"); putJsonObject("attributes") { put("name", "Invited family") } }) } }
                 path.endsWith("/subscribe") -> {
                     pendingLegacy = false; legacyJoined = true
                     if(loseInviteResponse) { loseInviteResponse = false; throw IOException("lost invitation") }
@@ -490,11 +489,11 @@ class SharedAlbumsCatalogTest {
                 path.endsWith("records/resolve") || path.endsWith("records/accept") -> {
                     if(path.endsWith("records/accept")) { acceptedModern = true; if(loseInviteResponse) { loseInviteResponse = false; throw IOException("lost invitation") } }
                     buildJsonObject { putJsonArray("results") { add(buildJsonObject {
-                        put("zoneID",zone("SharedCollection-invited"))
-                        put("share",JsonObject(share("shared") + ("currentUserParticipant" to buildJsonObject { put("acceptanceStatus",if(acceptedModern) "ACCEPTED" else "INVITED") })))
+                        put("zoneID", zone("SharedCollection-invited"))
+                        put("share", JsonObject(share("shared") + ("currentUserParticipant" to buildJsonObject { put("acceptanceStatus", if(acceptedModern) "ACCEPTED" else "INVITED") })))
                     }) } }
                 }
-                path.endsWith("webgetalbumslist") -> Json.parseToJsonElement("""{"albums":[{"albumguid":"legacy","ownerdsid":"other","albumlocation":"$albumHost/other/sharedstreams/","albumctag":"v1","sharingtype":"subscribed","iswebuploadsupported":"1","attributes":{"name":"Same name","allowcontributions":"${if(legacyContributes) 1 else 0}"}}]}""") .jsonObject.let { root -> JsonObject(root + ("albums" to JsonArray((if(legacyJoined) root["albums"]!!.jsonArray else emptyList()) + listOfNotNull(createdLegacy)))) }
+                path.endsWith("webgetalbumslist") -> Json.parseToJsonElement("""{"albums":[{"albumguid":"legacy","ownerdsid":"other","albumlocation":"$albumHost/other/sharedstreams/","albumctag":"v1","sharingtype":"subscribed","iswebuploadsupported":"1","attributes":{"name":"Same name","allowcontributions":"${if(legacyContributes) 1 else 0}"}}]}""").jsonObject.let { root -> JsonObject(root + ("albums" to JsonArray((if(legacyJoined) root["albums"]!!.jsonArray else emptyList()) + listOfNotNull(createdLegacy)))) }
                 path.endsWith("createalbum") -> {
                     legacyCreates++
                     createdLegacy = buildJsonObject { put("albumguid", body.getValue("albumguid")); put("ownerdsid", "owner"); put("albumlocation", "$albumHost/owner/sharedstreams/"); put("sharingtype", "owned"); put("attributes", body.getValue("attributes")) }
@@ -524,27 +523,27 @@ class SharedAlbumsCatalogTest {
                 }
                 path.endsWith("records/modify") -> {
                     val record = body["operations"]!!.jsonArray.single().jsonObject["record"]!!.jsonObject
-                    if(record["recordType"]?.jsonPrimitive?.content in setOf("CPLTextComment","CPLReact")) {
+                    if(record["recordType"]?.jsonPrimitive?.content in setOf("CPLTextComment", "CPLReact")) {
                         commentWrites++; comments[record["recordName"]!!.jsonPrimitive.content] = record
                         if(loseCommentResponse) { loseCommentResponse = false; throw IOException("lost comment") }
                     } else if(record["recordType"]!!.jsonPrimitive.content == "cloudkit.share") {
                         shareCreates++; createdShare = record
                         if(reflectShareWrites && record.containsKey("oneTimeStableUrlInfo")) {
                             val links = record["oneTimeStableUrlInfo"]!!.jsonObject["oneTimeLinks"]!!.jsonArray
-                            createdShare = JsonObject(record + ("oneTimeStableUrlInfo" to buildJsonObject { put("oneTimeLinks",JsonArray(links.map { JsonObject(it.jsonObject + ("sharingLink" to JsonPrimitive("OnlyLink"))) })) }))
+                            createdShare = JsonObject(record + ("oneTimeStableUrlInfo" to buildJsonObject { put("oneTimeLinks", JsonArray(links.map { JsonObject(it.jsonObject + ("sharingLink" to JsonPrimitive("OnlyLink"))) })) }))
                         }
                         if(loseShareResponse) { loseShareResponse = false; throw IOException("lost response") }
                     } else { postCreates++; createdPost = record; if(losePostResponse) { losePostResponse = false; throw IOException("lost post") } }
                     buildJsonObject { put("records", JsonArray(listOf(record))) }
                 }
                 path.endsWith("copy/start") -> { copyStarts++; if(loseCopyResponse) throw IOException("lost copy result"); buildJsonObject { put("jobID", "copy-job") } }
-                path.endsWith("copy/status") -> { if(loseCopyStatus) { loseCopyStatus=false; throw IOException("offline") }; buildJsonObject { put("status", "COMPLETED"); put("jobID", "copy-job") } }
+                path.endsWith("copy/status") -> { if(loseCopyStatus) { loseCopyStatus = false; throw IOException("offline") }; buildJsonObject { put("status", "COMPLETED"); put("jobID", "copy-job") } }
                 path.endsWith("webgetuploadurl") -> buildJsonObject { put("uploadurl", "https://cws.icloud-content.com/upload?a=1") }
                 path.endsWith("webputasset") -> { legacyPuts++; registeredAsset = body["assetguid"]!!.jsonPrimitive.content; if(loseLegacyPut) { loseLegacyPut = false; throw IOException("lost publish") }; buildJsonObject { put("albumguid", body.getValue("albumguid")); put("assetguid", body.getValue("assetguid")); put("uploadjobid", "legacy-job") } }
                 path.endsWith("webuploadstatus") -> { if(loseLegacyStatus) { loseLegacyStatus = false; throw IOException("offline") }; JsonArray(listOf(buildJsonObject { put("status", "COMPLETED"); put("uploadjobid", "legacy-job") })) }
-                path.endsWith("webgetalbumview") -> buildJsonObject { put("callerId","me"); putJsonArray("albums") { add(buildJsonObject { put("albumguid","legacy"); putJsonObject("attributes") {} }) } }
-                path.endsWith("getcomments") -> buildJsonObject { put("comments",legacyComments) }
-                path.endsWith("addcomment") -> { if(loseLegacyCommentResponse) throw IOException("lost comment"); buildJsonObject { put("commentposition","1") } }
+                path.endsWith("webgetalbumview") -> buildJsonObject { put("callerId", "me"); putJsonArray("albums") { add(buildJsonObject { put("albumguid", "legacy"); putJsonObject("attributes") {} }) } }
+                path.endsWith("getcomments") -> buildJsonObject { put("comments", legacyComments) }
+                path.endsWith("addcomment") -> { if(loseLegacyCommentResponse) throw IOException("lost comment"); buildJsonObject { put("commentposition", "1") } }
                 path.endsWith("records/query") -> {
                     val query = body["query"]!!.jsonObject
                     val kind = query["recordType"]!!.jsonPrimitive.content

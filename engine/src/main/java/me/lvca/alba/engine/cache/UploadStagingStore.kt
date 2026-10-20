@@ -3,12 +3,14 @@ package me.lvca.alba.engine.cache
 import android.content.Context
 import android.system.Os
 import android.system.OsConstants
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.source.DeviceOriginalEvidence
 import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.UploadMediaFormat
 import me.lvca.alba.engine.source.UploadMediaValidator
-import kotlinx.coroutines.currentCoroutineContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -19,8 +21,6 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 data class StagedUploadFile(
     val path: String,
@@ -34,6 +34,9 @@ data class StagedExactOriginal(
     val sha256Hex: String,
     val evidence: ExactOriginalEvidence,
 )
+
+/** The staged bytes are gone or no longer match their recorded size and digest. Reading again cannot fix it. */
+class StagedOriginalUnavailableException(message: String) : IllegalArgumentException(message)
 
 class UploadStagingStore(
     context: Context,
@@ -130,13 +133,12 @@ class UploadStagingStore(
         expectedByteCount: Long,
         expectedSha256Hex: String,
     ): OneShotUploadSource = withContext(Dispatchers.IO) {
-        val file = requireNotNull(ownedTokenFile(ownedFileToken)) {
-            "Upload staging token is not owned by Alba"
-        }
-        require(file.isFile && file.canRead()) { "Staged original is missing" }
-        require(file.length() == expectedByteCount) { "Staged original byte count changed" }
+        val file = ownedTokenFile(ownedFileToken)
+            ?: throw StagedOriginalUnavailableException("Upload staging token is not owned by Alba")
+        if (!file.isFile || !file.canRead()) throw StagedOriginalUnavailableException("Staged original is missing")
+        if (file.length() != expectedByteCount) throw StagedOriginalUnavailableException("Staged original byte count changed")
         val actualDigest = file.inputStream().use(::sha256)
-        require(actualDigest == expectedSha256Hex) { "Staged original digest changed" }
+        if (actualDigest != expectedSha256Hex) throw StagedOriginalUnavailableException("Staged original digest changed")
         VerifiedOneShotFile(file, expectedByteCount, expectedSha256Hex)
     }
 

@@ -1,5 +1,7 @@
 package me.lvca.alba.protocol.auth
 
+import me.lvca.alba.protocol.sha256
+import me.lvca.alba.protocol.toHex
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.nio.ByteBuffer
@@ -284,16 +286,10 @@ internal class TrustedDeviceBridgeProver(
             return mac.doFinal(value)
         }
 
-        fun sha256(value: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(value)
-
         fun decodeBase64(value: String): ByteArray = runCatching {
             Base64.getDecoder().decode(value)
         }.getOrElse { throw IllegalArgumentException("Malformed base64 bridge payload", it) }
     }
-}
-
-internal fun ByteArray.toHex(): String = joinToString(separator = "") { byte ->
-    "%02x".format(byte.toInt() and 0xff)
 }
 
 internal fun String.hexToBytes(): ByteArray {

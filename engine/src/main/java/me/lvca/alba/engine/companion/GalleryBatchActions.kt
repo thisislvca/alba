@@ -1,8 +1,18 @@
 package me.lvca.alba.engine.companion
 
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import me.lvca.alba.engine.cache.InsufficientStorageException
 import me.lvca.alba.engine.database.BatchItemEntity
 import me.lvca.alba.engine.database.LibraryDao
+import me.lvca.alba.engine.database.toModel
+import me.lvca.alba.engine.model.BatchItem
+import me.lvca.alba.engine.model.BatchItemState
 import me.lvca.alba.engine.model.OfflineMediaStore
 import me.lvca.alba.engine.model.PhotoCompanion
 import me.lvca.alba.engine.model.StoredMessage
@@ -10,11 +20,6 @@ import me.lvca.alba.engine.model.UserSelectedPhoto
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.withPermit
 
 enum class BatchAction { KEEP_OFFLINE, REMOVE_CACHE, UPLOAD, PICKER_UPLOAD, SAVE_TO_PHONE }
 
@@ -43,15 +48,15 @@ class GalleryBatchActions(private val dao: LibraryDao, private val gallery: Offl
         dao.stopPendingBatches()
         running?.cancelAndJoin()
     }
-    fun observe() = dao.observeBatches()
+    fun observe(): Flow<List<BatchItem>> = dao.observeBatches().map { rows -> rows.map { it.toModel() } }
     suspend fun enqueue(action: BatchAction, ids: Collection<String>): String {
         val id = UUID.randomUUID().toString()
         val owner = account()
-        dao.putBatches(ids.distinct().map { BatchItemEntity(id, it, owner, action.name, "WAITING", null, System.currentTimeMillis()) })
+        dao.putBatches(ids.distinct().map { BatchItemEntity(id, it, owner, action.name, BatchItemState.WAITING.name, null, System.currentTimeMillis()) })
         return id
     }
     suspend fun retry(id: String) {
-        dao.putBatches(dao.failedBatch(id).filter { it.account == account() }.map { it.copy(state = "WAITING", message = null) })
+        dao.putBatches(dao.failedBatch(id).filter { it.account == account() }.map { it.copy(state = BatchItemState.WAITING.name, message = null) })
     }
     suspend fun hasPending(localOnly: Boolean = false): Boolean = dao.pendingBatches(1, localOnly).isNotEmpty()
 
@@ -85,13 +90,13 @@ class GalleryBatchActions(private val dao: LibraryDao, private val gallery: Offl
 
     private suspend fun runItem(row: BatchItemEntity) {
         if (row.account != account()) {
-            dao.finishPendingBatch(row.batchId, row.mediaId, "STOPPED", StoredMessage.ACCOUNT_CHANGED.code)
+            dao.finishPendingBatch(row.batchId, row.mediaId, BatchItemState.STOPPED.name, StoredMessage.ACCOUNT_CHANGED.code)
             return
         }
         val action = BatchAction.valueOf(row.action)
         val isUpload = action == BatchAction.UPLOAD || action == BatchAction.PICKER_UPLOAD
-        if ((isUpload || action == BatchAction.SAVE_TO_PHONE) && row.state == "RUNNING") {
-            dao.finishPendingBatch(row.batchId, row.mediaId, "NEEDS_ATTENTION", if (isUpload)
+        if ((isUpload || action == BatchAction.SAVE_TO_PHONE) && row.state == BatchItemState.RUNNING.name) {
+            dao.finishPendingBatch(row.batchId, row.mediaId, BatchItemState.NEEDS_ATTENTION.name, if (isUpload)
                 StoredMessage.CHECK_THE_UPLOAD_QUEUE_BEFORE_SELECTING_THIS_ITEM_AGAIN.code else StoredMessage.CHECK_PHONE_GALLERY_BEFORE_RETRY.code)
             return
         }
@@ -107,13 +112,13 @@ class GalleryBatchActions(private val dao: LibraryDao, private val gallery: Offl
                     else photos.uploadSelected(UserSelectedPhoto(row.mediaId))
                 }
             }
-            dao.finishPendingBatch(row.batchId, row.mediaId, "DONE", if (isUpload) StoredMessage.QUEUED.code else null)
+            dao.finishPendingBatch(row.batchId, row.mediaId, BatchItemState.DONE.name, if (isUpload) StoredMessage.QUEUED.code else null)
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (error: Exception) {
             val message = if (error is me.lvca.alba.engine.source.UnsupportedUploadException) requireNotNull(error.message)
                 else if (error is InsufficientStorageException) requireNotNull(error.message)
                 else if (isUpload) StoredMessage.UPLOAD_STAGE_FAILED.code else StoredMessage.COULD_NOT_COMPLETE_THIS_ITEM.code
-            dao.finishPendingBatch(row.batchId, row.mediaId, "FAILED", message)
+            dao.finishPendingBatch(row.batchId, row.mediaId, BatchItemState.FAILED.name, message)
             if (error is InsufficientStorageException) dao.failWaitingBatch(row.batchId, message)
         }
     }

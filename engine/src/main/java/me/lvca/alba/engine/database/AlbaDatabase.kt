@@ -47,7 +47,12 @@ abstract class AlbaDatabase : RoomDatabase() {
 
     abstract fun uploadTransferDao(): UploadTransferDao
 
-    abstract fun photoWriteDao(): PhotoWriteDao
+    abstract fun accountDao(): AccountDao
+    abstract fun transferDao(): TransferDao
+    abstract fun verificationDao(): VerificationDao
+    abstract fun backupDao(): BackupDao
+    abstract fun localAssetDao(): LocalAssetDao
+    abstract fun trashDao(): TrashDao
 
     companion object {
         private val MIGRATION_13_14 = object : Migration(13, 14) {

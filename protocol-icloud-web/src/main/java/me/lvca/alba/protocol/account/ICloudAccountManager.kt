@@ -1,15 +1,15 @@
 package me.lvca.alba.protocol.account
 
-import me.lvca.alba.protocol.auth.AppleAuthenticationService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import me.lvca.alba.protocol.auth.AppleAuthenticationService
 
 class ICloudAccountManager(
     private val authentication: AppleAuthenticationService,

@@ -1,17 +1,21 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
-import me.lvca.alba.protocol.auth.AppleProtocolException
-import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.PersistedCookie
+import me.lvca.alba.protocol.auth.AppleProtocolError
+import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import me.lvca.alba.protocol.network.AppleSessionHeaders
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -19,11 +23,6 @@ import java.io.OutputStream
 import java.net.URI
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.*
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
 
 class LiveICloudPhotoProtocolTest {
     @Test
@@ -544,7 +543,6 @@ class LiveICloudPhotoProtocolTest {
         var rawUploadCalls = 0
         var uploadedBytes = byteArrayOf()
         var lastUploadUrl: String? = null
-        override val sessionHeaders = AppleSessionHeaders()
 
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             requests += request
@@ -639,7 +637,6 @@ class LiveICloudPhotoProtocolTest {
         }.joinToString(",")
 
         var lookupCalls = 0
-        override val sessionHeaders = AppleSessionHeaders()
 
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse = when (URI(request.url).path) {
             "/database/1/com.apple.photos.cloud/production/private/changes/zone" -> response(

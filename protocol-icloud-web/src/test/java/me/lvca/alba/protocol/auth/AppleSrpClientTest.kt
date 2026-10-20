@@ -1,9 +1,9 @@
 package me.lvca.alba.protocol.auth
 
-import java.util.Base64
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.util.Base64
 
 class AppleSrpClientTest {
     @Test
@@ -22,6 +22,21 @@ class AppleSrpClientTest {
             expectedM1 = "Bow86Exu+SGp58UOcWYG0k6+FlfD1kOiuFwh++uk5hM=",
             expectedM2 = "rT0JrwsDXFI70G12EaS7calT5uphRg7OUmZHW+pGgW0=",
         )
+    }
+
+    @Test
+    fun `excessive server iteration count fails before hashing`() {
+        val client = AppleSrpClient("luca@example.com", "correct horse battery staple")
+        val error = runCatching {
+            client.processChallenge(
+                salt = hex("00112233445566778899aabbccddeeff"),
+                serverPublicB = Base64.getDecoder().decode(SERVER_PUBLIC_B),
+                iterations = Int.MAX_VALUE,
+                protocol = AppleSrpProtocol.S2K,
+            )
+        }.exceptionOrNull()
+
+        assertEquals(AppleProtocolError.MALFORMED_RESPONSE, (error as AppleProtocolException).error)
     }
 
     private fun assertOracleProof(

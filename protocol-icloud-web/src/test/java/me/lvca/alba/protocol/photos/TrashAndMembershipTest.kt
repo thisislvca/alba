@@ -1,9 +1,9 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.protocol.account.*
-import me.lvca.alba.protocol.network.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
+import me.lvca.alba.protocol.account.*
+import me.lvca.alba.protocol.network.*
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.OutputStream
@@ -68,7 +68,6 @@ class TrashAndMembershipTest {
     }
 
     private class Transport : AppleHttpTransport {
-        override val sessionHeaders = AppleSessionHeaders()
         val writes = mutableListOf<AppleHttpRequest>()
         var trashed = false; var expunged = false; var version = 1
         var disconnect = false; var reject = false; var ignoreWrite = false
