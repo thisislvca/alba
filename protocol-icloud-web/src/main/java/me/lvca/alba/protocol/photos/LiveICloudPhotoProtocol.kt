@@ -54,7 +54,7 @@ class LiveICloudPhotoProtocol(
       catch (_: Exception) { false }
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val cloudKit = CloudKitClient(transport, onSessionUpdated, onSessionRejected)
+    private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected)
 
     override fun currentDestination(): ICloudDestination? = sessionProvider()?.let { session ->
         ICloudDestination(

@@ -44,7 +44,7 @@ class LiveICloudCatalogSource(
     private val onSessionUpdated: suspend (AppleSessionSnapshot) -> Unit = {},
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
 ) : CloudCatalogSource {
-    private val cloudKit = CloudKitClient(transport, onSessionUpdated, onSessionRejected).apply {
+    private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected).apply {
         onAccountChanged { downloads.clear(); currentRefreshIds.clear() }
     }
     private val shared = SharedAlbumsCatalog(transport, cloudKit, ::requireSession, { accountLabel }, isAuthorized, sharedJournal)

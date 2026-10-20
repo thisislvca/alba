@@ -19,6 +19,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
  */
 internal class CloudKitClient(
     private val transport: AppleHttpTransport,
+    private val currentSession: () -> AppleSessionSnapshot?,
     private val onSessionUpdated: suspend (AppleSessionSnapshot) -> Unit,
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit,
 ) {
@@ -33,6 +34,7 @@ internal class CloudKitClient(
     }
 
     /** Restores the transport's cookies when [session] differs from the session bound last. */
+    @Synchronized
     fun bind(session: AppleSessionSnapshot) {
         val authentication = "${session.dsid}:${session.clientId}"
         if (boundAuthentication == authentication) return
@@ -103,10 +105,15 @@ internal class CloudKitClient(
         verify: (AppleSessionSnapshot) -> Unit = {},
     ): AppleHttpResponse = requireSuccess(session, exchange(session, request, verify), failures)
 
-    /** Saves [session] with the transport's cookies and the session headers of [response], if any. */
+    /**
+     * Saves the transport's cookies and the session headers of [response], if any. They are applied to the
+     * latest saved session for the same sign-in rather than to [session], which this call read when it
+     * started: an overlapping call may have saved a newer session token since.
+     */
     suspend fun persist(session: AppleSessionSnapshot, response: AppleHttpResponse?) {
         val headers = response?.sessionHeaders ?: AppleSessionHeaders()
-        onSessionUpdated(headers.applyTo(session).copy(cookies = transport.snapshotCookies()))
+        val latest = currentSession()?.takeIf { it.dsid == session.dsid && it.clientId == session.clientId } ?: session
+        onSessionUpdated(headers.applyTo(latest).copy(cookies = transport.snapshotCookies()))
     }
 
     /** Marks [session] expired after a failure seen outside [requireSuccess], such as an upload. */
