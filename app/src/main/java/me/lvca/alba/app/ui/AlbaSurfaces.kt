@@ -4,7 +4,6 @@ import me.lvca.alba.app.ui.theme.sheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -23,17 +22,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
-
-/** Shared surfaces keep utility screens quiet while the gallery remains image-led. */
-@Composable
-internal fun albaGroupColor() = MaterialTheme.colorScheme.surfaceContainerLowest
-
-@Composable
-internal fun AlbaGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = albaGroupColor()) {
-        Column(content = content)
-    }
-}
 
 @Composable
 internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {

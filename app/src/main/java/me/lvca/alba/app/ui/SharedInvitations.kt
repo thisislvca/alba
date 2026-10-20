@@ -52,7 +52,7 @@ internal fun SharedInvitations(actions: InvitationActions, dismiss: () -> Unit, 
                 }
             }, enabled = !busy && url.isNotBlank()) { Text(stringResource(R.string.shared_invitation_preview)) }
             (pending + listOfNotNull(resolved)).distinctBy { it.id }.forEach { invitation ->
-                Surface(shape = MaterialTheme.shapes.large, color = albaGroupColor()) {
+                AlbaCard {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         Text(invitation.name, style = MaterialTheme.typography.titleMedium)
                         Row {

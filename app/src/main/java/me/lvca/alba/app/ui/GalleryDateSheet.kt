@@ -33,8 +33,7 @@ internal fun GalleryDateSheet(sections: List<GallerySection>, firstVisible: Int,
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(state = monthList, contentPadding = PaddingValues(bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()), modifier = Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 384.dp).testTag("date-months")) {
                     itemsIndexed(sections, key = { _, item -> item.month.toString() }) { index, section ->
-                        Surface(onClick = { jump(offsets[index]); dismiss() }, color = albaGroupColor(), shape = MaterialTheme.shapes.large,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        AlbaCard(Modifier.padding(bottom = 8.dp), onClick = { jump(offsets[index]); dismiss() }) {
                             Row(Modifier.padding(16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text(monthLabel(section.month), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)

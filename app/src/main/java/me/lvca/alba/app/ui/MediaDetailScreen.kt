@@ -284,7 +284,7 @@ internal fun MediaDetailScreen(
                         }
                         Spacer(Modifier.height(24.dp))
                         if (media.origin == MediaOrigin.ICLOUD) {
-                            Surface(shape = MaterialTheme.shapes.large, color = colors.card, contentColor = colors.foreground) {
+                            AlbaCard(color = colors.card, contentColor = colors.foreground) {
                                 Column {
                                     if (!media.isShared) {
                                     DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,

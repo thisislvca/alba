@@ -137,7 +137,7 @@ internal fun ProfileOverview(
     Spacer(Modifier.height(24.dp))
     Text(stringResource(R.string.profile_library_section), Modifier.padding(start = 16.dp, bottom = 8.dp),
         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    AlbaGroup {
+    AlbaCard {
         ProfileRow(stringResource(R.string.automatic_jpeg_backup),
             stringResource(if (demo) R.string.demo_backup_preview else if (backup.enabled) R.string.profile_backup_on else R.string.profile_backup_off),
             AlbaIcons.CloudUpload, profileColors.backupTile, "profile-backup",
@@ -163,13 +163,13 @@ internal fun ProfileOverview(
         }
     }
     Spacer(Modifier.height(24.dp))
-    AlbaGroup {
+    AlbaCard {
         ProfileRow(stringResource(R.string.about_title), stringResource(R.string.profile_about_detail),
             Icons.Outlined.Info, profileColors.aboutTile, "profile-about", onClick = { onNavigate(ProfilePage.ABOUT) })
     }
     if (signedIn != null) {
         Spacer(Modifier.height(24.dp))
-        AlbaGroup {
+        AlbaCard {
             TextButton(onClick = onSignOut, enabled = !busy, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                 Text(stringResource(R.string.sign_out_and_use_demo_library), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
@@ -201,7 +201,7 @@ internal fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: B
     val storage = info?.storage?.takeIf { it.isDemo == demo }
     fun bytes(value: Long) = Formatter.formatShortFileSize(context, value)
     val categoryColors = AlbaTheme.colors.profile.storage
-    AlbaGroup {
+    AlbaCard {
         Column(Modifier.padding(20.dp).testTag("profile-storage"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(labelRes), style = MaterialTheme.typography.titleMedium)
             if (storage != null) {

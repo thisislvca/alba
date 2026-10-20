@@ -3,7 +3,6 @@ package me.lvca.alba.app.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
@@ -34,7 +33,7 @@ internal fun SharedAlbumDetails(album: GalleryCollection, dismiss: () -> Unit) {
             AlbaSheetHeading(album.name, dismiss = dismiss)
             Text(stringResource(if (info.generation == SharedAlbumGeneration.MODERN) R.string.shared_new_title else R.string.shared_legacy_title), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(if (info.generation == SharedAlbumGeneration.MODERN) R.string.shared_new_body else R.string.shared_legacy_body), style = MaterialTheme.typography.bodyLarge)
-            Surface(shape = RoundedCornerShape(22.dp), color = albaGroupColor()) {
+            AlbaCard {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(stringResource(when(info.role) {
                         SharedAlbumRole.MANAGER -> R.string.shared_role_manager

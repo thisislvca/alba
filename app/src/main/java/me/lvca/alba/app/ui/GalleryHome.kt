@@ -490,8 +490,8 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
         .galleryGestures(grid, state.items, state.selection, density, changeDensity, { id, size -> galleryPosition(state.sections, permission, size >= 160, state.query.date, id, leadingItems, showDateHeaders = !flat) }, actions.selectItems).testTag("gallery-grid"),
         horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = PaddingValues(bottom = bottomSpace)) {
         if (permission) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
-            Surface(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
-                shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+            AlbaCard(Modifier.padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
+                color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Icon(AlbaIcons.PhoneAndroid, null, Modifier.padding(top = 2.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {

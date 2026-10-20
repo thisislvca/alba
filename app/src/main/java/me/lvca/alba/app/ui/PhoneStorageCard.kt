@@ -37,7 +37,7 @@ internal fun PhoneStorageDetails(state: GalleryUiState, actions: StorageActions)
     val context = LocalContext.current
     fun bytes(size: Long) = Formatter.formatShortFileSize(context, size)
     val busy = state.activeDownloadId != null || state.accountBusy
-    Card(Modifier.fillMaxWidth().testTag("phone-storage"), shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = albaGroupColor())) {
+    AlbaCard(Modifier.testTag("phone-storage")) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.phone_storage_title), style = MaterialTheme.typography.titleMedium)
             state.phoneStorage?.let { usage ->

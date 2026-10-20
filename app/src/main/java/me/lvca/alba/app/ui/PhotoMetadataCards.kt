@@ -29,7 +29,7 @@ internal fun PhotoMetadataCards(media: GalleryMedia, account: ICloudAccountState
         else -> stringResource(R.string.personal_icloud_library)
     }
     val number = NumberFormat.getNumberInstance(LocalConfiguration.current.locales[0]).apply { maximumFractionDigits = 1 }
-    Surface(shape = MaterialTheme.shapes.large, color = colors.card, contentColor = colors.foreground, modifier = Modifier.fillMaxWidth()) {
+    AlbaCard(color = colors.card, contentColor = colors.foreground) {
         Column {
             Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(when {

@@ -2,7 +2,6 @@ package me.lvca.alba.app.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Share
@@ -83,7 +82,7 @@ internal fun AboutScreen(onBack: () -> Unit) {
                     R.string.about_missing_shared_library, R.string.about_missing_shared_flows,
                     R.string.about_missing_folders, R.string.about_missing_accounts,
                     R.string.about_missing_provider, R.string.about_missing_support)
-                AlbaGroup {
+                AlbaCard {
                     limitations.forEachIndexed { index, label ->
                         Text(stringResource(label), Modifier.fillMaxWidth().padding(16.dp),
                             style = MaterialTheme.typography.bodyMedium)
@@ -92,11 +91,7 @@ internal fun AboutScreen(onBack: () -> Unit) {
                 }
             }
             Text(stringResource(R.string.about_privacy))
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = albaGroupColor(),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            AlbaCard {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.about_diagnostics_title)) },
                     supportingContent = {
@@ -133,7 +128,7 @@ private fun AboutFeatureSection(title: Int, entries: List<AboutFeature>, subtitl
         Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
         subtitle?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        AlbaGroup {
+        AlbaCard {
             entries.forEachIndexed { index, entry ->
                 Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.Top) {

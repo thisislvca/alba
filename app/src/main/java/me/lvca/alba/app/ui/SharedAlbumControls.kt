@@ -62,7 +62,7 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
                 val info = requireNotNull(state.album.shared)
                 Text(sharedRole(info.role))
                 if (info.canManage) {
-                    AlbaGroup {
+                    AlbaCard {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(name, { name = it.take(255) }, label = { Text(stringResource(R.string.album_name)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())
                             TextButton(onClick = { pending = SharedCommand(SharedAction.RENAME, value = name.trim()) }, enabled = !busy && name.isNotBlank() && name != state.album.name) { Text(stringResource(R.string.rename_album)) }
@@ -106,7 +106,7 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
                     }
                 }
                 state.participants.forEach { p ->
-                    AlbaGroup {
+                    AlbaCard {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text(p.name, style = MaterialTheme.typography.titleSmall)
                             Text(if (p.pending) stringResource(R.string.label_with_detail, sharedRole(p.role), stringResource(R.string.shared_invited)) else sharedRole(p.role),
@@ -222,7 +222,7 @@ private fun SharedDiscussionControls(id: String, title: String, post: Boolean, a
                 }
                 if (thread.comments.isEmpty()) Text(stringResource(R.string.shared_no_comments))
                 thread.comments.forEach { comment ->
-                    Surface(shape = MaterialTheme.shapes.medium, color = albaGroupColor()) {
+                    AlbaCard {
                         Column(Modifier.fillMaxWidth().padding(14.dp)) {
                             Text(if (comment.isMine) stringResource(R.string.shared_you) else comment.author, style = MaterialTheme.typography.labelLarge)
                             if (comment.timestamp > 0) Text(timestampLabel(comment.timestamp), style = MaterialTheme.typography.labelSmall)

@@ -29,7 +29,7 @@ internal fun AccountDiagnostics(state: GalleryUiState, check: () -> Unit) {
         signedIn?.status == SessionStatus.VERIFIED -> R.string.apple_session_verified
         else -> R.string.restoring_your_session
     }
-    AlbaGroup(Modifier.testTag("profile-connection")) {
+    AlbaCard(Modifier.testTag("profile-connection")) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.connection), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)

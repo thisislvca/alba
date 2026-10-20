@@ -57,7 +57,7 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
                     catch (e: CancellationException) { throw e }
                     catch (_: Exception) { previewFailed = true }
                 }
-                Surface(shape = MaterialTheme.shapes.large, color = albaGroupColor()) {
+                AlbaCard {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(if (post.isMine) stringResource(R.string.shared_you) else post.author, style = MaterialTheme.typography.titleSmall)
                         if (post.timestamp > 0) Text(timestampLabel(post.timestamp), style = MaterialTheme.typography.labelMedium)

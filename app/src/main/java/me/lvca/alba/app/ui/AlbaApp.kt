@@ -38,8 +38,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -324,13 +322,10 @@ internal fun TransferQueueCard(
     onContinuePastUnresolved: (TransferId) -> Unit,
     demo: Boolean = false,
 ) {
-    Card(
+    AlbaCard(
         modifier = Modifier
-            .fillMaxWidth()
             .padding(bottom = 12.dp)
             .testTag("transfer-queue"),
-        colors = CardDefaults.cardColors(containerColor = albaGroupColor()),
-        shape = RoundedCornerShape(20.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text(stringResource(if (demo) R.string.demo_backup_title else R.string.uploads), style = MaterialTheme.typography.titleMedium)
@@ -576,8 +571,7 @@ internal fun DeviceUploadControls(
     Column {
         // Verified status is already shown in the metadata card above these actions.
         if (uploadTransfer.state != TransferViewState.VERIFIED) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
+            AlbaCard(
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,

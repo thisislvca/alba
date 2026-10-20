@@ -19,8 +19,6 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -161,10 +159,7 @@ private fun PhotosNotEnabledAccount(
     onCheckConnection: () -> Unit,
     onSignOut: () -> Unit,
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    AlbaCard(color = MaterialTheme.colorScheme.tertiaryContainer) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(30.dp))
             Text(stringResource(R.string.icloud_photos_is_not_active), style = MaterialTheme.typography.titleLarge)
@@ -228,7 +223,7 @@ private fun SignInForm(
         focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
         focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
     )
-    AlbaGroup {
+    AlbaCard {
         TextField(
             value = appleId, onValueChange = onAppleIdChange,
             label = { Text(stringResource(R.string.apple_account)) },
@@ -373,11 +368,7 @@ private fun BackupSettings(
     ProfileStorage(diagnostics, demo = demo, hasAccount = connected,
         check = onCheckConnection, labelRes = R.string.cloud_storage)
     Spacer(Modifier.height(22.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = albaGroupColor()),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    AlbaCard {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(stringResource(R.string.automatic_jpeg_backup), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(6.dp))

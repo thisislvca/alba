@@ -74,7 +74,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
                 }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
-                AlbaGroup {
+                AlbaCard {
                     SmartCollection.entries.filter { it != SmartCollection.VIDEOS }.forEachIndexed { index, smart ->
                         if (index > 0) AlbaDivider(Modifier.padding(start = 60.dp))
                         CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) }) { openCollection(smart.id) }
@@ -119,7 +119,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
 @Composable
 private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: GalleryUiState, preview: (String) -> Unit, tag: String, click: () -> Unit) {
     Column(Modifier.clickable(onClick = click).testTag(tag)) {
-        Surface(shape = MaterialTheme.shapes.medium, color = albaGroupColor()) {
+        AlbaCard(shape = MaterialTheme.shapes.medium) {
             if (covers.isEmpty()) Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
                 if (tag == "collection-device") Icon(AlbaIcons.PhoneAndroid, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 else Icon(androidx.compose.ui.res.painterResource(if (tag == "collection-videos") R.drawable.icloud_videos else R.drawable.icloud_albums), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -144,7 +144,7 @@ private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: Gallery
 
 @Composable
 private fun ShortcutCard(title: String, modifier: Modifier, icon: @Composable () -> Unit, click: () -> Unit) {
-    Surface(onClick = click, modifier = modifier.fillMaxHeight(), shape = MaterialTheme.shapes.medium, color = albaGroupColor()) {
+    AlbaCard(modifier.fillMaxHeight(), onClick = click, shape = MaterialTheme.shapes.medium, verticalArrangement = Arrangement.Center) {
         Row(Modifier.heightIn(min = 58.dp).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon() }
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
