@@ -6,7 +6,6 @@ import me.lvca.alba.engine.database.ReclaimProposalEntity
 import me.lvca.alba.engine.database.ReclaimProposalItemEntity
 import me.lvca.alba.engine.database.TrashAttemptEntity
 import me.lvca.alba.engine.database.TrashObligationEntity
-import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.ReclaimProposal
 import me.lvca.alba.engine.model.ReclaimProposalId
@@ -17,7 +16,6 @@ import me.lvca.alba.engine.model.TrashHandoff
 import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Exact-proof checks and Android consent obligations share the companion's account gate. */
@@ -27,8 +25,7 @@ internal class VerifiedPhotoTrash(
     private val protocol: ICloudPhotoProtocol,
     private val scheduler: WakeupScheduler,
     private val now: () -> Long,
-    private val requireActiveBinding: suspend () -> AccountBinding,
-    private val accountGate: (String) -> Mutex,
+    private val accounts: AccountBindingSync,
 ) {
     private val accountDao = database.accountDao()
     private val transferDao = database.transferDao()
@@ -37,7 +34,7 @@ internal class VerifiedPhotoTrash(
 
     suspend fun prepareTrash(items: Set<String>): ReclaimProposal {
         refuseUnless(items.isNotEmpty(), StoredMessage.SELECT_AT_LEAST_ONE_VERIFIED_PHOTO)
-        val binding = requireActiveBinding()
+        val binding = accounts.requireActive()
         val proposalId = UUID.randomUUID().toString()
         val checked = mutableListOf<ReclaimProposalItemEntity>()
         val checkedAt = now()
@@ -100,14 +97,14 @@ internal class VerifiedPhotoTrash(
         refuseUnless(row.state == "READY" && row.expiresAtEpochMillis > now(), StoredMessage.TRASH_PROPOSAL_EXPIRED)
         val items = trashDao.findReclaimProposalItems(proposal.value)
         refuseUnless(items.isNotEmpty(), StoredMessage.TRASH_PROPOSAL_HAS_NO_PHOTOS)
-        val binding = requireActiveBinding()
+        val binding = accounts.requireActive()
         refuseUnless(row.accountId == binding.accountId && row.authEpoch == binding.authEpoch &&
             row.operationFence == binding.operationFence,
             StoredMessage.THE_ICLOUD_ACCOUNT_CHANGED_BEFORE_ANDROID_CONSENT,
         )
         val intentSender = originals.createTrashRequest(items.map(ReclaimProposalItemEntity::contentUri))
 
-        return accountGate(binding.accountId).withLock {
+        return accounts.gate(binding.accountId).withLock {
             val attemptId = UUID.randomUUID().toString()
             val handedOffAt = now()
             database.withTransaction {

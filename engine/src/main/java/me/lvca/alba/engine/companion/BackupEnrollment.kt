@@ -6,7 +6,6 @@ import androidx.room.withTransaction
 import me.lvca.alba.engine.database.BackupEnrollmentDraftEntity
 import me.lvca.alba.engine.database.BackupEnrollmentEntity
 import me.lvca.alba.engine.database.AlbaDatabase
-import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
 import me.lvca.alba.engine.model.BackupChange
 import me.lvca.alba.engine.model.BackupDraft
@@ -20,7 +19,6 @@ import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Owns disclosure, account-fenced enrollment, and disabling future automatic uploads. */
@@ -30,10 +28,8 @@ internal class BackupEnrollment(
     private val scheduler: WakeupScheduler,
     private val now: () -> Long,
     private val automaticBackupPolicy: AutomaticBackupPolicy,
-    private val requireActiveBinding: suspend () -> AccountBinding,
-    private val synchronizeAccount: suspend () -> AccountBinding?,
-    private val accountGate: (String) -> Mutex,
-    private val deleteReleasableStages: suspend () -> Unit,
+    private val accounts: AccountBindingSync,
+    private val stages: UploadStages,
 ) {
     private val accountDao = database.accountDao()
     private val backupDao = database.backupDao()
@@ -58,7 +54,7 @@ internal class BackupEnrollment(
     }
 
     suspend fun beginBackupEnrollment(scope: BackupScope): BackupDraft {
-        val binding = requireActiveBinding()
+        val binding = accounts.requireActive()
         val account = requireNotNull(accountDao.findAccount(binding.accountId))
         val createdAt = now()
         val draft = BackupEnrollmentDraftEntity(
@@ -87,7 +83,7 @@ internal class BackupEnrollment(
     suspend fun acceptBackupDisclosure(draft: BackupDraftId): BackupSetupEffect {
         val row = backupDao.findBackupDraft(draft.value)
             ?: return BackupSetupEffect.Refused(StoredMessage.THIS_BACKUP_SETUP_HAS_EXPIRED_START_AGAIN.code)
-        val binding = synchronizeAccount()
+        val binding = accounts.synchronize()
             ?: return BackupSetupEffect.Refused(StoredMessage.SIGN_IN_TO_ICLOUD_BEFORE_ENABLING_AUTOMATIC_BACKUP.code)
         if (row.accountId != binding.accountId || row.authEpoch != binding.authEpoch ||
             row.operationFence != binding.operationFence || row.expiresAtEpochMillis <= now()
@@ -103,7 +99,7 @@ internal class BackupEnrollment(
     suspend fun finishBackupEnrollment(draft: BackupDraftId): BackupView {
         val row = refuseIfNull(backupDao.findBackupDraft(draft.value), StoredMessage.BACKUP_SETUP_EXPIRED)
         refuseUnless(row.phase == "CONSENTED", StoredMessage.ACCEPT_THE_BACKUP_DISCLOSURE_FIRST)
-        val binding = requireActiveBinding()
+        val binding = accounts.requireActive()
         refuseUnless(
             row.accountId == binding.accountId && row.authEpoch == binding.authEpoch,
             StoredMessage.THE_DESTINATION_ACCOUNT_CHANGED_START_BACKUP_SETUP_AGAIN,
@@ -114,7 +110,7 @@ internal class BackupEnrollment(
         )
 
         val discoveryBaseline = originals.captureEnrollmentBaseline()
-        val view = accountGate(binding.accountId).withLock {
+        val view = accounts.gate(binding.accountId).withLock {
             database.withTransaction {
                 val active = requireNotNull(accountDao.findActiveAccount())
                 refuseUnless(active.accountId == binding.accountId && active.authEpoch == binding.authEpoch &&
@@ -157,12 +153,12 @@ internal class BackupEnrollment(
     }
 
     private suspend fun disableAutomaticBackup(): BackupView {
-        val binding = synchronizeAccount()
+        val binding = accounts.synchronize()
         if (binding == null) {
             scheduler.setAutomaticBackupEnabled(false)
             return BackupView(false, message = StoredMessage.AUTOMATIC_BACKUP_IS_OFF.code)
         }
-        val result = accountGate(binding.accountId).withLock {
+        val result = accounts.gate(binding.accountId).withLock {
             database.withTransaction {
                 val account = requireNotNull(accountDao.findActiveAccount())
                 val enrollment = backupDao.findBackupEnrollment(account.accountId)
@@ -176,7 +172,7 @@ internal class BackupEnrollment(
                 BackupView(false, account.destinationLabel, message = StoredMessage.AUTOMATIC_BACKUP_IS_OFF.code)
             }
         }
-        deleteReleasableStages()
+        stages.deleteReleasable()
         scheduler.setAutomaticBackupEnabled(false)
         return result
     }
