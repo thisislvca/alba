@@ -1,11 +1,8 @@
 package me.lvca.alba.app
 
 import me.lvca.alba.engine.source.UploadMediaFormat
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.core.net.toUri
-import android.provider.OpenableColumns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -32,25 +29,7 @@ import me.lvca.alba.app.ui.VideoPlayer
 import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import androidx.compose.foundation.shape.CornerSize
-
-private data class IncomingItem(val uri: Uri, val name: String, val mime: String?, val failure: Int? = null)
-private suspend fun inspectIncoming(context: Context, value: String): IncomingItem = withContext(Dispatchers.IO) {
-    val uri = value.toUri()
-    try {
-    val mime = context.contentResolver.getType(uri)
-    val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
-        if (it.moveToFirst()) it.getString(0)?.take(255) else null
-    } ?: context.getString(R.string.photos)
-    if (mime == null) context.contentResolver.openInputStream(uri)?.use { /* distinguish lost access from an unsupported type */ }
-    IncomingItem(uri, name, mime)
-    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-    catch (_: SecurityException) { IncomingItem(uri, context.getString(R.string.photos), null, R.string.incoming_access_lost) }
-    catch (_: java.io.FileNotFoundException) { IncomingItem(uri, context.getString(R.string.photos), null, R.string.incoming_file_missing) }
-    catch (_: Exception) { IncomingItem(uri, context.getString(R.string.photos), null, R.string.incoming_unsupported) }
-}
 
 @Composable
 internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: ICloudAccountState, message: UiMessage?,

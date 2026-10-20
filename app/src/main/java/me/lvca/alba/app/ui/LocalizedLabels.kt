@@ -18,6 +18,7 @@ import java.time.format.FormatStyle
 import android.icu.text.DateFormat
 import java.util.Date
 import java.util.Locale
+import me.lvca.alba.engine.model.MediaAvailability
 
 @Composable internal fun UiMessage.localized(): String {
     LocalConfiguration.current
@@ -73,4 +74,12 @@ internal fun monthLabel(month: YearMonth, abbreviated: Boolean, locale: Locale):
     "mail" -> stringResource(R.string.mail)
     "other", "others" -> stringResource(R.string.other)
     else -> name // Provider-supplied labels are data, like album names and filenames.
+}
+
+@Composable
+internal fun MediaAvailability.label(): String = when (this) {
+    MediaAvailability.CLOUD_ONLY -> stringResource(R.string.cloud_only)
+    MediaAvailability.PREVIEW_CACHED -> stringResource(R.string.preview_cached)
+    MediaAvailability.ORIGINAL_CACHED -> stringResource(R.string.original_kept_offline)
+    MediaAvailability.DEVICE_ORIGINAL -> stringResource(R.string.original_on_this_phone)
 }

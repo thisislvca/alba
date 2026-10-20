@@ -18,6 +18,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.painterResource
+import androidx.annotation.DrawableRes
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 internal object AlbaIcons {
     val Pause: ImageVector by lazy {
@@ -364,4 +368,9 @@ private fun icon(name: String, pathBuilder: PathBuilder.() -> Unit): ImageVector
 internal fun FavoriteIcon(favorite: Boolean, contentDescription: String?, modifier: Modifier = Modifier,
     tint: Color = LocalContentColor.current) {
     Icon(if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, contentDescription, modifier, tint)
+}
+
+@Composable
+internal fun ICloudIcon(@DrawableRes resource: Int) {
+    Icon(painterResource(resource), contentDescription = null, tint = AlbaTheme.colors.accent, modifier = Modifier.size(24.dp))
 }
