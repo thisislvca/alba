@@ -17,7 +17,7 @@
     <ID>InstanceOfCheckForException:Reconciler.kt$Reconciler$error is CancellationException</ID>
     <ID>InstanceOfCheckForException:UploadInvoker.kt$UploadInvoker$error is CancellationException</ID>
     <ID>LongParameterList:TransferDao.kt$TransferDao$( transferId: String, expectedVersion: Long, leaseToken: String, accountId: String, authEpoch: Long, operationFence: Long, attemptId: String, now: Long, message: String = StoredMessage.UPLOADING_TO_ICLOUD.code, )</ID>
-    <ID>LoopWithTooManyJumpStatements:SharedUploadPreparation.kt$while</ID>
+    <ID>LoopWithTooManyJumpStatements:PreparedSharedUpload.kt$while</ID>
     <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$1000L</ID>
     <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$1_000L</ID>
     <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$200</ID>
@@ -35,11 +35,11 @@
     <ID>MagicNumber:MediaFileCache.kt$MediaFileCache$1024</ID>
     <ID>MagicNumber:MediaFileCache.kt$MediaFileCache$16L</ID>
     <ID>MagicNumber:MediaFileCache.kt$MediaFileCache$64L</ID>
+    <ID>MagicNumber:PreparedSharedUpload.kt$1024</ID>
+    <ID>MagicNumber:PreparedSharedUpload.kt$4096</ID>
+    <ID>MagicNumber:PreparedSharedUpload.kt$64</ID>
     <ID>MagicNumber:SharedAlbumLinks.kt$SharedAlbumLinks$443</ID>
     <ID>MagicNumber:SharedAlbumLinks.kt$SharedAlbumLinks$8192</ID>
-    <ID>MagicNumber:SharedUploadPreparation.kt$1024</ID>
-    <ID>MagicNumber:SharedUploadPreparation.kt$4096</ID>
-    <ID>MagicNumber:SharedUploadPreparation.kt$64</ID>
     <ID>MagicNumber:StorageWriteGuard.kt$StorageWriteGuard$1024L</ID>
     <ID>MagicNumber:StorageWriteGuard.kt$StorageWriteGuard$256</ID>
     <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat$150</ID>
@@ -61,7 +61,93 @@
     <ID>MagicNumber:UploadMediaValidator.kt$UploadMediaValidator$8</ID>
     <ID>MagicNumber:UploadMediaValidator.kt$UploadMediaValidator$8L</ID>
     <ID>MagicNumber:UploadStagingStore.kt$UploadStagingStore$4096L</ID>
-    <ID>MatchingDeclarationName:SharedUploadPreparation.kt$PreparedSharedUpload</ID>
+    <ID>MaxLineLength:AlbaDatabase.kt$AlbaDatabase.Companion$)</ID>
+    <ID>MaxLineLength:AlbaDatabase.kt$AlbaDatabase.Companion.&lt;no name provided&gt;$db.execSQL("CREATE TABLE IF NOT EXISTS media_cache (mediaId TEXT NOT NULL PRIMARY KEY, previewCachePath TEXT, viewerCachePath TEXT, originalCachePath TEXT, motionCachePath TEXT, resourceFingerprint TEXT NOT NULL, FOREIGN KEY(mediaId) REFERENCES catalog_items(mediaId) ON UPDATE NO ACTION ON DELETE CASCADE)")</ID>
+    <ID>MaxLineLength:AlbaDatabase.kt$AlbaDatabase.Companion.&lt;no name provided&gt;$db.execSQL("CREATE TABLE batch_items (batchId TEXT NOT NULL, mediaId TEXT NOT NULL, account TEXT NOT NULL, action TEXT NOT NULL, state TEXT NOT NULL, message TEXT, createdAt INTEGER NOT NULL, PRIMARY KEY(batchId, mediaId))")</ID>
+    <ID>MaxLineLength:AlbaDatabase.kt$AlbaDatabase.Companion.&lt;no name provided&gt;$db.execSQL("CREATE TABLE collection_members (account TEXT NOT NULL, collectionId TEXT NOT NULL, mediaId TEXT NOT NULL, PRIMARY KEY(account, collectionId, mediaId))")</ID>
+    <ID>MaxLineLength:AlbaDatabase.kt$AlbaDatabase.Companion.&lt;no name provided&gt;$db.execSQL("CREATE TABLE collections (account TEXT NOT NULL, collectionId TEXT NOT NULL, name TEXT NOT NULL, parentId TEXT, isFolder INTEGER NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(account, collectionId))")</ID>
+    <ID>MaxLineLength:AlbaDatabase.kt$AlbaDatabase.Companion.&lt;no name provided&gt;$db.execSQL("CREATE TABLE upload_checkpoints (attemptId TEXT NOT NULL PRIMARY KEY, phase TEXT NOT NULL, sealedPayload BLOB NOT NULL, updatedAt INTEGER NOT NULL)")</ID>
+    <ID>MaxLineLength:AlbaDatabase.kt$AlbaDatabase.Companion.&lt;no name provided&gt;$db.execSQL("INSERT INTO media_cache SELECT mediaId, previewCachePath, viewerCachePath, originalCachePath, motionCachePath, resourceFingerprint FROM catalog_items")</ID>
+    <ID>MaxLineLength:AlbaDatabaseMigrationTest.kt$AlbaDatabaseMigrationTest$db.execSQL("INSERT INTO catalog_items (mediaId, fileName, capturedAtEpochMillis, width, height, origin, sourceRevision, originalCachePath, accentStartArgb, accentEndArgb, lastSeenScanId) VALUES ('old-live', 'photo.heic', 1, 10, 10, 'ICLOUD', 'rev', '/private/original', 0, 0, 'scan')")</ID>
+    <ID>MaxLineLength:AlbaDatabaseMigrationTest.kt$AlbaDatabaseMigrationTest$db.execSQL("INSERT INTO catalog_items (mediaId, fileName, capturedAtEpochMillis, width, height, origin, sourceRevision, originalCachePath, motionCachePath, accentStartArgb, accentEndArgb, lastSeenScanId) VALUES ('old-live', 'photo.heic', 1, 10, 10, 'ICLOUD', 'rev', '/private/original', '/private/motion', 0, 0, 'scan')")</ID>
+    <ID>MaxLineLength:AlbaDatabaseMigrationTest.kt$AlbaDatabaseMigrationTest$db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision,durationMillis,accentStartArgb,accentEndArgb,lastSeenScanId) VALUES ('phone','clip.mp4',1,20,30,'DEVICE','rev',2000,0,0,'scan')")</ID>
+    <ID>MaxLineLength:AlbaDatabaseMigrationTest.kt$AlbaDatabaseMigrationTest$db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision,originalCachePath,accentStartArgb,accentEndArgb,lastSeenScanId) VALUES ('kept','original.jpg',1,20,30,'ICLOUD','rev','/private/original',0,0,'scan')")</ID>
+    <ID>MaxLineLength:AlbaDatabaseMigrationTest.kt$AlbaDatabaseMigrationTest$db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision,originalCachePath,durationMillis,accentStartArgb,accentEndArgb,lastSeenScanId) VALUES ('cloud','clip.mov',1,20,30,'ICLOUD','rev','/private/original',2000000,0,0,'scan')")</ID>
+    <ID>MaxLineLength:AlbaDatabaseMigrationTest.kt$AlbaDatabaseMigrationTest$db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision,previewCachePath,viewerCachePath,originalCachePath,motionCachePath,resourceFingerprint,accentStartArgb,accentEndArgb,lastSeenScanId) VALUES ('kept','photo.heic',1,20,30,'ICLOUD','rev','/preview','/viewer','/original','/motion','fingerprint',0,0,'scan')")</ID>
+    <ID>MaxLineLength:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$require(before.revision == after.revision &amp;&amp; before.lastModifiedAtEpochMillis == after.lastModifiedAtEpochMillis) { StoredMessage.THIS_PHOTO_CHANGED_WHILE_IT_WAS_BEING_STAGED.code }</ID>
+    <ID>MaxLineLength:CloudCatalogSource.kt$CloudCatalogSource$suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration = me.lvca.alba.engine.model.SharedAlbumGeneration.MODERN): GalleryCollection</ID>
+    <ID>MaxLineLength:CloudCatalogSource.kt$CloudCatalogSource$suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource): Unit</ID>
+    <ID>MaxLineLength:DefaultGalleryRepository.kt$DefaultGalleryRepository$!member.account.startsWith("device:") || (entity.origin == MediaOrigin.DEVICE.name &amp;&amp; member.account == "device:" + entity.sourceRevision.substringBefore(':'))</ID>
+    <ID>MaxLineLength:DefaultGalleryRepository.kt$DefaultGalleryRepository$MediaKind.valueOf(it.kind)</ID>
+    <ID>MaxLineLength:DefaultGalleryRepository.kt$DefaultGalleryRepository$byteCount = entity.byteCount ?: entity.originalCachePath?.takeIf { originalReadable }?.let { java.io.File(it).length() }</ID>
+    <ID>MaxLineLength:DefaultGalleryRepository.kt$DefaultGalleryRepository$if (checkpoint == null) bootstrap(account) else applyChanges(oldItems.filterNot { it.isTrashed || SharedMediaIdentity.isShared(it.mediaId) }.map(::toRemote), checkpoint, account)</ID>
+    <ID>MaxLineLength:DefaultGalleryRepository.kt$DefaultGalleryRepository$library.putMembers(collections.members.flatMap { (id, members) -&gt; members.filter { it in ids }.map { CollectionMemberEntity(account, id, it) } })</ID>
+    <ID>MaxLineLength:DefaultGalleryRepository.kt$DefaultGalleryRepository$localFavorite = favorites[record.id]?.let { it.sourceRevision.substringBefore(':') == record.sourceRevision.substringBefore(':') } ?: false</ID>
+    <ID>MaxLineLength:DefaultGalleryRepository.kt$DefaultGalleryRepository$override suspend</ID>
+    <ID>MaxLineLength:DefaultGalleryRepository.kt$DefaultGalleryRepository$require(!SharedMediaIdentity.isShared(id) &amp;&amp; !id.startsWith("smart:") &amp;&amp; !id.startsWith("device-folder:")) { StoredMessage.MEDIA_COLLECTIONS_CANNOT_BE_EDITED.code }</ID>
+    <ID>MaxLineLength:DefaultGalleryRepositoryTest.kt$DefaultGalleryRepositoryTest$assertTrue(java.io.File(ApplicationProvider.getApplicationContext&lt;android.content.Context&gt;().filesDir, "gallery_previews").listFiles().orEmpty().isEmpty())</ID>
+    <ID>MaxLineLength:DefaultGalleryRepositoryTest.kt$DefaultGalleryRepositoryTest.&lt;no name provided&gt;$override suspend fun scanImages()</ID>
+    <ID>MaxLineLength:DefaultPhotoCompanionTest.kt$DefaultPhotoCompanionTest$assertTrue(database.transferDao().findTransfer(ticket.id.value)?.state in setOf(me.lvca.alba.engine.database.TransferState.OUTCOME_UNKNOWN, me.lvca.alba.engine.database.TransferState.RECONCILING, me.lvca.alba.engine.database.TransferState.READ_FAILURE))</ID>
+    <ID>MaxLineLength:GalleryDisplaySafetyTest.kt$GalleryDisplaySafetyTest$seed("catalog_items", mapOf("mediaId" to "cloud", "origin" to "ICLOUD", "masterRecordName" to "master", "assetRecordName" to "asset", "sourceRevision" to "m1:a1"))</ID>
+    <ID>MaxLineLength:GalleryDisplaySafetyTest.kt$GalleryDisplaySafetyTest$seed("catalog_items", mapOf("mediaId" to "shared:a:private:owner:album:asset", "origin" to "ICLOUD", "masterRecordName" to "master", "assetRecordName" to "asset", "sourceRevision" to "m1:a1"))</ID>
+    <ID>MaxLineLength:GalleryDisplaySafetyTest.kt$GalleryDisplaySafetyTest$seed("remote_asset_pairs", mapOf("remotePairId" to "pair", "accountId" to "a", "databaseScope" to "private", "zoneName" to "PrimarySync", "masterRecordName" to "master", "assetRecordName" to "asset", "relationIsCurrent" to 1))</ID>
+    <ID>MaxLineLength:GalleryDisplaySafetyTest.kt$GalleryDisplaySafetyTest$seed("verification_proofs", mapOf("proofId" to "proof", "linkId" to "link", "remotePairId" to "pair", "accountId" to "a", "mediaId" to "local", "sourceRevision" to "local-rev", "masterChangeTag" to "m1", "assetChangeTag" to "a1"))</ID>
+    <ID>MaxLineLength:GalleryDisplaySafetyTest.kt$GalleryDisplaySafetyTest$val args = columns.map { (name, type, required) -&gt; if (values.containsKey(name)) values[name] else if (required == 0) null else if(type == "INTEGER") 0 else "" }</ID>
+    <ID>MaxLineLength:GalleryDisplaySafetyTest.kt$GalleryDisplaySafetyTest.&lt;no name provided&gt;$override suspend fun collections()</ID>
+    <ID>MaxLineLength:GalleryDisplaySafetyTest.kt$GalleryDisplaySafetyTest.&lt;no name provided&gt;$override suspend fun fetchPage(cursor: String?, limit: Int)</ID>
+    <ID>MaxLineLength:GalleryDisplaySafetyTest.kt$GalleryDisplaySafetyTest.&lt;no name provided&gt;$override suspend fun fetchPage(cursor: String?, limit: Int): CloudCatalogPage</ID>
+    <ID>MaxLineLength:GalleryDisplaySafetyTest.kt$GalleryDisplaySafetyTest.&lt;no name provided&gt;$override suspend fun scanImages()</ID>
+    <ID>MaxLineLength:GalleryDownloadControlsTest.kt$GalleryDownloadControlsTest$withTimeout(5_000) { actions.observe().first { rows -&gt; rows.any { it.mediaId == "00-completed" &amp;&amp; it.status == BatchItemState.DONE } &amp;&amp; rows.count { it.status == BatchItemState.RUNNING } == 2 } }</ID>
+    <ID>MaxLineLength:GalleryDownloadControlsTest.kt$GalleryDownloadControlsTest$withTimeout(5_000) { actions.observe().first { rows -&gt; rows.any { it.status == BatchItemState.DONE } &amp;&amp; rows.count { it.status == BatchItemState.RUNNING } == 2 } }</ID>
+    <ID>MaxLineLength:GalleryDownloadControlsTest.kt$GalleryDownloadControlsTest.&lt;no name provided&gt;$override suspend fun fetchPage(cursor: String?, limit: Int)</ID>
+    <ID>MaxLineLength:LibraryEntities.kt$LibraryDao$@Query("SELECT * FROM batch_items WHERE state IN ('WAITING', 'RUNNING') AND (:localOnly = 0 OR action = 'REMOVE_CACHE') ORDER BY createdAt, mediaId LIMIT :limit")</ID>
+    <ID>MaxLineLength:LibraryEntities.kt$LibraryDao$@Query("UPDATE batch_items SET state = 'CANCELED', message = NULL WHERE batchId = :id AND account = :account AND action IN ('KEEP_OFFLINE', 'SAVE_TO_PHONE') AND state IN ('WAITING', 'RUNNING')")</ID>
+    <ID>MaxLineLength:LibraryFeaturesTest.kt$LibraryFeaturesTest$val photos = java.lang.reflect.Proxy.newProxyInstance(PhotoCompanion::class.java.classLoader, arrayOf(PhotoCompanion::class.java)) { _, _, _ -&gt; error("No uploads expected") } as PhotoCompanion</ID>
+    <ID>MaxLineLength:LibraryFeaturesTest.kt$LibraryFeaturesTest.ChangingSource$override suspend fun fetchPage(cursor: String?, limit: Int): CloudCatalogPage</ID>
+    <ID>MaxLineLength:SharedAlbumLinks.kt$SharedAlbumLinks$require(uri.scheme == "https" &amp;&amp; uri.host in setOf("icloud.com", "www.icloud.com", "photos.icloud.com", "icloud.com.cn", "www.icloud.com.cn", "photos.icloud.com.cn"))</ID>
+    <ID>MaxLineLength:SharedAlbumLinksTest.kt$SharedAlbumLinksTest$for</ID>
+    <ID>MaxLineLength:SharedAlbumLinksTest.kt$SharedAlbumLinksTest$for (url in listOf("http://photos.icloud.com/shared/album/x", "https://photos.icloud.com.evil.test/shared/album/x", "https://user@photos.icloud.com/shared/album/x", "https://photos.icloud.com:444/shared/album/x", "https://photos.icloud.com/shared/album/x?extra=yes", "https://photos.icloud.com/shared/album/x/extra", "https://photos.icloud.com/shared/album/?guid=x&amp;guid=y", "https://www.icloud.com/photos/#/sa,legacy/")) assertNull(SharedAlbumLinks.token(url))</ID>
+    <ID>MaxLineLength:SharedAlbums.kt$SharedAlbumManagement$val allowAccessRequests: Boolean = false</ID>
+    <ID>MaxLineLength:SharedAlbums.kt$SharedDiscussion</ID>
+    <ID>MaxLineLength:SharedGalleryRepositoryTest.kt$SharedGalleryRepositoryTest.&lt;no name provided&gt;$override suspend fun scanImages()</ID>
+    <ID>MaxLineLength:SharedGalleryRepositoryTest.kt$SharedGalleryRepositoryTest.Source$shared = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, if(contributor) SharedAlbumRole.CONTRIBUTOR else SharedAlbumRole.VIEWER)</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$ANDROID_DID_NOT_GRANT_ACCESS_TO_THE_EXACT_ORIGINAL : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$AUTOMATIC_BACKUP_NEEDS_FULL_PHOTO_ACCESS_AND_PRECISE_MEDIA_LOCATION_ACCESS : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$AUTOMATIC_BACKUP_WAS_DISABLED_BEFORE_THIS_UPLOAD_STARTED : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$A_PREVIOUS_UPLOAD_OF_THESE_BYTES_IS_UNRESOLVED_AND_WILL_NOT_BE_REPEATED : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$A_SYSTEM_TRASH_REQUEST_MAY_STILL_EXECUTE_FINISH_THE_ANDROID_DIALOG_OR_RESTART_YOUR_DEVICE_AND_R : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$A_SYSTEM_TRASH_REQUEST_MAY_STILL_EXECUTE_FOR_THE_PREVIOUS_ICLOUD_ACCOUNT : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$BACKUP_PAUSED_ALLOW_FULL_PHOTO_AND_MEDIA_LOCATION_ACCESS : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$CHECK_THE_UPLOAD_QUEUE_BEFORE_SELECTING_THIS_ITEM_AGAIN : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$COULD_NOT_CHECK_ICLOUD_YET_THE_UPLOAD_WILL_NOT_BE_REPEATED : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$COULD_NOT_STAGE_THIS_JPEG_CHECK_FILE_ACCESS_AND_THE_UPLOAD_QUEUE : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$COULD_NOT_VERIFY_AN_ICLOUD_CANDIDATE_YET_THE_UPLOAD_WILL_NOT_BE_REPEATED : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$ICLOUD_RETURNED_AN_INCOMPLETE_CHANGE_PAGE_THE_UPLOAD_WILL_NOT_BE_REPEATED : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$MORE_THAN_ONE_EXACT_ICLOUD_COPY_MATCHED_ALBA_WILL_NOT_UPLOAD_AGAIN : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$NO_EXACT_ICLOUD_COPY_WAS_OBSERVED_BEFORE_THE_CHECK_DEADLINE_ALBA_WILL_NOT_UPLOAD_AGAIN : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$RECONNECT_TO_ICLOUD_TO_CHECK_STORAGE_SAVED_COPIES_REMAIN_AVAILABLE : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$SIGN_IN_TO_ICLOUD_BEFORE_ENABLING_AUTOMATIC_BACKUP : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$STILL_CHECKING_ICLOUD_THE_UPLOAD_WILL_NOT_BE_REPEATED : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THESE_EXACT_BYTES_ARE_ALREADY_QUEUED_OR_VERIFIED_IN_ICLOUD : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THE_ACCOUNT_CHANGED_WHILE_BACKUP_WAS_BEING_ENABLED : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THE_AUTHENTICATED_ICLOUD_SESSION_CHANGED_BEFORE_UPLOAD_SELECT_THIS_PHOTO_AGAIN : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THE_DESTINATION_ACCOUNT_CHANGED_START_BACKUP_SETUP_AGAIN : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THE_ICLOUD_ACCOUNT_CHANGED_BEFORE_UPLOAD_SELECT_THIS_PHOTO_AGAIN_FOR_THE_NEW_ACCOUNT : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THE_ICLOUD_ACCOUNT_CHANGED_WHILE_STAGING_THIS_PHOTO : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THIS_PHOTO_DOES_NOT_HAVE_A_CURRENT_EXACT_ICLOUD_PROOF : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THIS_UNCERTAIN_ITEM_REMAINS_BLOCKED_FROM_UPLOAD_OTHER_PHOTOS_MAY_CONTINUE : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$THIS_UPLOAD_IS_SUPPRESSED_BECAUSE_AN_EARLIER_OUTCOME_IS_UNRESOLVED : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$UPLOAD_PROCESSING_FAILED : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$UPLOAD_RESULT_WAS_LOST_ALBA_WILL_CHECK_ICLOUD_WITHOUT_UPLOADING_AGAIN : StoredMessage</ID>
+    <ID>MaxLineLength:StoredMessage.kt$StoredMessage$WAITING_FOR_UPLOAD_AUTHORIZATION_AND_AN_ELIGIBLE_NETWORK : StoredMessage</ID>
+    <ID>MaxLineLength:TransferDao.kt$TransferDao$@Query("SELECT * FROM transfers WHERE accountId = :accountId AND mediaId = :mediaId AND state NOT IN ('NEEDS_ATTENTION', 'UNSUPPORTED', 'ABANDONED') LIMIT 1")</ID>
+    <ID>MaxLineLength:TransferDao.kt$TransferDao$suspend</ID>
+    <ID>MaxLineLength:UploadFormatsTest.kt$UploadFormatsTest$ExactOriginalEvidence("content://test/$name", name, format.mimeType, "lineage", "revision", "USER_SELECTION", false, true, true, bytes.size.toLong(), digest(bytes))</ID>
     <ID>NestedBlockDepth:UploadInvoker.kt$UploadInvoker$suspend fun recoverInterrupted(binding: AccountBinding?, allowManual: Boolean, allowAutomatic: Boolean): Int</ID>
     <ID>ReturnCount:Reconciler.kt$Reconciler$suspend fun reconcileOne(binding: AccountBinding): Int</ID>
     <ID>ReturnCount:UploadMediaFormat.kt$UploadMediaFormat.Companion$fun detect(prefix: ByteArray): UploadMediaFormat</ID>

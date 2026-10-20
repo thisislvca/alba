@@ -104,7 +104,7 @@
     <ID>MagicNumber:GalleryExporter.kt$GalleryExporter.&lt;no name provided&gt;$16_000_000L</ID>
     <ID>MagicNumber:GalleryExporter.kt$GalleryExporter.&lt;no name provided&gt;$1_000_000L</ID>
     <ID>MagicNumber:GalleryExporter.kt$GalleryExporter.&lt;no name provided&gt;$2_000_000_000L</ID>
-    <ID>MagicNumber:IncomingItems.kt$255</ID>
+    <ID>MagicNumber:IncomingItem.kt$255</ID>
     <ID>MagicNumber:MediaDuration.kt$1000</ID>
     <ID>MagicNumber:MediaDuration.kt$60</ID>
     <ID>MagicNumber:MediaOverlays.kt$MediaScrimStrength.Strong$.12f</ID>
@@ -158,11 +158,262 @@
     <ID>MatchingDeclarationName:BackgroundSession.kt$BackgroundSessionDecision</ID>
     <ID>MatchingDeclarationName:CollectionsScreen.kt$CollectionsPage</ID>
     <ID>MatchingDeclarationName:FloatingGalleryNavigation.kt$GalleryTab</ID>
-    <ID>MatchingDeclarationName:IncomingItems.kt$IncomingItem</ID>
     <ID>MatchingDeclarationName:MediaOverlays.kt$MediaScrimStrength</ID>
     <ID>MatchingDeclarationName:MediaStorePublishing.kt$MediaStoreCopy</ID>
     <ID>MatchingDeclarationName:Previews.kt$AlbaPreviews</ID>
     <ID>MatchingDeclarationName:ProfileOverview.kt$ProfilePage</ID>
+    <ID>MaxLineLength:AlbaGraph.kt$AlbaGraph$private val cloudCatalog = AccountAwareICloudCatalogSource(demoCatalog, liveCatalog, { accountManager.state.value == ICloudAccountState.Demo }) { accountManager.session.value }</ID>
+    <ID>MaxLineLength:AlbaSurfaces.kt$if (scroll.canScrollBackward) Spacer(Modifier.fillMaxWidth().height(12.dp).background(Brush.verticalGradient(listOf(background, background.copy(alpha = 0f)))))</ID>
+    <ID>MaxLineLength:AlbumArtwork.kt$Text</ID>
+    <ID>MaxLineLength:AlbumArtwork.kt$Text(album.localizedName(), color = onMedia, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:AlbumArtwork.kt$Text(album.localizedName(), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))</ID>
+    <ID>MaxLineLength:AlbumArtwork.kt$Text(stringResource(if (album.shared?.generation == SharedAlbumGeneration.MODERN) R.string.shared_new else R.string.shared_legacy), style = MaterialTheme.typography.labelMedium)</ID>
+    <ID>MaxLineLength:AlbumArtwork.kt$album.shared?.ownerName?.let { Text(stringResource(R.string.shared_owner, it), color = onMedia.copy(alpha = .8f), style = MaterialTheme.typography.bodySmall) }</ID>
+    <ID>MaxLineLength:AlbumArtwork.kt$if (covers[id] == item.id) listOf(item) + previous.media.take(5) else if (previous.media.size &lt; 6) previous.media + item else previous.media</ID>
+    <ID>MaxLineLength:AlbumArtwork.kt$val candidates = if (cover != null) listOf(cover) else if (rotating) media.filter { it.coverReference() != null }.ifEmpty { media.take(1) } else media.take(1)</ID>
+    <ID>MaxLineLength:AlbumDialogs.kt$LazyColumn</ID>
+    <ID>MaxLineLength:BatchProgress.kt$Text(stringResource(if (rows.first().action in setOf("UPLOAD", "PICKER_UPLOAD")) R.string.batch_queued else R.string.batch_done, action, done, rows.size))</ID>
+    <ID>MaxLineLength:BatchProgress.kt$if (rows.any { it.status == BatchItemState.CANCELED }) Text(stringResource(R.string.download_canceled_completed_kept), style = MaterialTheme.typography.bodySmall)</ID>
+    <ID>MaxLineLength:BatchProgress.kt$rows.filter { it.status in AttentionStates }.take(3).forEach { Text(stringResource(R.string.batch_item_progress, it.mediaId.substringAfterLast('/'), localizedStoredMessage(it.message).localized()), style = MaterialTheme.typography.bodySmall) }</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$CollectionRow</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_create)) }</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$IconButton(onClick = openSharedInvitations, enabled = canEdit) { Icon(Icons.Outlined.Email, stringResource(R.string.shared_invitations)) }</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$MosaicCard(stringResource(R.string.albums), summaries["hub:albums"]?.media.orEmpty(), previewRetryVersion, preview, "collection-albums", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.ALBUMS) }</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$MosaicCard(stringResource(R.string.on_this_phone), summaries["hub:device"]?.media.orEmpty(), previewRetryVersion, preview, "collection-device", rememberVectorPainter(AlbaIcons.PhoneAndroid)) { openPage(CollectionsPage.DEVICE) }</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$MosaicCard(stringResource(R.string.shared_albums), summaries["hub:shared"]?.media.orEmpty(), previewRetryVersion, preview, "collection-shared", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.SHARED) }</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$MosaicCard(stringResource(R.string.videos), summaries[SmartCollection.VIDEOS.id]?.media.orEmpty(), previewRetryVersion, preview, "collection-videos", painterResource(R.drawable.icloud_videos)) { openCollection(SmartCollection.VIDEOS.id) }</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$Row</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$ShortcutCard(stringResource(R.string.favorites), Modifier.weight(1f), { ICloudIcon(R.drawable.icloud_favorites) }) { openCollection(GalleryQuery.FAVORITES) }</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$ShortcutCard(stringResource(R.string.icloud_recently_deleted), Modifier.weight(1f), { Icon(AlbaIcons.CloudQueue, null) }, openCloudTrash)</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$Text(title, Modifier.padding(top = 10.dp, bottom = AlbaSpacing.xs), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$TextButton(onClick = createAlbum, enabled = canEdit) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(R.string.new_album)) }</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = bottomSpace)</ID>
+    <ID>MaxLineLength:CollectionsScreen.kt$else</ID>
+    <ID>MaxLineLength:DemoUploadTest.kt$DemoUploadTest$val missing = androidx.core.content.FileProvider.getUriForFile(compose.activity, "${compose.activity.packageName}.shares", File(file.parentFile, "missing-review.png"))</ID>
+    <ID>MaxLineLength:DeviceUploadControls.kt$Text(if (isWorking) stringResource(R.string.staging_original) else stringResource(if (demo) R.string.demo_upload_title else R.string.upload_to_icloud))</ID>
+    <ID>MaxLineLength:DeviceUploadControls.kt$if (Build.VERSION.SDK_INT &lt; 30) stringResource(R.string.android_11_or_later_is_required_for_verified_trash) else stringResource(R.string.alba_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi)</ID>
+    <ID>MaxLineLength:DeviceUploadControls.kt$text = uploadTransfer.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.staged_bytes, Formatter.formatShortFileSize(LocalContext.current, uploadTransfer.byteCount))</ID>
+    <ID>MaxLineLength:GalleryDateSheet.kt$LazyColumn</ID>
+    <ID>MaxLineLength:GalleryDateSheet.kt$Text(itemCount(section.items.size), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)</ID>
+    <ID>MaxLineLength:GalleryDateSheet.kt$days: Boolean = false</ID>
+    <ID>MaxLineLength:GalleryDateSheet.kt$val offsets = remember(sections, permissionHeader, days, date, leadingItems, showDateHeaders) { galleryMonthOffsets(sections, permissionHeader, days, date, leadingItems, showDateHeaders) }</ID>
+    <ID>MaxLineLength:GalleryFastScroll.kt$GalleryScrollMetrics(layout.totalItemsCount, columns, tileHeight, spacing, fullSpanEstimates + measured, layout.viewportSize.height, layout.afterContentPadding)</ID>
+    <ID>MaxLineLength:GalleryFastScroll.kt$MediaPill</ID>
+    <ID>MaxLineLength:GalleryFastScroll.kt$Surface</ID>
+    <ID>MaxLineLength:GalleryFastScroll.kt$drawPath(Path().apply { moveTo(0f, size.height * .64f); lineTo(size.width, size.height * .64f); lineTo(size.width / 2, size.height); close() }, ink)</ID>
+    <ID>MaxLineLength:GalleryFastScrollTest.kt$GalleryFastScrollTest$GalleryFastScroll</ID>
+    <ID>MaxLineLength:GalleryFilterSheet.kt$FilterMenuRow</ID>
+    <ID>MaxLineLength:GalleryFilterSheet.kt$Modifier.padding(start = 36.dp, bottom = AlbaSpacing.sm)</ID>
+    <ID>MaxLineLength:GalleryFilterSheet.kt$TextButton(onClick = { dates = true }) { Text(if (state.query.fromDate == null &amp;&amp; state.query.throughDate == null) stringResource(R.string.choose_date_range) else stringResource(R.string.range_dates, state.query.fromDate?.let { dateLabel(it) } ?: stringResource(R.string.any_date), state.query.throughDate?.let { dateLabel(it) } ?: stringResource(R.string.any_date))) }</ID>
+    <ID>MaxLineLength:GalleryFilterSheet.kt$if (state.query.fromDate != null || state.query.throughDate != null) TextButton(onClick = { change(state.query.copy(fromDate = null, throughDate = null)) }) { Text(stringResource(R.string.clear_dates)) }</ID>
+    <ID>MaxLineLength:GalleryFilterSheet.kt$listOf(null to R.string.all_photos, MediaOrigin.ICLOUD to R.string.icloud, MediaOrigin.DEVICE to R.string.this_phone)</ID>
+    <ID>MaxLineLength:GalleryFilterSheet.kt$}</ID>
+    <ID>MaxLineLength:GalleryGridTest.kt$GalleryGridTest$pinch(Offset(width * .4f, height * .35f), Offset(width * .2f, height * .35f), Offset(width * .6f, height * .35f), Offset(width * .8f, height * .35f), 450)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$(if (collection.shared?.generation == SharedAlbumGeneration.LEGACY || it.origin == MediaOrigin.DEVICE) supportsLegacySharedUpload(it.kind, it.mimeType) else true)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$.</ID>
+    <ID>MaxLineLength:GalleryHome.kt$BadgedBox</ID>
+    <ID>MaxLineLength:GalleryHome.kt$Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$CollectionRow(stringResource(R.string.capture_date), stringResource(R.string.choose_a_date_range), icon = { Icon(Icons.Outlined.DateRange, null) }, onClick = onDates)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$CollectionRow(stringResource(R.string.favorites), stringResource(R.string.photos_you_ve_marked_with_a_heart), icon = { ICloudIcon(R.drawable.icloud_favorites) }, onClick = { choose(GalleryQuery.FAVORITES) })</ID>
+    <ID>MaxLineLength:GalleryHome.kt$DropdownMenuItem(text = { Text(stringResource(R.string.browse_by_date)) }, onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate }, enabled = sections.isNotEmpty())</ID>
+    <ID>MaxLineLength:GalleryHome.kt$DropdownMenuItem(text = { Text(stringResource(R.string.delete_album)) }, onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$DropdownMenuItem(text = { Text(stringResource(R.string.rename_album)) }, onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$DropdownMenuItem(text = { Text(stringResource(R.string.shared_details)) }, onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo })</ID>
+    <ID>MaxLineLength:GalleryHome.kt$GallerySort.valueOf(it[5])</ID>
+    <ID>MaxLineLength:GalleryHome.kt$IconButton</ID>
+    <ID>MaxLineLength:GalleryHome.kt$IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) { Icon(Icons.Outlined.Edit, stringResource(R.string.rename_album)) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$IconButton(enabled = sections.isNotEmpty(), onClick = { sheet = GallerySheet.JumpToDate }) { Icon(Icons.Outlined.DateRange, stringResource(R.string.browse_by_date)) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$IconButton(onClick = ::backInCollections) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back_to_collections)) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$OutlinedButton(onClick = { sheet = null; actions.openAccount() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$SearchLanding(bottomSpace = bottomSpace, onDates = { sheet = GallerySheet.Filters }, choose = { actions.changeQuery(query.copy(collectionId = it)) })</ID>
+    <ID>MaxLineLength:GalleryHome.kt$SmartCollection.entries.take(3).forEach { smart -&gt; CollectionRow(smart.localizedTitle(), null, icon = { ICloudIcon(smart.icon()) }, onClick = { choose(smart.id) }) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$Text</ID>
+    <ID>MaxLineLength:GalleryHome.kt$Text(stringResource(R.string.brand_name), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))</ID>
+    <ID>MaxLineLength:GalleryHome.kt$Text(stringResource(R.string.phone_photo_prompt_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$TextButton</ID>
+    <ID>MaxLineLength:GalleryHome.kt$activity = if (collection.shared?.generation == SharedAlbumGeneration.MODERN) ({ sheet = GallerySheet.SharedActivity }) else null</ID>
+    <ID>MaxLineLength:GalleryHome.kt$anchor = when (tab) { GalleryTab.LIBRARY -&gt; libraryAnchor; GalleryTab.COLLECTIONS -&gt; collectionAnchor; GalleryTab.SEARCH -&gt; searchAnchor }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$confirmButton = { TextButton(enabled = canEdit, onClick = { actions.deleteAlbum(id); sheet = null }) { Text(stringResource(R.string.delete_album)) } }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$else</ID>
+    <ID>MaxLineLength:GalleryHome.kt$else -&gt; collection?.localizedName() ?: SmartCollection.entries.firstOrNull { it.id == query.collectionId }?.localizedTitle() ?: stringResource(R.string.collection)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$gallery.collections.firstOrNull { it.id == folder }?.name ?: stringResource(R.string.albums)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$horizontalArrangement = Arrangement.spacedBy(2.dp)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$if</ID>
+    <ID>MaxLineLength:GalleryHome.kt$if (collection.shared?.canContribute == true) DropdownMenuItem(text = { Text(stringResource(R.string.shared_add_photos)) }, onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$if (sheet == GallerySheet.Filters) GalleryFilterSheet(gallery, actions::changeQuery, actions::requestDevicePhotos, actions::refresh, visibleDensity, changeDensity, dismiss = { sheet = null })</ID>
+    <ID>MaxLineLength:GalleryHome.kt$if (sheet == GallerySheet.SharedActivity &amp;&amp; collection?.shared?.generation == SharedAlbumGeneration.MODERN) SharedAlbumActivity(collection, gallery.catalogItems, actions, actions::requestPreview, open = { sheet = null; actions.openMedia(it) }, dismiss = { sheet = null })</ID>
+    <ID>MaxLineLength:GalleryHome.kt$if (transfers.queue.isNotEmpty()) TransferQueueCard(transfers.queue, actions::continuePastUnresolved, demo = session.accountState == ICloudAccountState.Demo)</ID>
+    <ID>MaxLineLength:GalleryHome.kt$it.fromDate?.toString().orEmpty()</ID>
+    <ID>MaxLineLength:GalleryHome.kt$modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")</ID>
+    <ID>MaxLineLength:GalleryHome.kt$onCheckedChange = { actions.selectItems(section.items.map { it.id }.toSet(), it) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$onClick = { navigate(destination) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$openCloudTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$openFolder = { folder = it }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$openOffline = { actions.changeQuery(GalleryQuery(offlineOnly = true)) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$preview = actions::requestPreview</ID>
+    <ID>MaxLineLength:GalleryHome.kt$seeAll = { libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED; actions.clearSelection(); actions.changeQuery(GalleryQuery()) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$text = { Text(stringResource(R.string.delete_album_body, gallery.collections.firstOrNull { it.id == id }?.name ?: stringResource(R.string.this_album))) }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$trailingIcon = { if (query.filename.isNotEmpty()) IconButton(onClick = { actions.changeQuery(query.copy(filename = "")) }) { Icon(Icons.Outlined.Close, stringResource(R.string.clear_search)) } }</ID>
+    <ID>MaxLineLength:GalleryHome.kt$val filterName = query.collectionId?.let { id -&gt; if (id == GalleryQuery.FAVORITES) stringResource(R.string.favorites) else SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle() }</ID>
+    <ID>MaxLineLength:GalleryIndex.kt$internal</ID>
+    <ID>MaxLineLength:GalleryIndex.kt$return sections.map { section -&gt; offset.also { offset += section.items.size + (if (showDateHeaders) 1 else 0) + if (days &amp;&amp; showDateHeaders) section.items.map { galleryDay(it, date) }.distinct().size else 0 } }</ID>
+    <ID>MaxLineLength:GalleryPinchAnimationTest.kt$GalleryPinchAnimationTest$assertTrue("The animation must have a real intermediate size: $initial &lt; $intermediate &lt; $large", intermediate &gt; initial + 2 &amp;&amp; intermediate &lt; large - 2)</ID>
+    <ID>MaxLineLength:GalleryProjectionTest.kt$GalleryProjectionTest$assertEquals(1, me.lvca.alba.app.ui.gallery.galleryPosition(sections, false, true, me.lvca.alba.engine.model.GalleryDate.CAPTURED, sections.first().items.first().id, leadingItems = 1, showDateHeaders = false))</ID>
+    <ID>MaxLineLength:GalleryProjectionTest.kt$GalleryProjectionTest$assertEquals(3, me.lvca.alba.app.ui.gallery.galleryPosition(sections, true, false, me.lvca.alba.engine.model.GalleryDate.CAPTURED, sections.first().items.first().id, leadingItems = 1))</ID>
+    <ID>MaxLineLength:GalleryScrollingHeader.kt$if</ID>
+    <ID>MaxLineLength:ICloudAccountScreen.kt$confirmButton = { TextButton(onClick = { confirmCleanup = false; actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_CLEANUP)) }) { Text(stringResource(R.string.welcome_continue)) } }</ID>
+    <ID>MaxLineLength:IncomingMediaActivityTest.kt$IncomingMediaActivityTest$ActivityScenario.launch&lt;MainActivity&gt;(intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/jpeg").apply { removeFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) })</ID>
+    <ID>MaxLineLength:IncomingMediaActivityTest.kt$IncomingMediaActivityTest$compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithText(context.getString(R.string.incoming_position, 2, 2)).fetchSemanticsNodes().isNotEmpty() }</ID>
+    <ID>MaxLineLength:IncomingMediaActivityTest.kt$IncomingMediaActivityTest$compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText(context.getString(R.string.incoming_position, 1, 2)).fetchSemanticsNodes().isNotEmpty() }</ID>
+    <ID>MaxLineLength:IncomingMediaActivityTest.kt$IncomingMediaActivityTest$image.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, context.getString(R.string.photo_zoomed)))</ID>
+    <ID>MaxLineLength:IncomingMediaActivityTest.kt$IncomingMediaActivityTest$private fun intent(action: String)</ID>
+    <ID>MaxLineLength:IncomingMediaScreen.kt$Column</ID>
+    <ID>MaxLineLength:IncomingMediaScreen.kt$FilledTonalIconButton(onClick = close, modifier = Modifier.testTag("incoming-back")) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back_action)) }</ID>
+    <ID>MaxLineLength:IncomingMediaScreen.kt$Text(stringResource(if (demo) R.string.demo_upload_disclosure else R.string.incoming_upload_explanation), style = MaterialTheme.typography.bodySmall)</ID>
+    <ID>MaxLineLength:IncomingMediaScreen.kt$Text(stringResource(if (sent &amp;&amp; demo) R.string.demo_import_requested else if (sent) R.string.incoming_upload_queued else if (demo) R.string.demo_upload_title else if (signedIn) R.string.upload_phone_jpegs else R.string.incoming_connect))</ID>
+    <ID>MaxLineLength:IncomingMediaScreen.kt$if</ID>
+    <ID>MaxLineLength:IncomingMediaScreen.kt$reader = { _, _, _ -&gt; error("Local playback only") }</ID>
+    <ID>MaxLineLength:IncomingMediaScreen.kt$text = { Text(if (demo) stringResource(R.string.demo_upload_disclosure) else pluralStringResource(R.plurals.incoming_upload_confirm, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) }, items.orEmpty().count { UploadMediaFormat.isCandidate(it.mime) })) }</ID>
+    <ID>MaxLineLength:LibraryEditsTest.kt$LibraryEditsTest$compose.runOnUiThread { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].apply { gallery.selectItems(ids.toSet(), true); edits.setFavorites(ids, true) } }</ID>
+    <ID>MaxLineLength:LibraryEditsTest.kt$LibraryEditsTest$val lightTheme = compose.activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK != android.content.res.Configuration.UI_MODE_NIGHT_YES</ID>
+    <ID>MaxLineLength:LibraryEditsTest.kt$LibraryEditsTest$}</ID>
+    <ID>MaxLineLength:LocalizationTest.kt$LocalizationTest$assertEquals("Created Weekend with 2 photos.", UiMessage.Quantity(R.plurals.album_created_with_photos, 2, listOf("Weekend", 2)).resolve(localized("en")))</ID>
+    <ID>MaxLineLength:LocalizationTest.kt$LocalizationTest$assertTrue(localizedStoredMessage("Upload result was lost. Mela will check iCloud without uploading again.").resolve(italian).contains("senza ripetere"))</ID>
+    <ID>MaxLineLength:LocalizationTest.kt$LocalizationTest$fun localized(tag: String)</ID>
+    <ID>MaxLineLength:LocalizedAccountTest.kt$LocalizedAccountTest$compose.onNodeWithText("Apple ha inviato un codice a sei cifre al tuo numero di telefono autorizzato (+39 ••• 1234).").performScrollTo().assertIsDisplayed()</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$Column</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$DetailAction</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$DetailAction(stringResource(R.string.add_to_album), canEdit &amp;&amp; !media.isTrashed, { choosingAlbum = true }, { ICloudIcon(R.drawable.icloud_albums) })</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) }, { Icon(Icons.Outlined.Share, null) })</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$DetailAction(stringResource(R.string.remove_offline_copy), !isWorking, { actions.removeCachedOriginal(media.id) }, { Icon(AlbaIcons.DeleteOutline, null) })</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true }, { Icon(Icons.Outlined.Info, null) })</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$HorizontalPager</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$Text(stringResource(if (media.isTrashed) R.string.trash_restore_explanation else R.string.trash_phone_explanation), style = MaterialTheme.typography.bodySmall)</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$if</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$if (active &amp;&amp; loading) CircularProgressIndicator(Modifier.align(Alignment.TopCenter).padding(top = 76.dp).size(22.dp), strokeWidth = 2.dp)</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt${ actions.setFavorite(media.id, !media.isFavorite) }</ID>
+    <ID>MaxLineLength:MediaDetailScreen.kt$}</ID>
+    <ID>MaxLineLength:MediaThumbnail.kt$.</ID>
+    <ID>MaxLineLength:MediaThumbnail.kt$if (reference != null) TextButton(onClick = { localRetry++ }, modifier = Modifier.testTag("retry-decode")) { Text(stringResource(R.string.retry_photo)) }</ID>
+    <ID>MaxLineLength:OnboardingTest.kt$OnboardingTest$compose.waitUntil(LONG_WAIT) { kotlinx.coroutines.runBlocking { graph.galleryRepository.observeGallery().first().none { it.id.startsWith("fixture:") } } }</ID>
+    <ID>MaxLineLength:PhoneAccessTest.kt$PhoneAccessTest$SessionState(accountState = ICloudAccountState.SignedIn("owner@example.com", me.lvca.alba.protocol.account.SessionStatus.OFFLINE), isRefreshing = false)</ID>
+    <ID>MaxLineLength:PhoneTrashUiTest.kt$PhoneTrashUiTest$compose.waitUntil(SHORT_WAIT) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, context.getString(R.string.playing))).fetchSemanticsNodes().isNotEmpty() }</ID>
+    <ID>MaxLineLength:PhoneTrashUiTest.kt$PhoneTrashUiTest$val uri = MediaStoreFixtures.insertAsset(instrumentation.context.assets, "portrait_video.mp4", "alba-native-trash-test.mp4", "video/mp4", "Movies/AlbaTest")</ID>
+    <ID>MaxLineLength:PhotoEditState.kt$PhotoEditState.Companion$save = { state -&gt; (listOf(state.current) + state.history).flatMap { listOf(it.crop.left, it.crop.top, it.crop.right, it.crop.bottom, it.turns.toFloat()) } }</ID>
+    <ID>MaxLineLength:PhotoEditorScreen.kt$Button(enabled = !busy &amp;&amp; file != null, onClick = { save() }, modifier = Modifier.testTag("save-edited-copy")) { Text(stringResource(R.string.save_copy)) }</ID>
+    <ID>MaxLineLength:PhotoEditorScreen.kt$FlowRow</ID>
+    <ID>MaxLineLength:PhotoEditorScreen.kt$TextButton(enabled = !busy &amp;&amp; edit.canUndo, onClick = edit::undo, modifier = Modifier.testTag("undo-edit")) { Text(stringResource(R.string.undo_edit)) }</ID>
+    <ID>MaxLineLength:PhotoEditorScreen.kt$TextButton(enabled = !busy, onClick = { edit.change(edit.current.copy(turns = (turns + 1) % 4)) }) { Text(stringResource(R.string.rotate_degrees, turns * 90)) }</ID>
+    <ID>MaxLineLength:PhotoEditorScreen.kt$if (failed) TextButton(onClick = { if (file == null) retry++ else save() }, enabled = !busy) { Text(stringResource(R.string.edit_failed_retry)) }</ID>
+    <ID>MaxLineLength:PhotoExtraMetadata.kt$exif.getAttribute(ExifInterface.TAG_EXPOSURE_TIME)?.let { "$it s" }</ID>
+    <ID>MaxLineLength:PhotoExtraMetadata.kt$val stream = if (reference.startsWith("content://")) context.contentResolver.openInputStream(reference.toUri()) else File(reference).inputStream()</ID>
+    <ID>MaxLineLength:PhotoMetadataCards.kt$Text((if (media.linkedDeviceReference != null) MediaAvailability.DEVICE_ORIGINAL else media.availability).label(), style = MaterialTheme.typography.bodyMedium, color = colors.secondary)</ID>
+    <ID>MaxLineLength:PhotoTransitionTest.kt$PhotoTransitionTest$assertTrue("Photo should grow from tile width ($start -&gt; $intermediate -&gt; $full)", intermediate.width &gt; start.width + 10.dp &amp;&amp; intermediate.width &lt; full.width - 10.dp)</ID>
+    <ID>MaxLineLength:PhotoTransitionTest.kt$PhotoTransitionTest$assertTrue("Zoomed photo must extend beyond its original fitted rectangle", kotlin.math.abs(after.red - before.red) + kotlin.math.abs(after.green - before.green) + kotlin.math.abs(after.blue - before.blue) &gt; .2f)</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$Box</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$Button</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$Row</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$Text(Formatter.formatShortFileSize(context, it.totalBytes), Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.titleSmall)</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$Text(stringResource(category.title()), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$Text(stringResource(if (signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) R.string.how_to_activate_icloud_photos else R.string.sign_in_to_icloud))</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$colors = ButtonDefaults.buttonColors(containerColor = profileColors.onCard, contentColor = profileColors.action)</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$if (amount &gt; 0) drawRect(categoryColors.forCategory(category.name), Offset((size.width * drawn / total).toFloat(), 0f), Size((size.width * amount / total).toFloat(), size.height))</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$if (drawn &lt; used) drawRect(unclassified, Offset((size.width * drawn / total).toFloat(), 0f), Size((size.width * (used - drawn) / total).toFloat(), size.height))</ID>
+    <ID>MaxLineLength:ProfileOverview.kt$if (storage.usedBytes &gt;= storage.totalBytes) Text(stringResource(R.string.storage_is_full_uploads_may_be_refused), color = MaterialTheme.colorScheme.error)</ID>
+    <ID>MaxLineLength:ProfileScreenTest.kt$ProfileScreenTest$listOf(StorageCategory("Photos", 64_000_000_000), StorageCategory("Documents", 4_000_000_000), StorageCategory("Backup", 2_000_000_000), StorageCategory("Other", 2_000_000_000))</ID>
+    <ID>MaxLineLength:ProfileScreenTest.kt$ProfileScreenTest$phoneStorage = PhoneStorageState(usage = me.lvca.alba.engine.model.LocalMediaStorage(120_000_000, 480_000_000, 2_400_000_000, 42_000_000_000))</ID>
+    <ID>MaxLineLength:SelectionActions.kt$DropdownMenuItem</ID>
+    <ID>MaxLineLength:SelectionActions.kt$Text(pluralStringResource(R.plurals.selected_count, gallery.selection.size, gallery.selection.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))</ID>
+    <ID>MaxLineLength:SelectionActions.kt$if</ID>
+    <ID>MaxLineLength:SelectionActions.kt$onClick = { actions.runBatch(BatchAction.UPLOAD) }</ID>
+    <ID>MaxLineLength:SharedAlbumActivity.kt$LazyColumn</ID>
+    <ID>MaxLineLength:SharedAlbumActivity.kt$TextButton(onClick = { selected = post.id }, enabled = previews.containsKey(post.id)) { Text(stringResource(R.string.shared_post_discussion)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$AlbaBottomSheet</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$Button(onClick = { perform(SharedCommand(if (post) SharedAction.POST_COMMENT else SharedAction.COMMENT, id, text.trim())) }, enabled = !busy &amp;&amp; text.isNotBlank(), modifier = Modifier.testTag("shared-post-comment")) { Text(stringResource(R.string.shared_post)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$FilterChip(selected, { perform(SharedCommand(if (post) SharedAction.POST_REACTION else SharedAction.REACTION, id, if (selected) "" else emoji)) }, label = { Text(emoji) }, enabled = !busy)</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$OutlinedButton(onClick = { pending = SharedCommand(SharedAction.CREATE_INVITE_LINK) }, enabled = !busy) { Text(stringResource(R.string.shared_create_link)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$OutlinedButton(onClick = { pending = SharedCommand(SharedAction.DELETE_ALBUM) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_delete_album), color = MaterialTheme.colorScheme.error) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$OutlinedButton(onClick = { pending = SharedCommand(SharedAction.INVITE, value = email.trim()) }, enabled = !busy &amp;&amp; email.contains('@')) { Text(stringResource(R.string.shared_invite)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$OutlinedButton(onClick = { pending = SharedCommand(SharedAction.LEAVE) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_leave)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$OutlinedButton(onClick = { pending = SharedCommand(SharedAction.SAVE_TO_LIBRARY, id) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_save_library)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$OutlinedTextField(email, { email = it }, label = { Text(stringResource(R.string.shared_invite_email)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("shared-invite-email"))</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$OutlinedTextField(name, { name = it.take(255) }, label = { Text(stringResource(R.string.album_name)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$OutlinedTextField(text, { text = it.take(1000) }, label = { Text(stringResource(R.string.shared_add_comment)) }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("shared-comment-input"))</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$Row</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$SharedAction.APPROVE_REQUEST, SharedAction.INVITE, SharedAction.ROLE, SharedAction.PUBLIC_ACCESS, SharedAction.ACCESS_REQUESTS, SharedAction.CONTRIBUTIONS -&gt; R.string.shared_confirm_access</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$SharedToggle(stringResource(R.string.shared_access_requests), state.allowAccessRequests, !busy) { pending = SharedCommand(SharedAction.ACCESS_REQUESTS, enabled = it) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$SharedToggle(stringResource(R.string.shared_allow_posts), state.allowContributions, !busy) { pending = SharedCommand(SharedAction.CONTRIBUTIONS, enabled = it) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$SharedToggle(stringResource(R.string.shared_public), state.publicAccess, !busy) { pending = SharedCommand(SharedAction.PUBLIC_ACCESS, enabled = it) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$SharedToggle(stringResource(R.string.shared_temporary), state.temporary, !busy) { pending = SharedCommand(SharedAction.TEMPORARY, enabled = it) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$Text</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$TextButton(onClick = { clipboard.setText(AnnotatedString(link)) }, enabled = !busy) { Text(stringResource(R.string.shared_copy_invite_link, index + 1)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$TextButton(onClick = { pending = SharedCommand(SharedAction.APPROVE_REQUEST, request.id) }, enabled = !busy) { Text(stringResource(R.string.shared_approve)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$TextButton(onClick = { pending = SharedCommand(SharedAction.DENY_REQUEST, request.id) }, enabled = !busy) { Text(stringResource(R.string.shared_deny)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$TextButton(onClick = { pending = SharedCommand(SharedAction.REMOVE_PARTICIPANT, p.id) }, enabled = !busy) { Text(stringResource(R.string.shared_remove_person)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$TextButton(onClick = { pending = SharedCommand(SharedAction.RENAME, value = name.trim()) }, enabled = !busy &amp;&amp; name.isNotBlank() &amp;&amp; name != state.album.name) { Text(stringResource(R.string.rename_album)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$TextButton(onClick = { pending = SharedCommand(SharedAction.ROLE, p.id, wire) }, enabled = !busy &amp;&amp; p.role != role) { Text(sharedRole(role)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$TextButton(onClick = { pending = SharedCommand(SharedAction.UNBLOCK, person.id) }, enabled = !busy) { Text(stringResource(R.string.shared_unblock)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$if (comment.canDelete) TextButton(onClick = { pending = SharedCommand(if (post) SharedAction.POST_DELETE_COMMENT else SharedAction.DELETE_COMMENT, id, comment.id) }, enabled = !busy) { Text(stringResource(R.string.shared_delete_comment)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$if (state.invitationLinks.isNotEmpty()) TextButton(onClick = { pending = SharedCommand(SharedAction.REVOKE_INVITE_LINKS) }, enabled = !busy) { Text(stringResource(R.string.shared_revoke_links)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$if (thread.canRemovePhoto) TextButton(onClick = { pending = SharedCommand(SharedAction.REMOVE_MEDIA, id) }, enabled = !busy) { Text(stringResource(R.string.shared_remove_photo), color = MaterialTheme.colorScheme.error) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$if (thread.generation == SharedAlbumGeneration.MODERN) TextButton(onClick = { pending = SharedCommand(SharedAction.COVER, id) }, enabled = !busy) { Text(stringResource(R.string.shared_cover)) }</ID>
+    <ID>MaxLineLength:SharedAlbumControls.kt$listOf("contributor" to SharedAlbumRole.CONTRIBUTOR, "commenter" to SharedAlbumRole.COMMENTER, "manager" to SharedAlbumRole.MANAGER)</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$compose</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$compose.setContent { AlbaTheme(darkTheme = false) { SharedAlbumControls(album, testAlbaActions(sharedManagement = { SharedAlbumManagement(album, emptyList()) }, changeSharedAlbum = { _, c -&gt; commands += c }), {}) } }</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$compose.waitUntil { commands.size == 1 &amp;&amp; compose.onAllNodesWithText(label(R.string.shared_person_contributor) + " · " + label(R.string.shared_invited)).fetchSemanticsNodes().isNotEmpty() }</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$if(c.action == SharedAction.INVITE) state = state.copy(participants = state.participants + SharedParticipant("guest", c.value, SharedAlbumRole.CONTRIBUTOR, pending = true))</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$origin = MediaOrigin.ICLOUD</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$private val album = GalleryCollection("shared:test:private:owner:album", "Family test", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$sharedManagement = { SharedAlbumManagement(album, emptyList()) }</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$val</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$val album = GalleryCollection("shared:test:private:owner:album", "Family test", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$val album = GalleryCollection("shared:test:private:owner:album", "Family", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))</ID>
+    <ID>MaxLineLength:SharedAlbumControlsTest.kt$SharedAlbumControlsTest$val album = GalleryCollection("shared:test:shared:owner:album", "Read-only", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.VIEWER))</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$AssistChip</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$Button</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$OutlinedButton(onClick = { uriHandler.openUri(url) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_manage_icloud)) }</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$OutlinedTextField(name, { name = it.take(255) }, label = { Text(stringResource(R.string.album_name)) }, singleLine = true, modifier = Modifier.testTag("shared-album-name"))</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$Row</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$Surface</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$Text(stringResource(R.string.shared_upgrade_notice), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$Text(stringResource(if (info.generation == SharedAlbumGeneration.MODERN) R.string.shared_new_body else R.string.shared_legacy_body), style = MaterialTheme.typography.bodyLarge)</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$Text(stringResource(if (info.generation == SharedAlbumGeneration.MODERN) R.string.shared_new_title else R.string.shared_legacy_title), style = MaterialTheme.typography.titleLarge)</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$if (legacy) Text(stringResource(R.string.shared_legacy_formats), Modifier.padding(bottom = AlbaSpacing.md), style = MaterialTheme.typography.bodySmall)</ID>
+    <ID>MaxLineLength:SharedAlbumDetails.kt$internal</ID>
+    <ID>MaxLineLength:SharedAlbumDetailsTest.kt$SharedAlbumDetailsTest$val album = GalleryCollection("shared:test:legacy:owner:album", "Family archive", shared = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, SharedAlbumRole.VIEWER))</ID>
+    <ID>MaxLineLength:SharedAlbumDetailsTest.kt$SharedAlbumDetailsTest$val album = GalleryCollection("shared:test:private:owner:album", "Family moments", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER, participantCount = 1))</ID>
+    <ID>MaxLineLength:SharedAlbumsFlowTest.kt$SharedAlbumsFlowTest$compose.waitUntil(UI_WAIT) { runBlocking { repository.sharedManagement("shared:demo-library:private:owner:two").participants.any { it.id == "sample-alex" } } }</ID>
+    <ID>MaxLineLength:SharedInvitationActivityTest.kt$SharedInvitationActivityTest$val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://photos.icloud.com/shared/album/fixture"), context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)</ID>
+    <ID>MaxLineLength:SharedInvitations.kt$AlertDialog</ID>
+    <ID>MaxLineLength:SharedInvitations.kt$if (invitation.canDecline) TextButton(onClick = { confirmation = invitation to false }, enabled = !busy) { Text(stringResource(R.string.shared_decline)) }</ID>
+    <ID>MaxLineLength:StoreScreenshotTest.kt$StoreScreenshotTest$compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag(if (id == "fixture:icloud:0019") "video-player" else "viewer-image-$id").fetchSemanticsNodes().isNotEmpty() }</ID>
+    <ID>MaxLineLength:StoreScreenshotTest.kt$StoreScreenshotTest$phoneStorage = PhoneStorageState(usage = me.lvca.alba.engine.model.LocalMediaStorage(120_000_000, 480_000_000, 2_400_000_000, 42_000_000_000))</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.AUTOMATIC_BACKUP_NEEDS_FULL_PHOTO_ACCESS_AND_PRECISE_MEDIA_LOCATION_ACCESS -&gt; R.string.message_automatic_backup_needs_full_photo_access_and_precise_media_location_access</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.A_PREVIOUS_UPLOAD_OF_THESE_BYTES_IS_UNRESOLVED_AND_WILL_NOT_BE_REPEATED -&gt; R.string.message_a_previous_upload_of_these_bytes_is_unresolved_and_will_not_be_repeated</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.A_SYSTEM_TRASH_REQUEST_MAY_STILL_EXECUTE_FINISH_THE_ANDROID_DIALOG_OR_RESTART_YOUR_DEVICE_AND_R -&gt; R.string.message_a_system_trash_request_may_still_execute_finish_the_android_dialog_or_restart_your_device_and_r</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.A_SYSTEM_TRASH_REQUEST_MAY_STILL_EXECUTE_FOR_THE_PREVIOUS_ICLOUD_ACCOUNT -&gt; R.string.message_a_system_trash_request_may_still_execute_for_the_previous_icloud_account</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.COULD_NOT_STAGE_THIS_JPEG_CHECK_FILE_ACCESS_AND_THE_UPLOAD_QUEUE -&gt; R.string.message_could_not_stage_this_jpeg_check_file_access_and_the_upload_queue</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.COULD_NOT_VERIFY_AN_ICLOUD_CANDIDATE_YET_THE_UPLOAD_WILL_NOT_BE_REPEATED -&gt; R.string.message_could_not_verify_an_icloud_candidate_yet_the_upload_will_not_be_repeated</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.ICLOUD_RETURNED_AN_INCOMPLETE_CHANGE_PAGE_THE_UPLOAD_WILL_NOT_BE_REPEATED -&gt; R.string.message_icloud_returned_an_incomplete_change_page_the_upload_will_not_be_repeated</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.MORE_THAN_ONE_EXACT_ICLOUD_COPY_MATCHED_ALBA_WILL_NOT_UPLOAD_AGAIN -&gt; R.string.message_more_than_one_exact_icloud_copy_matched_alba_will_not_upload_again</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS -&gt; R.string.message_not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.NO_EXACT_ICLOUD_COPY_WAS_OBSERVED_BEFORE_THE_CHECK_DEADLINE_ALBA_WILL_NOT_UPLOAD_AGAIN -&gt; R.string.message_no_exact_icloud_copy_was_observed_before_the_check_deadline_alba_will_not_upload_again</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.RECONNECT_TO_ICLOUD_TO_CHECK_STORAGE_SAVED_COPIES_REMAIN_AVAILABLE -&gt; R.string.message_reconnect_to_icloud_to_check_storage_saved_copies_remain_available</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.THE_AUTHENTICATED_ICLOUD_SESSION_CHANGED_BEFORE_UPLOAD_SELECT_THIS_PHOTO_AGAIN -&gt; R.string.message_the_authenticated_icloud_session_changed_before_upload_select_this_photo_again</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.THE_ICLOUD_ACCOUNT_CHANGED_BEFORE_UPLOAD_SELECT_THIS_PHOTO_AGAIN_FOR_THE_NEW_ACCOUNT -&gt; R.string.message_the_icloud_account_changed_before_upload_select_this_photo_again_for_the_new_account</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN -&gt; R.string.message_the_staged_original_changed_or_is_missing_select_the_photo_again</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.THIS_UNCERTAIN_ITEM_REMAINS_BLOCKED_FROM_UPLOAD_OTHER_PHOTOS_MAY_CONTINUE -&gt; R.string.message_this_uncertain_item_remains_blocked_from_upload_other_photos_may_continue</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.THIS_UPLOAD_IS_SUPPRESSED_BECAUSE_AN_EARLIER_OUTCOME_IS_UNRESOLVED -&gt; R.string.message_this_upload_is_suppressed_because_an_earlier_outcome_is_unresolved</ID>
+    <ID>MaxLineLength:StoredMessages.kt$StoredMessage.UPLOAD_RESULT_WAS_LOST_ALBA_WILL_CHECK_ICLOUD_WITHOUT_UPLOADING_AGAIN -&gt; R.string.message_upload_result_was_lost_alba_will_check_icloud_without_uploading_again</ID>
+    <ID>MaxLineLength:ThumbnailRetryTest.kt$ThumbnailRetryTest$compose</ID>
+    <ID>MaxLineLength:UserTransfers.kt$context.getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(TRANSFER_CHANNEL, context.getString(R.string.transfer_channel), NotificationManager.IMPORTANCE_LOW))</ID>
+    <ID>MaxLineLength:VideoPlayerTest.kt$VideoPlayerTest$compose.waitUntil(LONG_WAIT) { compose.onAllNodes(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, text(R.string.ready))).fetchSemanticsNodes().isNotEmpty() }</ID>
+    <ID>MaxLineLength:ViewerTest.kt$ViewerTest$compose.onNodeWithTag("media-pager").performTouchInput { swipe(androidx.compose.ui.geometry.Offset(width * 0.8f, height * 0.5f), androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.5f), 350) }</ID>
+    <ID>MaxLineLength:WelcomeScreen.kt$Column</ID>
     <ID>SpreadOperator:UiMessage.kt$UiMessage.Quantity$(resource, count, *arguments.toTypedArray())</ID>
     <ID>SpreadOperator:UiMessage.kt$UiMessage.Text$(resource, *arguments.toTypedArray())</ID>
     <ID>SwallowedException:MediaDetailScreen.kt$cancelled: CancellationException</ID>

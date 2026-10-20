@@ -44,6 +44,10 @@ ktlint_standard_spacing-between-declarations-with-annotations = disabled
 ktlint_standard_keyword-spacing = disabled
 ktlint_standard_indent = disabled
 
+# ktlint baselines are keyed by line and column, so long lines would resurface whenever lines above them move.
+# Detekt's MaxLineLength reports them instead, with a baseline that survives edits.
+ktlint_standard_max-line-length = disabled
+
 [*.{yml,yaml}]
 indent_style = space
 indent_size = 2

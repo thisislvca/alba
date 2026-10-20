@@ -33,8 +33,9 @@ naming:
 
 style:
   MaxLineLength:
-    # ktlint's max-line-length (160, from .editorconfig) reports long lines.
-    active: false
+    # Reported here rather than by ktlint: detekt baselines survive lines moving within a file.
+    active: true
+    maxLineLength: 160
   WildcardImport:
     active: false
   MagicNumber:

@@ -9,7 +9,8 @@ import org.jlleitschuh.gradle.ktlint.KtlintExtension
 
 /**
  * ktlint (rules in `.editorconfig`) and detekt (`config/detekt/detekt.yml`) for every module.
- * Existing findings are recorded per module in `detekt-baseline.xml` and `ktlint-baseline.xml`.
+ * The code is ktlint-clean. Existing detekt findings are recorded per module in `detekt-baseline.xml`,
+ * whose entries match code by content, so they survive lines moving.
  */
 internal fun Project.configureStaticAnalysis() {
     val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
@@ -27,6 +28,5 @@ internal fun Project.configureStaticAnalysis() {
     pluginManager.apply("org.jlleitschuh.gradle.ktlint")
     extensions.configure<KtlintExtension> {
         version.set(libs.findVersion("ktlint").get().requiredVersion)
-        baseline.set(file("ktlint-baseline.xml"))
     }
 }

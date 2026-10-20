@@ -65,10 +65,10 @@ CI runs ktlint and detekt on every module:
 ./gradlew ktlintCheck detekt
 ```
 
-ktlint rules are configured in `.editorconfig` and detekt overrides in `config/detekt/detekt.yml`. Findings that predate the checks are recorded per module in `detekt-baseline.xml` and `ktlint-baseline.xml`, so only new findings fail the build. Fix old findings rather than adding new ones; after a deliberate cleanup, regenerate the baselines with:
+ktlint rules are configured in `.editorconfig` and detekt overrides in `config/detekt/detekt.yml`. The code is ktlint-clean; `./gradlew ktlintFormat` fixes most findings. Detekt findings that predate the checks are recorded per module in `detekt-baseline.xml`, so only new findings fail the build. Fix old findings rather than adding new ones; after a deliberate cleanup, regenerate the baselines with:
 
 ```sh
-./gradlew detektBaseline ktlintGenerateBaseline
+./gradlew detektBaseline
 ```
 
 Reports are written to `<module>/build/reports/detekt/` and `<module>/build/reports/ktlint/`.
