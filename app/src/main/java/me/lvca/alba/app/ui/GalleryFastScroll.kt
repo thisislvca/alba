@@ -24,9 +24,11 @@ import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import me.lvca.alba.app.R
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -111,9 +113,10 @@ internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLa
     val hiddenOffset by animateFloatAsState(if (active) 0f else handlePx, tween(180), label = "scrubber-slide")
     val currentIndex = if (dragging) metrics.target(dragFraction).first else grid.firstVisibleItemIndex
     val label = labels.lastOrNull { it.index <= currentIndex } ?: labels.first()
+    val span = stringResource(R.string.month_span, labels.first().month, labels.last().month)
     Box(modifier.width(180.dp).padding(bottom = bottomSpace, top = 12.dp).clipToBounds().onSizeChanged { height = it.height }
         .semantics {
-            contentDescription = "${labels.first().month} – ${labels.last().month}"
+            contentDescription = span
             stateDescription = label.month
             progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
             setProgress { visible = true; lastMovement = SystemClock.uptimeMillis(); targets.trySend(it.coerceIn(0f, 1f)); true }

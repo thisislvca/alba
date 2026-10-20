@@ -518,7 +518,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
             if (!flat) item(key = "month-$month", span = { GridItemSpan(maxLineSpan) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { MonthHeader(month, items.size) }
-                    val selectionLabel = "${stringResource(R.string.select_all_shown)} · ${monthLabel(month)}"
+                    val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), monthLabel(month))
                     if (state.selection.isNotEmpty()) Checkbox(checked = items.all { it.id in state.selection },
                         onCheckedChange = { actions.selectItems(items.map { it.id }.toSet(), it) }, modifier = Modifier.padding(end = 12.dp).semantics { contentDescription = selectionLabel })
                 }
@@ -528,7 +528,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
             if (day != null) item(key = "day-$day", span = { GridItemSpan(maxLineSpan) }) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(dateLabel(day), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                    val selectionLabel = "${stringResource(R.string.select_all_shown)} · ${dateLabel(day)}"
+                    val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), dateLabel(day))
                     if (state.selection.isNotEmpty()) Checkbox(photos.all { it.id in state.selection }, { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) },
                         modifier = Modifier.semantics { contentDescription = selectionLabel })
                 }

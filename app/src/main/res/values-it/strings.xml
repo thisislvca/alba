@@ -787,4 +787,6 @@
     <string name="demo_cleanup_complete">Copia demo rimossa — nessuna foto reale eliminata</string>
     <string name="demo_shared_notice">Demo: inviti, persone e link di esempio. Non viene inviato o pubblicato nulla. Le modifiche si azzerano al riavvio dell’app.</string>
     <string name="demo_import_requested">Importazione demo richiesta</string>
+    <string name="label_with_detail">%1$s · %2$s</string>
+    <string name="month_span">%1$s – %2$s</string>
 </resources>

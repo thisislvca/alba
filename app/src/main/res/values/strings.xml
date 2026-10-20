@@ -775,4 +775,8 @@
     <string name="demo_cleanup_complete">Sample copy removed — no real photo deleted</string>
     <string name="demo_shared_notice">Demo: sample invitations, people and links. Nothing is sent or published. Changes reset when the app restarts.</string>
     <string name="demo_import_requested">Sample import requested</string>
+    <!-- Joins a label with a qualifier, such as a role and its invitation state. -->
+    <string name="label_with_detail">%1$s · %2$s</string>
+    <!-- The first and last month of a scrollable timeline. -->
+    <string name="month_span">%1$s – %2$s</string>
 </resources>

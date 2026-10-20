@@ -109,7 +109,8 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
                     AlbaGroup {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text(p.name, style = MaterialTheme.typography.titleSmall)
-                            Text(sharedRole(p.role) + if (p.pending) " · " + stringResource(R.string.shared_invited) else "", style = MaterialTheme.typography.bodySmall)
+                            Text(if (p.pending) stringResource(R.string.label_with_detail, sharedRole(p.role), stringResource(R.string.shared_invited)) else sharedRole(p.role),
+                                style = MaterialTheme.typography.bodySmall)
                             if (info.canManage && p.role != SharedAlbumRole.OWNER && !p.isCurrentUser) {
                                 if (info.generation == SharedAlbumGeneration.MODERN) {
                                     listOf("contributor" to SharedAlbumRole.CONTRIBUTOR, "commenter" to SharedAlbumRole.COMMENTER, "manager" to SharedAlbumRole.MANAGER).forEach { (wire, role) ->
