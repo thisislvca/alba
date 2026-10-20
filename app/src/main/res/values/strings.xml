@@ -50,7 +50,6 @@
     <string name="clear_dates">Clear dates</string>
     <string name="clear_filters">Clear filters</string>
     <string name="clear_search">Clear search</string>
-    <string name="cloud">Cloud</string>
     <string name="cloud_only">Cloud only</string>
     <string name="cloud_phone_counts">%1$s · %2$s</string>
     <string name="code_sent_device">Apple sent a six-digit code to a trusted Apple device.</string>
@@ -279,7 +278,6 @@
     <string name="panoramas">Panoramas</string>
     <string name="password">Password</string>
     <string name="personal_icloud_library">Personal iCloud library</string>
-    <string name="phone">Phone</string>
     <string name="photo_details_and_actions">Photo details and actions</string>
     <string name="photo_size">Photo size</string>
     <string name="photos">Photos</string>
@@ -290,7 +288,6 @@
     <string name="play_live_photo">Play Live Photo</string>
     <string name="playing">Playing</string>
     <string name="preparing_to_share">Preparing to share…</string>
-    <string name="preview">Preview</string>
     <string name="preview_cached">Preview cached</string>
     <string name="range_dates">%1$s – %2$s</string>
     <string name="ready">Ready</string>
