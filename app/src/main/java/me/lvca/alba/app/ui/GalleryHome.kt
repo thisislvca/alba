@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -124,17 +125,8 @@ internal fun GalleryHome(
     var folder by rememberSaveable { mutableStateOf<String?>(null) }
     var density by rememberSaveable { mutableIntStateOf(100) }
     var albumDensity by rememberSaveable { mutableIntStateOf(80) }
-    var jump by rememberSaveable { mutableStateOf(false) }
-    var deleteAlbum by rememberSaveable { mutableStateOf<String?>(null) }
+    var sheet by rememberSaveable(stateSaver = GallerySheet.Saver) { mutableStateOf(null) }
     val scope = rememberCoroutineScope()
-    var filters by rememberSaveable { mutableStateOf(false) }
-    var activity by rememberSaveable { mutableStateOf(false) }
-    var sharedInvitations by rememberSaveable { mutableStateOf(false) }
-    var sharedPicker by rememberSaveable { mutableStateOf(false) }
-    var sharedActivity by rememberSaveable { mutableStateOf(false) }
-    var sharedManage by rememberSaveable { mutableStateOf(false) }
-    var sharedInfo by rememberSaveable { mutableStateOf(false) }
-    var editAlbum by rememberSaveable { mutableStateOf<String?>(null) }
     var permissionDismissed by rememberSaveable { mutableStateOf(false) }
     var owner by rememberSaveable { mutableStateOf(identity) }
     LaunchedEffect(identity) {
@@ -142,7 +134,7 @@ internal fun GalleryHome(
             if (owner != null && owner != identity) {
                 tab = GalleryTab.LIBRARY
                 libraryQuery = GalleryQuery(); collectionQuery = GalleryQuery(); searchQuery = GalleryQuery()
-                folder = null; collectionsPage = null; editAlbum = null; sharedInfo = false; sharedInvitations = false; sharedManage = false; sharedActivity = false; sharedPicker = false; deleteAlbum = null; jump = false; filters = false; activity = false
+                folder = null; collectionsPage = null; sheet = null
                 actions.changeQuery(GalleryQuery())
             }
             owner = identity
@@ -294,20 +286,20 @@ internal fun GalleryHome(
                                 }
                             }
                             if (hero) {
-                                if (collection?.shared != null) IconButton(onClick = { sharedManage = true }, enabled = canEdit) {
+                                if (collection?.shared != null) IconButton(onClick = { sheet = GallerySheet.SharedManage }, enabled = canEdit) {
                                     Icon(Icons.Outlined.AccountCircle, stringResource(R.string.shared_manage))
                                 }
-                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+                                IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                                 Box {
                                     IconButton(onClick = { albumMenu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.album_options)) }
                                     DropdownMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
-                                        DropdownMenuItem(text = { Text(stringResource(R.string.browse_by_date)) }, onClick = { albumMenu = false; jump = true }, enabled = sections.isNotEmpty())
+                                        DropdownMenuItem(text = { Text(stringResource(R.string.browse_by_date)) }, onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate }, enabled = sections.isNotEmpty())
                                         if (collection?.shared != null) {
-                                            DropdownMenuItem(text = { Text(stringResource(R.string.shared_details)) }, onClick = { albumMenu = false; sharedInfo = true })
-                                            if (collection.shared?.canContribute == true) DropdownMenuItem(text = { Text(stringResource(R.string.shared_add_photos)) }, onClick = { albumMenu = false; sharedPicker = true }, enabled = canEdit)
+                                            DropdownMenuItem(text = { Text(stringResource(R.string.shared_details)) }, onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo })
+                                            if (collection.shared?.canContribute == true) DropdownMenuItem(text = { Text(stringResource(R.string.shared_add_photos)) }, onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit)
                                         } else {
-                                            DropdownMenuItem(text = { Text(stringResource(R.string.rename_album)) }, onClick = { albumMenu = false; editAlbum = collection?.id }, enabled = canEdit)
-                                            DropdownMenuItem(text = { Text(stringResource(R.string.delete_album)) }, onClick = { albumMenu = false; deleteAlbum = collection?.id }, enabled = canEdit)
+                                            DropdownMenuItem(text = { Text(stringResource(R.string.rename_album)) }, onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit)
+                                            DropdownMenuItem(text = { Text(stringResource(R.string.delete_album)) }, onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit)
                                         }
                                     }
                                 }
@@ -315,12 +307,12 @@ internal fun GalleryHome(
                                     Text(stringResource(if (gallery.selection.isEmpty()) R.string.select_items else R.string.cancel))
                                 }
                             } else if (!(tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null))) {
-                                if (phonePhotos && gallery.selection.isEmpty()) IconButton(onClick = { filters = true },
+                                if (phonePhotos && gallery.selection.isEmpty()) IconButton(onClick = { sheet = GallerySheet.Filters },
                                     modifier = Modifier.testTag("gallery-menu-button")) {
                                     Icon(Icons.Outlined.MoreVert, stringResource(R.string.filter_and_sort))
                                 }
                                 IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
-                                IconButton(onClick = { activity = true }, modifier = Modifier.testTag("activity-button")) {
+                                IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
                                     BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
                                         Icon(Icons.Outlined.Notifications, stringResource(R.string.uploads_and_activity))
                                     }
@@ -354,11 +346,11 @@ internal fun GalleryHome(
                                     modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
 
                                 if (inCollection && collection != null && collection.isPersonal) {
-                                    IconButton(enabled = canEdit, onClick = { editAlbum = collection.id }) { Icon(Icons.Outlined.Edit, stringResource(R.string.rename_album)) }
-                                    IconButton(enabled = canEdit, onClick = { deleteAlbum = collection.id }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
+                                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) { Icon(Icons.Outlined.Edit, stringResource(R.string.rename_album)) }
+                                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                                 }
-                                IconButton(enabled = sections.isNotEmpty(), onClick = { jump = true }) { Icon(Icons.Outlined.DateRange, stringResource(R.string.browse_by_date)) }
-                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+                                IconButton(enabled = sections.isNotEmpty(), onClick = { sheet = GallerySheet.JumpToDate }) { Icon(Icons.Outlined.DateRange, stringResource(R.string.browse_by_date)) }
+                                IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                             }
                         }
                     }
@@ -372,12 +364,12 @@ internal fun GalleryHome(
                             openPage = { collectionsPage = it; scope.launch { collectionPageScroll.scrollToItem(0) } },
                             openFolder = { folder = it }, openCollection = { collectionGrid.requestScrollToItem(0); actions.changeQuery(GalleryQuery(collectionId = it)) },
                             openOffline = { actions.changeQuery(GalleryQuery(offlineOnly = true)) }, openTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.DEVICE, trashOnly = true)) },
-                            openCloudTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)) }, createAlbum = { editAlbum = NEW_ALBUM },
-                            createSharedAlbum = { editAlbum = NEW_SHARED_ALBUM }, openSharedInvitations = { sharedInvitations = true },
+                            openCloudTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)) }, createAlbum = { sheet = GallerySheet.CreateAlbum },
+                            createSharedAlbum = { sheet = GallerySheet.CreateSharedAlbum }, openSharedInvitations = { sheet = GallerySheet.SharedInvitations },
                             requestPhotos = actions::requestDevicePhotos, bottomSpace = bottomSpace)
                     }
                     else if (tab == GalleryTab.SEARCH && query.filename.isBlank() && query.fromDate == null && query.throughDate == null && query.collectionId == null) {
-                        SearchLanding(bottomSpace = bottomSpace, onDates = { filters = true }, choose = { actions.changeQuery(query.copy(collectionId = it)) })
+                        SearchLanding(bottomSpace = bottomSpace, onDates = { sheet = GallerySheet.Filters }, choose = { actions.changeQuery(query.copy(collectionId = it)) })
                     } else PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
                         PhotoGrid(
                             items = gallery.items,
@@ -396,12 +388,12 @@ internal fun GalleryHome(
                             onDismissPermissionPrompt = { permissionDismissed = true },
                             actions = actions,
                             flat = hero,
-                            onAddMedia = if (hero && collection?.shared?.canContribute == true && canEdit) ({ sharedPicker = true }) else null,
+                            onAddMedia = if (hero && collection?.shared?.canContribute == true && canEdit) ({ sheet = GallerySheet.SharedPicker }) else null,
                             leading = if (hero) ({
                                 AlbumHero(requireNotNull(collection), summaries[collection.id], previewRetryVersion, actions::requestPreview,
-                                    activity = if (collection.shared?.generation == SharedAlbumGeneration.MODERN) ({ sharedActivity = true }) else null,
+                                    activity = if (collection.shared?.generation == SharedAlbumGeneration.MODERN) ({ sheet = GallerySheet.SharedActivity }) else null,
                                     view = gallery.items.firstOrNull()?.let { first -> { actions.openMedia(first.id) } },
-                                    info = if (collection.shared != null) ({ sharedInfo = true }) else null)
+                                    info = if (collection.shared != null) ({ sheet = GallerySheet.SharedInfo }) else null)
                             }) else if (showSharedStrip) ({
                                 SharedAlbumsStrip(sharedAlbums, summaries, previewRetryVersion, actions::requestPreview, ::openShared,
                                     seeAll = { libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED; actions.clearSelection(); actions.changeQuery(GalleryQuery()) })
@@ -409,7 +401,7 @@ internal fun GalleryHome(
                         )
                     }
                     if (collapseHeader) FloatingGridDate(visibleMonth,
-                        dates = { jump = true }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
+                        dates = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
                     if (!wide && gallery.selection.isNotEmpty()) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(12.dp)
                         .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = MaterialTheme.shapes.extraLarge, tonalElevation = 8.dp, shadowElevation = 8.dp) {
                         SelectionActions(gallery, session, mediaBusy, actions)
@@ -423,50 +415,96 @@ internal fun GalleryHome(
         if (phonePhotos) GalleryStatusBarScrim(Modifier.align(Alignment.TopCenter).zIndex(2f))
     }
     val currentGrid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid }
-    if (jump) {
+    if (sheet == GallerySheet.JumpToDate) {
         val initialIndex = remember { currentGrid.firstVisibleItemIndex }
         GalleryDateSheet(gallery.sections, initialIndex, days = visibleDensity >= 160, date = query.date,
             permissionHeader = permissionPrompt, leadingItems = leadingItems, showDateHeaders = !hero,
-            dismiss = { jump = false }, jump = { index -> scope.launch { currentGrid.scrollToItem(index) } })
+            dismiss = { sheet = null }, jump = { index -> scope.launch { currentGrid.scrollToItem(index) } })
     }
-    if (filters) GalleryFilterSheet(gallery, actions::changeQuery, actions::requestDevicePhotos, actions::refresh, visibleDensity, changeDensity, dismiss = { filters = false })
-    deleteAlbum?.let { id ->
-        AlertDialog(onDismissRequest = { deleteAlbum = null }, title = { Text(stringResource(R.string.delete_album_title)) },
+    if (sheet == GallerySheet.Filters) GalleryFilterSheet(gallery, actions::changeQuery, actions::requestDevicePhotos, actions::refresh, visibleDensity, changeDensity, dismiss = { sheet = null })
+    (sheet as? GallerySheet.DeleteAlbum)?.albumId?.let { id ->
+        AlertDialog(onDismissRequest = { sheet = null }, title = { Text(stringResource(R.string.delete_album_title)) },
             text = { Text(stringResource(R.string.delete_album_body, gallery.collections.firstOrNull { it.id == id }?.name ?: stringResource(R.string.this_album))) },
-            confirmButton = { TextButton(enabled = canEdit, onClick = { actions.deleteAlbum(id); deleteAlbum = null }) { Text(stringResource(R.string.delete_album)) } },
-            dismissButton = { TextButton(onClick = { deleteAlbum = null }) { Text(stringResource(R.string.cancel)) } })
+            confirmButton = { TextButton(enabled = canEdit, onClick = { actions.deleteAlbum(id); sheet = null }) { Text(stringResource(R.string.delete_album)) } },
+            dismissButton = { TextButton(onClick = { sheet = null }) { Text(stringResource(R.string.cancel)) } })
     }
-    if (activity) AlbaBottomSheet(onDismissRequest = { activity = false }) {
-        AlbaSheetBody(stringResource(R.string.activity), dismiss = { activity = false }, subtitle = stringResource(R.string.uploads_downloads_and_backup)) {
-            Button(onClick = if (canUpload) actions::pickUpload else { { activity = false; actions.openAccount() } },
+    if (sheet == GallerySheet.Activity) AlbaBottomSheet(onDismissRequest = { sheet = null }) {
+        AlbaSheetBody(stringResource(R.string.activity), dismiss = { sheet = null }, subtitle = stringResource(R.string.uploads_downloads_and_backup)) {
+            Button(onClick = if (canUpload) actions::pickUpload else { { sheet = null; actions.openAccount() } },
                 modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) { Icon(AlbaIcons.CloudUpload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.upload_photos)) }
-            OutlinedButton(onClick = { activity = false; actions.openAccount() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
+            OutlinedButton(onClick = { sheet = null; actions.openAccount() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
             if (transfers.queue.isEmpty() && transfers.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
             if (transfers.queue.isNotEmpty()) TransferQueueCard(transfers.queue, actions::continuePastUnresolved, demo = session.accountState == ICloudAccountState.Demo)
             BatchProgress(transfers.batches, gallery.items, actions::retryBatch, actions::cancelDownloadBatch)
         }
     }
-    if (sharedPicker && collection?.shared != null) SharedContributionPicker(gallery.catalogItems.filter {
+    if (sheet == GallerySheet.SharedPicker && collection?.shared != null) SharedContributionPicker(gallery.catalogItems.filter {
         !it.isShared && !it.isTrashed &&
             (if (collection.shared?.generation == SharedAlbumGeneration.LEGACY || it.origin == MediaOrigin.DEVICE) supportsLegacySharedUpload(it.kind, it.mimeType) else true) },
-        preview = actions::requestPreview, dismiss = { sharedPicker = false }, contribute = { ids -> actions.contributeToSharedAlbum(collection.id, ids); sharedPicker = false },
+        preview = actions::requestPreview, dismiss = { sheet = null }, contribute = { ids -> actions.contributeToSharedAlbum(collection.id, ids); sheet = null },
         legacy = collection.shared?.generation == SharedAlbumGeneration.LEGACY, requestPhotos = actions::requestDevicePhotos)
-    if (sharedInvitations) SharedInvitations(actions, dismiss = { sharedInvitations = false }, demo = session.accountState == ICloudAccountState.Demo)
-    if (sharedActivity && collection?.shared?.generation == SharedAlbumGeneration.MODERN) SharedAlbumActivity(collection, gallery.catalogItems, actions, actions::requestPreview, open = { sharedActivity = false; actions.openMedia(it) }, dismiss = { sharedActivity = false })
-    if (sharedManage && collection?.shared != null) SharedAlbumControls(collection, actions) { sharedManage = false }
-    if (sharedInfo && collection?.shared != null) SharedAlbumDetails(collection) { sharedInfo = false }
-    if (editAlbum == NEW_SHARED_ALBUM) CreateSharedAlbumDialog(dismiss = { editAlbum = null }) { name, generation ->
-        actions.createSharedAlbum(name, generation); editAlbum = null
+    if (sheet == GallerySheet.SharedInvitations) SharedInvitations(actions, dismiss = { sheet = null }, demo = session.accountState == ICloudAccountState.Demo)
+    if (sheet == GallerySheet.SharedActivity && collection?.shared?.generation == SharedAlbumGeneration.MODERN) SharedAlbumActivity(collection, gallery.catalogItems, actions, actions::requestPreview, open = { sheet = null; actions.openMedia(it) }, dismiss = { sheet = null })
+    if (sheet == GallerySheet.SharedManage && collection?.shared != null) SharedAlbumControls(collection, actions) { sheet = null }
+    if (sheet == GallerySheet.SharedInfo && collection?.shared != null) SharedAlbumDetails(collection) { sheet = null }
+    when (val current = sheet) {
+        GallerySheet.CreateSharedAlbum -> CreateSharedAlbumDialog(dismiss = { sheet = null }) { name, generation ->
+            actions.createSharedAlbum(name, generation); sheet = null
+        }
+        GallerySheet.CreateAlbum -> AlbumNameDialog(stringResource(R.string.new_album), "", { sheet = null }) { name ->
+            actions.createAlbum(name); sheet = null
+        }
+        is GallerySheet.RenameAlbum -> AlbumNameDialog(stringResource(R.string.rename_album),
+            gallery.collections.firstOrNull { it.id == current.albumId }?.name.orEmpty(), { sheet = null }) { name ->
+            actions.renameAlbum(current.albumId, name); sheet = null
+        }
+        else -> Unit
     }
-    editAlbum?.takeUnless { it == NEW_SHARED_ALBUM }?.let { id -> AlbumNameDialog(if (id == NEW_ALBUM) stringResource(R.string.new_album) else stringResource(R.string.rename_album),
-        gallery.collections.firstOrNull { it.id == id }?.name.orEmpty(), { editAlbum = null }) { name ->
-        if (id == NEW_ALBUM) actions.createAlbum(name) else actions.renameAlbum(id, name)
-        editAlbum = null
-    } }
 }
 
-private const val NEW_ALBUM = "new"
-private const val NEW_SHARED_ALBUM = "new-shared"
+/**
+ * The one sheet or dialog open over the gallery. Only one can be open, closing it is one assignment, and it is
+ * saved so it survives recreation.
+ */
+internal sealed interface GallerySheet {
+    data object Filters : GallerySheet
+    data object Activity : GallerySheet
+    data object JumpToDate : GallerySheet
+    data object SharedInvitations : GallerySheet
+    data object SharedPicker : GallerySheet
+    data object SharedActivity : GallerySheet
+    data object SharedManage : GallerySheet
+    data object SharedInfo : GallerySheet
+    data object CreateAlbum : GallerySheet
+    data object CreateSharedAlbum : GallerySheet
+    data class RenameAlbum(val albumId: String) : GallerySheet
+    data class DeleteAlbum(val albumId: String) : GallerySheet
+
+    companion object {
+        private val objects: List<GallerySheet> = listOf(Filters, Activity, JumpToDate, SharedInvitations, SharedPicker,
+            SharedActivity, SharedManage, SharedInfo, CreateAlbum, CreateSharedAlbum)
+        private const val RENAME = "rename:"
+        private const val DELETE = "delete:"
+
+        val Saver = Saver<GallerySheet?, String>(
+            save = { sheet ->
+                when (sheet) {
+                    is RenameAlbum -> RENAME + sheet.albumId
+                    is DeleteAlbum -> DELETE + sheet.albumId
+                    null -> null
+                    else -> sheet.toString()
+                }
+            },
+            restore = { saved ->
+                when {
+                    saved.startsWith(RENAME) -> RenameAlbum(saved.removePrefix(RENAME))
+                    saved.startsWith(DELETE) -> DeleteAlbum(saved.removePrefix(DELETE))
+                    else -> objects.firstOrNull { it.toString() == saved }
+                }
+            },
+        )
+    }
+}
 
 /** The library's totals, shown under the grid. */
 internal data class PhotoCounts(val cloud: Int, val device: Int)
