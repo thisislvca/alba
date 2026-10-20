@@ -1,7 +1,8 @@
 plugins { alias(libs.plugins.alba.android.test) }
 
 android {
-    namespace = "me.lvca.alba.benchmark"
+    // The test APK's package. The app's benchmark and profile builds already use me.lvca.alba.benchmark.
+    namespace = "me.lvca.alba.benchmark.test"
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true
     buildTypes {
