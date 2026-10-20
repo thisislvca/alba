@@ -12,6 +12,7 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
@@ -58,7 +59,8 @@ class GalleryNavigationTest {
         compose.activityRule.scenario.recreate()
         compose.waitUntilDisplayed(hasText("Sea breeze"))
         compose.onNodeWithTag("tab-LIBRARY").performClick()
-        compose.waitUntilDisplayed(hasTestTag("media-fixture:icloud:0001")).performClick()
+        // The restored scroll position can leave the photo under the floating date button, so move it clear first.
+        compose.openGalleryMedia("fixture:icloud:0001")
         compose.waitUntilDisplayed(hasTestTag("viewer-more"))
         compose.openViewerDetails()
         androidx.test.espresso.Espresso.pressBack()

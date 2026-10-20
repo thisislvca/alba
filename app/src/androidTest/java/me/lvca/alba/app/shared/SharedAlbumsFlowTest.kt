@@ -131,7 +131,11 @@ class SharedAlbumsFlowTest {
         compose.onAllNodesWithText(label(R.string.shared_accept))[0].performScrollTo().performClick()
         confirm()
         compose.waitUntil(UI_WAIT) { runBlocking { repository.pendingSharedInvitations().size == 1 } }
-        androidx.test.espresso.Espresso.pressBack()
+        // Close through Compose: Espresso's back press waits for window focus, which the sheet and the
+        // dismissing confirmation dialog can withhold for longer than its timeout on slow CI emulators.
+        val close = hasContentDescription(label(R.string.close_surface)) and isEnabled()
+        compose.waitUntil(UI_WAIT) { compose.onAllNodes(close).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(close).performClick()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Sample weekend together"))
         compose.onNodeWithText("Sample weekend together").assertIsDisplayed()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Family moments"))
