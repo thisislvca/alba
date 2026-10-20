@@ -7,14 +7,14 @@ import kotlin.contracts.contract
 
 /** Like [require] or [check] for a user-facing condition: throws a final [PhotoCompanionException.Refused]. */
 @OptIn(ExperimentalContracts::class)
-internal inline fun refuseUnless(condition: Boolean, reason: StoredMessage) {
+internal fun refuseUnless(condition: Boolean, reason: StoredMessage) {
     contract { returns() implies condition }
     if (!condition) throw PhotoCompanionException.Refused(reason)
 }
 
 /** Like [requireNotNull] for a user-facing condition: throws a final [PhotoCompanionException.Refused]. */
 @OptIn(ExperimentalContracts::class)
-internal inline fun <T : Any> refuseIfNull(value: T?, reason: StoredMessage): T {
+internal fun <T : Any> refuseIfNull(value: T?, reason: StoredMessage): T {
     contract { returns() implies (value != null) }
     return value ?: throw PhotoCompanionException.Refused(reason)
 }
