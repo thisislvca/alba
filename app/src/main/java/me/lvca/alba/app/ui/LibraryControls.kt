@@ -22,6 +22,15 @@ import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
 import java.time.Instant
 import java.time.ZoneOffset
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.material.icons.Icons
+import android.os.Build
+import me.lvca.alba.engine.source.UploadMediaFormat
+import me.lvca.alba.protocol.account.SessionStatus
+import me.lvca.alba.app.localizedStoredMessage
+import androidx.annotation.DrawableRes
+import me.lvca.alba.app.ui.theme.AlbaSpacing
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 @Composable
 internal fun SelectionActions(state: GalleryUiState, selectAll: () -> Unit, clear: () -> Unit,
@@ -36,19 +45,19 @@ internal fun SelectionActions(state: GalleryUiState, selectAll: () -> Unit, clea
             val hasPhone = selectedItems.any { it.origin == MediaOrigin.DEVICE }
             var more by remember { mutableStateOf(false) }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(androidx.compose.ui.res.pluralStringResource(R.plurals.selected_count, state.selection.size, state.selection.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(pluralStringResource(R.plurals.selected_count, state.selection.size, state.selection.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 TextButton(onClick = selectAll) { Text(stringResource(R.string.select_all_shown)) }
-                IconButton(onClick = clear) { Icon(androidx.compose.material.icons.Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }
+                IconButton(onClick = clear) { Icon(Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalButton(enabled = state.activeDownloadId == null && selectedItems.size <= 50,
                     onClick = { actions.share(selectedItems) }) { Text(stringResource(R.string.share)) }
                 if (hasCloud) FilledTonalButton(onClick = { batch(BatchAction.KEEP_OFFLINE) }) { Text(stringResource(R.string.keep_offline)) }
-                if (hasCloud && !state.query.trashOnly && android.os.Build.VERSION.SDK_INT >= 29)
+                if (hasCloud && !state.query.trashOnly && Build.VERSION.SDK_INT >= 29)
                     FilledTonalButton(onClick = { batch(BatchAction.SAVE_TO_PHONE) }, modifier = Modifier.testTag("save-selection-to-phone")) {
                         Text(stringResource(R.string.save_to_phone_gallery))
                     }
-                if (hasPhone && !state.query.trashOnly && selectedItems.any { it.origin == MediaOrigin.DEVICE && me.lvca.alba.engine.source.UploadMediaFormat.isCandidate(it.mimeType) }) FilledTonalButton(enabled = state.accountState == ICloudAccountState.Demo || (state.accountState as? ICloudAccountState.SignedIn)?.status == me.lvca.alba.protocol.account.SessionStatus.VERIFIED,
+                if (hasPhone && !state.query.trashOnly && selectedItems.any { it.origin == MediaOrigin.DEVICE && UploadMediaFormat.isCandidate(it.mimeType) }) FilledTonalButton(enabled = state.accountState == ICloudAccountState.Demo || (state.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED,
                     onClick = { batch(BatchAction.UPLOAD) }) { Text(stringResource(if (state.accountState == ICloudAccountState.Demo) R.string.demo_upload_title else R.string.upload_phone_jpegs)) }
                 Box {
                     OutlinedButton(onClick = { more = true }) { Text(stringResource(R.string.more)) }
@@ -60,12 +69,12 @@ internal fun SelectionActions(state: GalleryUiState, selectAll: () -> Unit, clea
                             DropdownMenuItem(text = { Text(stringResource(R.string.unfavorite)) }, enabled = canFavorite,
                                 onClick = { more = false; actions.favorites(selectedItems.map { it.id }, false) })
                         }
-                        if (android.os.Build.VERSION.SDK_INT >= 30 && hasPhone && !hasCloud) DropdownMenuItem(
+                        if (Build.VERSION.SDK_INT >= 30 && hasPhone && !hasCloud) DropdownMenuItem(
                             text = { Text(stringResource(if (state.query.trashOnly) R.string.restore_photo else R.string.trash_phone_copy)) },
                             onClick = { more = false; actions.trash(selectedItems, state.query.trashOnly) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.add_to_album)) }, enabled = editable && !hasShared && !state.query.trashOnly && hasCloud && !hasPhone && selectedItems.size <= 50,
                             onClick = { more = false; addingToAlbum = true })
-                        val album = state.collections.firstOrNull { it.id == state.query.collectionId && it.shared == null && !it.isFolder && it.shared == null && !it.id.startsWith("smart:") && !it.id.startsWith("device-folder:") }
+                        val album = state.collections.firstOrNull { it.id == state.query.collectionId && it.isUserAlbum }
                         if (album != null && !state.query.trashOnly) DropdownMenuItem(text = { Text(stringResource(R.string.remove_from_album)) },
                             enabled = editable && hasCloud && !hasPhone && selectedItems.size <= 50,
                             onClick = { more = false; actions.removeFromAlbum(album.id, selectedItems.map { it.id }) })
@@ -102,8 +111,8 @@ internal fun BatchProgress(state: GalleryUiState, retry: (String) -> Unit, cance
                 else -> R.string.upload_photos
             })
             Text(stringResource(if (items.first().action in setOf("UPLOAD", "PICKER_UPLOAD")) R.string.batch_queued else R.string.batch_done, action, done, items.size))
-            if (failed > 0) Text(androidx.compose.ui.res.pluralStringResource(R.plurals.attention_count, failed, failed))
-            items.filter { it.state in setOf("FAILED", "NEEDS_ATTENTION", "STOPPED") }.take(3).forEach { Text(stringResource(R.string.batch_item_progress, it.mediaId.substringAfterLast('/'), me.lvca.alba.app.localizedStoredMessage(it.message).localized()), style = MaterialTheme.typography.bodySmall) }
+            if (failed > 0) Text(pluralStringResource(R.plurals.attention_count, failed, failed))
+            items.filter { it.state in setOf("FAILED", "NEEDS_ATTENTION", "STOPPED") }.take(3).forEach { Text(stringResource(R.string.batch_item_progress, it.mediaId.substringAfterLast('/'), localizedStoredMessage(it.message).localized()), style = MaterialTheme.typography.bodySmall) }
             TextButton(onClick = { expandedBatch = if (expandedBatch == id) null else id }) {
                 Text(if (expandedBatch == id) stringResource(R.string.hide_item_progress) else stringResource(R.string.show_item_progress))
             }
@@ -115,8 +124,8 @@ internal fun BatchProgress(state: GalleryUiState, retry: (String) -> Unit, cance
                         "CANCELED" -> stringResource(R.string.download_canceled)
                         "WAITING" -> stringResource(R.string.waiting)
                         "RUNNING" -> stringResource(R.string.batch_in_progress)
-                        "DONE" -> item.message?.let { me.lvca.alba.app.localizedStoredMessage(it).localized() } ?: stringResource(R.string.completed)
-                        else -> item.message?.let { me.lvca.alba.app.localizedStoredMessage(it).localized() } ?: stringResource(R.string.needs_attention)
+                        "DONE" -> item.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.completed)
+                        else -> item.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.needs_attention)
                     }
                     Text(stringResource(R.string.batch_item_progress, name, progress), style = MaterialTheme.typography.bodySmall)
                 }
@@ -130,13 +139,20 @@ internal fun BatchProgress(state: GalleryUiState, retry: (String) -> Unit, cance
     }
 }
 
+/** A personal iCloud album or folder: not shared, not a smart collection and not a phone folder. */
+internal val GalleryCollection.isPersonal: Boolean
+    get() = shared == null && !id.startsWith("smart:") && !id.startsWith("device-folder:")
+
+/** A personal album that holds photos, as opposed to a folder of albums. */
+internal val GalleryCollection.isUserAlbum: Boolean get() = isPersonal && !isFolder
+
 internal fun GalleryUiState.canEditLibrary() = (accountState == ICloudAccountState.Demo ||
-    (accountState as? ICloudAccountState.SignedIn)?.status == me.lvca.alba.protocol.account.SessionStatus.VERIFIED) &&
+    (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED) &&
     activeDownloadId == null && !accountBusy
 
 @Composable
-internal fun ICloudIcon(@androidx.annotation.DrawableRes resource: Int) {
-    Icon(painterResource(resource), contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF009FFF), modifier = Modifier.size(24.dp))
+internal fun ICloudIcon(@DrawableRes resource: Int) {
+    Icon(painterResource(resource), contentDescription = null, tint = AlbaTheme.colors.accent, modifier = Modifier.size(24.dp))
 }
 
 internal fun SmartCollection.icon(): Int = when (this) {
@@ -168,20 +184,15 @@ internal fun AlbumChooser(collections: List<GalleryCollection>, dismiss: () -> U
     AlbaBottomSheet(onDismissRequest = dismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             AlbaSheetHeading(stringResource(R.string.add_to_album), dismiss = dismiss)
-            val albums = collections.filter { !it.isFolder && it.shared == null && !it.id.startsWith("smart:") && !it.id.startsWith("device-folder:") }
+            val albums = collections.filter { it.isUserAlbum }
             TextButton(onClick = { creating = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.new_album))
             }
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp), contentPadding = PaddingValues(bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
                 items(albums, key = { it.id }) { album ->
-                    TextButton(modifier = Modifier.fillMaxWidth(), onClick = { choose(album.id) }) {
-                        ICloudIcon(R.drawable.icloud_albums)
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(album.name)
-                            collections.firstOrNull { it.id == album.parentId }?.let { Text(it.name, style = MaterialTheme.typography.bodySmall) }
-                        }
-                    }
+                    AlbaListRow(album.name, { choose(album.id) }, subtitle = collections.firstOrNull { it.id == album.parentId }?.name,
+                        leading = { ICloudIcon(R.drawable.icloud_albums) }, shape = MaterialTheme.shapes.small,
+                        contentPadding = PaddingValues(horizontal = AlbaSpacing.md, vertical = AlbaSpacing.sm))
                 }
             }
         }

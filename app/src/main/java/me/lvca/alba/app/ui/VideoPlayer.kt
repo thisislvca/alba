@@ -16,13 +16,11 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -59,10 +57,15 @@ import me.lvca.alba.engine.source.MediaRead
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.Locale
+import androidx.media3.common.util.UnstableApi
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.media3.common.VideoSize
+import androidx.compose.foundation.shape.CircleShape
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 typealias PlaybackReader = suspend (String, Long, Long) -> MediaRead
 
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 internal class LibraryDataSource(private val id: String, private val reader: PlaybackReader) : BaseDataSource(true) {
     private var handle: MediaRead? = null
     private var uri: Uri? = null
@@ -107,8 +110,8 @@ private class PlaybackMemory(position: Long, playing: Boolean) {
     }
 }
 
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoPlayer(
     id: String,
@@ -148,7 +151,7 @@ fun VideoPlayer(
         else setMediaSource(ProgressiveMediaSource.Factory { LibraryDataSource(id) { media, start, count -> currentReader(media, start, count) } }
             .createMediaSource(MediaItem.fromUri("alba://playback")))
         addListener(object : Player.Listener {
-            override fun onVideoSizeChanged(size: androidx.media3.common.VideoSize) {
+            override fun onVideoSizeChanged(size: VideoSize) {
                 if (size.width > 0 && size.height > 0) videoAspect = size.width * size.pixelWidthHeightRatio / size.height
             }
             override fun onEvents(player: Player, events: Player.Events) {
@@ -222,10 +225,11 @@ fun VideoPlayer(
             update = { it.player = player; it.keepScreenOn = state == R.string.playing }, modifier = Modifier.size(width, width / videoAspect))
         Box(Modifier.fillMaxSize().clickable(
             interactionSource = remember { MutableInteractionSource() }, indication = null,
+            onClickLabel = stringResource(R.string.toggle_photo_controls),
         ) { overlayVisible = !overlayVisible })
         if (showPlaybackControls && (!isPlaying || overlayVisible || scrubbing)) {
-            val darkControls = isSystemInDarkTheme() || isPlaying || controlsOnVideo
-            val ink = if (darkControls) Color(0xFFF4F4F4) else Color(0xFF30323A)
+            val darkControls = AlbaTheme.colors.isDark || isPlaying || controlsOnVideo
+            val ink = (if (darkControls) VideoControlsOnDark else VideoControlsOnLight).ink
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = navBottom + 76.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -265,8 +269,8 @@ fun VideoPlayer(
             }
         }
         error?.let { message ->
-            Surface(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(16.dp)) {
-                Column(Modifier.padding(12.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+            Surface(Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
+                Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(stringResource(message))
                     FilledTonalButton(onClick = {
                         memory.capture(); error = null
@@ -283,7 +287,7 @@ fun VideoPlayer(
         dragHandle = {
             Box(Modifier.fillMaxWidth().height(26.dp), contentAlignment = Alignment.TopCenter) {
                 Surface(Modifier.padding(top = 8.dp).size(32.dp, 4.dp),
-                    shape = RoundedCornerShape(100), color = colors.secondary.copy(alpha = .5f)) {}
+                    shape = CircleShape, color = colors.secondary.copy(alpha = .5f)) {}
             }
         }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).navigationBarsPadding()) {
@@ -293,7 +297,7 @@ fun VideoPlayer(
                 listOf(.25f, .5f, 1f, 1.5f, 2f).forEach { value ->
                     Surface(onClick = { speed = value; player.setPlaybackSpeed(value); onDismissOptions() },
                         modifier = Modifier.weight(1f).height(44.dp),
-                        shape = RoundedCornerShape(12.dp), color = if (speed == value) MaterialTheme.colorScheme.primaryContainer else colors.canvas) {
+                        shape = MaterialTheme.shapes.small, color = if (speed == value) MaterialTheme.colorScheme.primaryContainer else colors.canvas) {
                         Box(contentAlignment = Alignment.Center) {
                             val label = when (value) { .25f -> "0.25X"; .5f -> "0.5X"; 1f -> "1X"; 1.5f -> "1.5X"; else -> "2X" }
                             Text(if (speed == value) "✓ $label" else label,
@@ -323,8 +327,9 @@ private fun VideoTimeline(
     onSeek: (Long) -> Unit,
     onSeekFinished: () -> Unit,
 ) {
-    val played = if (darkCanvas) Color(0xFFF4F4F4) else Color(0xFF30323A)
-    val remaining = if (darkCanvas) Color(0xFF929292) else Color(0xFF838489)
+    val controls = if (darkCanvas) VideoControlsOnDark else VideoControlsOnLight
+    val played = controls.ink
+    val remaining = controls.track
     val fraction = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     val beginSeek by rememberUpdatedState(onSeekStart)
     val seek by rememberUpdatedState(onSeek)

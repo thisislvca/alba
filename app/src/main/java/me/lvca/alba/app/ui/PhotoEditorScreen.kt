@@ -16,7 +16,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
@@ -38,10 +37,16 @@ import me.lvca.alba.engine.model.GalleryMedia
 import java.io.File
 import kotlinx.coroutines.*
 import kotlin.math.hypot
+import android.net.Uri
+import android.os.Build
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedia) -> File, close: () -> Unit, saved: (android.net.Uri) -> Unit) {
+internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedia) -> File, close: () -> Unit, saved: (Uri) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var file by remember { mutableStateOf<File?>(null) }
@@ -99,7 +104,7 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
             busy = true; saving = true; failed = false
             try {
                 val output = renderPhotoEdit(input, crop, turns, allowSmallerCopy = allowSmaller)
-                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                if (Build.VERSION.SDK_INT >= 29) {
                     val uri = try { saveEditedCopy(context, media, output, source = input) } finally { output.recycle() }
                     close(); saved(uri)
                 } else {
@@ -114,17 +119,17 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
         }
     }
     Dialog(onDismissRequest = requestClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val dialogView = androidx.compose.ui.platform.LocalView.current
+        val dialogView = LocalView.current
         DisposableEffect(dialogView) {
-            (dialogView.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { window ->
-                androidx.core.view.WindowCompat.getInsetsController(window, dialogView).apply {
+            (dialogView.parent as? DialogWindowProvider)?.window?.let { window ->
+                WindowCompat.getInsetsController(window, dialogView).apply {
                     isAppearanceLightStatusBars = false
                     isAppearanceLightNavigationBars = false
                 }
             }
             onDispose { }
         }
-        me.lvca.alba.app.ui.theme.AlbaTheme(darkTheme = true) {
+        AlbaTheme(darkTheme = true) {
         if (discard) AlertDialog(onDismissRequest = { discard = false },
             title = { Text(stringResource(R.string.discard_edits_title)) },
             text = { Text(stringResource(R.string.discard_edits_explanation)) },
@@ -186,7 +191,7 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
                     if (busy) CircularProgressIndicator()
                 }
                 // Explicit presets also make cropping usable without precise drag gestures.
-                FlowRow(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0xFF1C1C1E)).padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                FlowRow(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                     TextButton(enabled = !busy && edit.canUndo, onClick = edit::undo, modifier = Modifier.testTag("undo-edit")) { Text(stringResource(R.string.undo_edit)) }
                     TextButton(enabled = !busy && edit.dirty, onClick = { edit.change(EditStep()) }) { Text(stringResource(R.string.reset)) }
                     TextButton(enabled = !busy && preview != null, onClick = {

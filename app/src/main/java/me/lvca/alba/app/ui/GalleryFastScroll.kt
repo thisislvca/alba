@@ -17,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.*
@@ -31,6 +30,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.res.stringResource
+import me.lvca.alba.app.R
 
 // Use a single half-circle: corner shapes can shrink their radii to this tab's narrow width.
 private val ScrubberTabShape = GenericShape { size, _ ->
@@ -47,7 +49,7 @@ internal data class GalleryScrollLabel(val index: Int, val month: String, val ye
 
 @Composable
 internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLabel>, fullSpanEstimates: Map<Int, Float>,
-    minimumTileDp: Int, modifier: Modifier = Modifier, bottomSpace: androidx.compose.ui.unit.Dp = 108.dp) {
+    minimumTileDp: Int, modifier: Modifier = Modifier, bottomSpace: Dp = 108.dp) {
     if (labels.isEmpty()) return
     val density = LocalDensity.current
     val spacing = with(density) { 2.dp.toPx() }
@@ -111,9 +113,10 @@ internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLa
     val hiddenOffset by animateFloatAsState(if (active) 0f else handlePx, tween(180), label = "scrubber-slide")
     val currentIndex = if (dragging) metrics.target(dragFraction).first else grid.firstVisibleItemIndex
     val label = labels.lastOrNull { it.index <= currentIndex } ?: labels.first()
+    val span = stringResource(R.string.month_span, labels.first().month, labels.last().month)
     Box(modifier.width(180.dp).padding(bottom = bottomSpace, top = 12.dp).clipToBounds().onSizeChanged { height = it.height }
         .semantics {
-            contentDescription = "${labels.first().month} – ${labels.last().month}"
+            contentDescription = span
             stateDescription = label.month
             progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
             setProgress { visible = true; lastMovement = SystemClock.uptimeMillis(); targets.trySend(it.coerceIn(0f, 1f)); true }
@@ -124,9 +127,9 @@ internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLa
                 val y = if (metrics.maxScroll > 0) (metrics.topOf(year.index) / metrics.maxScroll).coerceIn(0f, 1f) * travel else 0f
                 if (y - lastY >= handlePx * .65f) {
                     lastY = y
-                    Surface(Modifier.align(Alignment.TopEnd).offset { IntOffset(0, y.roundToInt()) }.padding(end = 48.dp).testTag("fast-scroll-year-${year.year}"), shape = CircleShape,
-                        color = Color.Black.copy(alpha = .82f), contentColor = Color.White) {
-                        Text(year.year.toString(), Modifier.padding(horizontal = 10.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium)
+                    MediaPill(Modifier.align(Alignment.TopEnd).offset { IntOffset(0, y.roundToInt()) }.padding(end = 48.dp).testTag("fast-scroll-year-${year.year}"),
+                        strong = true, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp)) {
+                        Text(year.year.toString(), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

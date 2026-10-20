@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -52,6 +51,11 @@ import java.time.LocalDate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.Role
+import me.lvca.alba.app.ui.theme.tile
 
 /**
  * Where a photo grid was, by media id rather than by index. A restored LazyGridState only knows an index, and it is
@@ -261,7 +265,7 @@ internal fun GalleryHome(
             if (wide) NavigationRail(Modifier.statusBarsPadding().testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
                 Spacer(Modifier.height(24.dp))
                 GalleryTab.entries.forEach { destination -> NavigationRailItem(selected = tab == destination,
-                    onClick = { navigate(destination) }, icon = { TabIcon(destination) }, label = { Text(stringResource(destination.title)) },
+                    onClick = { navigate(destination) }, icon = { Icon(destination.icon(), null, Modifier.size(24.dp)) }, label = { Text(stringResource(destination.title)) },
                     modifier = Modifier.testTag("tab-${destination.name}")) }
             }
             Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll.nestedScrollConnection), contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -276,22 +280,20 @@ internal fun GalleryHome(
                                 if (!hero) Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 else Spacer(Modifier.weight(1f))
                             } else {
-                                Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.alba_logo_mark), stringResource(R.string.brand_name), Modifier.size(44.dp))
+                                Box(Modifier.size(44.dp).clip(MaterialTheme.shapes.small), contentAlignment = Alignment.Center) {
+                                    Image(painterResource(R.drawable.alba_logo_mark), stringResource(R.string.brand_name), Modifier.size(44.dp))
                                 }
                                 if (!wide && tab == GalleryTab.LIBRARY) Spacer(Modifier.weight(1f))
                                 else Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(stringResource(R.string.brand_name), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                    if (state.accountState == ICloudAccountState.Demo) Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                                        Text(stringResource(R.string.demo_badge), Modifier.padding(horizontal = 6.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                                    }
+                                    if (state.accountState == ICloudAccountState.Demo) DemoBadge()
                                 }
                             }
                             if (hero) {
                                 if (collection?.shared != null) IconButton(onClick = { sharedManage = true }, enabled = state.canEditLibrary()) {
                                     Icon(Icons.Outlined.AccountCircle, stringResource(R.string.shared_manage))
                                 }
-                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                                 Box {
                                     IconButton(onClick = { albumMenu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.album_options)) }
                                     DropdownMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
@@ -320,18 +322,14 @@ internal fun GalleryHome(
                                     }
                                 }
                                 IconButton(onClick = account, modifier = Modifier.testTag("account-button").semantics { contentDescription = contextAccountLabel }) {
-                                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(36.dp)) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            if (signedIn != null) Text(signedIn.appleId.take(1).uppercase(), style = MaterialTheme.typography.titleMedium)
-                                            else Icon(Icons.Outlined.AccountCircle, null, Modifier.size(28.dp))
-                                        }
-                                    }
+                                    InitialAvatar(signedIn?.appleId, 36.dp, color = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer, textStyle = MaterialTheme.typography.titleMedium)
                                 }
                             }
                         }
                         if (!hero && state.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || state.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = account))
+                                modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = account))
                         }
                         if (state.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && state.selection.isNotEmpty()) SelectionActions(state, selectAll, clear, batch, actions)
@@ -340,7 +338,7 @@ internal fun GalleryHome(
                                 OutlinedTextField(state.query.filename, { change(state.query.copy(filename = it)) },
                                     label = { Text(stringResource(R.string.search_filenames)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
                                     trailingIcon = { if (state.query.filename.isNotEmpty()) IconButton(onClick = { change(state.query.copy(filename = "")) }) { Icon(Icons.Outlined.Close, stringResource(R.string.clear_search)) } },
-                                    singleLine = true, shape = RoundedCornerShape(28.dp),
+                                    singleLine = true, shape = MaterialTheme.shapes.extraLarge,
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("search-field"))
                             }
                             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -351,12 +349,12 @@ internal fun GalleryHome(
                                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
 
-                                if (inCollection && collection != null && collection.shared == null && !collection.id.startsWith("smart:") && !collection.id.startsWith("device-folder:")) {
+                                if (inCollection && collection != null && collection.isPersonal) {
                                     IconButton(enabled = state.canEditLibrary(), onClick = { editAlbum = collection.id }) { Icon(Icons.Outlined.Edit, stringResource(R.string.rename_album)) }
                                     IconButton(enabled = state.canEditLibrary(), onClick = { deleteAlbum = collection.id }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                                 }
                                 IconButton(enabled = state.sections.isNotEmpty(), onClick = { jump = true }) { Icon(Icons.Outlined.DateRange, stringResource(R.string.browse_by_date)) }
-                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                             }
                         }
                     }
@@ -391,7 +389,7 @@ internal fun GalleryHome(
                     if (collapseHeader) FloatingGridDate(visibleMonth,
                         dates = { jump = true }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
                     if (!wide && state.selection.isNotEmpty()) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(12.dp)
-                        .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = RoundedCornerShape(28.dp), tonalElevation = 8.dp, shadowElevation = 8.dp) {
+                        .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = MaterialTheme.shapes.extraLarge, tonalElevation = 8.dp, shadowElevation = 8.dp) {
                         SelectionActions(state, selectAll, clear, batch, actions)
                     }
                     else if (!wide) FloatingGalleryNavigation(tab, { navigate(it) },
@@ -417,15 +415,13 @@ internal fun GalleryHome(
             dismissButton = { TextButton(onClick = { deleteAlbum = null }) { Text(stringResource(R.string.cancel)) } })
     }
     if (activity) AlbaBottomSheet(onDismissRequest = { activity = false }) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AlbaSheetHeading(stringResource(R.string.activity), stringResource(R.string.uploads_downloads_and_backup), dismiss = { activity = false })
+        AlbaSheetBody(stringResource(R.string.activity), dismiss = { activity = false }, subtitle = stringResource(R.string.uploads_downloads_and_backup)) {
             Button(onClick = if (signedIn?.status == SessionStatus.VERIFIED || state.accountState == ICloudAccountState.Demo) upload else { { activity = false; account() } },
                 modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) { Icon(AlbaIcons.CloudUpload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.upload_photos)) }
             OutlinedButton(onClick = { activity = false; account() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
             if (state.transferQueue.isEmpty() && state.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
             if (state.transferQueue.isNotEmpty()) TransferQueueCard(state.transferQueue, continueUpload, demo = state.accountState == ICloudAccountState.Demo)
             BatchProgress(state, retry, actions.cancelDownloadBatch)
-            Spacer(Modifier.height(24.dp))
         }
     }
     if (sharedPicker && collection?.shared != null) SharedContributionPicker(state.catalogItems.filter {
@@ -448,17 +444,8 @@ internal fun GalleryHome(
 }
 
 @Composable
-private fun TabIcon(tab: GalleryTab) {
-    when (tab) {
-        GalleryTab.LIBRARY -> Icon(androidx.compose.ui.res.painterResource(R.drawable.icloud_library), null, Modifier.size(24.dp))
-        GalleryTab.COLLECTIONS -> Icon(androidx.compose.ui.res.painterResource(R.drawable.icloud_albums), null, Modifier.size(24.dp))
-        GalleryTab.SEARCH -> Icon(Icons.Outlined.Search, null)
-    }
-}
-
-@Composable
 private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAnchor, density: Int, changeDensity: (Int) -> Unit, actions: LibraryActions, open: (String) -> Unit, toggle: (String) -> Unit,
-    preview: (String) -> Unit, bottomSpace: androidx.compose.ui.unit.Dp, permission: Boolean, dismissPermission: () -> Unit, requestPhotos: () -> Unit, clearFilters: () -> Unit, leading: (@Composable () -> Unit)? = null, flat: Boolean = false, addMedia: (() -> Unit)? = null) {
+    preview: (String) -> Unit, bottomSpace: Dp, permission: Boolean, dismissPermission: () -> Unit, requestPhotos: () -> Unit, clearFilters: () -> Unit, leading: (@Composable () -> Unit)? = null, flat: Boolean = false, addMedia: (() -> Unit)? = null) {
     val leadingItems = if (leading != null) 1 else 0
     val mediaIds = state.items.map { it.id }
     val positions = remember(mediaIds) { mediaIds.withIndex().associate { it.value to it.index } }
@@ -490,8 +477,8 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
         .galleryGestures(grid, state.items, state.selection, density, changeDensity, { id, size -> galleryPosition(state.sections, permission, size >= 160, state.query.date, id, leadingItems, showDateHeaders = !flat) }, actions.selectItems).testTag("gallery-grid"),
         horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = PaddingValues(bottom = bottomSpace)) {
         if (permission) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
-            Surface(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
-                shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+            AlbaCard(Modifier.padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
+                color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Icon(AlbaIcons.PhoneAndroid, null, Modifier.padding(top = 2.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -518,7 +505,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
             if (!flat) item(key = "month-$month", span = { GridItemSpan(maxLineSpan) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { MonthHeader(month, items.size) }
-                    val selectionLabel = "${stringResource(R.string.select_all_shown)} · ${monthLabel(month)}"
+                    val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), monthLabel(month))
                     if (state.selection.isNotEmpty()) Checkbox(checked = items.all { it.id in state.selection },
                         onCheckedChange = { actions.selectItems(items.map { it.id }.toSet(), it) }, modifier = Modifier.padding(end = 12.dp).semantics { contentDescription = selectionLabel })
                 }
@@ -528,7 +515,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
             if (day != null) item(key = "day-$day", span = { GridItemSpan(maxLineSpan) }) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(dateLabel(day), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                    val selectionLabel = "${stringResource(R.string.select_all_shown)} · ${dateLabel(day)}"
+                    val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), dateLabel(day))
                     if (state.selection.isNotEmpty()) Checkbox(photos.all { it.id in state.selection }, { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) },
                         modifier = Modifier.semantics { contentDescription = selectionLabel })
                 }
@@ -553,14 +540,14 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
         }
         if (addMedia != null) item(key = "add-media") {
             Surface(onClick = addMedia, modifier = Modifier.aspectRatio(1f).testTag("album-add-media"),
-                shape = RoundedCornerShape(2.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                shape = MaterialTheme.shapes.tile, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }
             }
         }
         item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(state.items.size), style = MaterialTheme.typography.bodyMedium)
-                if (state.query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, androidx.compose.ui.res.pluralStringResource(R.plurals.cloud_photo_count, state.cloudCount, state.cloudCount), stringResource(R.string.phone_photo_count, state.deviceCount)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, state.cloudCount, state.cloudCount), stringResource(R.string.phone_photo_count, state.deviceCount)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -592,7 +579,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
 }
 
 @Composable
-private fun SearchLanding(bottomSpace: androidx.compose.ui.unit.Dp, onDates: () -> Unit, choose: (String) -> Unit) {
+private fun SearchLanding(bottomSpace: Dp, onDates: () -> Unit, choose: (String) -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp).padding(bottom = bottomSpace)) {
         Text(stringResource(R.string.find_a_moment), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))

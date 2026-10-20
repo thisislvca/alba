@@ -7,12 +7,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.GalleryUiState
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.theme.AlbaSpacing
+import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 
@@ -29,22 +30,22 @@ internal fun AccountDiagnostics(state: GalleryUiState, check: () -> Unit) {
         signedIn?.status == SessionStatus.VERIFIED -> R.string.apple_session_verified
         else -> R.string.restoring_your_session
     }
-    AlbaGroup(Modifier.testTag("profile-connection")) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    AlbaCard(Modifier.testTag("profile-connection")) {
+        Column(Modifier.padding(AlbaSpacing.xl), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.connection), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 Box(Modifier.size(8.dp).background(if (signedIn?.status == SessionStatus.VERIFIED && state.network?.online == true)
-                    Color(0xFF268858) else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
+                    AlbaTheme.colors.success else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
             }
             Text(stringResource(status), style = MaterialTheme.typography.bodyMedium)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
-            ConnectionFact(stringResource(R.string.profile_network), stringResource(when {
+            AlbaDivider()
+            AlbaFact(stringResource(R.string.profile_network), stringResource(when {
                 state.network == null -> R.string.checking_network
                 !state.network.online -> R.string.no_internet_connection
                 state.network.metered -> R.string.metered_network_automatic_backup_waits_for_unmetered_internet
                 else -> R.string.unmetered_internet_automatic_backup_can_run_when_enabled
             }))
-            if (signedIn != null) ConnectionFact(stringResource(R.string.photos), stringResource(when (info.photosAvailable) {
+            if (signedIn != null) AlbaFact(stringResource(R.string.photos), stringResource(when (info.photosAvailable) {
                 true -> R.string.photos_service_is_available_for_this_account
                 false -> R.string.apple_did_not_provide_a_photos_service_for_this_account
                 null -> R.string.photos_service_has_not_been_checked
@@ -60,10 +61,3 @@ internal fun AccountDiagnostics(state: GalleryUiState, check: () -> Unit) {
     }
 }
 
-@Composable
-private fun ConnectionFact(title: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium)
-    }
-}

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AlbaTheme's dark colorScheme.background. -->
+    <color name="window_background">#101114</color>
+</resources>

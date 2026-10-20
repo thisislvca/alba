@@ -33,6 +33,13 @@ import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import java.time.Instant
+import me.lvca.alba.app.ui.theme.AlbaSpacing
+import me.lvca.alba.engine.model.CloudPlanSource
+import android.content.ActivityNotFoundException
+import android.widget.Toast
+import java.util.Locale
+import me.lvca.alba.app.ui.theme.StorageColors
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 internal enum class ProfilePage(val title: Int) {
     OVERVIEW(R.string.profile_title), ACTIVATION(R.string.how_to_activate_icloud_photos), SIGN_IN(R.string.icloud_account),
@@ -45,24 +52,17 @@ private fun ProfileRow(
     title: String, subtitle: String? = null, icon: ImageVector, color: Color,
     tag: String, enabled: Boolean = true, onClick: () -> Unit,
 ) {
-    Surface(onClick = onClick, enabled = enabled, color = Color.Transparent, modifier = Modifier.fillMaxWidth().testTag(tag)) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp).heightIn(min = 32.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(32.dp).background(color, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
+    AlbaListRow(title, onClick, Modifier.testTag(tag), subtitle = subtitle, enabled = enabled, leadingSize = null,
+        leading = {
+            Box(Modifier.size(32.dp).background(color, MaterialTheme.shapes.extraSmall), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = AlbaTheme.colors.profile.onCard, modifier = Modifier.size(20.dp))
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge)
-                subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp))
-        }
-    }
+        },
+        trailing = { AlbaChevron(Modifier.size(18.dp)) })
 }
 
 @Composable
-private fun ProfileDivider() = HorizontalDivider(Modifier.padding(start = 60.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
+private fun ProfileDivider() = AlbaDivider(Modifier.padding(start = 60.dp))
 
 @Composable
 internal fun ProfileOverview(
@@ -81,76 +81,72 @@ internal fun ProfileOverview(
     val context = LocalContext.current
     val profile = diagnostics?.accountInfo?.profile?.takeIf { signedIn != null }
     val allowance = diagnostics?.accountInfo?.storage?.takeIf { it.isDemo == demo }
-    Surface(shape = RoundedCornerShape(24.dp), color = Color(0xFF082958), contentColor = Color.White,
+    val profileColors = AlbaTheme.colors.profile
+    Surface(shape = MaterialTheme.shapes.extraLarge, color = profileColors.card, contentColor = profileColors.onCard,
         modifier = Modifier.fillMaxWidth().testTag("profile-identity")) {
         Box {
             ProfileArtwork(Modifier.matchParentSize())
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.size(width = 144.dp, height = 124.dp).profileAvatarCloud(), contentAlignment = Alignment.TopStart) {
+            Column(Modifier.padding(AlbaSpacing.xxl), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+                    Box(Modifier.size(width = 144.dp, height = 124.dp).profileAvatarCloud(profileColors.avatarCloudShadow), contentAlignment = Alignment.TopStart) {
                         Box(Modifier.padding(top = 18.dp)) { AccountAvatar(profile?.photo, avatarSize = 88.dp) }
                     }
                     Spacer(Modifier.weight(1f))
-                    if (demo) Surface(color = Color(0xFF332878).copy(alpha = .40f), contentColor = Color.White, shape = CircleShape) {
-                        Text(stringResource(R.string.demo_badge), Modifier.padding(horizontal = 10.dp, vertical = 5.dp), style = MaterialTheme.typography.labelMedium)
-                    }
+                    if (demo) DemoBadge(color = profileColors.badge, contentColor = profileColors.onCard, large = true)
                     allowance?.let {
-                        Surface(color = Color(0xFF332878).copy(alpha = .40f), contentColor = Color.White, shape = RoundedCornerShape(10.dp)) {
+                        Surface(color = profileColors.badge, contentColor = profileColors.onCard, shape = MaterialTheme.shapes.small) {
                             Text(Formatter.formatShortFileSize(context, it.totalBytes), Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.titleSmall)
                         }
                     }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(profile?.displayName ?: stringResource(R.string.icloud), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
-                    signedIn?.let { Text(it.appleId, style = MaterialTheme.typography.bodyLarge, color = Color(0xFFE8ECFF)) }
+                Column(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
+                    Text(profile?.displayName ?: stringResource(R.string.icloud), style = MaterialTheme.typography.headlineLarge)
+                    signedIn?.let { Text(it.appleId, style = MaterialTheme.typography.bodyLarge, color = profileColors.onCardMuted) }
                     profile?.plan?.let { plan ->
                         val labels = plan.sources.map { source -> stringResource(when (source) {
-                            me.lvca.alba.engine.model.CloudPlanSource.ICLOUD_PLUS -> R.string.profile_plan_icloud_plus
-                            me.lvca.alba.engine.model.CloudPlanSource.APPLE_ONE -> R.string.profile_plan_apple_one
-                            me.lvca.alba.engine.model.CloudPlanSource.FAMILY -> R.string.profile_plan_family
-                            me.lvca.alba.engine.model.CloudPlanSource.COMPLIMENTARY -> R.string.profile_plan_complimentary
-                            me.lvca.alba.engine.model.CloudPlanSource.MANAGED -> R.string.profile_plan_managed
+                            CloudPlanSource.ICLOUD_PLUS -> R.string.profile_plan_icloud_plus
+                            CloudPlanSource.APPLE_ONE -> R.string.profile_plan_apple_one
+                            CloudPlanSource.FAMILY -> R.string.profile_plan_family
+                            CloudPlanSource.COMPLIMENTARY -> R.string.profile_plan_complimentary
+                            CloudPlanSource.MANAGED -> R.string.profile_plan_managed
                         }) }
                         Text(labels.joinToString(" · "), style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("profile-plan-name"))
                     }
-                    status?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Color(0xFFE8ECFF)) }
+                    status?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = profileColors.onCardMuted) }
                 }
                 if (demo || signedIn?.status == SessionStatus.EXPIRED || signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) {
                     Button(onClick = { onNavigate(if (signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) ProfilePage.ACTIVATION else ProfilePage.SIGN_IN) }, enabled = !busy,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF08386F)), modifier = Modifier.testTag("profile-sign-in")) {
+                        colors = ButtonDefaults.buttonColors(containerColor = profileColors.onCard, contentColor = profileColors.action), modifier = Modifier.testTag("profile-sign-in")) {
                         Text(stringResource(if (signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) R.string.how_to_activate_icloud_photos else R.string.sign_in_to_icloud))
                     }
                 } else if (signedIn != null) PlanLink(hero = true)
             }
         }
     }
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(AlbaSpacing.xl))
     ProfileStorage(diagnostics, demo, signedIn != null, onCheckConnection)
     diagnostics?.let {
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(AlbaSpacing.xl))
         AccountDiagnostics(it, onCheckConnection)
     }
-    Spacer(Modifier.height(24.dp))
-    Text(stringResource(R.string.profile_library_section), Modifier.padding(start = 16.dp, bottom = 8.dp),
+    Spacer(Modifier.height(AlbaSpacing.xxl))
+    Text(stringResource(R.string.profile_library_section), Modifier.padding(start = AlbaSpacing.lg, bottom = AlbaSpacing.sm),
         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    AlbaGroup {
+    AlbaCard {
         ProfileRow(stringResource(R.string.automatic_jpeg_backup),
             stringResource(if (demo) R.string.demo_backup_preview else if (backup.enabled) R.string.profile_backup_on else R.string.profile_backup_off),
-            AlbaIcons.CloudUpload, Color(0xFF268858), "profile-backup",
+            AlbaIcons.CloudUpload, profileColors.backupTile, "profile-backup",
             onClick = { onNavigate(ProfilePage.BACKUP) })
         if (diagnostics != null) {
             ProfileDivider()
-            val phoneSummary = diagnostics.phoneStorage?.let {
-                stringResource(R.string.phone_storage_usage, Formatter.formatShortFileSize(context, it.totalBytes), Formatter.formatShortFileSize(context, it.availableBytes))
-            } ?: stringResource(R.string.profile_device_detail)
+            val phoneSummary = diagnostics.phoneStorage?.let { phoneStorageSummary(it) } ?: stringResource(R.string.profile_device_detail)
             ProfileRow(stringResource(R.string.phone_storage_title), phoneSummary,
-                AlbaIcons.DownloadForOffline, Color(0xFF777C88), "profile-phone", onClick = { onNavigate(ProfilePage.PHONE) })
+                AlbaIcons.DownloadForOffline, profileColors.phoneTile, "profile-phone", onClick = { onNavigate(ProfilePage.PHONE) })
             diagnostics.phoneStorage?.let { usage ->
-                Column(Modifier.padding(start = 60.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(R.string.saved_thumbnails to usage.previewBytes, R.string.viewing_cache to usage.viewerBytes,
-                        R.string.offline_originals to usage.originalBytes).forEach { (label, bytes) ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(stringResource(label), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.padding(start = 60.dp, end = AlbaSpacing.lg, bottom = AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
+                    usage.byCategory().forEach { (category, bytes) ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+                            Text(stringResource(category.title()), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(Formatter.formatShortFileSize(context, bytes), style = MaterialTheme.typography.bodySmall)
                         }
                     }
@@ -158,14 +154,14 @@ internal fun ProfileOverview(
             }
         }
     }
-    Spacer(Modifier.height(24.dp))
-    AlbaGroup {
+    Spacer(Modifier.height(AlbaSpacing.xxl))
+    AlbaCard {
         ProfileRow(stringResource(R.string.about_title), stringResource(R.string.profile_about_detail),
-            Icons.Outlined.Info, Color(0xFF8A5CCD), "profile-about", onClick = { onNavigate(ProfilePage.ABOUT) })
+            Icons.Outlined.Info, profileColors.aboutTile, "profile-about", onClick = { onNavigate(ProfilePage.ABOUT) })
     }
     if (signedIn != null) {
-        Spacer(Modifier.height(24.dp))
-        AlbaGroup {
+        Spacer(Modifier.height(AlbaSpacing.xxl))
+        AlbaCard {
             TextButton(onClick = onSignOut, enabled = !busy, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                 Text(stringResource(R.string.sign_out_and_use_demo_library), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
@@ -176,15 +172,16 @@ internal fun ProfileOverview(
 @Composable
 private fun PlanLink(hero: Boolean = false) {
     val context = LocalContext.current
+    val ink = if (hero) AlbaTheme.colors.profile.onCard else MaterialTheme.colorScheme.primary
     val uriHandler = LocalUriHandler.current
     TextButton(onClick = {
         try { uriHandler.openUri("https://www.icloud.com/plan") }
-        catch (_: android.content.ActivityNotFoundException) {
-            android.widget.Toast.makeText(context, R.string.profile_browser_unavailable, android.widget.Toast.LENGTH_LONG).show()
+        catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, R.string.profile_browser_unavailable, Toast.LENGTH_LONG).show()
         }
     }, contentPadding = PaddingValues(0.dp), modifier = Modifier.heightIn(min = 48.dp).testTag("profile-manage-plan")) {
-        Text(stringResource(R.string.profile_manage_plan), color = if (hero) Color.White else MaterialTheme.colorScheme.primary)
-        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(18.dp), tint = if (hero) Color.White else MaterialTheme.colorScheme.primary)
+        Text(stringResource(R.string.profile_manage_plan), color = ink)
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(18.dp), tint = ink)
     }
 }
 
@@ -195,8 +192,9 @@ internal fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: B
     val info = state?.accountInfo
     val storage = info?.storage?.takeIf { it.isDemo == demo }
     fun bytes(value: Long) = Formatter.formatShortFileSize(context, value)
-    AlbaGroup {
-        Column(Modifier.padding(20.dp).testTag("profile-storage"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val categoryColors = AlbaTheme.colors.profile.storage
+    AlbaCard {
+        Column(Modifier.padding(AlbaSpacing.xl).testTag("profile-storage"), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
             Text(stringResource(labelRes), style = MaterialTheme.typography.titleMedium)
             if (storage != null) {
                 val usageLabel = stringResource(R.string.storage_used, bytes(storage.usedBytes), bytes(storage.totalBytes))
@@ -210,7 +208,7 @@ internal fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: B
                     var drawn = 0.0
                     storage.categories.filter { it.bytes > 0 }.forEach { category ->
                         val amount = category.bytes.toDouble().coerceAtMost((used - drawn).coerceAtLeast(0.0))
-                        if (amount > 0) drawRect(storageCategoryColor(category.name), Offset((size.width * drawn / total).toFloat(), 0f), Size((size.width * amount / total).toFloat(), size.height))
+                        if (amount > 0) drawRect(categoryColors.forCategory(category.name), Offset((size.width * drawn / total).toFloat(), 0f), Size((size.width * amount / total).toFloat(), size.height))
                         drawn += amount
                     }
                     if (drawn < used) drawRect(unclassified, Offset((size.width * drawn / total).toFloat(), 0f), Size((size.width * (used - drawn) / total).toFloat(), size.height))
@@ -219,7 +217,7 @@ internal fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: B
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 storage.categories.filter { it.bytes > 0 }.sortedByDescending { it.bytes }.forEach { category ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Box(Modifier.size(8.dp).background(storageCategoryColor(category.name), CircleShape))
+                        Box(Modifier.size(8.dp).background(categoryColors.forCategory(category.name), CircleShape))
                         Text(storageCategoryLabel(category.name), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         Text(bytes(category.bytes), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -240,12 +238,12 @@ internal fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: B
     }
 }
 
-private fun storageCategoryColor(name: String): Color = when (name.lowercase(java.util.Locale.ROOT)) {
-    "photos", "icloud photos" -> Color(0xFFF2B82F)
-    "documents", "docs" -> Color(0xFFF18B29)
-    "backups", "backup" -> Color(0xFF8272E8)
-    "messages" -> Color(0xFF43AB69)
-    "mail" -> Color(0xFF238BE6)
-    "family", "family sharing" -> Color(0xFF18AAA8)
-    else -> Color(0xFF858B96)
+private fun StorageColors.forCategory(name: String): Color = when (name.lowercase(Locale.ROOT)) {
+    "photos", "icloud photos" -> photos
+    "documents", "docs" -> documents
+    "backups", "backup" -> backups
+    "messages" -> messages
+    "mail" -> mail
+    "family", "family sharing" -> family
+    else -> other
 }

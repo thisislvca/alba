@@ -13,8 +13,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,22 +30,22 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
     val scope = rememberCoroutineScope()
     suspend fun load(reset: Boolean) {
         if (busy) return
+        val rank = if (reset) 0 else next ?: return
         busy = true; failed = false
         try {
-            val rank = if (reset) 0 else next ?: return
-            val page = actions.sharedActivity(album.id, rank)
-            if (!reset) check(page.posts.none { row -> posts.any { it.id == row.id } }) { "Activity changed. Refresh again." }
-            page.nextRank?.let { check(it > rank && page.posts.isNotEmpty()) }
-            posts = if (reset) page.posts else posts + page.posts
-            next = page.nextRank
-        } catch (e: CancellationException) { throw e }
-        catch (_: Exception) { failed = true }
-        finally { busy = false }
+            failed = !attempt {
+                val page = actions.sharedActivity(album.id, rank)
+                if (!reset) check(page.posts.none { row -> posts.any { it.id == row.id } }) { "Activity changed. Refresh again." }
+                page.nextRank?.let { check(it > rank && page.posts.isNotEmpty()) }
+                posts = if (reset) page.posts else posts + page.posts
+                next = page.nextRank
+            }
+        } finally { busy = false }
     }
     LaunchedEffect(album.id, revision) { load(true) }
     val byId = remember(media) { media.associateBy { it.id } }
     AlbaBottomSheet(onDismissRequest = dismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.lg)) {
             item { AlbaSheetHeading(stringResource(R.string.shared_activity), album.name, dismiss) }
             item { TextButton(onClick = { revision++ }, enabled = !busy) { Text(stringResource(R.string.shared_reload)) } }
             items(posts, key = { it.id }) { post ->
@@ -53,19 +53,17 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
                 var previewFailed by remember(post.id) { mutableStateOf(false) }
                 LaunchedEffect(post.id, revision) {
                     previewFailed = false
-                    try { photos = actions.sharedPostPhotos(post.id); previews[post.id] = photos; photos.forEach(preview) }
-                    catch (e: CancellationException) { throw e }
-                    catch (_: Exception) { previewFailed = true }
+                    previewFailed = !attempt { photos = actions.sharedPostPhotos(post.id); previews[post.id] = photos; photos.forEach(preview) }
                 }
-                Surface(shape = MaterialTheme.shapes.large, color = albaGroupColor()) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AlbaCard(contentPadding = PaddingValues(AlbaSpacing.lg)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
                         Text(if (post.isMine) stringResource(R.string.shared_you) else post.author, style = MaterialTheme.typography.titleSmall)
-                        if (post.timestamp > 0) Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(post.timestamp)), style = MaterialTheme.typography.labelMedium)
+                        if (post.timestamp > 0) Text(timestampLabel(post.timestamp), style = MaterialTheme.typography.labelMedium)
                         Text(post.caption.ifBlank { stringResource(R.string.shared_post_items) })
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
                             photos.mapNotNull(byId::get).take(4).forEach { item ->
                                 MediaThumbnail(item.previewReference, item.accentStartArgb, item.accentEndArgb, item.fileName,
-                                    Modifier.weight(1f).aspectRatio(1f).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).clickable { open(item.id) })
+                                    Modifier.weight(1f).aspectRatio(1f).clip(MaterialTheme.shapes.extraSmall).clickable { open(item.id) })
                             }
                         }
                         if (previewFailed) Text(stringResource(R.string.shared_action_failed), color = MaterialTheme.colorScheme.error)

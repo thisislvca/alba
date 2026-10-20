@@ -5,10 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,6 +28,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import java.time.Instant
 import java.time.ZoneOffset
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,17 +36,17 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
     refresh: () -> Unit, density: Int, changeDensity: (Int) -> Unit, dismiss: () -> Unit) {
     var dates by rememberSaveable { mutableStateOf(false) }
     AlbaBottomSheet(onDismissRequest = dismiss, maxHeightFraction = .82f) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).testTag("gallery-filter-sheet")) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = AlbaSpacing.xl).testTag("gallery-filter-sheet")) {
             AlbaSheetHeading(stringResource(R.string.filter_and_sort), dismiss = dismiss)
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("filter-options")) {
                 FilterSectionLabel(stringResource(R.string.photo_size))
-                Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
                     listOf(80 to R.string.small, 100 to R.string.medium, 160 to R.string.large).forEachIndexed { index, (size, label) ->
                         val selected = density == size
                         Surface(Modifier.weight(1f), color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .09f) else Color.Transparent,
-                            shape = RoundedCornerShape(12.dp)) {
-                            Column(Modifier.clip(RoundedCornerShape(12.dp)).selectable(selected, role = Role.RadioButton, onClick = { changeDensity(size) })
-                                .padding(horizontal = 4.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                            shape = MaterialTheme.shapes.small) {
+                            Column(Modifier.clip(MaterialTheme.shapes.small).selectable(selected, role = Role.RadioButton, onClick = { changeDensity(size) })
+                                .padding(horizontal = AlbaSpacing.xs, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                 DensityGridIcon(4 - index, tint)
@@ -62,7 +61,7 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
                     FilterMenuRow(stringResource(R.string.all_items), state.query.collectionId == null,
                         { change(state.query.copy(collectionId = null)) }, icon = { DensityGridIcon(3, LocalContentColor.current) })
                     FilterMenuRow(stringResource(R.string.favorites), state.query.collectionId == GalleryQuery.FAVORITES,
-                        { change(state.query.copy(collectionId = GalleryQuery.FAVORITES)) }, icon = { Icon(Icons.Filled.Favorite, null, Modifier.size(22.dp)) })
+                        { change(state.query.copy(collectionId = GalleryQuery.FAVORITES)) }, icon = { FavoriteIcon(true, null, Modifier.size(22.dp)) })
                     SmartCollection.entries.forEach { smart ->
                         FilterMenuRow(smart.localizedTitle(), state.query.collectionId == smart.id,
                             { change(state.query.copy(collectionId = smart.id)) }, icon = { Icon(painterResource(smart.icon()), null, Modifier.size(22.dp)) })
@@ -89,7 +88,7 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
                     }
                 }
                 if (state.query.date == GalleryDate.ADDED) Text(stringResource(R.string.uses_the_capture_date_when_the_added_date_is_unavailable),
-                    Modifier.padding(start = 36.dp, bottom = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Modifier.padding(start = 36.dp, bottom = AlbaSpacing.sm), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(Modifier.selectableGroup()) {
                     GallerySort.entries.forEach { sort ->
                         FilterMenuRow(stringResource(if (sort == GallerySort.NEWEST) R.string.newest_first else R.string.oldest_first), state.query.sort == sort,
@@ -103,9 +102,9 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
                     TextButton(onClick = { change(GalleryQuery()) }) { Text(stringResource(R.string.reset_filters)) }
                     TextButton(onClick = { refresh(); dismiss() }) { Text(stringResource(R.string.refresh_library)) }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(AlbaSpacing.sm))
             }
-            TextButton(onClick = dismiss, modifier = Modifier.fillMaxWidth().padding(top = 4.dp).navigationBarsPadding()) {
+            TextButton(onClick = dismiss, modifier = Modifier.fillMaxWidth().padding(top = AlbaSpacing.xs).navigationBarsPadding()) {
                 Text(stringResource(R.string.show_photos))
             }
         }
@@ -126,26 +125,27 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
 
 @Composable
 private fun FilterSectionLabel(title: String) {
-    Text(title, Modifier.padding(start = 8.dp, top = 4.dp, bottom = 8.dp),
+    Text(title, Modifier.padding(start = AlbaSpacing.sm, top = AlbaSpacing.xs, bottom = AlbaSpacing.sm),
         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
 private fun FilterDivider() {
-    HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+    AlbaDivider(Modifier.padding(vertical = AlbaSpacing.md))
 }
 
 @Composable
 private fun FilterMenuRow(label: String, selected: Boolean, onClick: () -> Unit, icon: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).selectable(selected, role = Role.RadioButton, onClick = onClick)
-        .heightIn(min = 48.dp).padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
-            if (selected) Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary)
-        }
-        if (icon != null) CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) { icon() }
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-    }
+    AlbaListRow(label, onClick, selected = selected, shape = MaterialTheme.shapes.extraSmall, leadingSize = null, minHeight = 48.dp,
+        contentPadding = PaddingValues(AlbaSpacing.sm),
+        leading = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+                Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
+                    if (selected) Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary)
+                }
+                if (icon != null) CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) { icon() }
+            }
+        })
 }
 
 @Composable

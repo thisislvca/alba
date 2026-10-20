@@ -86,8 +86,12 @@ class GalleryWorkflowComponentsTest {
     @Test fun phoneStorageCleanupRequiresConfirmationAndKeepsCategoriesSeparate() {
         var removed: LocalMediaCategory? = null
         val state = GalleryUiState(phoneStorage = LocalMediaStorage(1024, 2048, 4096, 128L * 1024 * 1024))
-        compose.setContent { AlbaTheme(darkTheme = false) { PhoneStorageCard(state, testLibraryActions(clearLocalMedia = { removed = it })) } }
-        compose.onNodeWithTag("phone-storage-button").performClick()
+        compose.setContent { AlbaTheme(darkTheme = false) {
+            // The profile's phone storage page: the production scaffold around the production card.
+            AlbaPageScaffold(text(R.string.phone_storage_title), onBack = {}) {
+                PhoneStorageDetails(state, testLibraryActions(clearLocalMedia = { removed = it }))
+            }
+        } }
         compose.onNodeWithTag("clear-storage-VIEWERS").performScrollTo().performClick()
         compose.onNodeWithText(text(R.string.cancel)).performClick()
         assertNull(removed)

@@ -50,7 +50,6 @@
     <string name="clear_dates">Clear dates</string>
     <string name="clear_filters">Clear filters</string>
     <string name="clear_search">Clear search</string>
-    <string name="cloud">Cloud</string>
     <string name="cloud_only">Cloud only</string>
     <string name="cloud_phone_counts">%1$s · %2$s</string>
     <string name="code_sent_device">Apple sent a six-digit code to a trusted Apple device.</string>
@@ -280,7 +279,6 @@
     <string name="panoramas">Panoramas</string>
     <string name="password">Password</string>
     <string name="personal_icloud_library">Personal iCloud library</string>
-    <string name="phone">Phone</string>
     <string name="photo_details_and_actions">Photo details and actions</string>
     <string name="photo_size">Photo size</string>
     <string name="photos">Photos</string>
@@ -291,7 +289,6 @@
     <string name="play_live_photo">Play Live Photo</string>
     <string name="playing">Playing</string>
     <string name="preparing_to_share">Preparing to share…</string>
-    <string name="preview">Preview</string>
     <string name="preview_cached">Preview cached</string>
     <string name="range_dates">%1$s – %2$s</string>
     <string name="ready">Ready</string>
@@ -776,4 +773,8 @@
     <string name="demo_cleanup_complete">Sample copy removed — no real photo deleted</string>
     <string name="demo_shared_notice">Demo: sample invitations, people and links. Nothing is sent or published. Changes reset when the app restarts.</string>
     <string name="demo_import_requested">Sample import requested</string>
+    <!-- Joins a label with a qualifier, such as a role and its invitation state. -->
+    <string name="label_with_detail">%1$s · %2$s</string>
+    <!-- The first and last month of a scrollable timeline. -->
+    <string name="month_span">%1$s – %2$s</string>
 </resources>

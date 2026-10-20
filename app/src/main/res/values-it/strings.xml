@@ -50,7 +50,6 @@
     <string name="clear_dates">Rimuovi date</string>
     <string name="clear_filters">Rimuovi filtri</string>
     <string name="clear_search">Cancella ricerca</string>
-    <string name="cloud">Cloud</string>
     <string name="cloud_only">Solo nel cloud</string>
     <string name="cloud_phone_counts">%1$s · %2$s</string>
     <string name="code_sent_device">Apple ha inviato un codice a sei cifre a un dispositivo Apple autorizzato.</string>
@@ -280,7 +279,6 @@
     <string name="panoramas">Panoramiche</string>
     <string name="password">Password</string>
     <string name="personal_icloud_library">Libreria iCloud personale</string>
-    <string name="phone">Telefono</string>
     <string name="photo_details_and_actions">Dettagli e azioni della foto</string>
     <string name="photo_size">Dimensione foto</string>
     <string name="photos">Foto</string>
@@ -291,7 +289,6 @@
     <string name="play_live_photo">Riproduci Live Photo</string>
     <string name="playing">Riproduzione</string>
     <string name="preparing_to_share">Preparazione della condivisione…</string>
-    <string name="preview">Anteprima</string>
     <string name="preview_cached">Anteprima salvata</string>
     <string name="range_dates">%1$s – %2$s</string>
     <string name="ready">Pronto</string>
@@ -788,4 +785,6 @@
     <string name="demo_cleanup_complete">Copia demo rimossa — nessuna foto reale eliminata</string>
     <string name="demo_shared_notice">Demo: inviti, persone e link di esempio. Non viene inviato o pubblicato nulla. Le modifiche si azzerano al riavvio dell’app.</string>
     <string name="demo_import_requested">Importazione demo richiesta</string>
+    <string name="label_with_detail">%1$s · %2$s</string>
+    <string name="month_span">%1$s – %2$s</string>
 </resources>

@@ -15,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -23,14 +25,21 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.galleryOverlay
+import me.lvca.alba.app.ui.theme.navigationLabel
 
 internal enum class GalleryTab(val title: Int) { LIBRARY(R.string.gallery_photos), COLLECTIONS(R.string.collections), SEARCH(R.string.search) }
+
+/** One glyph per destination, shared by the floating capsule and the navigation rail. */
+@Composable
+internal fun GalleryTab.icon(): Painter = when (this) {
+    GalleryTab.LIBRARY -> painterResource(R.drawable.icloud_library)
+    GalleryTab.COLLECTIONS -> painterResource(R.drawable.icloud_albums)
+    GalleryTab.SEARCH -> rememberVectorPainter(Icons.Outlined.Search)
+}
 
 private enum class TabDisplayMode { EXPANDED, COMPACT, ICON_ONLY }
 
@@ -43,8 +52,7 @@ private enum class TabDisplayMode { EXPANDED, COMPACT, ICON_ONLY }
 internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -> Unit, modifier: Modifier = Modifier) {
     val destinations = listOf(GalleryTab.LIBRARY, GalleryTab.COLLECTIONS)
     val titles = destinations.map { stringResource(it.title) }
-    // GoogleMaterial3 LabelLarge in the inspected resources: 14sp medium, 20sp line, no tracking.
-    val labelStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium, lineHeight = 20.sp, letterSpacing = 0.sp)
+    val labelStyle = MaterialTheme.typography.navigationLabel
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val labelWidths = titles.map { textMeasurer.measure(AnnotatedString(it), labelStyle, maxLines = 1, softWrap = false).size.width }
@@ -90,8 +98,7 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
                                 end = if (!showLabel || selected) 12.dp else 8.dp, top = 4.dp, bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 val foreground = if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant
-                                if (showIcon) Icon(painterResource(if (destination == GalleryTab.LIBRARY) R.drawable.icloud_library else R.drawable.icloud_albums),
-                                    null, Modifier.size(20.dp), tint = foreground)
+                                if (showIcon) Icon(destination.icon(), null, Modifier.size(20.dp), tint = foreground)
                                 if (showLabel) Text(titles[index], color = foreground, style = labelStyle, maxLines = 1, softWrap = false)
                             }
                         }
@@ -103,7 +110,7 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
                 Box(Modifier.size(56.dp).clip(CircleShape)
                     .selectable(tab == GalleryTab.SEARCH, role = Role.Tab, onClick = { navigate(GalleryTab.SEARCH) })
                     .testTag("tab-SEARCH"), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.Search, stringResource(R.string.search), Modifier.size(24.dp))
+                    Icon(GalleryTab.SEARCH.icon(), stringResource(R.string.search), Modifier.size(24.dp))
                 }
             }
         }

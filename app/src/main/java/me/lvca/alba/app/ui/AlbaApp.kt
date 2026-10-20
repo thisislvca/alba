@@ -33,12 +33,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -88,6 +85,14 @@ import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
 import java.time.YearMonth
+import androidx.compose.material3.AlertDialog
+import me.lvca.alba.app.localizedStoredMessage
+import android.text.format.Formatter
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.ui.res.painterResource
+import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.theme.tile
 
 private data class GalleryDestination(val screen: String, val media: GalleryMedia?, val items: List<GalleryMedia>)
 
@@ -136,7 +141,7 @@ fun AlbaApp(
         onDismissMessage()
     }
 
-    if (state.activeDownloadId == "share") androidx.compose.material3.AlertDialog(
+    if (state.activeDownloadId == "share") AlertDialog(
         onDismissRequest = libraryActions.cancelShare, title = { Text(stringResource(R.string.preparing_to_share)) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CircularProgressIndicator()
@@ -323,13 +328,10 @@ internal fun TransferQueueCard(
     onContinuePastUnresolved: (TransferId) -> Unit,
     demo: Boolean = false,
 ) {
-    Card(
+    AlbaCard(
         modifier = Modifier
-            .fillMaxWidth()
             .padding(bottom = 12.dp)
             .testTag("transfer-queue"),
-        colors = CardDefaults.cardColors(containerColor = albaGroupColor()),
-        shape = RoundedCornerShape(20.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text(stringResource(if (demo) R.string.demo_backup_title else R.string.uploads), style = MaterialTheme.typography.titleMedium)
@@ -364,7 +366,7 @@ internal fun TransferQueueCard(
                                 TransferViewState.CHECKING_ICLOUD -> R.string.demo_backup_checking
                                 TransferViewState.VERIFIED -> R.string.demo_backup_complete
                                 else -> R.string.demo_backup_off
-                            } }) else transfer.message?.let { me.lvca.alba.app.localizedStoredMessage(it).localized() } ?: transfer.state.label(),
+                            } }) else transfer.message?.let { localizedStoredMessage(it).localized() } ?: transfer.state.label(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,
@@ -440,7 +442,7 @@ internal fun MediaTile(
                 this.selected = selected
                 contentDescription = description
             },
-        shape = RoundedCornerShape(2.dp),
+        shape = MaterialTheme.shapes.tile,
         tonalElevation = 1.dp,
     ) {
         Box {
@@ -454,58 +456,28 @@ internal fun MediaTile(
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
             )
-            if (media.kind == MediaKind.VIDEO || media.availability == MediaAvailability.ORIGINAL_CACHED) Box(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(44.dp).background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .6f)))))
+            val onMedia = AlbaTheme.colors.onMedia
+            if (media.kind == MediaKind.VIDEO || media.availability == MediaAvailability.ORIGINAL_CACHED)
+                MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(44.dp))
             if (media.availability == MediaAvailability.ORIGINAL_CACHED) Icon(
-                AlbaIcons.DownloadForOffline, contentDescription = stringResource(R.string.available_offline), tint = Color.White,
+                AlbaIcons.DownloadForOffline, contentDescription = stringResource(R.string.available_offline), tint = onMedia,
                 modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).size(18.dp))
             if (media.kind == MediaKind.VIDEO) {
                 val duration = mediaDuration(media.durationMillis)
-                if (duration != null) Text(duration, color = Color.White, style = MaterialTheme.typography.labelMedium,
+                if (duration != null) Text(duration, color = onMedia, style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.align(Alignment.BottomEnd).padding(horizontal = 7.dp, vertical = 5.dp))
-                else Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, stringResource(R.string.videos), tint = Color.White,
+                else Icon(Icons.Filled.PlayArrow, stringResource(R.string.videos), tint = onMedia,
                     modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(18.dp))
             }
-            if (media.kind == MediaKind.LIVE_PHOTO) Row(
-                Modifier.align(Alignment.TopStart).padding(6.dp).background(Color.Black.copy(alpha = .65f), CircleShape).padding(horizontal = 7.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Icon(androidx.compose.ui.res.painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp), tint = Color.White)
-                Text(stringResource(R.string.live_badge), color = Color.White, style = MaterialTheme.typography.labelSmall)
+            if (media.kind == MediaKind.LIVE_PHOTO) MediaPill(Modifier.align(Alignment.TopStart).padding(6.dp)) {
+                Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp))
+                Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
             }
-            if (media.isFavorite && !selected) Icon(Icons.Filled.Favorite,
-                contentDescription = stringResource(R.string.favorite), tint = Color.White,
+            if (media.isFavorite && !selected) FavoriteIcon(true,
+                contentDescription = stringResource(R.string.favorite), tint = onMedia,
                 modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(16.dp))
-            if (selected) Text("✓", color = Color.White, modifier = Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.primary).padding(8.dp))
-        }
-    }
-}
-
-@Composable
-private fun AvailabilityBadge(
-    availability: MediaAvailability,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = Color.Black.copy(alpha = 0.62f),
-        contentColor = Color.White,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = availability.icon(),
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = availability.shortLabel(),
-                style = MaterialTheme.typography.labelMedium,
-            )
+            if (selected) Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.primary).padding(6.dp).size(18.dp))
         }
     }
 }
@@ -575,9 +547,8 @@ internal fun DeviceUploadControls(
     Column {
         // Verified status is already shown in the metadata card above these actions.
         if (uploadTransfer.state != TransferViewState.VERIFIED) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
+            AlbaCard(
+                shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ) {
@@ -596,7 +567,7 @@ internal fun DeviceUploadControls(
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                text = uploadTransfer.message?.let { me.lvca.alba.app.localizedStoredMessage(it).localized() } ?: stringResource(R.string.staged_bytes, android.text.format.Formatter.formatShortFileSize(androidx.compose.ui.platform.LocalContext.current, uploadTransfer.byteCount)),
+                                text = uploadTransfer.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.staged_bytes, Formatter.formatShortFileSize(LocalContext.current, uploadTransfer.byteCount)),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
@@ -645,21 +616,6 @@ internal fun DeviceUploadControls(
             }
         }
     }
-}
-
-private fun MediaAvailability.icon(): ImageVector = when (this) {
-    MediaAvailability.CLOUD_ONLY -> AlbaIcons.CloudQueue
-    MediaAvailability.PREVIEW_CACHED -> AlbaIcons.CloudDone
-    MediaAvailability.ORIGINAL_CACHED -> AlbaIcons.DownloadForOffline
-    MediaAvailability.DEVICE_ORIGINAL -> AlbaIcons.PhoneAndroid
-}
-
-@Composable
-private fun MediaAvailability.shortLabel(): String = when (this) {
-    MediaAvailability.CLOUD_ONLY -> stringResource(R.string.cloud)
-    MediaAvailability.PREVIEW_CACHED -> stringResource(R.string.preview)
-    MediaAvailability.ORIGINAL_CACHED -> stringResource(R.string.offline)
-    MediaAvailability.DEVICE_ORIGINAL -> stringResource(R.string.phone)
 }
 
 @Composable

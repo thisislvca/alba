@@ -7,24 +7,19 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -35,6 +30,11 @@ import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import android.provider.Settings
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.graphics.RectangleShape
+import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.theme.heroTitle
 
 internal data class CollectionPreview(val count: Int = 0, val media: List<GalleryMedia> = emptyList())
 
@@ -94,8 +94,8 @@ internal fun AlbumCover(media: List<GalleryMedia>, retry: Int, preview: (String)
             while (true) {
                 delay(6_500)
                 // Respect Android's reduced-animation preference, including changes while open.
-                if (android.provider.Settings.Global.getFloat(context.contentResolver,
-                        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f) index = (index + 1) % candidates.size
+                if (Settings.Global.getFloat(context.contentResolver,
+                        Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f) index = (index + 1) % candidates.size
             }
         }
     }
@@ -107,38 +107,32 @@ internal fun AlbumCover(media: List<GalleryMedia>, retry: Int, preview: (String)
 @Composable
 internal fun OwnerAvatar(name: String?, modifier: Modifier = Modifier) {
     val description = name?.let { stringResource(R.string.shared_owner, it) }
-    Surface(modifier.size(34.dp).then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
-        shape = CircleShape, color = Color(0xFFEEECE8), contentColor = Color(0xFF35383C), shadowElevation = 2.dp) {
-        Box(contentAlignment = Alignment.Center) {
-            val initial = name?.trim()?.firstOrNull()?.uppercaseChar()?.toString()
-            if (initial == null) Icon(Icons.Outlined.AccountCircle, null, Modifier.size(26.dp))
-            else Text(initial, style = MaterialTheme.typography.titleSmall)
-        }
-    }
+    InitialAvatar(name, 34.dp, modifier.then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
+        shadowElevation = 2.dp)
 }
 
 @Composable
 internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, retry: Int,
     preview: (String) -> Unit, modifier: Modifier = Modifier, featured: Boolean = false, open: () -> Unit) {
     Surface(onClick = open, modifier = modifier.testTag("${if (album.shared != null) "shared-" else ""}album-${album.id}"),
-        shape = if (featured) RoundedCornerShape(16.dp) else androidx.compose.ui.graphics.RectangleShape,
+        shape = if (featured) MaterialTheme.shapes.medium else RectangleShape,
         color = MaterialTheme.colorScheme.background) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(RoundedCornerShape(16.dp))) {
+            Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(MaterialTheme.shapes.medium)) {
                 AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), coverMediaId = album.coverMediaId)
                 if (album.shared != null) OwnerAvatar(album.shared?.ownerName, Modifier.align(Alignment.TopStart).padding(10.dp))
                 if (featured) {
-                    Box(Modifier.fillMaxWidth().height(100.dp).align(Alignment.BottomCenter)
-                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .8f)))))
+                    val onMedia = AlbaTheme.colors.onMedia
+                    MediaScrim(Modifier.fillMaxWidth().height(100.dp).align(Alignment.BottomCenter), MediaScrimStrength.Strong)
                     Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
-                        Text(album.localizedName(), color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(itemCount(summary?.count ?: 0), color = Color.White.copy(alpha = .85f), style = MaterialTheme.typography.bodySmall)
+                        Text(album.localizedName(), color = onMedia, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(itemCount(summary?.count ?: 0), color = onMedia.copy(alpha = .85f), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
             if (!featured) {
                 Text(album.localizedName(), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))
-                Text(if (album.isFolder) androidx.compose.ui.res.pluralStringResource(R.plurals.folder_album_count, summary?.count ?: 0, summary?.count ?: 0) else itemCount(summary?.count ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Text(if (album.isFolder) pluralStringResource(R.plurals.folder_album_count, summary?.count ?: 0, summary?.count ?: 0) else itemCount(summary?.count ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
             }
         }
@@ -168,26 +162,28 @@ internal fun AlbumHero(album: GalleryCollection, summary: CollectionPreview?, re
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("album-hero")) {
         Box(Modifier.fillMaxWidth().height((maxWidth * .95f).coerceIn(260.dp, 420.dp))) {
             AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), rotating = true, coverMediaId = album.coverMediaId)
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .12f), Color.Black.copy(alpha = .85f)))))
+            val onMedia = AlbaTheme.colors.onMedia
+            val mediaButton = IconButtonDefaults.filledIconButtonColors(containerColor = AlbaTheme.colors.mediaScrim.copy(alpha = .45f), contentColor = onMedia)
+            MediaScrim(Modifier.fillMaxSize(), MediaScrimStrength.Strong)
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
-                Text(album.localizedName(), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Color.White,
+                Text(album.localizedName(), style = MaterialTheme.typography.heroTitle, color = onMedia,
                     maxLines = 3, overflow = TextOverflow.Ellipsis)
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(itemCount(summary?.count ?: 0), color = Color.White, style = MaterialTheme.typography.bodyLarge)
+                        Text(itemCount(summary?.count ?: 0), color = onMedia, style = MaterialTheme.typography.bodyLarge)
                         if (info != null && album.shared != null) TextButton(onClick = info,
                             contentPadding = PaddingValues(0.dp), modifier = Modifier.testTag("shared-version-badge"),
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = .85f))) {
+                            colors = ButtonDefaults.textButtonColors(contentColor = onMedia.copy(alpha = .85f))) {
                             Text(stringResource(if (album.shared?.generation == SharedAlbumGeneration.MODERN) R.string.shared_new else R.string.shared_legacy), style = MaterialTheme.typography.labelMedium)
                         }
-                        album.shared?.ownerName?.let { Text(stringResource(R.string.shared_owner, it), color = Color.White.copy(alpha = .8f), style = MaterialTheme.typography.bodySmall) }
+                        album.shared?.ownerName?.let { Text(stringResource(R.string.shared_owner, it), color = onMedia.copy(alpha = .8f), style = MaterialTheme.typography.bodySmall) }
                     }
-                    if (activity != null) FilledIconButton(onClick = activity, modifier = Modifier.size(48.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.Black.copy(alpha = .45f), contentColor = Color.White)) {
+                    if (activity != null) FilledIconButton(onClick = activity, modifier = Modifier.size(48.dp), colors = mediaButton) {
                         Icon(painterResource(R.drawable.ic_album_activity), stringResource(R.string.shared_activity))
                     }
                     if (view != null) {
                         Spacer(Modifier.width(8.dp))
-                        FilledIconButton(onClick = view, modifier = Modifier.size(48.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.Black.copy(alpha = .45f), contentColor = Color.White)) {
+                        FilledIconButton(onClick = view, modifier = Modifier.size(48.dp), colors = mediaButton) {
                             Icon(Icons.Filled.PlayArrow, stringResource(R.string.view_album))
                         }
                     }

@@ -18,8 +18,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @Composable
 internal fun sharedRole(role: SharedAlbumRole): String = stringResource(when (role) {
@@ -33,37 +33,26 @@ internal fun sharedRole(role: SharedAlbumRole): String = stringResource(when (ro
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedActions, dismiss: () -> Unit) {
-    var data by remember(album.id) { mutableStateOf<SharedAlbumManagement?>(null) }
-    var error by remember(album.id) { mutableStateOf(false) }
+    val management = rememberLoadable<SharedAlbumManagement?>(album.id, initial = null) { actions.sharedManagement(album.id) }
+    val data = management.value
     var busy by remember { mutableStateOf(false) }
-    var revision by remember { mutableIntStateOf(0) }
     var name by rememberSaveable(album.id) { mutableStateOf(album.name) }
     var email by rememberSaveable(album.id) { mutableStateOf("") }
     var pending by remember { mutableStateOf<SharedCommand?>(null) }
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
     val clipboard = LocalClipboardManager.current
-    LaunchedEffect(album.id, revision) {
-        error = false
-        try { data = actions.sharedManagement(album.id) }
-        catch (e: CancellationException) { throw e }
-        catch (_: Exception) { error = true }
-    }
     AlbaBottomSheet(onDismissRequest = { if (!busy) dismiss() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), modifier = Modifier.testTag("shared-management")) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AlbaSheetHeading(stringResource(R.string.shared_manage), album.name, dismiss, !busy)
+        AlbaSheetBody(stringResource(R.string.shared_manage), dismiss, subtitle = album.name, dismissEnabled = !busy) {
             if (album.id.startsWith("shared:demo-library:")) Text(stringResource(R.string.demo_shared_notice))
-            if (busy || (data == null && !error)) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (error) {
-                Text(stringResource(R.string.shared_action_failed), color = MaterialTheme.colorScheme.error)
-                OutlinedButton(onClick = { revision++ }, enabled = !busy) { Text(stringResource(R.string.shared_reload)) }
-            }
+            AlbaLoadState(busy || management.loading, management.failed, stringResource(R.string.shared_action_failed),
+                onReload = management::reload, reloadEnabled = !busy)
             data?.let { state ->
                 val info = requireNotNull(state.album.shared)
                 Text(sharedRole(info.role))
                 if (info.canManage) {
-                    AlbaGroup {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AlbaCard {
+                        Column(Modifier.padding(AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(name, { name = it.take(255) }, label = { Text(stringResource(R.string.album_name)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())
                             TextButton(onClick = { pending = SharedCommand(SharedAction.RENAME, value = name.trim()) }, enabled = !busy && name.isNotBlank() && name != state.album.name) { Text(stringResource(R.string.rename_album)) }
                             OutlinedTextField(email, { email = it }, label = { Text(stringResource(R.string.shared_invite_email)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("shared-invite-email"))
@@ -106,10 +95,11 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
                     }
                 }
                 state.participants.forEach { p ->
-                    AlbaGroup {
-                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                    AlbaCard {
+                        Column(Modifier.fillMaxWidth().padding(AlbaSpacing.lg)) {
                             Text(p.name, style = MaterialTheme.typography.titleSmall)
-                            Text(sharedRole(p.role) + if (p.pending) " · " + stringResource(R.string.shared_invited) else "", style = MaterialTheme.typography.bodySmall)
+                            Text(if (p.pending) stringResource(R.string.label_with_detail, sharedRole(p.role), stringResource(R.string.shared_invited)) else sharedRole(p.role),
+                                style = MaterialTheme.typography.bodySmall)
                             if (info.canManage && p.role != SharedAlbumRole.OWNER && !p.isCurrentUser) {
                                 if (info.generation == SharedAlbumGeneration.MODERN) {
                                     listOf("contributor" to SharedAlbumRole.CONTRIBUTOR, "commenter" to SharedAlbumRole.COMMENTER, "manager" to SharedAlbumRole.MANAGER).forEach { (wire, role) ->
@@ -127,7 +117,6 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
                     OutlinedButton(onClick = { pending = SharedCommand(SharedAction.LEAVE) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_leave)) }
                 }
             }
-            Spacer(Modifier.height(24.dp))
         }
     }
     pending?.let { command -> SharedChangeConfirmation(command,
@@ -135,15 +124,15 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
             ?: data?.requests?.firstOrNull { it.id == command.subject }?.name
             ?: data?.blocked?.firstOrNull { it.id == command.subject }?.name,
         cancel = { pending = null }) {
-        focus.clearFocus(); pending = null; busy = true; error = false
+        focus.clearFocus(); pending = null; busy = true; management.failed = false
         scope.launch {
             try {
-                actions.changeSharedAlbum(album.id, command)
-                if (command.action in setOf(SharedAction.DELETE_ALBUM, SharedAction.LEAVE)) dismiss()
-                else { email = ""; revision++ }
-            } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { error = true }
-            finally { busy = false }
+                management.failed = !attempt {
+                    actions.changeSharedAlbum(album.id, command)
+                    if (command.action in setOf(SharedAction.DELETE_ALBUM, SharedAction.LEAVE)) dismiss()
+                    else { email = ""; management.reload() }
+                }
+            } finally { busy = false }
         }
     } }
 }
@@ -171,42 +160,33 @@ internal fun SharedPostControls(post: SharedPost, actions: SharedActions, dismis
 @Composable
 private fun SharedDiscussionControls(id: String, title: String, post: Boolean, actions: SharedActions, dismiss: () -> Unit) {
     val album = id.removePrefix("post:").substringBeforeLast(':')
-    var discussion by remember(id) { mutableStateOf<SharedDiscussion?>(null) }
     var management by remember(id) { mutableStateOf<SharedAlbumManagement?>(null) }
+    val thread = rememberLoadable<SharedDiscussion?>(id, initial = null) {
+        (if (post) actions.sharedPostDiscussion(id) else actions.sharedDiscussion(id)).also { management = actions.sharedManagement(album) }
+    }
+    val discussion = thread.value
     var text by rememberSaveable(id) { mutableStateOf("") }
-    var revision by remember { mutableIntStateOf(0) }
-    var error by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<SharedCommand?>(null) }
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
     fun perform(command: SharedCommand) {
         if (busy) return
-        focus.clearFocus(); busy = true; error = false
+        focus.clearFocus(); busy = true; thread.failed = false
         scope.launch {
             try {
-                actions.changeSharedAlbum(album, command)
-                if (command.action == SharedAction.REMOVE_MEDIA) dismiss()
-                else { if (command.action in setOf(SharedAction.COMMENT, SharedAction.POST_COMMENT)) text = ""; revision++ }
-            } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { error = true }
-            finally { busy = false }
+                thread.failed = !attempt {
+                    actions.changeSharedAlbum(album, command)
+                    if (command.action == SharedAction.REMOVE_MEDIA) dismiss()
+                    else { if (command.action in setOf(SharedAction.COMMENT, SharedAction.POST_COMMENT)) text = ""; thread.reload() }
+                }
+            } finally { busy = false }
         }
     }
-    LaunchedEffect(id, revision) {
-        error = false
-        try { discussion = if (post) actions.sharedPostDiscussion(id) else actions.sharedDiscussion(id); management = actions.sharedManagement(album) }
-        catch (e: CancellationException) { throw e }
-        catch (_: Exception) { error = true }
-    }
     AlbaBottomSheet(onDismissRequest = { if (!busy) dismiss() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), modifier = Modifier.testTag("shared-discussion")) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AlbaSheetHeading(stringResource(R.string.shared_discussion), title, dismiss, !busy)
-            if (busy || (discussion == null && !error)) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (error) {
-                Text(stringResource(R.string.shared_action_failed), color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = { revision++ }, enabled = !busy) { Text(stringResource(R.string.shared_reload)) }
-            }
+        AlbaSheetBody(stringResource(R.string.shared_discussion), dismiss, subtitle = title, dismissEnabled = !busy) {
+            AlbaLoadState(busy || thread.loading, thread.failed, stringResource(R.string.shared_action_failed),
+                onReload = thread::reload, reloadEnabled = !busy)
             discussion?.let { thread ->
                 if (thread.canComment) {
                     val emojis = if (thread.generation == SharedAlbumGeneration.LEGACY) listOf("👍") else listOf("👍", "❤️", "😍", "🎉", "🔥", "😂")
@@ -221,10 +201,10 @@ private fun SharedDiscussionControls(id: String, title: String, post: Boolean, a
                 }
                 if (thread.comments.isEmpty()) Text(stringResource(R.string.shared_no_comments))
                 thread.comments.forEach { comment ->
-                    Surface(shape = MaterialTheme.shapes.medium, color = albaGroupColor()) {
-                        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                    AlbaCard(contentPadding = PaddingValues(14.dp)) {
+                        Column {
                             Text(if (comment.isMine) stringResource(R.string.shared_you) else comment.author, style = MaterialTheme.typography.labelLarge)
-                            if (comment.timestamp > 0) Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(comment.timestamp)), style = MaterialTheme.typography.labelSmall)
+                            if (comment.timestamp > 0) Text(timestampLabel(comment.timestamp), style = MaterialTheme.typography.labelSmall)
                             Text(comment.text)
                             if (comment.canDelete) TextButton(onClick = { pending = SharedCommand(if (post) SharedAction.POST_DELETE_COMMENT else SharedAction.DELETE_COMMENT, id, comment.id) }, enabled = !busy) { Text(stringResource(R.string.shared_delete_comment)) }
                         }
@@ -239,7 +219,6 @@ private fun SharedDiscussionControls(id: String, title: String, post: Boolean, a
                 if (thread.canRemovePhoto) TextButton(onClick = { pending = SharedCommand(SharedAction.REMOVE_MEDIA, id) }, enabled = !busy) { Text(stringResource(R.string.shared_remove_photo), color = MaterialTheme.colorScheme.error) }
                 }
             }
-            Spacer(Modifier.height(24.dp))
         }
     }
     pending?.let { command -> SharedChangeConfirmation(command, cancel = { pending = null }) { pending = null; perform(command) } }
@@ -261,7 +240,7 @@ private fun SharedChangeConfirmation(command: SharedCommand, target: String? = n
         else -> R.string.shared_confirm_change
     }
     AlertDialog(onDismissRequest = cancel, title = { Text(stringResource(R.string.shared_confirm_title)) }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
             Text(stringResource(message))
             val actionLabel = when (command.action) {
                 SharedAction.INVITE -> R.string.shared_invite

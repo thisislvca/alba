@@ -1,6 +1,7 @@
 package me.lvca.alba.app.ui
 
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,11 +19,9 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -33,6 +32,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,8 +48,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import me.lvca.alba.app.GalleryUiState
 import me.lvca.alba.app.R
+import me.lvca.alba.app.localizedStoredMessage
 import me.lvca.alba.engine.model.BackupView
+import me.lvca.alba.engine.model.TransferId
+import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import me.lvca.alba.protocol.account.TwoFactorDelivery
@@ -58,7 +62,7 @@ import me.lvca.alba.protocol.account.TwoFactorDelivery
 fun ICloudAccountScreen(
     state: ICloudAccountState,
     busy: Boolean = false,
-    diagnostics: me.lvca.alba.app.GalleryUiState? = null,
+    diagnostics: GalleryUiState? = null,
     libraryActions: LibraryActions,
     onCheckConnection: () -> Unit = {},
     restoreFailed: Boolean = false,
@@ -71,7 +75,7 @@ fun ICloudAccountScreen(
     backup: BackupView,
     onEnableAutomaticBackup: () -> Unit,
     onDisableAutomaticBackup: () -> Unit,
-    onDemoAction: (me.lvca.alba.engine.model.TransferId) -> Unit = {},
+    onDemoAction: (TransferId) -> Unit = {},
 ) {
     var page by rememberSaveable { mutableStateOf(ProfilePage.OVERVIEW) }
     var appleId by rememberSaveable { mutableStateOf("") }
@@ -80,10 +84,10 @@ fun ICloudAccountScreen(
     val signedIn = state as? ICloudAccountState.SignedIn
     val authenticating = state is ICloudAccountState.SigningIn || state is ICloudAccountState.AwaitingTwoFactor ||
         state == ICloudAccountState.Restoring
-    androidx.compose.runtime.LaunchedEffect(state) {
+    LaunchedEffect(state) {
         if (signedIn?.status == SessionStatus.VERIFIED && page == ProfilePage.SIGN_IN) page = ProfilePage.OVERVIEW
     }
-    androidx.compose.runtime.LaunchedEffect(page, diagnostics != null) {
+    LaunchedEffect(page, diagnostics != null) {
         if (page == ProfilePage.OVERVIEW && diagnostics != null) libraryActions.checkPhoneStorage()
     }
     val back = {
@@ -93,7 +97,7 @@ fun ICloudAccountScreen(
             verificationCode = ""
         }
     }
-    androidx.activity.compose.BackHandler(enabled = page != ProfilePage.OVERVIEW) { back() }
+    BackHandler(enabled = page != ProfilePage.OVERVIEW) { back() }
     if (page == ProfilePage.ABOUT) {
         AboutScreen { page = ProfilePage.OVERVIEW }
         return
@@ -162,10 +166,7 @@ private fun PhotosNotEnabledAccount(
     onCheckConnection: () -> Unit,
     onSignOut: () -> Unit,
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    AlbaCard(color = MaterialTheme.colorScheme.tertiaryContainer) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(30.dp))
             Text(stringResource(R.string.icloud_photos_is_not_active), style = MaterialTheme.typography.titleLarge)
@@ -229,7 +230,7 @@ private fun SignInForm(
         focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
         focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
     )
-    AlbaGroup {
+    AlbaCard {
         TextField(
             value = appleId, onValueChange = onAppleIdChange,
             label = { Text(stringResource(R.string.apple_account)) },
@@ -238,8 +239,7 @@ private fun SignInForm(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
             modifier = Modifier.fillMaxWidth(),
         )
-        HorizontalDivider(Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
+        AlbaDivider(Modifier.padding(horizontal = 16.dp))
         TextField(
             value = password, onValueChange = onPasswordChange,
             label = { Text(stringResource(R.string.password)) },
@@ -359,11 +359,11 @@ private fun BackupSettings(
     demo: Boolean,
     appleId: String,
     backup: BackupView,
-    diagnostics: me.lvca.alba.app.GalleryUiState?,
+    diagnostics: GalleryUiState?,
     onCheckConnection: () -> Unit,
     onEnableAutomaticBackup: () -> Unit,
     onDisableAutomaticBackup: () -> Unit,
-    onDemoAction: (me.lvca.alba.engine.model.TransferId) -> Unit = {},
+    onDemoAction: (TransferId) -> Unit = {},
 ) {
     if (demo) {
         Text(stringResource(R.string.demo_backup_title), style = MaterialTheme.typography.titleLarge)
@@ -375,11 +375,7 @@ private fun BackupSettings(
     ProfileStorage(diagnostics, demo = demo, hasAccount = connected,
         check = onCheckConnection, labelRes = R.string.cloud_storage)
     Spacer(Modifier.height(22.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = albaGroupColor()),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    AlbaCard {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(stringResource(R.string.automatic_jpeg_backup), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(6.dp))
@@ -395,7 +391,7 @@ private fun BackupSettings(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (Build.VERSION.SDK_INT < 30) Text(stringResource(R.string.automatic_backup_requires_android_11_or_later_use_the_photo_picker_for_manual_uploads))
-            backup.message?.let { Text(me.lvca.alba.app.localizedStoredMessage(it).localized()) }
+            backup.message?.let { Text(localizedStoredMessage(it).localized()) }
             Spacer(Modifier.height(14.dp))
             if (backup.enabled) {
                 OutlinedButton(
@@ -423,20 +419,20 @@ private fun BackupSettings(
     }
     if (demo && backup.enabled) {
         var confirmCleanup by remember { mutableStateOf(false) }
-        OutlinedButton(onClick = { onDemoAction(me.lvca.alba.engine.model.TransferId("demo-control:interrupt")) }, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { onDemoAction(TransferId("demo-control:interrupt")) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.demo_backup_interrupt))
         }
-        OutlinedButton(onClick = { onDemoAction(me.lvca.alba.engine.model.TransferId("demo-control:wifi")) }, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { onDemoAction(TransferId("demo-control:wifi")) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.demo_backup_pause_wifi))
         }
         OutlinedButton(onClick = { confirmCleanup = true }, modifier = Modifier.fillMaxWidth(),
-            enabled = diagnostics?.transferQueue?.let { it.isNotEmpty() && it.all { row -> row.state == me.lvca.alba.engine.model.TransferViewState.VERIFIED } } == true) {
+            enabled = diagnostics?.transferQueue?.let { it.isNotEmpty() && it.all { row -> row.state == TransferViewState.VERIFIED } } == true) {
             Text(stringResource(R.string.demo_cleanup_preview))
         }
-        if (confirmCleanup) androidx.compose.material3.AlertDialog(onDismissRequest = { confirmCleanup = false },
+        if (confirmCleanup) AlertDialog(onDismissRequest = { confirmCleanup = false },
             title = { Text(stringResource(R.string.demo_cleanup_preview)) },
             text = { Text(stringResource(R.string.demo_cleanup_disclosure)) },
-            confirmButton = { TextButton(onClick = { confirmCleanup = false; onDemoAction(me.lvca.alba.engine.model.TransferId("demo-control:cleanup")) }) { Text(stringResource(R.string.welcome_continue)) } },
+            confirmButton = { TextButton(onClick = { confirmCleanup = false; onDemoAction(TransferId("demo-control:cleanup")) }) { Text(stringResource(R.string.welcome_continue)) } },
             dismissButton = { TextButton(onClick = { confirmCleanup = false }) { Text(stringResource(R.string.not_now)) } })
     }
     if (demo && diagnostics != null && diagnostics.transferQueue.isNotEmpty()) {
