@@ -431,9 +431,6 @@ class AndroidMediaStoreSource(
         return if (index >= 0 && !isNull(index)) getLong(index) else null
     }
 
-    private fun mediaStoreRevision(version: String, volume: String, id: Long, generation: Long, size: Long): String =
-        "$version:$volume:$id:$generation:$size"
-
     private fun has(permission: String): Boolean =
         ContextCompat.checkSelfPermission(appContext, permission) == PackageManager.PERMISSION_GRANTED
 

@@ -49,6 +49,7 @@ import me.lvca.alba.engine.model.WakeSummary
 import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.ExactOriginalSource
 import me.lvca.alba.engine.source.LocalDiscoveryCheckpoint
+import me.lvca.alba.engine.source.mediaStoreRevision
 import java.io.OutputStream
 import java.security.MessageDigest
 import java.util.UUID
@@ -921,7 +922,11 @@ class DefaultPhotoCompanion(
             mediaId = local.localAssetId,
             contentUri = local.contentUri,
         ) { output ->
-            originals.copyMediaStoreItem(local.contentUri, localRevision(local), output)
+            originals.copyMediaStoreItem(
+                local.contentUri,
+                mediaStoreRevision(local.volumeVersion, local.volumeName, local.mediaStoreId, local.generationModified, local.byteCount),
+                output,
+            )
         }
         // Failed staging must not advance past the photo.
         saveCheckpoint()
@@ -1057,9 +1062,6 @@ class DefaultPhotoCompanion(
         originalResourceIdentity = originalResourceIdentity,
         hydratedAtEpochMillis = observedAt,
     )
-
-    private fun localRevision(local: LocalAssetEntity): String =
-        "${local.volumeVersion}:${local.volumeName}:${local.mediaStoreId}:${local.generationModified}:${local.byteCount}"
 
     private fun stableId(vararg values: String): String = MessageDigest.getInstance("SHA-256")
         .digest(values.joinToString("\u0000").toByteArray(Charsets.UTF_8))
