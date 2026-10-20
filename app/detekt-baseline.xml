@@ -1,0 +1,193 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:GalleryHome.kt$!(tab == GalleryTab.COLLECTIONS &amp;&amp; (inCollection || folder != null || collectionsPage != null))</ID>
+    <ID>ComplexCondition:GalleryHome.kt$!hero &amp;&amp; gallery.selection.isEmpty() &amp;&amp; (wide || tab != GalleryTab.LIBRARY) &amp;&amp; (tab != GalleryTab.COLLECTIONS || inCollection)</ID>
+    <ID>ComplexCondition:GalleryHome.kt$!hero &amp;&amp; session.accountState != ICloudAccountState.Demo &amp;&amp; (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)</ID>
+    <ID>ComplexCondition:GalleryHome.kt$tab == GalleryTab.COLLECTIONS &amp;&amp; (inCollection || folder != null || collectionsPage != null)</ID>
+    <ID>ComplexCondition:GalleryHome.kt$tab == GalleryTab.SEARCH &amp;&amp; query.filename.isBlank() &amp;&amp; query.fromDate == null &amp;&amp; query.throughDate == null &amp;&amp; query.collectionId == null</ID>
+    <ID>ComplexCondition:GalleryProjection.kt$GallerySectionProjection$date != previousDate || zone != previousZone || items.size != previous.size || items.indices.any { items[it].id != previous[it].id || items[it].dateMillis(date) != previous[it].dateMillis(date) }</ID>
+    <ID>ComplexCondition:MediaDetailScreen.kt$active &amp;&amp; (item.kind == MediaKind.VIDEO || (item.id == media.id &amp;&amp; playingLive))</ID>
+    <ID>ComplexCondition:SelectionActions.kt$hasPhone &amp;&amp; !query.trashOnly &amp;&amp; selectedItems.any { it.origin == MediaOrigin.DEVICE &amp;&amp; UploadMediaFormat.isCandidate(it.mimeType) }</ID>
+    <ID>ComplexCondition:SharedInvitations.kt$!busy &amp;&amp; !invitations.failed &amp;&amp; pending.isEmpty() &amp;&amp; resolved == null</ID>
+    <ID>ComplexCondition:VideoPlayer.kt$showPlaybackControls &amp;&amp; (!isPlaying || overlayVisible || scrubbing)</ID>
+    <ID>CyclomaticComplexMethod:AlbaApp.kt$@Composable fun AlbaApp( gallery: GalleryState, session: SessionState, transfers: TransferState, phoneStorage: PhoneStorageState, mediaWork: MediaWork, previewRetryVersion: Int, message: UiMessage?, diagnostics: DiagnosticsConsent, actions: AlbaActions, onViewerLightBars: (Boolean) -&gt; Unit = {}, )</ID>
+    <ID>CyclomaticComplexMethod:AlbaRoot.kt$@OptIn(FlowPreview::class) @Composable private fun AlbaMain( viewModel: AlbaViewModel, incoming: IncomingSession, onIncomingChange: (IncomingSession) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:BatchProgress.kt$@Composable internal fun BatchProgress(batches: List&lt;BatchItem&gt;, items: List&lt;GalleryMedia&gt;, retry: (String) -&gt; Unit, cancel: (String) -&gt; Unit = {})</ID>
+    <ID>CyclomaticComplexMethod:FloatingGalleryNavigation.kt$@Composable internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -&gt; Unit, modifier: Modifier = Modifier)</ID>
+    <ID>CyclomaticComplexMethod:GalleryFastScroll.kt$@Composable internal fun GalleryFastScroll(grid: LazyGridState, labels: List&lt;GalleryScrollLabel&gt;, fullSpanEstimates: Map&lt;Int, Float&gt;, minimumTileDp: Int, modifier: Modifier = Modifier, bottomSpace: Dp = 108.dp)</ID>
+    <ID>CyclomaticComplexMethod:GalleryFilterSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun GalleryFilterSheet(state: GalleryState, change: (GalleryQuery) -&gt; Unit, requestPhotos: () -&gt; Unit, refresh: () -&gt; Unit, density: Int, changeDensity: (Int) -&gt; Unit, dismiss: () -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:GalleryGridGestures.kt$@Composable internal fun Modifier.galleryGestures(grid: LazyGridState, mediaIds: List&lt;String&gt;, selection: Set&lt;String&gt;, tileSize: Int, resize: (Int) -&gt; Unit, indexForKey: (String, Int) -&gt; Int, select: (Set&lt;String&gt;, Boolean) -&gt; Unit): Modifier</ID>
+    <ID>CyclomaticComplexMethod:GalleryHome.kt$@Composable private fun PhotoGrid( items: List&lt;GalleryMedia&gt;, sections: List&lt;GallerySection&gt;, selection: Set&lt;String&gt;, query: GalleryQuery, isRefreshing: Boolean, counts: PhotoCounts, previewRetryVersion: Int, grid: LazyGridState, anchor: GridAnchor, density: Int, onDensityChange: (Int) -&gt; Unit, bottomSpace: Dp, showPermissionPrompt: Boolean, onDismissPermissionPrompt: () -&gt; Unit, actions: BrowseActions, leading: (@Composable () -&gt; Unit)? = null, flat: Boolean = false, onAddMedia: (() -&gt; Unit)? = null, )</ID>
+    <ID>CyclomaticComplexMethod:GalleryHome.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun GalleryHome( gallery: GalleryState, session: SessionState, transfers: TransferState, mediaBusy: Boolean, previewRetryVersion: Int, actions: GalleryScreenActions, onBottomSpaceChanged: (Dp) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:ICloudAccountScreen.kt$@Composable private fun BackupSettings( connected: Boolean, demo: Boolean, appleId: String, backup: BackupView, session: SessionState, transferQueue: List&lt;TransferView&gt;, actions: AccountActions, )</ID>
+    <ID>CyclomaticComplexMethod:IncomingMediaScreen.kt$@Composable internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: ICloudAccountState, message: UiMessage?, close: () -&gt; Unit, connect: () -&gt; Unit, upload: (List&lt;Uri&gt;) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:MediaDetailScreen.kt$@Composable internal fun MediaDetailScreen( media: GalleryMedia, items: List&lt;GalleryMedia&gt;, collections: List&lt;GalleryCollection&gt;, currentAlbumId: String?, accountState: ICloudAccountState, uploadTransfer: TransferView?, isWorking: Boolean, isDownloadingOriginal: Boolean, actions: MediaScreenActions, onPageSettled: (String) -&gt; Unit, gallerySnapshot: GraphicsLayer? = null, onViewerLightBars: (Boolean) -&gt; Unit = {}, )</ID>
+    <ID>CyclomaticComplexMethod:MediaThumbnail.kt$@Composable fun MediaThumbnail( reference: String?, accentStartArgb: Long, accentEndArgb: Long, contentDescription: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop, zoomable: Boolean = false, retryVersion: Int = 0, sourceRevision: String = "", onTap: () -&gt; Unit = {}, onZoomChanged: (Boolean) -&gt; Unit = {}, fallbackReference: String? = null, sharedMediaId: String? = null, )</ID>
+    <ID>CyclomaticComplexMethod:PhotoEditorScreen.kt$@OptIn(ExperimentalLayoutApi::class) @Composable internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedia) -&gt; File, close: () -&gt; Unit, saved: (Uri) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:ProfileOverview.kt$@Composable internal fun ProfileOverview( session: SessionState, phoneStorage: PhoneStorageState, backup: BackupView, onNavigate: (ProfilePage) -&gt; Unit, onCheckConnection: () -&gt; Unit, onSignOut: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:SelectionActions.kt$@Composable internal fun SelectionActions(gallery: GalleryState, session: SessionState, mediaBusy: Boolean, actions: GalleryScreenActions)</ID>
+    <ID>CyclomaticComplexMethod:SharedAlbumActivity.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun SharedAlbumActivity(album: GalleryCollection, media: List&lt;GalleryMedia&gt;, actions: SharedActions, preview: (String) -&gt; Unit, open: (String) -&gt; Unit, dismiss: () -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:SharedAlbumControls.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedActions, dismiss: () -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:SharedAlbumControls.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun SharedDiscussionControls(id: String, title: String, post: Boolean, actions: SharedActions, dismiss: () -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:VideoPlayer.kt$@androidx.annotation.OptIn(UnstableApi::class) @OptIn(ExperimentalMaterial3Api::class) @Composable fun VideoPlayer( id: String, reader: PlaybackReader, modifier: Modifier = Modifier, autoPlay: Boolean = false, localReference: String? = null, onPlayingChanged: (Boolean) -&gt; Unit = {}, optionsOpen: Boolean = false, onDismissOptions: () -&gt; Unit = {}, loopEnabled: Boolean = true, showPlaybackControls: Boolean = true, )</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:PhotoEditorScreen.kt$val (left, top, right, bottom) = crop</ID>
+    <ID>EmptyElseBlock:SharedAlbumControls.kt$if (command.action in setOf(SharedAction.COMMENT, SharedAction.POST_COMMENT)) text = ""</ID>
+    <ID>EmptyElseBlock:VideoPlayer.kt$LibraryDataSource$if (remaining &gt;= 0) remaining -= count</ID>
+    <ID>InstanceOfCheckForException:AccountController.kt$AccountController$error is CancellationException</ID>
+    <ID>InstanceOfCheckForException:LibrarySync.kt$LibrarySync$error !is CancellationException</ID>
+    <ID>InstanceOfCheckForException:LibrarySync.kt$LibrarySync$error is CancellationException</ID>
+    <ID>InstanceOfCheckForException:Measure.kt$error is CancellationException</ID>
+    <ID>InstanceOfCheckForException:MediaActionRunner.kt$MediaActionRunner$error is CancellationException</ID>
+    <ID>InstanceOfCheckForException:PreviewQueue.kt$PreviewQueue$error is CancellationException</ID>
+    <ID>InstanceOfCheckForException:PreviewQueue.kt$PreviewQueue$error is InsufficientStorageException</ID>
+    <ID>InstanceOfCheckForException:TransferController.kt$TransferController$error is CancellationException</ID>
+    <ID>LongMethod:AlbaApp.kt$@Composable fun AlbaApp( gallery: GalleryState, session: SessionState, transfers: TransferState, phoneStorage: PhoneStorageState, mediaWork: MediaWork, previewRetryVersion: Int, message: UiMessage?, diagnostics: DiagnosticsConsent, actions: AlbaActions, onViewerLightBars: (Boolean) -&gt; Unit = {}, )</ID>
+    <ID>LongMethod:AlbaRoot.kt$@OptIn(FlowPreview::class) @Composable private fun AlbaMain( viewModel: AlbaViewModel, incoming: IncomingSession, onIncomingChange: (IncomingSession) -&gt; Unit, )</ID>
+    <ID>LongMethod:GalleryFastScroll.kt$@Composable internal fun GalleryFastScroll(grid: LazyGridState, labels: List&lt;GalleryScrollLabel&gt;, fullSpanEstimates: Map&lt;Int, Float&gt;, minimumTileDp: Int, modifier: Modifier = Modifier, bottomSpace: Dp = 108.dp)</ID>
+    <ID>LongMethod:GalleryHome.kt$@Composable private fun PhotoGrid( items: List&lt;GalleryMedia&gt;, sections: List&lt;GallerySection&gt;, selection: Set&lt;String&gt;, query: GalleryQuery, isRefreshing: Boolean, counts: PhotoCounts, previewRetryVersion: Int, grid: LazyGridState, anchor: GridAnchor, density: Int, onDensityChange: (Int) -&gt; Unit, bottomSpace: Dp, showPermissionPrompt: Boolean, onDismissPermissionPrompt: () -&gt; Unit, actions: BrowseActions, leading: (@Composable () -&gt; Unit)? = null, flat: Boolean = false, onAddMedia: (() -&gt; Unit)? = null, )</ID>
+    <ID>LongMethod:GalleryHome.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun GalleryHome( gallery: GalleryState, session: SessionState, transfers: TransferState, mediaBusy: Boolean, previewRetryVersion: Int, actions: GalleryScreenActions, onBottomSpaceChanged: (Dp) -&gt; Unit, )</ID>
+    <ID>LongMethod:MediaDetailScreen.kt$@Composable internal fun MediaDetailScreen( media: GalleryMedia, items: List&lt;GalleryMedia&gt;, collections: List&lt;GalleryCollection&gt;, currentAlbumId: String?, accountState: ICloudAccountState, uploadTransfer: TransferView?, isWorking: Boolean, isDownloadingOriginal: Boolean, actions: MediaScreenActions, onPageSettled: (String) -&gt; Unit, gallerySnapshot: GraphicsLayer? = null, onViewerLightBars: (Boolean) -&gt; Unit = {}, )</ID>
+    <ID>LongMethod:MediaThumbnail.kt$@Composable fun MediaThumbnail( reference: String?, accentStartArgb: Long, accentEndArgb: Long, contentDescription: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop, zoomable: Boolean = false, retryVersion: Int = 0, sourceRevision: String = "", onTap: () -&gt; Unit = {}, onZoomChanged: (Boolean) -&gt; Unit = {}, fallbackReference: String? = null, sharedMediaId: String? = null, )</ID>
+    <ID>LongMethod:PhotoEditorScreen.kt$@OptIn(ExperimentalLayoutApi::class) @Composable internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedia) -&gt; File, close: () -&gt; Unit, saved: (Uri) -&gt; Unit)</ID>
+    <ID>LongMethod:VideoPlayer.kt$@androidx.annotation.OptIn(UnstableApi::class) @OptIn(ExperimentalMaterial3Api::class) @Composable fun VideoPlayer( id: String, reader: PlaybackReader, modifier: Modifier = Modifier, autoPlay: Boolean = false, localReference: String? = null, onPlayingChanged: (Boolean) -&gt; Unit = {}, optionsOpen: Boolean = false, onDismissOptions: () -&gt; Unit = {}, loopEnabled: Boolean = true, showPlaybackControls: Boolean = true, )</ID>
+    <ID>LongParameterList:AccountController.kt$AccountController$( private val scope: CoroutineScope, private val savedState: SavedStateHandle, private val accountManager: ICloudAccountManager, private val photos: PhotoCompanion, private val repository: GalleryRepository, private val diagnostics: AlbaDiagnostics, private val messages: UserMessages, private val sync: LibrarySync, network: StateFlow&lt;NetworkStatus?&gt;, private val cancelCloudWork: suspend () -&gt; Unit, private val onAccountChanged: suspend (refresh: Boolean) -&gt; Unit, )</ID>
+    <ID>LongParameterList:TransferController.kt$TransferController$( private val scope: CoroutineScope, private val savedState: SavedStateHandle, private val accountManager: ICloudAccountManager, private val photos: PhotoCompanion, private val repository: GalleryRepository, private val batches: GalleryBatchActions, private val scheduler: TransferScheduler, private val diagnostics: AlbaDiagnostics, private val messages: UserMessages, private val runner: MediaActionRunner, private val effects: SendChannel&lt;AlbaEffect&gt;, private val gallery: GalleryBrowser, private val live: LiveTransferMode, private val demo: DemoTransferMode, )</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0x55202D70</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF082958</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF08386F</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF2D43D2</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF332878</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF388BE9</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF5364DE</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF5B53E9</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF62C2FF</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF777C88</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF8270FF</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF8750D6</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF8A5CCD</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFF9BCFFF</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFFA18FFF</ID>
+    <ID>MagicNumber:AlbaColors.kt$ProfileColors$0xFFE8ECFF</ID>
+    <ID>MagicNumber:AlbaColors.kt$StorageColors$0xFF18AAA8</ID>
+    <ID>MagicNumber:AlbaColors.kt$StorageColors$0xFF238BE6</ID>
+    <ID>MagicNumber:AlbaColors.kt$StorageColors$0xFF43AB69</ID>
+    <ID>MagicNumber:AlbaColors.kt$StorageColors$0xFF8272E8</ID>
+    <ID>MagicNumber:AlbaColors.kt$StorageColors$0xFF858B96</ID>
+    <ID>MagicNumber:AlbaColors.kt$StorageColors$0xFFF18B29</ID>
+    <ID>MagicNumber:AlbaColors.kt$StorageColors$0xFFF2B82F</ID>
+    <ID>MagicNumber:BackupWakeWorker.kt$BackupWakeWorker$60_000L</ID>
+    <ID>MagicNumber:BackupWakeWorker.kt$BackupWakeWorker$8</ID>
+    <ID>MagicNumber:DemoBackup.kt$DemoBackup$240_000L</ID>
+    <ID>MagicNumber:DemoBackup.kt$DemoBackup$700</ID>
+    <ID>MagicNumber:DemoBackup.kt$DemoBackup$80_000L</ID>
+    <ID>MagicNumber:Diagnostics.kt$3_600_000.0</ID>
+    <ID>MagicNumber:Diagnostics.kt$DiagnosticOperation.DEVICE_REFRESH$0.25</ID>
+    <ID>MagicNumber:Diagnostics.kt$DiagnosticOperation.MEDIA_ACTION$0.50</ID>
+    <ID>MagicNumber:Diagnostics.kt$DiagnosticOperation.PLAYBACK_OPEN$0.25</ID>
+    <ID>MagicNumber:Diagnostics.kt$DiagnosticOperation.PREVIEW_DOWNLOAD$0.10</ID>
+    <ID>MagicNumber:Diagnostics.kt$DiagnosticOperation.VIEWER_DOWNLOAD$0.25</ID>
+    <ID>MagicNumber:Diagnostics.kt$SentryAlbaDiagnostics$0.05</ID>
+    <ID>MagicNumber:Diagnostics.kt$SentryAlbaDiagnostics$3_600_000.0</ID>
+    <ID>MagicNumber:Diagnostics.kt$SentryAlbaDiagnostics$50</ID>
+    <ID>MagicNumber:Diagnostics.kt$SentryAlbaDiagnostics.Companion$80</ID>
+    <ID>MagicNumber:GalleryBrowser.kt$GalleryBrowser$1024L</ID>
+    <ID>MagicNumber:GalleryBrowser.kt$GalleryBrowser$32L</ID>
+    <ID>MagicNumber:GalleryBrowser.kt$GalleryBrowser$64</ID>
+    <ID>MagicNumber:GalleryExporter.kt$180</ID>
+    <ID>MagicNumber:GalleryExporter.kt$GalleryExporter$1000L</ID>
+    <ID>MagicNumber:GalleryExporter.kt$GalleryExporter$24</ID>
+    <ID>MagicNumber:GalleryExporter.kt$GalleryExporter$29</ID>
+    <ID>MagicNumber:GalleryExporter.kt$GalleryExporter$50</ID>
+    <ID>MagicNumber:GalleryExporter.kt$GalleryExporter$60</ID>
+    <ID>MagicNumber:GalleryExporter.kt$GalleryExporter.&lt;no name provided&gt;$16_000_000L</ID>
+    <ID>MagicNumber:GalleryExporter.kt$GalleryExporter.&lt;no name provided&gt;$1_000_000L</ID>
+    <ID>MagicNumber:GalleryExporter.kt$GalleryExporter.&lt;no name provided&gt;$2_000_000_000L</ID>
+    <ID>MagicNumber:IncomingItems.kt$255</ID>
+    <ID>MagicNumber:MediaDuration.kt$1000</ID>
+    <ID>MagicNumber:MediaDuration.kt$60</ID>
+    <ID>MagicNumber:MediaOverlays.kt$MediaScrimStrength.Strong$.12f</ID>
+    <ID>MagicNumber:MediaOverlays.kt$MediaScrimStrength.Strong$.85f</ID>
+    <ID>MagicNumber:MediaOverlays.kt$MediaScrimStrength.Subtle$.6f</ID>
+    <ID>MagicNumber:MediaThumbnail.kt$1_024L</ID>
+    <ID>MagicNumber:MediaThumbnail.kt$29</ID>
+    <ID>MagicNumber:MediaThumbnail.kt$8L</ID>
+    <ID>MagicNumber:PhotoEditState.kt$PhotoEditState$.05f</ID>
+    <ID>MagicNumber:PhotoEditState.kt$PhotoEditState$3</ID>
+    <ID>MagicNumber:PhotoEditState.kt$PhotoEditState$40</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$1024</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$29</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$3</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$32</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$4</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$4L</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$5</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$8</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$86_400_000</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$8L</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$90f</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$95</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$PhotoEditStore$86_400_000</ID>
+    <ID>MagicNumber:PhotoEditStore.kt$PhotoEditStore.&lt;no name provided&gt;$100_000_000L</ID>
+    <ID>MagicNumber:PreviewController.kt$PreviewController$300</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$102f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$120f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$132f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$14f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$18f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$4f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$50f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$56f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$60f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$72f</ID>
+    <ID>MagicNumber:ProfileArtwork.kt$88f</ID>
+    <ID>MagicNumber:ThumbnailSizing.kt$1_024</ID>
+    <ID>MagicNumber:ThumbnailSizing.kt$256</ID>
+    <ID>MagicNumber:ThumbnailSizing.kt$2_048</ID>
+    <ID>MagicNumber:ThumbnailSizing.kt$512</ID>
+    <ID>MagicNumber:UserTransferJobService.kt$UserTransferJobService$34</ID>
+    <ID>MagicNumber:UserTransfers.kt$UserTransferScheduler$34</ID>
+    <ID>MagicNumber:VideoPlayer.kt$1_000L</ID>
+    <ID>MagicNumber:VideoPlayer.kt$3_600</ID>
+    <ID>MagicNumber:VideoPlayer.kt$60</ID>
+    <ID>MagicNumber:ViewerMotion.kt$ViewerMotion$.65f</ID>
+    <ID>MagicNumber:WorkManagerWakeupScheduler.kt$WorkManagerWakeupScheduler$15</ID>
+    <ID>MagicNumber:WorkManagerWakeupScheduler.kt$WorkManagerWakeupScheduler$3</ID>
+    <ID>MatchingDeclarationName:AlbumArtwork.kt$CollectionPreview</ID>
+    <ID>MatchingDeclarationName:BackgroundSession.kt$BackgroundSessionDecision</ID>
+    <ID>MatchingDeclarationName:CollectionsScreen.kt$CollectionsPage</ID>
+    <ID>MatchingDeclarationName:FloatingGalleryNavigation.kt$GalleryTab</ID>
+    <ID>MatchingDeclarationName:IncomingItems.kt$IncomingItem</ID>
+    <ID>MatchingDeclarationName:MediaOverlays.kt$MediaScrimStrength</ID>
+    <ID>MatchingDeclarationName:MediaStorePublishing.kt$MediaStoreCopy</ID>
+    <ID>MatchingDeclarationName:Previews.kt$AlbaPreviews</ID>
+    <ID>MatchingDeclarationName:ProfileOverview.kt$ProfilePage</ID>
+    <ID>SpreadOperator:UiMessage.kt$UiMessage.Quantity$(resource, count, *arguments.toTypedArray())</ID>
+    <ID>SpreadOperator:UiMessage.kt$UiMessage.Text$(resource, *arguments.toTypedArray())</ID>
+    <ID>SwallowedException:MediaDetailScreen.kt$cancelled: CancellationException</ID>
+    <ID>TooGenericExceptionCaught:AccountController.kt$AccountController$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:AccountController.kt$AccountController$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:BackupWakeWorker.kt$BackupWakeWorker$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:GalleryExporter.kt$GalleryExporter$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:LibrarySync.kt$LibrarySync$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:LibrarySync.kt$LibrarySync$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:Measure.kt$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:MediaActionRunner.kt$MediaActionRunner$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:MediaStorePublishing.kt$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:PhotoEditStore.kt$PhotoEditStore$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:PhotoEditStore.kt$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:PreviewQueue.kt$PreviewQueue$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:TransferController.kt$TransferController$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:TransferController.kt$TransferController$error: Throwable</ID>
+    <ID>TooManyFunctions:AlbaRoot.kt$AlbaRootActions : AlbaActions</ID>
+    <ID>UnusedPrivateMember:AccountAvatar.kt$@AlbaPreviews @Composable private fun AvatarPreview()</ID>
+    <ID>UnusedPrivateMember:AlbaCard.kt$@AlbaPreviews @Composable private fun AlbaCardPreview()</ID>
+    <ID>UnusedPrivateMember:AlbaRows.kt$@AlbaPreviews @Composable private fun AlbaFeatureRowPreview()</ID>
+    <ID>UnusedPrivateMember:AlbaRows.kt$@AlbaPreviews @Composable private fun AlbaListRowPreview()</ID>
+    <ID>UnusedPrivateMember:AlbaSheetBody.kt$@AlbaPreviews @Composable private fun AlbaSheetBodyPreview()</ID>
+    <ID>UnusedPrivateMember:MediaOverlays.kt$@AlbaPreviews @Composable private fun MediaOverlaysPreview()</ID>
+    <ID>UnusedPrivateMember:Previews.kt$@AlbaPreviews @Composable private fun EmptyStatesPreview()</ID>
+    <ID>UnusedPrivateMember:Previews.kt$@AlbaPreviews @Composable private fun GalleryChromePreview()</ID>
+  </CurrentIssues>
+</SmellBaseline>

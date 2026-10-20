@@ -1,0 +1,203 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser$asset.fieldText("isHidden") in setOf("1", "true") || asset.fieldText("isExpunged") in setOf("1", "true") || (trashed &amp;&amp; !includeTrashed)</ID>
+    <ID>ComplexCondition:ICloudAccountManager.kt$ICloudAccountManager$!force &amp;&amp; current != ICloudAccountState.Restoring &amp;&amp; (current !is ICloudAccountState.SignedIn || current.status == SessionStatus.VERIFIED)</ID>
+    <ID>ComplexCondition:ICloudAccountManager.kt$ICloudAccountManager$current.dsid != snapshot.dsid || current.clientId != snapshot.clientId || current.sessionId != snapshot.sessionId || current.sessionToken != snapshot.sessionToken</ID>
+    <ID>ComplexCondition:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$limit != null &amp;&amp; limit &gt; 0 &amp;&amp; multiplier != null &amp;&amp; limit &lt;= Long.MAX_VALUE / multiplier</ID>
+    <ID>ComplexCondition:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$!isAuthorized() || current == null || current.dsid != session.dsid || current.clientId != session.clientId</ID>
+    <ID>ComplexCondition:PhotosUpload.kt$PhotosUpload$saved["fileName"] == null || saved["lastModDate"] == null || saved["localTimeZoneId"] == null || saved["timeZoneOffset"] == null</ID>
+    <ID>CyclomaticComplexMethod:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser$private fun parsePhoto(master: JsonObject, asset: JsonObject, includeTrashed: Boolean, legacy: Boolean): CloudPhotoAsset?</ID>
+    <ID>CyclomaticComplexMethod:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource$override suspend fun changeSharedAlbum(id: String, command: me.lvca.alba.engine.model.SharedCommand, operationId: String)</ID>
+    <ID>CyclomaticComplexMethod:ICloudWebSession.kt$ICloudWebSession$private fun snapshotFromAccountResponse( appleId: String, clientId: String, response: AppleHttpResponse, fallback: AppleSessionSnapshot? = null, ): AppleSessionSnapshot</ID>
+    <ID>CyclomaticComplexMethod:LegacySharedUpload.kt$LegacySharedUpload$suspend fun upload(id: String, fileName: String, source: OneShotUploadSource, operationId: String)</ID>
+    <ID>CyclomaticComplexMethod:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$override suspend fun collections(): CollectionSnapshot</ID>
+    <ID>CyclomaticComplexMethod:ModernShareEdits.kt$ModernShareEdits$fun properties(share: JsonObject, command: SharedCommand, pending: JsonObject): JsonObject</ID>
+    <ID>CyclomaticComplexMethod:PhotosUpload.kt$PhotosUpload$override suspend fun startOnce(attemptId: String): UploadAcceptance</ID>
+    <ID>CyclomaticComplexMethod:SharedAlbumActions.kt$SharedAlbumActions$suspend fun change(id: String, command: SharedCommand, operationId: String)</ID>
+    <ID>CyclomaticComplexMethod:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseCopyResponse) throw IOException("lost copy result")</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseCopyStatus) { loseCopyStatus=false; throw IOException("offline") }</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseLegacyCommentResponse) throw IOException("lost comment")</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseLegacyPut) { loseLegacyPut = false; throw IOException("lost publish") }</ID>
+    <ID>EmptyElseBlock:SharedAlbumsCatalogTest.kt$SharedAlbumsCatalogTest.Transport$if(loseLegacyStatus) { loseLegacyStatus = false; throw IOException("offline") }</ID>
+    <ID>InstanceOfCheckForException:ICloudAccountProfileService.kt$ICloudAccountProfileService$error is CancellationException</ID>
+    <ID>LongParameterList:SharedAlbumBackend.kt$SharedAlbumBackend$( album: SharedAlbumRecord, asset: String, post: Boolean, reaction: Boolean, value: String, thread: SharedDiscussion, pending: JsonObject, markSending: suspend (JsonObject) -&gt; Unit, )</ID>
+    <ID>LongParameterList:SharedAlbumTransfers.kt$SharedAlbumTransfers$( private val transport: AppleHttpTransport, private val client: CloudKitClient, private val connection: SharedAlbumSession, private val ids: SharedAlbumIds, private val journal: SharedAlbumJournal, private val account: () -&gt; String, private val authorized: () -&gt; Boolean, private val discover: suspend () -&gt; List&lt;SharedAlbumRecord&gt;, private val fresh: suspend (String) -&gt; SharedAlbumRecord, private val legacy: LegacySharedAlbums, private val modern: ModernSharedAlbums, )</ID>
+    <ID>LoopWithTooManyJumpStatements:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$for</ID>
+    <ID>LoopWithTooManyJumpStatements:ModernSharedAlbums.kt$ModernSharedAlbums$for</ID>
+    <ID>LoopWithTooManyJumpStatements:TrustedDeviceBridge.kt$TrustedDeviceBridge$for</ID>
+    <ID>LoopWithTooManyJumpStatements:TrustedDeviceBridge.kt$TrustedDeviceBridge$while</ID>
+    <ID>MagicNumber:AccountTelemetry.kt$1_000_000L</ID>
+    <ID>MagicNumber:AppleAuthenticationService.kt$AppleAuthenticationService$200</ID>
+    <ID>MagicNumber:AppleAuthenticationService.kt$AppleAuthenticationService$299</ID>
+    <ID>MagicNumber:AppleAuthenticationService.kt$AppleAuthenticationService$399</ID>
+    <ID>MagicNumber:AppleEndpointPolicy.kt$AppleEndpointPolicy$443</ID>
+    <ID>MagicNumber:AppleSrpClient.kt$AppleSrpClient.Companion$0x80</ID>
+    <ID>MagicNumber:AppleSrpClient.kt$AppleSrpClient.Companion$16</ID>
+    <ID>MagicNumber:AppleSrpClient.kt$AppleSrpClient.Companion$24</ID>
+    <ID>MagicNumber:AppleSrpClient.kt$AppleSrpClient.Companion$8</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$0xff</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$10</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$11</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$12</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$128</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$13</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$14</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$15</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$16</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$18</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$24</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$3</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$4</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$5</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$6</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$7</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$8</ID>
+    <ID>MagicNumber:BridgeScrypt.kt$BridgeScrypt$9</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitClient$200</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitClient$299</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitFailures$401</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitFailures$403</ID>
+    <ID>MagicNumber:CloudKitClient.kt$CloudKitFailures$429</ID>
+    <ID>MagicNumber:CloudKitPhotoResponseParser.kt$CloudKitPhotoResponseParser$1_000</ID>
+    <ID>MagicNumber:Digests.kt$0xff</ID>
+    <ID>MagicNumber:ICloudAccountIdentity.kt$ICloudAccountIdentity$8</ID>
+    <ID>MagicNumber:ICloudAccountManager.kt$ICloudAccountManager$10_000</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService$200</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService$299</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService$8_000</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$0x47</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$0x4e</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$0x50</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$10</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$12</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$13</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$26</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$30</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$4</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$40</ID>
+    <ID>MagicNumber:ICloudAccountProfileService.kt$ICloudAccountProfileService.Companion$8</ID>
+    <ID>MagicNumber:ICloudWebSession.kt$ICloudWebSession$200</ID>
+    <ID>MagicNumber:ICloudWebSession.kt$ICloudWebSession$299</ID>
+    <ID>MagicNumber:ICloudWebSession.kt$ICloudWebSession$401</ID>
+    <ID>MagicNumber:ICloudWebSession.kt$ICloudWebSession$403</ID>
+    <ID>MagicNumber:KeystoreAesGcm.kt$KeystoreAesGcm$256</ID>
+    <ID>MagicNumber:LegacySharedAlbums.kt$LegacySharedAlbums$100</ID>
+    <ID>MagicNumber:LegacySharedAlbums.kt$LegacySharedAlbums$100000</ID>
+    <ID>MagicNumber:LegacySharedTimestamp.kt$3</ID>
+    <ID>MagicNumber:LegacySharedTimestamp.kt$6</ID>
+    <ID>MagicNumber:LegacySharedUpload.kt$LegacySharedUpload$1000</ID>
+    <ID>MagicNumber:LegacySharedUpload.kt$LegacySharedUpload$20</ID>
+    <ID>MagicNumber:LegacySharedUpload.kt$LegacySharedUpload$200</ID>
+    <ID>MagicNumber:LegacySharedUpload.kt$LegacySharedUpload$299</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$100</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$10000</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$200</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$3</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$401</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$403</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$404</ID>
+    <ID>MagicNumber:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$410</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$100</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$12</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$159</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$160</ID>
+    <ID>MagicNumber:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$500</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$10</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$100</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$1000</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$100000</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$20</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$200</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$2000</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$4</ID>
+    <ID>MagicNumber:ModernSharedAlbums.kt$ModernSharedAlbums$8</ID>
+    <ID>MagicNumber:OkHttpAppleTransport.kt$OkHttpAppleTransport$206</ID>
+    <ID>MagicNumber:PersonalLibraryDatabase.kt$PersonalLibraryDatabase$100</ID>
+    <ID>MagicNumber:PersonalLibraryDatabase.kt$PersonalLibraryDatabase$200</ID>
+    <ID>MagicNumber:PersonalLibraryDatabase.kt$PersonalLibraryDatabase$200_000</ID>
+    <ID>MagicNumber:PersonalLibraryDatabase.kt$PersonalLibraryDatabase$410</ID>
+    <ID>MagicNumber:PersonalLibraryEdits.kt$PersonalLibraryEdits$1024</ID>
+    <ID>MagicNumber:PersonalLibraryEdits.kt$PersonalLibraryEdits$255</ID>
+    <ID>MagicNumber:PersonalLibraryEdits.kt$PersonalLibraryEdits$50</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$200</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$299</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$401</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$403</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$409</ID>
+    <ID>MagicNumber:PhotosUpload.kt$PhotosUpload$60</ID>
+    <ID>MagicNumber:SharedAlbumActions.kt$SharedAlbumActions$1000</ID>
+    <ID>MagicNumber:SharedAlbumActions.kt$SharedAlbumActions$255</ID>
+    <ID>MagicNumber:SharedAlbumIds.kt$SharedAlbumIds$3</ID>
+    <ID>MagicNumber:SharedAlbumIds.kt$SharedAlbumIds$4</ID>
+    <ID>MagicNumber:SharedAlbumIds.kt$SharedAlbumIds$6</ID>
+    <ID>MagicNumber:SharedAlbumTransfers.kt$SharedAlbumTransfers$50</ID>
+    <ID>MagicNumber:SharedAlbumsCatalog.kt$SharedAlbumsCatalog$10000</ID>
+    <ID>MagicNumber:SharedAlbumsCatalog.kt$SharedAlbumsCatalog$100000</ID>
+    <ID>MagicNumber:SharedAlbumsCatalog.kt$SharedAlbumsCatalog$255</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$1024</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$320f</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$4</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$640</ID>
+    <ID>MagicNumber:SharedCoverImage.kt$SharedCoverImage$85</ID>
+    <ID>MagicNumber:TrustedDeviceBridge.kt$TrustedDeviceBridge$1_000L</ID>
+    <ID>MagicNumber:TrustedDeviceBridge.kt$TrustedDeviceBridge$8</ID>
+    <ID>MagicNumber:TrustedDeviceBridge.kt$TrustedDeviceBridge.Companion$0x04</ID>
+    <ID>MagicNumber:TrustedDeviceBridge.kt$TrustedDeviceBridge.Companion$32</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$16</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver$0xff</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver$32</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver$64</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver$8</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$0x03</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$0x04</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$3</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$32</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$33</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$4</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeProver.kt$TrustedDeviceBridgeProver.Companion$65</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeSocket.kt$OkHttpBridgeSocketFactory$15</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0x07</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0x7f</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0x80</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0xfe</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$0xff</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$10</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$3</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$4</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$5</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$63</ID>
+    <ID>MagicNumber:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$7</ID>
+    <ID>MagicNumber:UploadJournal.kt$EncryptedUploadJournal$13</ID>
+    <ID>MagicNumber:UploadJournal.kt$EncryptedUploadJournal$29</ID>
+    <ID>NestedBlockDepth:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$private fun parseJsonObject(payload: ByteArray): JsonObject?</ID>
+    <ID>RethrowCaughtException:TrustedDeviceBridge.kt$TrustedDeviceBridge$throw cancelled</ID>
+    <ID>ReturnCount:LiveICloudPhotoProtocol.kt$LiveICloudPhotoProtocol$override suspend fun uploadProcessingStatus( binding: AccountBinding, acceptance: UploadAcceptance, ): UploadProcessingStatus</ID>
+    <ID>SpreadOperator:TrustedDeviceBridgeSocket.kt$OkHttpBridgeSocketFactory.BridgeWebSocketListener$(*payload)</ID>
+    <ID>ThrowsCount:AppleAuthenticationService.kt$AppleAuthenticationService$private suspend fun requestTwoFactor(appleId: String, clientId: String): PendingAuth</ID>
+    <ID>ThrowsCount:AppleAuthenticationService.kt$AppleAuthenticationService$private suspend fun resendTwoFactorInternal()</ID>
+    <ID>ThrowsCount:AppleAuthenticationService.kt$AppleAuthenticationService$private suspend fun submitTwoFactorInternal(code: String): AppleSessionSnapshot</ID>
+    <ID>ThrowsCount:ICloudWebSession.kt$ICloudWebSession$private fun snapshotFromAccountResponse( appleId: String, clientId: String, response: AppleHttpResponse, fallback: AppleSessionSnapshot? = null, ): AppleSessionSnapshot</ID>
+    <ID>ThrowsCount:LiveICloudCatalogSource.kt$LiveICloudCatalogSource$private suspend fun hydrate(assetNames: Collection&lt;String&gt;, includeTrashed: Boolean = false): List&lt;CloudPhotoAsset&gt;</ID>
+    <ID>ThrowsCount:LiveICloudCatalogSource.kt$LiveICloudCatalogSource.PageCursor.Companion$fun decode(value: String?): PageCursor</ID>
+    <ID>ThrowsCount:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$fun decodePushPayload(payload: ByteArray): BridgePushPayload</ID>
+    <ID>TooGenericExceptionCaught:AccountTelemetry.kt$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:AppleAuthenticationService.kt$AppleAuthenticationService$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:DemoImportedMedia.kt$DemoImportedMedia.Companion$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ICloudAccountManager.kt$ICloudAccountManager$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ICloudAccountProfileService.kt$ICloudAccountProfileService$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ICloudWebSession.kt$ICloudWebSession$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:OkHttpAppleTransport.kt$OkHttpAppleTransport$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SharedAlbumsCatalog.kt$SharedAlbumsCatalog$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:TrustedDeviceBridge.kt$TrustedDeviceBridge$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:TrustedDeviceBridgeSocket.kt$OkHttpBridgeSocketFactory$error: Throwable</ID>
+    <ID>TooManyFunctions:AccountAwareICloudCatalogSource.kt$AccountAwareICloudCatalogSource : CloudCatalogSource</ID>
+    <ID>TooManyFunctions:FixtureICloudCatalogSource.kt$FixtureICloudCatalogSource : CloudCatalogSource</ID>
+    <ID>TooManyFunctions:LiveICloudCatalogSource.kt$LiveICloudCatalogSource : CloudCatalogSource</ID>
+    <ID>TopLevelPropertyNaming:CloudKitJson.kt$private val TRUE_FLAGS = setOf("true", "1")</ID>
+    <ID>UseRequire:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$throw IllegalArgumentException("Malformed bridge error code")</ID>
+    <ID>UseRequire:TrustedDeviceBridgeWire.kt$TrustedDeviceBridgeWire$throw IllegalArgumentException("Malformed bridge protobuf varint")</ID>
+  </CurrentIssues>
+</SmellBaseline>

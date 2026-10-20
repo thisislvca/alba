@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="src/androidTest/java/me/lvca/alba/engine/cache/MediaFileCacheTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/companion/DefaultPhotoCompanionTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="184" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/database/AlbaDatabaseMigrationTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="64" column="161" source="standard:max-line-length" />
+        <error line="98" column="161" source="standard:max-line-length" />
+        <error line="99" column="161" source="standard:max-line-length" />
+        <error line="134" column="161" source="standard:max-line-length" />
+        <error line="149" column="161" source="standard:max-line-length" />
+        <error line="167" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/repository/DefaultGalleryRepositoryTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="350" column="161" source="standard:max-line-length" />
+        <error line="364" column="101" source="standard:paren-spacing" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/repository/GalleryDisplaySafetyTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="23" column="161" source="standard:max-line-length" />
+        <error line="25" column="161" source="standard:max-line-length" />
+        <error line="33" column="161" source="standard:max-line-length" />
+        <error line="62" column="161" source="standard:max-line-length" />
+        <error line="68" column="161" source="standard:max-line-length" />
+        <error line="68" column="214" source="standard:op-spacing" />
+        <error line="68" column="255" source="standard:op-spacing" />
+        <error line="93" column="13" source="standard:spacing-between-declarations-with-comments" />
+        <error line="98" column="48" source="standard:comma-spacing" />
+        <error line="98" column="53" source="standard:comma-spacing" />
+        <error line="98" column="161" source="standard:max-line-length" />
+        <error line="99" column="130" source="standard:comma-spacing" />
+        <error line="103" column="161" source="standard:max-line-length" />
+        <error line="104" column="161" source="standard:max-line-length" />
+        <error line="106" column="161" source="standard:max-line-length" />
+        <error line="108" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/repository/GalleryDownloadControlsTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="66" column="161" source="standard:max-line-length" />
+        <error line="93" column="161" source="standard:max-line-length" />
+        <error line="155" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/repository/LibraryFeaturesTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="69" column="161" source="standard:max-line-length" />
+        <error line="97" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/repository/LivePhotoRepositoryTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/repository/SharedGalleryRepositoryTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="72" column="60" source="standard:comma-spacing" />
+        <error line="72" column="62" source="standard:comma-spacing" />
+        <error line="73" column="119" source="standard:comma-spacing" />
+        <error line="73" column="122" source="standard:comma-spacing" />
+        <error line="77" column="88" source="standard:comma-spacing" />
+        <error line="77" column="100" source="standard:comma-spacing" />
+        <error line="77" column="105" source="standard:comma-spacing" />
+        <error line="77" column="107" source="standard:comma-spacing" />
+        <error line="77" column="109" source="standard:comma-spacing" />
+        <error line="77" column="151" source="standard:comma-spacing" />
+        <error line="77" column="161" source="standard:max-line-length" />
+        <error line="77" column="162" source="standard:comma-spacing" />
+        <error line="77" column="171" source="standard:op-spacing" />
+        <error line="79" column="72" source="standard:comma-spacing" />
+        <error line="80" column="67" source="standard:comma-spacing" />
+        <error line="86" column="55" source="standard:comma-spacing" />
+        <error line="86" column="77" source="standard:comma-spacing" />
+        <error line="87" column="37" source="standard:comma-spacing" />
+        <error line="89" column="28" source="standard:comma-spacing" />
+        <error line="90" column="28" source="standard:comma-spacing" />
+        <error line="95" column="62" source="standard:no-semi" />
+        <error line="111" column="161" source="standard:max-line-length" />
+        <error line="114" column="32" source="standard:comma-spacing" />
+        <error line="114" column="62" source="standard:comma-spacing" />
+        <error line="116" column="43" source="standard:comma-spacing" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/source/AndroidMediaStoreSourceTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/androidTest/java/me/lvca/alba/engine/source/UploadFormatsTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="28" column="20" source="standard:comma-spacing" />
+        <error line="55" column="45" source="standard:comma-spacing" />
+        <error line="55" column="50" source="standard:comma-spacing" />
+        <error line="68" column="62" source="standard:comma-spacing" />
+        <error line="68" column="67" source="standard:comma-spacing" />
+        <error line="68" column="83" source="standard:comma-spacing" />
+        <error line="68" column="93" source="standard:comma-spacing" />
+        <error line="68" column="104" source="standard:comma-spacing" />
+        <error line="68" column="121" source="standard:comma-spacing" />
+        <error line="68" column="127" source="standard:comma-spacing" />
+        <error line="68" column="132" source="standard:comma-spacing" />
+        <error line="68" column="137" source="standard:comma-spacing" />
+        <error line="68" column="157" source="standard:comma-spacing" />
+        <error line="68" column="161" source="standard:max-line-length" />
+        <error line="71" column="33" source="standard:comma-spacing" />
+        <error line="76" column="44" source="standard:comma-spacing" />
+        <error line="84" column="29" source="standard:comma-spacing" />
+        <error line="92" column="29" source="standard:comma-spacing" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/cache/MediaFileCache.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="31" column="5" source="standard:spacing-between-declarations-with-comments" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/cache/StorageWriteGuard.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/cache/UploadStagingStore.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/companion/AccountBindingSync.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/companion/BackupEnrollment.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/companion/DefaultPhotoCompanion.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/companion/GalleryBatchActions.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/companion/PhotoVerificationValues.kt">
+        <error line="44" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/companion/Reconciler.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/companion/UploadInvoker.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/companion/VerifiedPhotoTrash.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/database/AlbaDatabase.kt">
+        <error line="60" column="161" source="standard:max-line-length" />
+        <error line="61" column="161" source="standard:max-line-length" />
+        <error line="116" column="161" source="standard:max-line-length" />
+        <error line="117" column="161" source="standard:max-line-length" />
+        <error line="118" column="161" source="standard:max-line-length" />
+        <error line="119" column="161" source="standard:max-line-length" />
+        <error line="196" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/database/CatalogDao.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/database/LibraryEntities.kt">
+        <error line="38" column="161" source="standard:max-line-length" />
+        <error line="46" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/database/TransferDao.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="351" column="161" source="standard:max-line-length" />
+        <error line="396" column="160" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/database/TransferState.kt">
+        <error line="7" column="12" source="standard:enum-wrapping" />
+        <error line="7" column="21" source="standard:enum-wrapping" />
+        <error line="7" column="38" source="standard:enum-wrapping" />
+        <error line="7" column="51" source="standard:enum-wrapping" />
+        <error line="7" column="65" source="standard:enum-wrapping" />
+        <error line="8" column="16" source="standard:enum-wrapping" />
+        <error line="8" column="30" source="standard:enum-wrapping" />
+        <error line="8" column="41" source="standard:enum-wrapping" />
+        <error line="8" column="56" source="standard:enum-wrapping" />
+        <error line="8" column="69" source="standard:enum-wrapping" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/model/BatchItem.kt">
+        <error line="5" column="14" source="standard:enum-wrapping" />
+        <error line="5" column="23" source="standard:enum-wrapping" />
+        <error line="5" column="29" source="standard:enum-wrapping" />
+        <error line="5" column="37" source="standard:enum-wrapping" />
+        <error line="5" column="54" source="standard:enum-wrapping" />
+        <error line="5" column="63" source="standard:enum-wrapping" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/model/GalleryMedia.kt">
+        <error line="104" column="61" source="standard:no-semi" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/model/PhotoCompanion.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/model/SharedAlbumLinks.kt">
+        <error line="10" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/model/SharedAlbums.kt">
+        <error line="23" column="161" source="standard:max-line-length" />
+        <error line="26" column="161" source="standard:max-line-length" />
+        <error line="30" column="27" source="standard:enum-wrapping" />
+        <error line="30" column="41" source="standard:enum-wrapping" />
+        <error line="30" column="56" source="standard:enum-wrapping" />
+        <error line="30" column="77" source="standard:enum-wrapping" />
+        <error line="30" column="97" source="standard:enum-wrapping" />
+        <error line="30" column="118" source="standard:enum-wrapping" />
+        <error line="30" column="135" source="standard:enum-wrapping" />
+        <error line="30" column="149" source="standard:enum-wrapping" />
+        <error line="30" column="158" source="standard:enum-wrapping" />
+        <error line="30" column="160" source="standard:max-line-length" />
+        <error line="30" column="166" source="standard:enum-wrapping" />
+        <error line="30" column="174" source="standard:enum-wrapping" />
+        <error line="30" column="194" source="standard:enum-wrapping" />
+        <error line="30" column="200" source="standard:enum-wrapping" />
+        <error line="30" column="215" source="standard:enum-wrapping" />
+        <error line="31" column="22" source="standard:enum-wrapping" />
+        <error line="31" column="33" source="standard:enum-wrapping" />
+        <error line="31" column="47" source="standard:enum-wrapping" />
+        <error line="31" column="54" source="standard:enum-wrapping" />
+        <error line="31" column="68" source="standard:enum-wrapping" />
+        <error line="31" column="77" source="standard:enum-wrapping" />
+        <error line="31" column="93" source="standard:enum-wrapping" />
+        <error line="31" column="103" source="standard:enum-wrapping" />
+        <error line="31" column="120" source="standard:enum-wrapping" />
+        <error line="31" column="126" source="standard:enum-wrapping" />
+        <error line="32" column="1" source="standard:spacing-between-declarations-with-comments" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/model/StoredMessage.kt">
+        <error line="8" column="161" source="standard:max-line-length" />
+        <error line="15" column="161" source="standard:max-line-length" />
+        <error line="16" column="161" source="standard:max-line-length" />
+        <error line="20" column="161" source="standard:max-line-length" />
+        <error line="21" column="161" source="standard:max-line-length" />
+        <error line="25" column="161" source="standard:max-line-length" />
+        <error line="28" column="161" source="standard:max-line-length" />
+        <error line="36" column="161" source="standard:max-line-length" />
+        <error line="37" column="161" source="standard:max-line-length" />
+        <error line="39" column="161" source="standard:max-line-length" />
+        <error line="41" column="161" source="standard:max-line-length" />
+        <error line="42" column="161" source="standard:max-line-length" />
+        <error line="44" column="161" source="standard:max-line-length" />
+        <error line="47" column="161" source="standard:max-line-length" />
+        <error line="50" column="161" source="standard:max-line-length" />
+        <error line="52" column="161" source="standard:max-line-length" />
+        <error line="53" column="161" source="standard:max-line-length" />
+        <error line="54" column="161" source="standard:max-line-length" />
+        <error line="55" column="161" source="standard:max-line-length" />
+        <error line="56" column="161" source="standard:max-line-length" />
+        <error line="57" column="161" source="standard:max-line-length" />
+        <error line="58" column="161" source="standard:max-line-length" />
+        <error line="59" column="161" source="standard:max-line-length" />
+        <error line="60" column="161" source="standard:max-line-length" />
+        <error line="63" column="161" source="standard:max-line-length" />
+        <error line="65" column="161" source="standard:max-line-length" />
+        <error line="67" column="161" source="standard:max-line-length" />
+        <error line="76" column="161" source="standard:max-line-length" />
+        <error line="77" column="161" source="standard:max-line-length" />
+        <error line="84" column="161" source="standard:max-line-length" />
+        <error line="90" column="161" source="standard:max-line-length" />
+        <error line="96" column="161" source="standard:max-line-length" />
+        <error line="105" column="161" source="standard:max-line-length" />
+        <error line="106" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/repository/DefaultGalleryRepository.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="171" column="160" source="standard:max-line-length" />
+        <error line="233" column="161" source="standard:max-line-length" />
+        <error line="265" column="161" source="standard:max-line-length" />
+        <error line="350" column="161" source="standard:max-line-length" />
+        <error line="385" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="400" column="161" source="standard:max-line-length" />
+        <error line="448" column="161" source="standard:max-line-length" />
+        <error line="463" column="1" source="standard:no-blank-line-before-rbrace" />
+        <error line="535" column="161" source="standard:max-line-length" />
+        <error line="654" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/repository/SharedUploadPreparation.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/source/AndroidMediaStoreSource.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="223" column="13" source="standard:chain-wrapping" />
+        <error line="357" column="161" source="standard:max-line-length" />
+        <error line="419" column="26" source="standard:string-template" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/source/CloudCatalogSource.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="46" column="161" source="standard:max-line-length" />
+        <error line="51" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/me/lvca/alba/engine/source/UploadMediaValidator.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/test/java/me/lvca/alba/engine/model/AvailabilityResolverTest.kt">
+        <error line="44" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/test/java/me/lvca/alba/engine/model/GalleryQueryTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/test/java/me/lvca/alba/engine/model/SharedAlbumLinksTest.kt">
+        <error line="8" column="161" source="standard:max-line-length" />
+        <error line="14" column="161" source="standard:max-line-length" />
+    </file>
+    <file name="src/test/java/me/lvca/alba/engine/repository/SharedUploadPreparationTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="32" column="1" source="standard:no-blank-line-before-rbrace" />
+    </file>
+    <file name="src/test/java/me/lvca/alba/engine/source/UploadMediaFormatTest.kt">
+        <error line="15" column="87" source="standard:comma-spacing" />
+        <error line="15" column="90" source="standard:comma-spacing" />
+        <error line="15" column="93" source="standard:comma-spacing" />
+        <error line="15" column="96" source="standard:comma-spacing" />
+        <error line="15" column="99" source="standard:comma-spacing" />
+        <error line="15" column="102" source="standard:comma-spacing" />
+        <error line="15" column="105" source="standard:comma-spacing" />
+    </file>
+</baseline>

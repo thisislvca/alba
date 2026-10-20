@@ -1,0 +1,83 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$Build.VERSION.SDK_INT &gt;= 33 &amp;&amp; !has(if (video) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_MEDIA_IMAGES) &amp;&amp; !(Build.VERSION.SDK_INT &gt;= 34 &amp;&amp; has(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))</ID>
+    <ID>ComplexCondition:BackupEnrollment.kt$BackupEnrollment$row.accountId != binding.accountId || row.authEpoch != binding.authEpoch || row.operationFence != binding.operationFence || row.expiresAtEpochMillis &lt;= now()</ID>
+    <ID>ComplexCondition:Reconciler.kt$Reconciler$sink.byteCount == source.byteCount &amp;&amp; observation.byteCount == source.byteCount &amp;&amp; sink.sha256Hex() == source.sha256Hex &amp;&amp; observation.resourceIdentity == pair.originalResourceIdentity</ID>
+    <ID>ComplexCondition:UploadInvoker.kt$UploadInvoker$transfer.accountId == binding.accountId &amp;&amp; transfer.authEpoch == binding.authEpoch &amp;&amp; transfer.operationFence == binding.operationFence &amp;&amp; protocol.canResume(binding, attemptId)</ID>
+    <ID>ComplexCondition:UploadMediaFormat.kt$UploadMediaFormat.Companion$prefix.size &gt;= 3 &amp;&amp; prefix[0] == 0xff.toByte() &amp;&amp; prefix[1] == 0xd8.toByte() &amp;&amp; prefix[2] == 0xff.toByte()</ID>
+    <ID>ComplexCondition:UploadMediaValidator.kt$UploadMediaValidator$type in setOf("acTL", "fcTL", "fdAT", "ANIM", "ANMF") || (type == "VP8X" &amp;&amp; length &gt; 0 &amp;&amp; input.readUnsignedByte() and 2 != 0)</ID>
+    <ID>ComplexCondition:UploadStagingStore.kt$UploadStagingStore$owned &amp;&amp; !retained &amp;&amp; oldEnoughToBeOrphaned &amp;&amp; file.delete()</ID>
+    <ID>CyclomaticComplexMethod:Reconciler.kt$Reconciler$suspend fun reconcileOne(binding: AccountBinding): Int</ID>
+    <ID>CyclomaticComplexMethod:UploadInvoker.kt$UploadInvoker$suspend fun invokeOne(binding: AccountBinding, allowManual: Boolean, allowAutomatic: Boolean): Int</ID>
+    <ID>CyclomaticComplexMethod:UploadMediaFormat.kt$UploadMediaFormat.Companion$fun detect(prefix: ByteArray): UploadMediaFormat</ID>
+    <ID>InstanceOfCheckForException:GalleryBatchActions.kt$GalleryBatchActions$error is InsufficientStorageException</ID>
+    <ID>InstanceOfCheckForException:GalleryBatchActions.kt$GalleryBatchActions$error is me.lvca.alba.engine.source.UnsupportedUploadException</ID>
+    <ID>InstanceOfCheckForException:Reconciler.kt$Reconciler$error is CancellationException</ID>
+    <ID>InstanceOfCheckForException:UploadInvoker.kt$UploadInvoker$error is CancellationException</ID>
+    <ID>LongParameterList:TransferDao.kt$TransferDao$( transferId: String, expectedVersion: Long, leaseToken: String, accountId: String, authEpoch: Long, operationFence: Long, attemptId: String, now: Long, message: String = StoredMessage.UPLOADING_TO_ICLOUD.code, )</ID>
+    <ID>LoopWithTooManyJumpStatements:SharedUploadPreparation.kt$while</ID>
+    <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$1000L</ID>
+    <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$1_000L</ID>
+    <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$200</ID>
+    <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$29</ID>
+    <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$30</ID>
+    <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$33</ID>
+    <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$34</ID>
+    <ID>MagicNumber:AndroidMediaStoreSource.kt$AndroidMediaStoreSource$4096</ID>
+    <ID>MagicNumber:DefaultGalleryRepository.kt$DefaultGalleryRepository$255</ID>
+    <ID>MagicNumber:DefaultGalleryRepository.kt$DefaultGalleryRepository$400</ID>
+    <ID>MagicNumber:DefaultGalleryRepository.kt$DefaultGalleryRepository$50</ID>
+    <ID>MagicNumber:DefaultPhotoCompanion.kt$DefaultPhotoCompanion$15_000L</ID>
+    <ID>MagicNumber:DefaultPhotoCompanion.kt$DefaultPhotoCompanion$1_000L</ID>
+    <ID>MagicNumber:GalleryBatchActions.kt$GalleryBatchActions$256</ID>
+    <ID>MagicNumber:MediaFileCache.kt$MediaFileCache$1024</ID>
+    <ID>MagicNumber:MediaFileCache.kt$MediaFileCache$16L</ID>
+    <ID>MagicNumber:MediaFileCache.kt$MediaFileCache$64L</ID>
+    <ID>MagicNumber:SharedAlbumLinks.kt$SharedAlbumLinks$443</ID>
+    <ID>MagicNumber:SharedAlbumLinks.kt$SharedAlbumLinks$8192</ID>
+    <ID>MagicNumber:SharedUploadPreparation.kt$1024</ID>
+    <ID>MagicNumber:SharedUploadPreparation.kt$4096</ID>
+    <ID>MagicNumber:SharedUploadPreparation.kt$64</ID>
+    <ID>MagicNumber:StorageWriteGuard.kt$StorageWriteGuard$1024L</ID>
+    <ID>MagicNumber:StorageWriteGuard.kt$StorageWriteGuard$256</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat$150</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$10</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$13</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$137</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$16</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$255</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$26</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$3</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$4</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$71</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$78</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$8</ID>
+    <ID>MagicNumber:UploadMediaFormat.kt$UploadMediaFormat.Companion$80</ID>
+    <ID>MagicNumber:UploadMediaValidator.kt$UploadMediaValidator$0xffffffffL</ID>
+    <ID>MagicNumber:UploadMediaValidator.kt$UploadMediaValidator$12L</ID>
+    <ID>MagicNumber:UploadMediaValidator.kt$UploadMediaValidator$4</ID>
+    <ID>MagicNumber:UploadMediaValidator.kt$UploadMediaValidator$8</ID>
+    <ID>MagicNumber:UploadMediaValidator.kt$UploadMediaValidator$8L</ID>
+    <ID>MagicNumber:UploadStagingStore.kt$UploadStagingStore$4096L</ID>
+    <ID>MatchingDeclarationName:SharedUploadPreparation.kt$PreparedSharedUpload</ID>
+    <ID>NestedBlockDepth:UploadInvoker.kt$UploadInvoker$suspend fun recoverInterrupted(binding: AccountBinding?, allowManual: Boolean, allowAutomatic: Boolean): Int</ID>
+    <ID>ReturnCount:Reconciler.kt$Reconciler$suspend fun reconcileOne(binding: AccountBinding): Int</ID>
+    <ID>ReturnCount:UploadMediaFormat.kt$UploadMediaFormat.Companion$fun detect(prefix: ByteArray): UploadMediaFormat</ID>
+    <ID>ReturnCount:VerifiedPhotoTrash.kt$VerifiedPhotoTrash$suspend fun prepareTrash(items: Set&lt;String&gt;): ReclaimProposal</ID>
+    <ID>ThrowsCount:Reconciler.kt$Reconciler$suspend fun reconcileOne(binding: AccountBinding): Int</ID>
+    <ID>ThrowsCount:UploadInvoker.kt$UploadInvoker$suspend fun invokeOne(binding: AccountBinding, allowManual: Boolean, allowAutomatic: Boolean): Int</ID>
+    <ID>ThrowsCount:UploadMediaFormat.kt$UploadMediaFormat.Companion$fun detect(prefix: ByteArray): UploadMediaFormat</ID>
+    <ID>ThrowsCount:UploadMediaValidator.kt$UploadMediaValidator$suspend fun validate(file: File, format: UploadMediaFormat)</ID>
+    <ID>TooGenericExceptionCaught:Cancellation.kt$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:GalleryBatchActions.kt$GalleryBatchActions$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:MediaFileCache.kt$MediaFileCache$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:Reconciler.kt$Reconciler$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:TransferIntake.kt$TransferIntake$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:UploadInvoker.kt$UploadInvoker$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:UploadStagingStore.kt$UploadStagingStore$error: Throwable</ID>
+    <ID>TooManyFunctions:DefaultGalleryRepository.kt$DefaultGalleryRepository : GalleryRepository</ID>
+    <ID>TooManyFunctions:TransferDao.kt$TransferDao</ID>
+  </CurrentIssues>
+</SmellBaseline>
