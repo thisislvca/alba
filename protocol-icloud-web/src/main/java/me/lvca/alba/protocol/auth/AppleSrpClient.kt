@@ -42,6 +42,12 @@ class AppleSrpClient(
         protocol: AppleSrpProtocol,
     ): AppleSrpProof {
         require(iterations > 0) { "Apple SRP iterations must be positive" }
+        if (iterations > MAX_ITERATIONS) {
+            throw AppleProtocolException(
+                AppleProtocolError.MALFORMED_RESPONSE,
+                "Apple asked for $iterations password hashing rounds, more than the $MAX_ITERATIONS this app allows.",
+            )
+        }
         val publicBValue = positive(serverPublicB)
         require(publicBValue.mod(MODULUS) != BigInteger.ZERO) {
             "Apple SRP server public value is invalid"
@@ -99,6 +105,13 @@ class AppleSrpClient(
 
     private companion object {
         const val SHA_256_BYTES = 32
+
+        /**
+         * The server picks the PBKDF2 round count. The fixtures and pyicloud oracle use 2,048, and
+         * iCloud.com runs the rounds in browser JavaScript, so real counts stay far below this bound.
+         * It stops a hostile or broken server from pinning the CPU with a count near Int.MAX_VALUE.
+         */
+        const val MAX_ITERATIONS = 1_000_000
         const val EPHEMERAL_SECRET_BYTES = 256
         val GENERATOR = BigInteger.valueOf(2L)
         val MODULUS = BigInteger(

@@ -24,6 +24,21 @@ class AppleSrpClientTest {
         )
     }
 
+    @Test
+    fun `excessive server iteration count fails before hashing`() {
+        val client = AppleSrpClient("luca@example.com", "correct horse battery staple")
+        val error = runCatching {
+            client.processChallenge(
+                salt = hex("00112233445566778899aabbccddeeff"),
+                serverPublicB = Base64.getDecoder().decode(SERVER_PUBLIC_B),
+                iterations = Int.MAX_VALUE,
+                protocol = AppleSrpProtocol.S2K,
+            )
+        }.exceptionOrNull()
+
+        assertEquals(AppleProtocolError.MALFORMED_RESPONSE, (error as AppleProtocolException).error)
+    }
+
     private fun assertOracleProof(
         protocol: AppleSrpProtocol,
         expectedM1: String,
