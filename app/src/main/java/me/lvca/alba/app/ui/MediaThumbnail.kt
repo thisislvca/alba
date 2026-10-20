@@ -1,6 +1,5 @@
 package me.lvca.alba.app.ui
 
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import androidx.compose.ui.res.stringResource
 import me.lvca.alba.app.R
 import android.content.Context
@@ -60,6 +59,7 @@ import androidx.core.net.toUri
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 private data class TransitionThumbnailKey(val mediaId: String, val sourceRevision: String)
 

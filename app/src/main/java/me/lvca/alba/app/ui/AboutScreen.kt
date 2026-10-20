@@ -22,6 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.AlbaApplication
+import android.content.ActivityNotFoundException
+import android.widget.Toast
 
 @Composable
 internal fun AboutScreen(onBack: () -> Unit) {
@@ -53,9 +55,9 @@ internal fun AboutScreen(onBack: () -> Unit) {
             TextButton(
                 onClick = {
                     try { uriHandler.openUri("https://github.com/thisislvca/alba") }
-                    catch (_: android.content.ActivityNotFoundException) {
-                        android.widget.Toast.makeText(context, R.string.profile_browser_unavailable,
-                            android.widget.Toast.LENGTH_LONG).show()
+                    catch (_: ActivityNotFoundException) {
+                        Toast.makeText(context, R.string.profile_browser_unavailable,
+                            Toast.LENGTH_LONG).show()
                     }
                 },
                 modifier = Modifier.testTag("about-source"),

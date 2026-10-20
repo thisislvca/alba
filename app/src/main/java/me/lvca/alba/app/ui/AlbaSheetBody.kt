@@ -24,9 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
+import kotlinx.coroutines.CancellationException
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.AlbaSpacing
-import kotlinx.coroutines.CancellationException
 
 /**
  * The scrolling body of an [AlbaBottomSheet]: inset content under an [AlbaSheetHeading], ending clear of

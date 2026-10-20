@@ -1,6 +1,5 @@
 package me.lvca.alba.app.ui
 
-import me.lvca.alba.app.ui.theme.AlbaSpacing
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +28,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import java.time.Instant
 import java.time.ZoneOffset
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

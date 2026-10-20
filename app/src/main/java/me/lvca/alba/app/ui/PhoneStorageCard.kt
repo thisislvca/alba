@@ -1,13 +1,11 @@
 package me.lvca.alba.app.ui
 
-import me.lvca.alba.engine.model.LocalMediaStorage
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -16,21 +14,9 @@ import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.GalleryUiState
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.LocalMediaCategory
+import me.lvca.alba.engine.model.LocalMediaStorage
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun PhoneStorageCard(state: GalleryUiState, actions: StorageActions) {
-    var open by rememberSaveable { mutableStateOf(false) }
-    OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().testTag("phone-storage-button")) {
-        Text(stringResource(R.string.phone_storage_title))
-    }
-    if (open) AlbaBottomSheet(onDismissRequest = { open = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp)) {
-            PhoneStorageDetails(state, actions)
-        }
-    }
-}
-
+/** Alba's storage on this phone, with per-category cleanup. Shown as the profile's phone storage page. */
 @Composable
 internal fun PhoneStorageDetails(state: GalleryUiState, actions: StorageActions) {
     var confirming by rememberSaveable { mutableStateOf<LocalMediaCategory?>(null) }
@@ -47,7 +33,7 @@ internal fun PhoneStorageDetails(state: GalleryUiState, actions: StorageActions)
                     HorizontalDivider()
                     Text(stringResource(category.title()), style = MaterialTheme.typography.labelLarge)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        verticalAlignment = Alignment.CenterVertically) {
                         Text(bytes(size), Modifier.weight(1f))
                         TextButton(onClick = { confirming = category }, enabled = size > 0 && !busy,
                             modifier = Modifier.testTag("clear-storage-$category")) { Text(stringResource(R.string.clear_storage)) }

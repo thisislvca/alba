@@ -1,6 +1,5 @@
 package me.lvca.alba.app.ui
 
-import me.lvca.alba.app.ui.theme.AlbaSpacing
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.launch
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -1,11 +1,5 @@
 package me.lvca.alba.app.ui
 
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.graphics.painter.Painter
-import me.lvca.alba.app.ui.theme.AlbaSpacing
-import me.lvca.alba.app.ui.theme.mosaicCell
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -25,6 +19,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import me.lvca.alba.app.GalleryUiState
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.painter.Painter
+import me.lvca.alba.app.ui.theme.AlbaSpacing
+import me.lvca.alba.app.ui.theme.mosaicCell
 
 internal enum class CollectionsPage(val title: Int) {
     ALBUMS(R.string.albums), SHARED(R.string.shared_albums), DEVICE(R.string.on_this_phone)
@@ -35,7 +37,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
     summaries: Map<String, CollectionPreview>, scroll: LazyGridState, preview: (String) -> Unit,
     openPage: (CollectionsPage) -> Unit, openFolder: (String) -> Unit, openCollection: (String) -> Unit, openOffline: () -> Unit,
     openSharedInvitations: () -> Unit = {}, createSharedAlbum: () -> Unit = {}, openTrash: () -> Unit = {}, openCloudTrash: () -> Unit = {},
-    createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: androidx.compose.ui.unit.Dp = 16.dp) {
+    createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: Dp = 16.dp) {
     val albums = remember(state.collections, folder, page) { state.collections.filter {
         when (page) {
             CollectionsPage.SHARED -> it.shared != null
@@ -88,7 +90,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
         } else {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(androidx.compose.ui.res.pluralStringResource(R.plurals.album_count, albums.size, albums.size),
+                    Text(pluralStringResource(R.plurals.album_count, albums.size, albums.size),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     if (page == CollectionsPage.SHARED) {
                         IconButton(onClick = openSharedInvitations, enabled = state.canEditLibrary()) { Icon(Icons.Outlined.Email, stringResource(R.string.shared_invitations)) }

@@ -1,8 +1,6 @@
 package me.lvca.alba.app.ui
 
 import androidx.compose.ui.graphics.Color
-import me.lvca.alba.app.ui.theme.AlbaTheme
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -15,6 +13,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.dp
+import me.lvca.alba.app.ui.theme.AlbaTheme
+import androidx.compose.ui.graphics.toArgb
 
 /** Original vector geometry for Alba's account card. */
 @Composable

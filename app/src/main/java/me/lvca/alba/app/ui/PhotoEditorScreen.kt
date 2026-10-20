@@ -37,10 +37,16 @@ import me.lvca.alba.engine.model.GalleryMedia
 import java.io.File
 import kotlinx.coroutines.*
 import kotlin.math.hypot
+import android.net.Uri
+import android.os.Build
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedia) -> File, close: () -> Unit, saved: (android.net.Uri) -> Unit) {
+internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedia) -> File, close: () -> Unit, saved: (Uri) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var file by remember { mutableStateOf<File?>(null) }
@@ -98,7 +104,7 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
             busy = true; saving = true; failed = false
             try {
                 val output = renderPhotoEdit(input, crop, turns, allowSmallerCopy = allowSmaller)
-                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                if (Build.VERSION.SDK_INT >= 29) {
                     val uri = try { saveEditedCopy(context, media, output, source = input) } finally { output.recycle() }
                     close(); saved(uri)
                 } else {
@@ -113,17 +119,17 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
         }
     }
     Dialog(onDismissRequest = requestClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val dialogView = androidx.compose.ui.platform.LocalView.current
+        val dialogView = LocalView.current
         DisposableEffect(dialogView) {
-            (dialogView.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { window ->
-                androidx.core.view.WindowCompat.getInsetsController(window, dialogView).apply {
+            (dialogView.parent as? DialogWindowProvider)?.window?.let { window ->
+                WindowCompat.getInsetsController(window, dialogView).apply {
                     isAppearanceLightStatusBars = false
                     isAppearanceLightNavigationBars = false
                 }
             }
             onDispose { }
         }
-        me.lvca.alba.app.ui.theme.AlbaTheme(darkTheme = true) {
+        AlbaTheme(darkTheme = true) {
         if (discard) AlertDialog(onDismissRequest = { discard = false },
             title = { Text(stringResource(R.string.discard_edits_title)) },
             text = { Text(stringResource(R.string.discard_edits_explanation)) },

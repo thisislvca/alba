@@ -14,6 +14,9 @@ import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
 import java.text.NumberFormat
+import android.text.format.Formatter
+import androidx.compose.ui.platform.LocalContext
+import java.util.Locale
 
 /** Only show metadata and backup claims that the local catalog actually establishes. */
 @Composable
@@ -55,8 +58,8 @@ internal fun PhotoMetadataCards(media: GalleryMedia, account: ICloudAccountState
                             MetadataChip(stringResource(R.string.megapixels, number.format(media.width.toLong() * media.height / 1_000_000.0)))
                             MetadataChip(stringResource(R.string.pixel_dimensions, media.width, media.height))
                         }
-                        media.byteCount?.let { MetadataChip(android.text.format.Formatter.formatShortFileSize(androidx.compose.ui.platform.LocalContext.current, it)) }
-                        MetadataChip(media.mimeType.substringAfter('/').uppercase(java.util.Locale.ROOT))
+                        media.byteCount?.let { MetadataChip(Formatter.formatShortFileSize(LocalContext.current, it)) }
+                        MetadataChip(media.mimeType.substringAfter('/').uppercase(Locale.ROOT))
                     }
                 }
             }

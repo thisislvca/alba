@@ -21,7 +21,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -55,14 +54,18 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
 import me.lvca.alba.engine.source.MediaRead
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.Locale
+import androidx.media3.common.util.UnstableApi
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.media3.common.VideoSize
+import androidx.compose.foundation.shape.CircleShape
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 typealias PlaybackReader = suspend (String, Long, Long) -> MediaRead
 
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 internal class LibraryDataSource(private val id: String, private val reader: PlaybackReader) : BaseDataSource(true) {
     private var handle: MediaRead? = null
     private var uri: Uri? = null
@@ -107,8 +110,8 @@ private class PlaybackMemory(position: Long, playing: Boolean) {
     }
 }
 
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoPlayer(
     id: String,
@@ -148,7 +151,7 @@ fun VideoPlayer(
         else setMediaSource(ProgressiveMediaSource.Factory { LibraryDataSource(id) { media, start, count -> currentReader(media, start, count) } }
             .createMediaSource(MediaItem.fromUri("alba://playback")))
         addListener(object : Player.Listener {
-            override fun onVideoSizeChanged(size: androidx.media3.common.VideoSize) {
+            override fun onVideoSizeChanged(size: VideoSize) {
                 if (size.width > 0 && size.height > 0) videoAspect = size.width * size.pixelWidthHeightRatio / size.height
             }
             override fun onEvents(player: Player, events: Player.Events) {
@@ -266,8 +269,8 @@ fun VideoPlayer(
             }
         }
         error?.let { message ->
-            Surface(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(16.dp)) {
-                Column(Modifier.padding(12.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+            Surface(Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
+                Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(stringResource(message))
                     FilledTonalButton(onClick = {
                         memory.capture(); error = null

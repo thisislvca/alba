@@ -1,8 +1,5 @@
 package me.lvca.alba.app.ui
 
-import java.util.Locale
-import me.lvca.alba.app.ui.theme.StorageColors
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import android.text.format.Formatter
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -36,6 +33,12 @@ import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import java.time.Instant
+import me.lvca.alba.engine.model.CloudPlanSource
+import android.content.ActivityNotFoundException
+import android.widget.Toast
+import java.util.Locale
+import me.lvca.alba.app.ui.theme.StorageColors
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 internal enum class ProfilePage(val title: Int) {
     OVERVIEW(R.string.profile_title), ACTIVATION(R.string.how_to_activate_icloud_photos), SIGN_IN(R.string.icloud_account),
@@ -100,11 +103,11 @@ internal fun ProfileOverview(
                     signedIn?.let { Text(it.appleId, style = MaterialTheme.typography.bodyLarge, color = profileColors.onCardMuted) }
                     profile?.plan?.let { plan ->
                         val labels = plan.sources.map { source -> stringResource(when (source) {
-                            me.lvca.alba.engine.model.CloudPlanSource.ICLOUD_PLUS -> R.string.profile_plan_icloud_plus
-                            me.lvca.alba.engine.model.CloudPlanSource.APPLE_ONE -> R.string.profile_plan_apple_one
-                            me.lvca.alba.engine.model.CloudPlanSource.FAMILY -> R.string.profile_plan_family
-                            me.lvca.alba.engine.model.CloudPlanSource.COMPLIMENTARY -> R.string.profile_plan_complimentary
-                            me.lvca.alba.engine.model.CloudPlanSource.MANAGED -> R.string.profile_plan_managed
+                            CloudPlanSource.ICLOUD_PLUS -> R.string.profile_plan_icloud_plus
+                            CloudPlanSource.APPLE_ONE -> R.string.profile_plan_apple_one
+                            CloudPlanSource.FAMILY -> R.string.profile_plan_family
+                            CloudPlanSource.COMPLIMENTARY -> R.string.profile_plan_complimentary
+                            CloudPlanSource.MANAGED -> R.string.profile_plan_managed
                         }) }
                         Text(labels.joinToString(" · "), style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("profile-plan-name"))
                     }
@@ -172,8 +175,8 @@ private fun PlanLink(hero: Boolean = false) {
     val uriHandler = LocalUriHandler.current
     TextButton(onClick = {
         try { uriHandler.openUri("https://www.icloud.com/plan") }
-        catch (_: android.content.ActivityNotFoundException) {
-            android.widget.Toast.makeText(context, R.string.profile_browser_unavailable, android.widget.Toast.LENGTH_LONG).show()
+        catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, R.string.profile_browser_unavailable, Toast.LENGTH_LONG).show()
         }
     }, contentPadding = PaddingValues(0.dp), modifier = Modifier.heightIn(min = 48.dp).testTag("profile-manage-plan")) {
         Text(stringResource(R.string.profile_manage_plan), color = ink)

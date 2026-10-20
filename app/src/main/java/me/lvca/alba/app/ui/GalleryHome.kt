@@ -1,7 +1,5 @@
 package me.lvca.alba.app.ui
 
-import androidx.compose.ui.semantics.Role
-import me.lvca.alba.app.ui.theme.tile
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateBounds
 import androidx.compose.animation.animateColorAsState
@@ -53,6 +51,11 @@ import java.time.LocalDate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.Role
+import me.lvca.alba.app.ui.theme.tile
 
 /**
  * Where a photo grid was, by media id rather than by index. A restored LazyGridState only knows an index, and it is
@@ -278,7 +281,7 @@ internal fun GalleryHome(
                                 else Spacer(Modifier.weight(1f))
                             } else {
                                 Box(Modifier.size(44.dp).clip(MaterialTheme.shapes.small), contentAlignment = Alignment.Center) {
-                                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.alba_logo_mark), stringResource(R.string.brand_name), Modifier.size(44.dp))
+                                    Image(painterResource(R.drawable.alba_logo_mark), stringResource(R.string.brand_name), Modifier.size(44.dp))
                                 }
                                 if (!wide && tab == GalleryTab.LIBRARY) Spacer(Modifier.weight(1f))
                                 else Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -290,7 +293,7 @@ internal fun GalleryHome(
                                 if (collection?.shared != null) IconButton(onClick = { sharedManage = true }, enabled = state.canEditLibrary()) {
                                     Icon(Icons.Outlined.AccountCircle, stringResource(R.string.shared_manage))
                                 }
-                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                                 Box {
                                     IconButton(onClick = { albumMenu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.album_options)) }
                                     DropdownMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
@@ -351,7 +354,7 @@ internal fun GalleryHome(
                                     IconButton(enabled = state.canEditLibrary(), onClick = { deleteAlbum = collection.id }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                                 }
                                 IconButton(enabled = state.sections.isNotEmpty(), onClick = { jump = true }) { Icon(Icons.Outlined.DateRange, stringResource(R.string.browse_by_date)) }
-                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+                                IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                             }
                         }
                     }
@@ -442,7 +445,7 @@ internal fun GalleryHome(
 
 @Composable
 private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAnchor, density: Int, changeDensity: (Int) -> Unit, actions: LibraryActions, open: (String) -> Unit, toggle: (String) -> Unit,
-    preview: (String) -> Unit, bottomSpace: androidx.compose.ui.unit.Dp, permission: Boolean, dismissPermission: () -> Unit, requestPhotos: () -> Unit, clearFilters: () -> Unit, leading: (@Composable () -> Unit)? = null, flat: Boolean = false, addMedia: (() -> Unit)? = null) {
+    preview: (String) -> Unit, bottomSpace: Dp, permission: Boolean, dismissPermission: () -> Unit, requestPhotos: () -> Unit, clearFilters: () -> Unit, leading: (@Composable () -> Unit)? = null, flat: Boolean = false, addMedia: (() -> Unit)? = null) {
     val leadingItems = if (leading != null) 1 else 0
     val mediaIds = state.items.map { it.id }
     val positions = remember(mediaIds) { mediaIds.withIndex().associate { it.value to it.index } }
@@ -544,7 +547,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
         item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(state.items.size), style = MaterialTheme.typography.bodyMedium)
-                if (state.query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, androidx.compose.ui.res.pluralStringResource(R.plurals.cloud_photo_count, state.cloudCount, state.cloudCount), stringResource(R.string.phone_photo_count, state.deviceCount)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, state.cloudCount, state.cloudCount), stringResource(R.string.phone_photo_count, state.deviceCount)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -576,7 +579,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
 }
 
 @Composable
-private fun SearchLanding(bottomSpace: androidx.compose.ui.unit.Dp, onDates: () -> Unit, choose: (String) -> Unit) {
+private fun SearchLanding(bottomSpace: Dp, onDates: () -> Unit, choose: (String) -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp).padding(bottom = bottomSpace)) {
         Text(stringResource(R.string.find_a_moment), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))

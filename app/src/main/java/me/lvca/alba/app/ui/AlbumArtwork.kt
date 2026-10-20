@@ -1,8 +1,5 @@
 package me.lvca.alba.app.ui
 
-import androidx.compose.ui.graphics.RectangleShape
-import me.lvca.alba.app.ui.theme.AlbaTheme
-import me.lvca.alba.app.ui.theme.heroTitle
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -33,6 +30,11 @@ import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import android.provider.Settings
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.graphics.RectangleShape
+import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.theme.heroTitle
 
 internal data class CollectionPreview(val count: Int = 0, val media: List<GalleryMedia> = emptyList())
 
@@ -92,8 +94,8 @@ internal fun AlbumCover(media: List<GalleryMedia>, retry: Int, preview: (String)
             while (true) {
                 delay(6_500)
                 // Respect Android's reduced-animation preference, including changes while open.
-                if (android.provider.Settings.Global.getFloat(context.contentResolver,
-                        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f) index = (index + 1) % candidates.size
+                if (Settings.Global.getFloat(context.contentResolver,
+                        Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f) index = (index + 1) % candidates.size
             }
         }
     }
@@ -130,7 +132,7 @@ internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, re
             }
             if (!featured) {
                 Text(album.localizedName(), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))
-                Text(if (album.isFolder) androidx.compose.ui.res.pluralStringResource(R.plurals.folder_album_count, summary?.count ?: 0, summary?.count ?: 0) else itemCount(summary?.count ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Text(if (album.isFolder) pluralStringResource(R.plurals.folder_album_count, summary?.count ?: 0, summary?.count ?: 0) else itemCount(summary?.count ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
             }
         }

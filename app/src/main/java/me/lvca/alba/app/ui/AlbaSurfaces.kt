@@ -1,6 +1,5 @@
 package me.lvca.alba.app.ui
 
-import me.lvca.alba.app.ui.theme.sheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.theme.sheet
 
 @Composable
 internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {

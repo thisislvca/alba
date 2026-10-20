@@ -1,7 +1,5 @@
 package me.lvca.alba.app.ui
 
-import me.lvca.alba.app.ui.theme.sheet
-import me.lvca.alba.app.ui.theme.viewerTitle
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
@@ -62,6 +60,8 @@ import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.roundToInt
+import me.lvca.alba.app.ui.theme.sheet
+import me.lvca.alba.app.ui.theme.viewerTitle
 
 @Composable
 internal fun MediaDetailScreen(

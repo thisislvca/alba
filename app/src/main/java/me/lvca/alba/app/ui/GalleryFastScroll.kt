@@ -23,15 +23,16 @@ import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.R
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.res.stringResource
+import me.lvca.alba.app.R
 
 // Use a single half-circle: corner shapes can shrink their radii to this tab's narrow width.
 private val ScrubberTabShape = GenericShape { size, _ ->
@@ -48,7 +49,7 @@ internal data class GalleryScrollLabel(val index: Int, val month: String, val ye
 
 @Composable
 internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLabel>, fullSpanEstimates: Map<Int, Float>,
-    minimumTileDp: Int, modifier: Modifier = Modifier, bottomSpace: androidx.compose.ui.unit.Dp = 108.dp) {
+    minimumTileDp: Int, modifier: Modifier = Modifier, bottomSpace: Dp = 108.dp) {
     if (labels.isEmpty()) return
     val density = LocalDensity.current
     val spacing = with(density) { 2.dp.toPx() }

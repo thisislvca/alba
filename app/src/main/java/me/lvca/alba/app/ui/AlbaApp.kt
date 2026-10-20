@@ -1,9 +1,5 @@
 package me.lvca.alba.app.ui
 
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.ui.res.painterResource
-import me.lvca.alba.app.ui.theme.AlbaTheme
-import me.lvca.alba.app.ui.theme.tile
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -89,6 +85,14 @@ import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
 import java.time.YearMonth
+import androidx.compose.material3.AlertDialog
+import me.lvca.alba.app.localizedStoredMessage
+import android.text.format.Formatter
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.ui.res.painterResource
+import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.theme.tile
 
 private data class GalleryDestination(val screen: String, val media: GalleryMedia?, val items: List<GalleryMedia>)
 
@@ -137,7 +141,7 @@ fun AlbaApp(
         onDismissMessage()
     }
 
-    if (state.activeDownloadId == "share") androidx.compose.material3.AlertDialog(
+    if (state.activeDownloadId == "share") AlertDialog(
         onDismissRequest = libraryActions.cancelShare, title = { Text(stringResource(R.string.preparing_to_share)) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CircularProgressIndicator()
@@ -362,7 +366,7 @@ internal fun TransferQueueCard(
                                 TransferViewState.CHECKING_ICLOUD -> R.string.demo_backup_checking
                                 TransferViewState.VERIFIED -> R.string.demo_backup_complete
                                 else -> R.string.demo_backup_off
-                            } }) else transfer.message?.let { me.lvca.alba.app.localizedStoredMessage(it).localized() } ?: transfer.state.label(),
+                            } }) else transfer.message?.let { localizedStoredMessage(it).localized() } ?: transfer.state.label(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,
@@ -563,7 +567,7 @@ internal fun DeviceUploadControls(
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                text = uploadTransfer.message?.let { me.lvca.alba.app.localizedStoredMessage(it).localized() } ?: stringResource(R.string.staged_bytes, android.text.format.Formatter.formatShortFileSize(androidx.compose.ui.platform.LocalContext.current, uploadTransfer.byteCount)),
+                                text = uploadTransfer.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.staged_bytes, Formatter.formatShortFileSize(LocalContext.current, uploadTransfer.byteCount)),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
