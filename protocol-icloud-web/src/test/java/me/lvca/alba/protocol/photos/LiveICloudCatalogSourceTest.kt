@@ -49,6 +49,50 @@ class LiveICloudCatalogSourceTest {
         assertEquals(SESSION, rejected)
     }
 
+    @Test fun syncTokenErrorTextInsideRecordContentDoesNotResetTheCatalog() = runBlocking {
+        val changes = """
+            {"zones":[{"zoneID":{"zoneName":"PrimarySync"},"syncToken":"next-token","moreComing":false,"records":[
+              {"recordName":"album-1","recordType":"CPLAlbum","fields":{
+                "albumNameEnc":{"value":"SYNC_TOKEN_EXPIRED"},"title":{"value":"INVALID_SYNC_TOKEN"}}},
+              {"recordName":"INVALID_SYNC_TOKEN","deleted":true}
+            ]}]}
+        """.trimIndent()
+        val source = LiveICloudCatalogSource(ChangesTransport(200, changes), { SESSION })
+
+        val result = source.changes("saved-token", emptyList())
+
+        assertEquals("next-token", result.nextToken)
+        assertEquals(setOf("INVALID_SYNC_TOKEN"), result.deletedRecordNames)
+        assertTrue(result.upserts.isEmpty())
+    }
+
+    @Test fun typedSyncTokenErrorsStillResetTheCatalog() = runBlocking {
+        val cases = listOf(
+            400 to """{"uuid":"request","serverErrorCode":"SYNC_TOKEN_EXPIRED","reason":"expired"}""",
+            200 to """{"zones":[{"zoneID":{"zoneName":"PrimarySync"},"serverErrorCode":"INVALID_SYNC_TOKEN"}]}""",
+            200 to """{"zones":[{"zoneID":{"zoneName":"PrimarySync"},"syncToken":"next","records":[
+                {"recordName":"asset-1","serverErrorCode":"SYNC_TOKEN_EXPIRED"}]}]}""",
+            410 to "{}",
+        )
+        for ((code, body) in cases) {
+            val source = LiveICloudCatalogSource(ChangesTransport(code, body), { SESSION })
+            val error = runCatching { source.changes("saved-token", emptyList()) }.exceptionOrNull()
+            assertTrue("HTTP $code $body", error is me.lvca.alba.engine.source.CatalogResetRequired)
+        }
+    }
+
+    private class ChangesTransport(private val code: Int, private val body: String) : AppleHttpTransport {
+        override val sessionHeaders = AppleSessionHeaders()
+        override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
+            assertTrue(request.url.contains("/changes/zone"))
+            return AppleHttpResponse(code, emptyMap(), body)
+        }
+        override suspend fun stream(url: String, output: OutputStream) = error("Not used")
+        override fun snapshotCookies() = SESSION.cookies
+        override fun restore(snapshot: AppleSessionSnapshot) = Unit
+        override fun clear() = Unit
+    }
+
     @Test fun scrollingUsesTheSmallThumbnailAndOpeningUsesTheFullJpeg() = runBlocking {
         val page = PHOTO_PAGE.replace("\"resJPEGMedRes\":", """
             "resJPEGThumbRes":{"value":{"downloadURL":"$THUMB_URL"}},

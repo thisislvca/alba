@@ -79,14 +79,15 @@ class LiveICloudCatalogSource(
         val url = cloudKitUrl(session).replace("/records/query?", "/$path?")
         val raw = transport.execute(AppleHttpRequest("POST", url, JSON_HEADERS, body.toString(), oneShot = path == "records/modify"))
         persistTransportState(session)
-        if (path == "changes/zone" && (raw.code == 410 || raw.body.contains("SYNC_TOKEN_EXPIRED") || raw.body.contains("INVALID_SYNC_TOKEN"))) throw CatalogResetRequired()
+        // CloudKit reports an expired change token as a typed error, sometimes with a non-2xx status.
+        val parsed = raw.jsonObjectOrNull()
+        if (path == "changes/zone" && (raw.code == 410 || parsed?.let(CloudKitErrors::requiresSyncReset) == true)) throw CatalogResetRequired()
         if (raw.code !in 200..299) {
             if (raw.code == 401 || raw.code == 403) onSessionRejected(session)
             throw photosHttpError(raw)
         }
-        val response = raw
-        val root = Json.parseToJsonElement(response.body).jsonObject
-        if (root.toString().contains("SYNC_TOKEN_EXPIRED") || root.toString().contains("INVALID_SYNC_TOKEN")) throw CatalogResetRequired()
+        val root = parsed ?: Json.parseToJsonElement(raw.body).jsonObject
+        if (CloudKitErrors.requiresSyncReset(root)) throw CatalogResetRequired()
         check(root["errors"]?.jsonArray.isNullOrEmpty()) { "Apple rejected the library request" }
         return root
     }
