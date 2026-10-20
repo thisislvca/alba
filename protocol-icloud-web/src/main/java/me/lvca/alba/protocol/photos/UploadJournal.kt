@@ -2,9 +2,9 @@ package me.lvca.alba.protocol.photos
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import me.lvca.alba.engine.database.LibraryDao
-import me.lvca.alba.engine.database.UploadCheckpointEntity
 import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.SealedUploadCheckpoint
+import me.lvca.alba.engine.model.UploadCheckpointStore
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -17,7 +17,7 @@ interface UploadJournal {
     suspend fun save(binding: AccountBinding, attempt: String, checkpoint: UploadCheckpoint)
 }
 
-class EncryptedUploadJournal(private val dao: LibraryDao) : UploadJournal {
+class EncryptedUploadJournal(private val store: UploadCheckpointStore) : UploadJournal {
     private companion object { val keyLock = Any() }
     private fun aad(binding: AccountBinding, attempt: String, phase: String) =
         "v1|${binding.accountId}|${binding.authEpoch}|${binding.operationFence}|$attempt|$phase".toByteArray()
@@ -31,7 +31,7 @@ class EncryptedUploadJournal(private val dao: LibraryDao) : UploadJournal {
         }.generateKey()
     }
     override suspend fun load(binding: AccountBinding, attempt: String): UploadCheckpoint? {
-        val row = dao.checkpoint(attempt) ?: return null
+        val row = store.load(attempt) ?: return null
         val blob = row.sealedPayload
         require(blob.size >= 29 && blob[0] == 1.toByte())
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -44,6 +44,6 @@ class EncryptedUploadJournal(private val dao: LibraryDao) : UploadJournal {
         cipher.init(Cipher.ENCRYPT_MODE, key())
         cipher.updateAAD(aad(binding, attempt, checkpoint.phase))
         val encrypted = byteArrayOf(1) + cipher.iv + cipher.doFinal(checkpoint.payload.toByteArray())
-        dao.putCheckpoint(UploadCheckpointEntity(attempt, checkpoint.phase, encrypted, System.currentTimeMillis()))
+        store.save(SealedUploadCheckpoint(attempt, checkpoint.phase, encrypted, System.currentTimeMillis()))
     }
 }

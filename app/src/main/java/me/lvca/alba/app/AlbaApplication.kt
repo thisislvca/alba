@@ -63,6 +63,9 @@ class AlbaApplication : Application(), androidx.work.Configuration.Provider {
 class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
     private val appContext = context.applicationContext
     val database = AlbaDatabase.create(appContext)
+    private val uploadJournal = me.lvca.alba.protocol.photos.EncryptedUploadJournal(
+        me.lvca.alba.engine.database.RoomUploadCheckpointStore(database),
+    )
     private val transport = OkHttpAppleTransport()
     private val authentication = AppleAuthenticationService(transport, telemetry = diagnostics)
     val accountManager = ICloudAccountManager(
@@ -79,7 +82,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         sessionProvider = { accountManager.session.value },
         onSessionUpdated = accountManager::updateSession,
         onSessionRejected = accountManager::rejectSession,
-        sharedJournal = me.lvca.alba.protocol.photos.EncryptedUploadJournal(database.libraryDao()),
+        sharedJournal = uploadJournal,
     )
     val demoCatalog = FixtureICloudCatalogSource(
         includeSharedAlbums = true,
@@ -110,7 +113,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
             isAuthorized = { accountManager.authorizedSession != null },
             onSessionUpdated = accountManager::updateSession,
             onSessionRejected = accountManager::rejectSession,
-            uploadJournal = me.lvca.alba.protocol.photos.EncryptedUploadJournal(database.libraryDao()),
+            uploadJournal = uploadJournal,
         ),
         scheduler = WorkManagerWakeupScheduler(appContext),
         automaticBackupPolicy = AndroidAutomaticBackupPolicy(appContext),
