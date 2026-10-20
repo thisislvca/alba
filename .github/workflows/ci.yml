@@ -46,6 +46,9 @@ jobs:
           bash -n scripts/*.sh
       - name: Build, test and lint
         run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :engine:assembleDebugAndroidTest :protocol-icloud-web:assembleDebugAndroidTest testDebugUnitTest lintDebug :app:assembleRelease :benchmark:assembleBenchmark :benchmark:assembleProfile --no-daemon --console=plain
+      - name: Static analysis
+        if: ${{ !cancelled() }}
+        run: ./gradlew detekt ktlintCheck --no-daemon --console=plain
 
   instrumentation:
     name: Android ${{ matrix.api }} device tests
@@ -79,20 +82,34 @@ jobs:
       - name: Enable KVM
         run: sudo chmod 666 /dev/kvm
       - name: Build test APKs before starting emulators
+        id: build-test-apks
         run: >-
           ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
           :engine:assembleDebugAndroidTest :protocol-icloud-web:assembleDebugAndroidTest
           --max-workers=2 --no-parallel --no-daemon --console=plain
-      - name: Run device tests
-        run: |
-          result=0
-          for module in app engine protocol-icloud-web; do
-            ./gradlew ":${module}:pixel2Api${{ matrix.api }}DebugAndroidTest" \
-              -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect \
-              -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1 \
-              --max-workers=2 --no-parallel --no-daemon --console=plain || result=1
-          done
-          exit "$result"
+      # Each module runs in its own step so a failure or hang is attributed to it.
+      # Later modules still run after an earlier one fails; any failed step fails the job.
+      - name: Run app device tests
+        if: ${{ !cancelled() && steps.build-test-apks.outcome == 'success' }}
+        run: >-
+          ./gradlew ":app:pixel2Api${{ matrix.api }}DebugAndroidTest"
+          -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1
+          --max-workers=2 --no-parallel --no-daemon --console=plain
+      - name: Run engine device tests
+        if: ${{ !cancelled() && steps.build-test-apks.outcome == 'success' }}
+        run: >-
+          ./gradlew ":engine:pixel2Api${{ matrix.api }}DebugAndroidTest"
+          -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1
+          --max-workers=2 --no-parallel --no-daemon --console=plain
+      - name: Run protocol-icloud-web device tests
+        if: ${{ !cancelled() && steps.build-test-apks.outcome == 'success' }}
+        run: >-
+          ./gradlew ":protocol-icloud-web:pixel2Api${{ matrix.api }}DebugAndroidTest"
+          -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1
+          --max-workers=2 --no-parallel --no-daemon --console=plain
       - name: Upload device test reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
