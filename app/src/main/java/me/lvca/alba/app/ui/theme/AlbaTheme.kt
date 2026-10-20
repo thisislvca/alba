@@ -6,6 +6,8 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
@@ -102,21 +104,26 @@ private val AlbaTypography = Typography(
     ),
 )
 
+/** Whether the nearest [AlbaTheme] is dark. Screens may force a palette, so never read the system setting. */
+internal val LocalAlbaDarkTheme = staticCompositionLocalOf { false }
+
 @Composable
 fun AlbaTheme(
     darkTheme: Boolean,
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = AlbaTypography,
-        shapes = androidx.compose.material3.Shapes(
-            extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-            small = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-            medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-            large = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-            extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
-        ),
-        content = content,
-    )
+    CompositionLocalProvider(LocalAlbaDarkTheme provides darkTheme) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) DarkColors else LightColors,
+            typography = AlbaTypography,
+            shapes = androidx.compose.material3.Shapes(
+                extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                small = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                large = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+            ),
+            content = content,
+        )
+    }
 }

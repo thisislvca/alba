@@ -16,7 +16,6 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -56,6 +55,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
 import me.lvca.alba.engine.source.MediaRead
+import me.lvca.alba.app.ui.theme.LocalAlbaDarkTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.Locale
@@ -224,7 +224,7 @@ fun VideoPlayer(
             interactionSource = remember { MutableInteractionSource() }, indication = null,
         ) { overlayVisible = !overlayVisible })
         if (showPlaybackControls && (!isPlaying || overlayVisible || scrubbing)) {
-            val darkControls = isSystemInDarkTheme() || isPlaying || controlsOnVideo
+            val darkControls = LocalAlbaDarkTheme.current || isPlaying || controlsOnVideo
             val ink = if (darkControls) Color(0xFFF4F4F4) else Color(0xFF30323A)
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = navBottom + 76.dp),

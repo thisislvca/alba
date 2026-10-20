@@ -1,10 +1,11 @@
 package me.lvca.alba.app.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import me.lvca.alba.app.ui.theme.LocalAlbaDarkTheme
 
-/** Neutral viewer surfaces keep the media in focus and follow the device theme. */
+/** Neutral viewer surfaces keep the media in focus and follow the active [me.lvca.alba.app.ui.theme.AlbaTheme]. */
 internal data class ViewerColors(
     val canvas: Color,
     val foreground: Color,
@@ -24,4 +25,5 @@ private val DarkViewerColors = ViewerColors(
 )
 
 @Composable
-internal fun viewerColors(): ViewerColors = if (isSystemInDarkTheme()) DarkViewerColors else LightViewerColors
+@ReadOnlyComposable
+internal fun viewerColors(): ViewerColors = if (LocalAlbaDarkTheme.current) DarkViewerColors else LightViewerColors
