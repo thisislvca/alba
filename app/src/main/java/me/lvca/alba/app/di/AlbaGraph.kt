@@ -70,10 +70,11 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         deviceSource = mediaStore,
         cache = MediaFileCache(appContext),
     )
+    val exporter = GalleryExporter(appContext, galleryRepository)
     private suspend fun clearSignedOutData() {
         batches.cancelActive()
         galleryRepository.clearCloudCatalog()
-        GalleryExporter(appContext, galleryRepository).clearShares()
+        exporter.clearShares()
     }
 
     val photos = DefaultPhotoCompanion(
@@ -96,9 +97,8 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         saveToPhone = { id ->
             val media = galleryRepository.findMedia(id)
                 ?: error(StoredMessage.THE_PHOTO_IS_NO_LONGER_AVAILABLE.code)
-            GalleryExporter(appContext, galleryRepository).saveToGallery(media)
+            exporter.saveToGallery(media)
         }) { cloudCatalog.accountLabel }
-    val exporter = GalleryExporter(appContext, galleryRepository)
     val photoEdits = PhotoEditStore(appContext, galleryRepository)
     val demoImporter = DemoMediaImporter(appContext, accountManager, demoCatalog)
     val transferScheduler = TransferScheduler { UserTransferScheduler(appContext).enqueue() }

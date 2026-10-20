@@ -26,19 +26,12 @@ class BackupWakeWorker(
             mapOf(DiagnosticAttribute.REASON to "background"),
         )
         return try {
-            if (backgroundSessionDecision(
-                    state = app.graph.accountManager.state.value,
-                    hasSavedSession = app.graph.accountManager.session.value != null,
-                ) == BackgroundSessionDecision.PAUSE
-            ) {
+            if (app.graph.accountManager.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE) {
                 span.finish(DiagnosticOutcome.SUCCESS)
                 return Result.success()
             }
             app.graph.accountManager.restore()
-            when (backgroundSessionDecision(
-                state = app.graph.accountManager.state.value,
-                hasSavedSession = app.graph.accountManager.session.value != null,
-            )) {
+            when (app.graph.accountManager.backgroundSessionDecision()) {
                 BackgroundSessionDecision.RUN -> Unit
                 BackgroundSessionDecision.RETRY -> {
                     span.finish(DiagnosticOutcome.FAILED)
@@ -67,11 +60,7 @@ class BackupWakeWorker(
         } catch (error: Exception) {
             span.finish(DiagnosticOutcome.FAILED, error = error)
             // Retry the durable state machine, never replay an uncertain HTTP upload.
-            if (backgroundSessionDecision(
-                    state = app.graph.accountManager.state.value,
-                    hasSavedSession = app.graph.accountManager.session.value != null,
-                ) == BackgroundSessionDecision.PAUSE
-            ) Result.success() else Result.retry()
+            if (app.graph.accountManager.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE) Result.success() else Result.retry()
         }
     }
 }

@@ -50,7 +50,7 @@ internal class UserTransferScheduler(private val context: Context) {
 internal suspend fun runUserTransfers(app: AlbaApplication) {
     val graph = app.graph
     graph.accountManager.restore()
-    when (backgroundSessionDecision(graph.accountManager.state.value, graph.accountManager.session.value != null)) {
+    when (graph.accountManager.backgroundSessionDecision()) {
         BackgroundSessionDecision.PAUSE -> return
         BackgroundSessionDecision.RETRY -> throw IOException("Account verification is unavailable")
         BackgroundSessionDecision.RUN -> Unit
