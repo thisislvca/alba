@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.heroTitle
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -24,7 +25,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -170,7 +170,7 @@ internal fun AlbumHero(album: GalleryCollection, summary: CollectionPreview?, re
             AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), rotating = true, coverMediaId = album.coverMediaId)
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .12f), Color.Black.copy(alpha = .85f)))))
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
-                Text(album.localizedName(), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Color.White,
+                Text(album.localizedName(), style = MaterialTheme.typography.heroTitle, color = Color.White,
                     maxLines = 3, overflow = TextOverflow.Ellipsis)
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {

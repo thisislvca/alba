@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.viewerTitle
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
@@ -54,8 +55,6 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.LocalAlbaDarkTheme
 import me.lvca.alba.engine.model.*
@@ -383,7 +382,7 @@ private fun ViewerTopBar(
         }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(dayMonthLabel(media.capturedAtEpochMillis), color = colors.foreground,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium))
+                style = MaterialTheme.typography.viewerTitle)
             Text(timeLabel(media.capturedAtEpochMillis), color = ink,
                 style = MaterialTheme.typography.bodyMedium)
         }

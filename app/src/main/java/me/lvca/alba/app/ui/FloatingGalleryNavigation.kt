@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.navigationLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,10 +24,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.galleryOverlay
 
@@ -43,8 +42,7 @@ private enum class TabDisplayMode { EXPANDED, COMPACT, ICON_ONLY }
 internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -> Unit, modifier: Modifier = Modifier) {
     val destinations = listOf(GalleryTab.LIBRARY, GalleryTab.COLLECTIONS)
     val titles = destinations.map { stringResource(it.title) }
-    // GoogleMaterial3 LabelLarge in the inspected resources: 14sp medium, 20sp line, no tracking.
-    val labelStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium, lineHeight = 20.sp, letterSpacing = 0.sp)
+    val labelStyle = MaterialTheme.typography.navigationLabel
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val labelWidths = titles.map { textMeasurer.measure(AnnotatedString(it), labelStyle, maxLines = 1, softWrap = false).size.width }

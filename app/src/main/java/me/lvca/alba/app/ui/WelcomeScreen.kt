@@ -27,7 +27,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 
@@ -50,7 +49,7 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
                     if (page > 0) IconButton(onClick = { page-- }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.welcome_back))
                     }
-                    Text(stringResource(R.string.brand_name), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.brand_name), style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.weight(1f))
                     Text(stringResource(R.string.welcome_progress, page + 1, 2),
                         style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -72,7 +71,7 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
                         }
                         Spacer(Modifier.height(24.dp))
                         Text(stringResource(if (current == 0) R.string.welcome_title else R.string.welcome_choices_title),
-                            style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.headlineLarge,
                             modifier = Modifier.semantics { heading() }.testTag("welcome-title"))
                         Spacer(Modifier.height(12.dp))
                         Text(stringResource(if (current == 0) R.string.welcome_intro else R.string.welcome_choices_intro),

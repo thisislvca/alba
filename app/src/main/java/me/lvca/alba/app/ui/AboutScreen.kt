@@ -20,7 +20,6 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.AlbaApplication
@@ -45,8 +44,7 @@ internal fun AboutScreen(onBack: () -> Unit) {
                 Image(painterResource(R.drawable.alba_logo_mark), contentDescription = null,
                     modifier = Modifier.size(72.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
                     Text(stringResource(R.string.about_version, version),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)

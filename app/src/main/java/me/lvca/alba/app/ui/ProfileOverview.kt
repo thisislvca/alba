@@ -101,7 +101,7 @@ internal fun ProfileOverview(
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(profile?.displayName ?: stringResource(R.string.icloud), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
+                    Text(profile?.displayName ?: stringResource(R.string.icloud), style = MaterialTheme.typography.headlineLarge)
                     signedIn?.let { Text(it.appleId, style = MaterialTheme.typography.bodyLarge, color = Color(0xFFE8ECFF)) }
                     profile?.plan?.let { plan ->
                         val labels = plan.sources.map { source -> stringResource(when (source) {
