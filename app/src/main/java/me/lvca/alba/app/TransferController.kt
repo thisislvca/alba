@@ -202,7 +202,8 @@ internal class TransferController(
                 is BackupSetupEffect.RequestMediaPermissions -> if (effect.permissions.isEmpty()) {
                     clearSetup()
                     finishBackup(current.draftId)
-                } else {
+                } else if (currentSetup()?.draftId == current.draftId) {
+                    // Only when the user has not dismissed the disclosure while acceptance was in flight.
                     saveSetup(current.copy(awaitingPermissions = true))
                     effects.send(AlbaEffect.RequestBackupPermissions(effect.permissions))
                 }
