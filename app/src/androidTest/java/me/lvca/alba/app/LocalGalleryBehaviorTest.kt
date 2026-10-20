@@ -12,6 +12,10 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
+import me.lvca.alba.app.platform.PhotoCrop
+import me.lvca.alba.app.platform.SmallerPhotoCopyRequired
+import me.lvca.alba.app.platform.renderPhotoEdit
+import me.lvca.alba.app.platform.saveEditedCopy
 
 class LocalGalleryBehaviorTest {
     @Test fun editsPreserveExifAndRequireConsentBeforeReducingResolution() = runBlocking {

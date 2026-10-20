@@ -2,7 +2,7 @@ package me.lvca.alba.app.ui
 
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.listSaver
-import me.lvca.alba.app.PhotoCrop
+import me.lvca.alba.app.platform.PhotoCrop
 
 internal data class EditStep(val crop: PhotoCrop = PhotoCrop(0f, 0f, 1f, 1f), val turns: Int = 0)
 

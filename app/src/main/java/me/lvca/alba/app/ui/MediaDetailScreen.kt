@@ -53,13 +53,13 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
-import me.lvca.alba.app.R
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.roundToInt
+import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.app.ui.theme.sheet
 import me.lvca.alba.app.ui.theme.viewerTitle
 

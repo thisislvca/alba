@@ -15,11 +15,11 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.ui.GalleryFastScroll
-import me.lvca.alba.app.ui.GalleryScrollLabel
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.ui.GalleryFastScroll
+import me.lvca.alba.app.ui.GalleryScrollLabel
 
 class GalleryFastScrollTest {
     @get:Rule val compose = createComposeRule()

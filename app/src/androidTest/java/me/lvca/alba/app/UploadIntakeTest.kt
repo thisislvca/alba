@@ -22,6 +22,7 @@ import org.junit.rules.RuleChain
 import org.junit.rules.TestRule
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
+import me.lvca.alba.app.intake.IncomingRequest
 
 @SdkSuppress(minSdkVersion = 33)
 class UploadIntakeTest {

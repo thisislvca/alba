@@ -6,8 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
-import me.lvca.alba.app.ui.ICloudAccountScreen
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.CloudStorageUsage
 import me.lvca.alba.engine.model.StorageCategory
@@ -17,6 +15,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.account.AccountInfo
+import me.lvca.alba.app.account.PhoneStorageState
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.transfers.TransferState
+import me.lvca.alba.app.ui.ICloudAccountScreen
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 /** Repeatable, real UI captures for the store artwork. Run alone on a disposable demo device. */
 class StoreScreenshotTest {

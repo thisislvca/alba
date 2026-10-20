@@ -12,6 +12,7 @@ import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.intake.incomingMedia
 
 class IncomingMediaActivityTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

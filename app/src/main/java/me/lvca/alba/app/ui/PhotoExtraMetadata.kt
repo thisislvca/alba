@@ -9,11 +9,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.GalleryMedia
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import me.lvca.alba.app.R
 
 @Composable
 internal fun PhotoExtraMetadata(media: GalleryMedia) {

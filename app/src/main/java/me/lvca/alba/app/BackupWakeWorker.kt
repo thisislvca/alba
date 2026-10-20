@@ -5,6 +5,11 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
+import me.lvca.alba.app.diagnostics.DiagnosticAttribute
+import me.lvca.alba.app.diagnostics.DiagnosticOperation
+import me.lvca.alba.app.diagnostics.DiagnosticOutcome
+import me.lvca.alba.app.work.BackgroundSessionDecision
+import me.lvca.alba.app.work.backgroundSessionDecision
 
 class BackupWakeWorker(
     context: Context,

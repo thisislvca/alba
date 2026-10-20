@@ -1,7 +1,6 @@
 package me.lvca.alba.app.ui
 
 import androidx.compose.ui.res.stringResource
-import me.lvca.alba.app.R
 import android.net.Uri
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.listSaver
@@ -61,6 +60,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.media3.common.VideoSize
 import androidx.compose.foundation.shape.CircleShape
+import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.AlbaTheme
 
 typealias PlaybackReader = suspend (String, Long, Long) -> MediaRead

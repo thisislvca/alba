@@ -37,12 +37,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
-import me.lvca.alba.app.GallerySection
-import me.lvca.alba.app.GalleryState
-import me.lvca.alba.app.R
-import me.lvca.alba.app.SessionState
-import me.lvca.alba.app.TransferState
-import me.lvca.alba.app.ui.theme.galleryOverlay
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
@@ -54,6 +48,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.Role
+import me.lvca.alba.app.R
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.gallery.GallerySection
+import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.transfers.TransferState
+import me.lvca.alba.app.ui.theme.galleryOverlay
 import me.lvca.alba.app.ui.theme.tile
 
 /**

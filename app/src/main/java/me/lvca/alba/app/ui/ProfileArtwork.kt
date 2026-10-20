@@ -13,8 +13,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import androidx.compose.ui.graphics.toArgb
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 /** Original vector geometry for Alba's account card. */
 @Composable

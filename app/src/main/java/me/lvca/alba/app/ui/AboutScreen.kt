@@ -20,11 +20,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.R
-import me.lvca.alba.app.DiagnosticsConsent
-import me.lvca.alba.app.ui.theme.AlbaSpacing
 import android.content.ActivityNotFoundException
 import android.widget.Toast
+import me.lvca.alba.app.DiagnosticsConsent
+import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @Composable
 internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledChange: (Boolean) -> Unit, onBack: () -> Unit) {

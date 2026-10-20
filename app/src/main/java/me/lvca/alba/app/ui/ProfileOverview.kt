@@ -27,20 +27,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.PhoneStorageState
-import me.lvca.alba.app.SessionState
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import java.time.Instant
-import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.engine.model.CloudPlanSource
 import android.content.ActivityNotFoundException
 import android.widget.Toast
 import java.util.Locale
-import me.lvca.alba.app.ui.theme.StorageColors
+import me.lvca.alba.app.R
+import me.lvca.alba.app.account.PhoneStorageState
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.app.ui.theme.AlbaTheme
+import me.lvca.alba.app.ui.theme.StorageColors
 
 internal enum class ProfilePage(val title: Int) {
     OVERVIEW(R.string.profile_title), ACTIVATION(R.string.how_to_activate_icloud_photos), SIGN_IN(R.string.icloud_account),

@@ -2,15 +2,15 @@ package me.lvca.alba.app.ui
 
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.SaverScope
-import me.lvca.alba.app.GalleryState
-import me.lvca.alba.app.RootDialog
-import me.lvca.alba.app.SessionState
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import me.lvca.alba.app.RootDialog
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.gallery.GalleryState
 
 class NavigationStateTest {
     private val scope = SaverScope { true }

@@ -31,8 +31,6 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import me.lvca.alba.app.*
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.GalleryMedia
 import java.io.File
 import kotlinx.coroutines.*
@@ -42,6 +40,13 @@ import android.os.Build
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
+import me.lvca.alba.app.R
+import me.lvca.alba.app.platform.PhotoCrop
+import me.lvca.alba.app.platform.SmallerPhotoCopyRequired
+import me.lvca.alba.app.platform.prepareEditedCopy
+import me.lvca.alba.app.platform.publishEditedCopy
+import me.lvca.alba.app.platform.renderPhotoEdit
+import me.lvca.alba.app.platform.saveEditedCopy
 import me.lvca.alba.app.ui.theme.AlbaTheme
 
 @OptIn(ExperimentalLayoutApi::class)

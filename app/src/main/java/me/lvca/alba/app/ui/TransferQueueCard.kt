@@ -22,11 +22,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
-import me.lvca.alba.app.localizedStoredMessage
+import me.lvca.alba.app.R
+import me.lvca.alba.app.messages.localizedStoredMessage
 
 @Composable
 internal fun TransferQueueCard(

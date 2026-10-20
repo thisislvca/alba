@@ -1,5 +1,7 @@
 package me.lvca.alba.app.ui
 
+
+
 internal fun thumbnailSizeBucket(longestSidePx: Int): Int = when {
     longestSidePx <= 0 -> 0
     longestSidePx <= 256 -> 256

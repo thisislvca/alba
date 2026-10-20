@@ -9,8 +9,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
-import me.lvca.alba.app.ui.*
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.engine.model.*
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.*
@@ -18,6 +16,14 @@ import kotlinx.coroutines.flow.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.account.PhoneStorageState
+import me.lvca.alba.app.platform.NetworkStatus
+import me.lvca.alba.app.ui.AlbaPageScaffold
+import me.lvca.alba.app.ui.AlbumChooser
+import me.lvca.alba.app.ui.MediaTile
+import me.lvca.alba.app.ui.PhoneStorageDetails
+import me.lvca.alba.app.ui.VideoPlayer
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 class GalleryWorkflowComponentsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

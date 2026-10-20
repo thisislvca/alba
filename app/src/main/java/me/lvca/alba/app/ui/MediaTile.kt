@@ -26,13 +26,13 @@ import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaKind
 import me.lvca.alba.engine.model.MediaOrigin
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.ui.res.painterResource
+import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.app.ui.theme.tile
 

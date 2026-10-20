@@ -9,10 +9,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.items
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import androidx.compose.ui.res.pluralStringResource
-import me.lvca.alba.app.localizedStoredMessage
+import me.lvca.alba.app.R
+import me.lvca.alba.app.messages.localizedStoredMessage
 
 @Composable
 internal fun BatchProgress(batches: List<BatchItem>, items: List<GalleryMedia>, retry: (String) -> Unit, cancel: (String) -> Unit = {}) {

@@ -4,11 +4,11 @@ import android.graphics.Bitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
-import me.lvca.alba.app.ui.mediaDuration
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.ui.mediaDuration
 
 /** Exercises the new entry points against the real demo repository and video previews. */
 class GalleryAppearanceTest {

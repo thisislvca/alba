@@ -4,6 +4,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 
 class AboutScreenTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

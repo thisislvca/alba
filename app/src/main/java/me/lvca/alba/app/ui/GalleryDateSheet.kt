@@ -1,7 +1,6 @@
 package me.lvca.alba.app.ui
 
 import androidx.compose.ui.res.stringResource
-import me.lvca.alba.app.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -11,10 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.GallerySection
-import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.engine.model.GalleryDate
 import androidx.compose.ui.Alignment
+import me.lvca.alba.app.R
+import me.lvca.alba.app.gallery.GallerySection
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

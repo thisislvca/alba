@@ -5,8 +5,8 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.TransferViewState
+import me.lvca.alba.app.R
 
 internal fun TransferViewState.icon(): ImageVector = when (this) {
     TransferViewState.WAITING -> AlbaIcons.CloudUpload

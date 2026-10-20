@@ -11,9 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.launch
+import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)

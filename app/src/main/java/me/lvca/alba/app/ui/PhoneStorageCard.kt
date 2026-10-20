@@ -11,11 +11,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.PhoneStorageState
-import me.lvca.alba.app.R
-import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.engine.model.LocalMediaCategory
 import me.lvca.alba.engine.model.LocalMediaStorage
+import me.lvca.alba.app.R
+import me.lvca.alba.app.account.PhoneStorageState
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 /** Alba's storage on this phone, with per-category cleanup. Shown as the profile's phone storage page. */
 @Composable

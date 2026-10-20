@@ -11,6 +11,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.work.UserTransferScheduler
+import me.lvca.alba.app.work.cancelUserTransfers
 
 class UserTransferExecutionTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

@@ -4,12 +4,12 @@ import android.graphics.Bitmap
 import android.media.ExifInterface
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import me.lvca.alba.app.ui.loadThumbnail
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
+import me.lvca.alba.app.ui.loadThumbnail
 
 @RunWith(AndroidJUnit4::class)
 class PreviewDecodeTest {

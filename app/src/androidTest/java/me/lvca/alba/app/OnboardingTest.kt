@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.platform.OnboardingPreferences
 
 class OnboardingTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule(completed = false)

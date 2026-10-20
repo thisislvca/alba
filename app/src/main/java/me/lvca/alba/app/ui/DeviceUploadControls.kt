@@ -24,12 +24,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
-import me.lvca.alba.app.localizedStoredMessage
 import android.text.format.Formatter
 import androidx.compose.ui.platform.LocalContext
+import me.lvca.alba.app.R
+import me.lvca.alba.app.messages.localizedStoredMessage
 
 @Composable
 internal fun DeviceUploadControls(

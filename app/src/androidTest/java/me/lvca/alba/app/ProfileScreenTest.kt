@@ -10,8 +10,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
-import me.lvca.alba.app.ui.ICloudAccountScreen
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.CloudAccountProfile
 import me.lvca.alba.engine.model.CloudPlanSource
@@ -24,6 +22,13 @@ import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.account.AccountInfo
+import me.lvca.alba.app.account.PhoneStorageState
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.platform.NetworkStatus
+import me.lvca.alba.app.transfers.TransferState
+import me.lvca.alba.app.ui.ICloudAccountScreen
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 class ProfileScreenTest {
     @get:Rule val compose = createComposeRule()

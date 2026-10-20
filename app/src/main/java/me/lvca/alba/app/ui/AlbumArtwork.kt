@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -33,6 +32,7 @@ import kotlinx.coroutines.withContext
 import android.provider.Settings
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.graphics.RectangleShape
+import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.app.ui.theme.heroTitle
 

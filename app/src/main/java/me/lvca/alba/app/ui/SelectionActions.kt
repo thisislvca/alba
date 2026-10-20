@@ -13,9 +13,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.Alignment
-import me.lvca.alba.app.R
-import me.lvca.alba.app.GalleryState
-import me.lvca.alba.app.SessionState
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -24,6 +21,9 @@ import androidx.compose.material.icons.Icons
 import android.os.Build
 import me.lvca.alba.engine.source.UploadMediaFormat
 import me.lvca.alba.protocol.account.SessionStatus
+import me.lvca.alba.app.R
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.gallery.GalleryState
 
 @Composable
 internal fun SelectionActions(gallery: GalleryState, session: SessionState, mediaBusy: Boolean, actions: GalleryScreenActions) {

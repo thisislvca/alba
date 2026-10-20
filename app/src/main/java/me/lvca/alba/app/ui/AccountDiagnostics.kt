@@ -10,12 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.SessionState
-import me.lvca.alba.app.R
-import me.lvca.alba.app.ui.theme.AlbaSpacing
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
+import me.lvca.alba.app.R
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.ui.theme.AlbaSpacing
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 /** Useful connection facts live on the overview rather than behind another destination. */
 @Composable

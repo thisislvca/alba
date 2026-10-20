@@ -14,6 +14,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.Rule
+import me.lvca.alba.app.platform.GalleryExporter
 
 class GalleryShareTest {
     @get:Rule val onboarding = OnboardingRule()

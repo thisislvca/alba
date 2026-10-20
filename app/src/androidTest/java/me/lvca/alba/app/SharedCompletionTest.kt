@@ -6,11 +6,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
-import me.lvca.alba.app.ui.*
 import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.intake.incomingSharedInvitation
+import me.lvca.alba.app.ui.SharedAlbumActivity
+import me.lvca.alba.app.ui.SharedAlbumControls
+import me.lvca.alba.app.ui.SharedInvitations
 
 class SharedCompletionTest {
     @get:Rule val compose = createComposeRule()

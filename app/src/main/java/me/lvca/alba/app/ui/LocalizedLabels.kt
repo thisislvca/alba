@@ -5,8 +5,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import me.lvca.alba.app.R
-import me.lvca.alba.app.UiMessage
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.SmartCollection
 import java.time.Instant
@@ -19,6 +17,8 @@ import android.icu.text.DateFormat
 import java.util.Date
 import java.util.Locale
 import me.lvca.alba.engine.model.MediaAvailability
+import me.lvca.alba.app.R
+import me.lvca.alba.app.messages.UiMessage
 
 @Composable internal fun UiMessage.localized(): String {
     LocalConfiguration.current

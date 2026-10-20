@@ -14,6 +14,8 @@ import java.io.File
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.messages.UiMessage
+import me.lvca.alba.app.messages.localizedStoredMessage
 
 /** Exercise system locale changes with native accessibility, independently of Compose's test clock. */
 @SdkSuppress(minSdkVersion = 33)

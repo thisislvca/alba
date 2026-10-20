@@ -1,6 +1,11 @@
 package me.lvca.alba.app
 
 import android.app.Application
+import me.lvca.alba.app.di.AlbaGraph
+import me.lvca.alba.app.diagnostics.DiagnosticOperation
+import me.lvca.alba.app.diagnostics.DiagnosticOutcome
+import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
+import me.lvca.alba.app.work.LegacyWorkerFactory
 
 class AlbaApplication : Application(), androidx.work.Configuration.Provider {
     override val workManagerConfiguration: androidx.work.Configuration

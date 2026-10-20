@@ -41,17 +41,17 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.DiagnosticsConsent
-import me.lvca.alba.app.GalleryState
-import me.lvca.alba.app.MediaWork
-import me.lvca.alba.app.PhoneStorageState
-import me.lvca.alba.app.R
-import me.lvca.alba.app.SessionState
-import me.lvca.alba.app.TransferState
-import me.lvca.alba.app.UiMessage
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
 import androidx.compose.material3.AlertDialog
+import me.lvca.alba.app.DiagnosticsConsent
+import me.lvca.alba.app.R
+import me.lvca.alba.app.account.PhoneStorageState
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.actions.MediaWork
+import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.messages.UiMessage
+import me.lvca.alba.app.transfers.TransferState
 
 /**
  * Where the app is. Derived from the account screen flag and the open photo, which the ViewModel keeps in saved

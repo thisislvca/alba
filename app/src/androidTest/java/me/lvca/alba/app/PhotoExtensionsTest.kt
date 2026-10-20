@@ -12,6 +12,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipInputStream
+import me.lvca.alba.app.platform.GalleryExporter
 
 class PhotoExtensionsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

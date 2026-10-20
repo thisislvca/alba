@@ -23,13 +23,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import me.lvca.alba.app.ui.localized
-import me.lvca.alba.app.ui.MediaThumbnail
-import me.lvca.alba.app.ui.VideoPlayer
-import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import androidx.compose.foundation.shape.CornerSize
+import me.lvca.alba.app.intake.IncomingItem
+import me.lvca.alba.app.intake.IncomingRequest
+import me.lvca.alba.app.intake.inspectIncoming
+import me.lvca.alba.app.messages.UiMessage
+import me.lvca.alba.app.ui.MediaThumbnail
+import me.lvca.alba.app.ui.VideoPlayer
+import me.lvca.alba.app.ui.localized
+import me.lvca.alba.app.ui.theme.AlbaTheme
 
 @Composable
 internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: ICloudAccountState, message: UiMessage?,
