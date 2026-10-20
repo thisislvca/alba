@@ -4,6 +4,7 @@ import android.content.ContentUris
 import android.provider.MediaStore
 import android.view.View
 import android.view.ViewGroup
+import me.lvca.alba.engine.model.BatchItemState
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
@@ -120,7 +121,7 @@ class GalleryWorkflowDeviceTest {
             compose.onNodeWithTag("media-fixture:icloud:0017").performClick()
             compose.onNodeWithTag("save-selection-to-phone").performScrollTo().performClick()
             compose.waitUntil(20_000) { runBlocking { graph.batches.observe().first().count {
-                it.batchId !in previousBatches && it.action == "SAVE_TO_PHONE" && it.state == "DONE"
+                it.batchId !in previousBatches && it.action == "SAVE_TO_PHONE" && it.status == BatchItemState.DONE
             } == 2 } }
             val saved = phoneCopies() - before
             assertEquals(2, saved.size)

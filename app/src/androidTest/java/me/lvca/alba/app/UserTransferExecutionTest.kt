@@ -3,6 +3,7 @@ package me.lvca.alba.app
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import me.lvca.alba.engine.companion.BatchAction
+import me.lvca.alba.engine.model.BatchItemState
 import me.lvca.alba.engine.model.MediaAvailability
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -26,7 +27,7 @@ class UserTransferExecutionTest {
         }
         compose.runOnIdle { UserTransferScheduler(compose.activity).enqueue() }
         compose.waitUntil(30_000) {
-            runBlocking { graph.batches.observe().first().any { it.batchId == batch && it.state == "DONE" } }
+            runBlocking { graph.batches.observe().first().any { it.batchId == batch && it.status == BatchItemState.DONE } }
         }
         assertEquals(MediaAvailability.ORIGINAL_CACHED, runBlocking { graph.galleryRepository.findMedia(id)?.availability })
     }
@@ -44,7 +45,7 @@ class UserTransferExecutionTest {
         }
         compose.waitUntil(30_000) {
             runBlocking { graph.batches.observe().first().any {
-                it.batchId !in previous && it.mediaId == id && it.action == BatchAction.KEEP_OFFLINE.name && it.state == "DONE"
+                it.batchId !in previous && it.mediaId == id && it.action == BatchAction.KEEP_OFFLINE.name && it.status == BatchItemState.DONE
             } }
         }
         assertEquals(MediaAvailability.ORIGINAL_CACHED, runBlocking { graph.galleryRepository.findMedia(id)?.availability })
@@ -63,7 +64,7 @@ class UserTransferExecutionTest {
             cancelUserTransfers(compose.activity)
             graph.batches.runPending()
         }
-        assertEquals("STOPPED", runBlocking { graph.batches.observe().first().single { it.batchId == batch }.state })
+        assertEquals(BatchItemState.STOPPED, runBlocking { graph.batches.observe().first().single { it.batchId == batch }.status })
         assertNull(runBlocking { requireNotNull(graph.galleryRepository.findMedia(id)).originalReference })
     }
 
@@ -77,7 +78,7 @@ class UserTransferExecutionTest {
         }
         compose.runOnIdle { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].refresh() }
         compose.waitUntil(30_000) {
-            runBlocking { graph.batches.observe().first().any { it.batchId == batch && it.state == "DONE" } }
+            runBlocking { graph.batches.observe().first().any { it.batchId == batch && it.status == BatchItemState.DONE } }
         }
         assertEquals(MediaAvailability.ORIGINAL_CACHED, runBlocking { graph.galleryRepository.findMedia(id)?.availability })
     }

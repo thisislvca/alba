@@ -22,7 +22,4 @@ data class BatchItem(
     val status: BatchItemState,
     val message: String?,
     val createdAt: Long,
-) {
-    /** The state as text, for callers that still match on strings. Prefer [status]. */
-    val state: String get() = status.name
-}
+)

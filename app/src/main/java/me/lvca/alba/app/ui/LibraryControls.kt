@@ -102,8 +102,8 @@ internal fun BatchProgress(state: GalleryUiState, retry: (String) -> Unit, cance
     var visibleBatchItems by rememberSaveable(expandedBatch) { mutableIntStateOf(50) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         state.batches.groupBy { it.batchId }.entries.toList().takeLast(3).forEach { (id, items) ->
-            val done = items.count { it.state == "DONE" }
-            val failed = items.count { it.state in setOf("FAILED", "NEEDS_ATTENTION", "STOPPED") }
+            val done = items.count { it.status == BatchItemState.DONE }
+            val failed = items.count { it.status in AttentionStates }
             val action = stringResource(when (items.first().action) {
                 "KEEP_OFFLINE" -> R.string.keep_offline
                 "REMOVE_CACHE" -> R.string.remove_offline_copies
@@ -112,7 +112,7 @@ internal fun BatchProgress(state: GalleryUiState, retry: (String) -> Unit, cance
             })
             Text(stringResource(if (items.first().action in setOf("UPLOAD", "PICKER_UPLOAD")) R.string.batch_queued else R.string.batch_done, action, done, items.size))
             if (failed > 0) Text(pluralStringResource(R.plurals.attention_count, failed, failed))
-            items.filter { it.state in setOf("FAILED", "NEEDS_ATTENTION", "STOPPED") }.take(3).forEach { Text(stringResource(R.string.batch_item_progress, it.mediaId.substringAfterLast('/'), localizedStoredMessage(it.message).localized()), style = MaterialTheme.typography.bodySmall) }
+            items.filter { it.status in AttentionStates }.take(3).forEach { Text(stringResource(R.string.batch_item_progress, it.mediaId.substringAfterLast('/'), localizedStoredMessage(it.message).localized()), style = MaterialTheme.typography.bodySmall) }
             TextButton(onClick = { expandedBatch = if (expandedBatch == id) null else id }) {
                 Text(if (expandedBatch == id) stringResource(R.string.hide_item_progress) else stringResource(R.string.show_item_progress))
             }
@@ -120,24 +120,28 @@ internal fun BatchProgress(state: GalleryUiState, retry: (String) -> Unit, cance
                 items.take(visibleBatchItems).forEach { item ->
                     val name = state.items.firstOrNull { it.id == item.mediaId }?.fileName
                         ?: item.mediaId.substringAfterLast('/').substringAfterLast(':')
-                    val progress = when (item.state) {
-                        "CANCELED" -> stringResource(R.string.download_canceled)
-                        "WAITING" -> stringResource(R.string.waiting)
-                        "RUNNING" -> stringResource(R.string.batch_in_progress)
-                        "DONE" -> item.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.completed)
-                        else -> item.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.needs_attention)
+                    val progress = when (item.status) {
+                        BatchItemState.CANCELED -> stringResource(R.string.download_canceled)
+                        BatchItemState.WAITING -> stringResource(R.string.waiting)
+                        BatchItemState.RUNNING -> stringResource(R.string.batch_in_progress)
+                        BatchItemState.DONE -> item.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.completed)
+                        BatchItemState.FAILED, BatchItemState.NEEDS_ATTENTION, BatchItemState.STOPPED ->
+                            item.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.needs_attention)
                     }
                     Text(stringResource(R.string.batch_item_progress, name, progress), style = MaterialTheme.typography.bodySmall)
                 }
                 if (items.size > visibleBatchItems) TextButton(onClick = { visibleBatchItems += 50 }) { Text(stringResource(R.string.show_more_items)) }
             }
-            if (items.any { it.state == "FAILED" }) TextButton(onClick = { retry(id) }) { Text(stringResource(R.string.retry_failed_items)) }
-            if (items.any { it.state == "CANCELED" }) Text(stringResource(R.string.download_canceled_completed_kept), style = MaterialTheme.typography.bodySmall)
-            if (items.first().action in setOf("KEEP_OFFLINE", "SAVE_TO_PHONE") && items.any { it.state in setOf("WAITING", "RUNNING") })
+            if (items.any { it.status == BatchItemState.FAILED }) TextButton(onClick = { retry(id) }) { Text(stringResource(R.string.retry_failed_items)) }
+            if (items.any { it.status == BatchItemState.CANCELED }) Text(stringResource(R.string.download_canceled_completed_kept), style = MaterialTheme.typography.bodySmall)
+            if (items.first().action in setOf("KEEP_OFFLINE", "SAVE_TO_PHONE") && items.any { it.status.isPending })
                 TextButton(onClick = { cancel(id) }, modifier = Modifier.testTag("cancel-batch-$id")) { Text(stringResource(R.string.cancel_download)) }
         }
     }
 }
+
+/** Batch rows that stopped short of completion and need the user's attention. */
+private val AttentionStates = setOf(BatchItemState.FAILED, BatchItemState.NEEDS_ATTENTION, BatchItemState.STOPPED)
 
 /** A personal iCloud album or folder: not shared, not a smart collection and not a phone folder. */
 internal val GalleryCollection.isPersonal: Boolean

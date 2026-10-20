@@ -317,7 +317,7 @@ internal fun GalleryHome(
                                 }
                                 IconButton(onClick = if (signedIn?.status == SessionStatus.VERIFIED || state.accountState == ICloudAccountState.Demo) upload else account) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
                                 IconButton(onClick = { activity = true }, modifier = Modifier.testTag("activity-button")) {
-                                    BadgedBox(badge = { if (state.transferQueue.any { it.state != TransferViewState.VERIFIED } || state.batches.any { it.state != "DONE" }) Badge() }) {
+                                    BadgedBox(badge = { if (state.transferQueue.any { it.state != TransferViewState.VERIFIED } || state.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
                                         Icon(Icons.Outlined.Notifications, stringResource(R.string.uploads_and_activity))
                                     }
                                 }

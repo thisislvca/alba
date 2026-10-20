@@ -48,8 +48,8 @@ class GalleryDownloadControlsTest {
             val cleanup = actions.enqueue(BatchAction.REMOVE_CACHE, listOf("cached"))
             assertFalse(actions.runPending(localOnly = true))
             val rows = actions.observe().first()
-            assertEquals("DONE", rows.single { it.batchId == cleanup }.state)
-            assertEquals("WAITING", rows.single { it.batchId == download }.state)
+            assertEquals(BatchItemState.DONE, rows.single { it.batchId == cleanup }.status)
+            assertEquals(BatchItemState.WAITING, rows.single { it.batchId == download }.status)
             assertTrue(actions.hasPending())
         } finally { db.close() }
     }
@@ -63,17 +63,17 @@ class GalleryDownloadControlsTest {
         try {
             val id = actions.enqueue(BatchAction.KEEP_OFFLINE, listOf("00-completed", "01-running", "02-running", "03-waiting"))
             run = launch { actions.runPending() }
-            withTimeout(5_000) { actions.observe().first { rows -> rows.any { it.mediaId == "00-completed" && it.state == "DONE" } && rows.count { it.state == "RUNNING" } == 2 } }
+            withTimeout(5_000) { actions.observe().first { rows -> rows.any { it.mediaId == "00-completed" && it.status == BatchItemState.DONE } && rows.count { it.status == BatchItemState.RUNNING } == 2 } }
             val other = actions.enqueue(BatchAction.KEEP_OFFLINE, listOf("unrelated"))
             actions.cancelDownload(id)
             run.join()
             val canceled = actions.observe().first().filter { it.batchId == id }
-            assertEquals(1, canceled.count { it.state == "DONE" })
-            assertEquals(3, canceled.count { it.state == "CANCELED" })
+            assertEquals(1, canceled.count { it.status == BatchItemState.DONE })
+            assertEquals(3, canceled.count { it.status == BatchItemState.CANCELED })
             assertFalse(calls.contains("03-waiting"))
             val restarted = GalleryBatchActions(db.libraryDao(), gallery, photos()) { "account" }
             restarted.runPending()
-            assertEquals("DONE", restarted.observe().first().single { it.batchId == other }.state)
+            assertEquals(BatchItemState.DONE, restarted.observe().first().single { it.batchId == other }.status)
             assertFalse(calls.contains("03-waiting"))
             val queued = restarted.enqueue(BatchAction.KEEP_OFFLINE, listOf("never-start"))
             restarted.cancelDownload(queued); restarted.runPending()
@@ -90,15 +90,15 @@ class GalleryDownloadControlsTest {
         try {
             actions.enqueue(BatchAction.KEEP_OFFLINE, listOf("00-completed", "01-running", "02-running", "03-waiting"))
             run = launch { actions.runPending() }
-            withTimeout(5_000) { actions.observe().first { rows -> rows.any { it.state == "DONE" } && rows.count { it.state == "RUNNING" } == 2 } }
+            withTimeout(5_000) { actions.observe().first { rows -> rows.any { it.status == BatchItemState.DONE } && rows.count { it.status == BatchItemState.RUNNING } == 2 } }
             actions.enqueue(BatchAction.KEEP_OFFLINE, listOf("04-queued"))
             actions.cancelActive()
             run.join()
             val restarted = GalleryBatchActions(db.libraryDao(), gallery, photos()) { "account" }
             assertFalse(restarted.runPending())
             val rows = restarted.observe().first()
-            assertEquals(1, rows.count { it.state == "DONE" })
-            assertEquals(4, rows.count { it.state == "STOPPED" })
+            assertEquals(1, rows.count { it.status == BatchItemState.DONE })
+            assertEquals(4, rows.count { it.status == BatchItemState.STOPPED })
             assertFalse(calls.contains("03-waiting"))
             assertFalse(calls.contains("04-queued"))
         } finally { run?.cancelAndJoin(); db.close() }
@@ -114,13 +114,13 @@ class GalleryDownloadControlsTest {
         try {
             val id = actions.enqueue(BatchAction.SAVE_TO_PHONE, listOf("good", "bad"))
             actions.runPending()
-            assertEquals(1, actions.observe().first().count { it.state == "DONE" })
+            assertEquals(1, actions.observe().first().count { it.status == BatchItemState.DONE })
             fail = false; actions.retry(id); actions.runPending()
             assertEquals(1, calls.count { it == "good" })
             assertEquals(2, calls.count { it == "bad" })
             db.libraryDao().putBatches(listOf(BatchItemEntity("interrupted", "uncertain", "account", "SAVE_TO_PHONE", "RUNNING", null, Long.MAX_VALUE)))
             actions.runPending()
-            assertEquals("NEEDS_ATTENTION", actions.observe().first().single { it.batchId == "interrupted" }.state)
+            assertEquals(BatchItemState.NEEDS_ATTENTION, actions.observe().first().single { it.batchId == "interrupted" }.status)
             assertFalse(calls.contains("uncertain"))
         } finally { db.close() }
     }
