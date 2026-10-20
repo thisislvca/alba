@@ -66,6 +66,8 @@ class LiveICloudCatalogSourceTest {
             200 to """{"zones":[{"zoneID":{"zoneName":"PrimarySync"},"syncToken":"next","records":[
                 {"recordName":"asset-1","serverErrorCode":"SYNC_TOKEN_EXPIRED"}]}]}""",
             410 to "{}",
+            // Captured from iCloud.com on 2026-10-20: a corrupt saved token is a zone-level BAD_REQUEST with HTTP 200.
+            200 to """{"zones":[{"serverErrorCode":"BAD_REQUEST","reason":"Invalid continuation format"}]}""",
         )
         for ((code, body) in cases) {
             val source = LiveICloudCatalogSource(ChangesTransport(code, body), { SESSION })
