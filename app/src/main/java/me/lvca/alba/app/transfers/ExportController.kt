@@ -1,8 +1,8 @@
 package me.lvca.alba.app.transfers
 
 import android.net.Uri
-import kotlinx.coroutines.channels.SendChannel
 import me.lvca.alba.app.AlbaEffect
+import me.lvca.alba.app.EffectQueue
 import me.lvca.alba.app.R
 import me.lvca.alba.app.actions.MediaAction
 import me.lvca.alba.app.actions.MediaActionKey
@@ -20,7 +20,7 @@ internal class ExportController(
     private val exporter: GalleryExporter,
     private val runner: MediaActionRunner,
     private val messages: UserMessages,
-    private val effects: SendChannel<AlbaEffect>,
+    private val effects: EffectQueue,
 ) {
     fun share(items: List<GalleryMedia>) {
         runner.start(MediaActionKey(MediaAction.SHARE), R.string.message_could_not_prepare_sharing) {

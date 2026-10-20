@@ -6,7 +6,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import me.lvca.alba.app.AlbaEffect
+import me.lvca.alba.app.EffectQueue
 import me.lvca.alba.app.R
 import me.lvca.alba.app.actions.MediaAction
 import me.lvca.alba.app.actions.MediaActionKey
@@ -85,7 +85,7 @@ internal class TransferController(
     private val diagnostics: AlbaDiagnostics,
     private val messages: UserMessages,
     private val runner: MediaActionRunner,
-    private val effects: SendChannel<AlbaEffect>,
+    private val effects: EffectQueue,
     private val gallery: GalleryBrowser,
     private val live: LiveTransferMode,
     private val demo: DemoTransferMode,
