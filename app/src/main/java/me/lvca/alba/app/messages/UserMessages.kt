@@ -8,14 +8,34 @@ import me.lvca.alba.app.R
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 
-/** The one transient message the UI shows. A newer message replaces an older one. */
+/**
+ * The one transient message the UI shows. A newer message replaces an older one. A message may name the [owner] that
+ * showed it, so that owner can later withdraw its own message without erasing anyone else's.
+ */
 internal class UserMessages {
     private val current = MutableStateFlow<UiMessage?>(null)
+    private var owner: Any? = null
     val message: StateFlow<UiMessage?> = current.asStateFlow()
 
-    fun show(message: UiMessage) { current.value = message }
+    @Synchronized
+    fun show(message: UiMessage, owner: Any? = null) {
+        this.owner = owner
+        current.value = message
+    }
+
     fun show(@StringRes resource: Int) = show(UiMessage(resource))
-    fun clear() { current.value = null }
+
+    @Synchronized
+    fun clear() {
+        owner = null
+        current.value = null
+    }
+
+    /** Clears the current message only when [owner] showed it. */
+    @Synchronized
+    fun clear(owner: Any) {
+        if (current.value != null && this.owner == owner) clear()
+    }
 }
 
 internal fun Throwable.toUserMessage(@StringRes fallback: Int): UiMessage = when (this) {

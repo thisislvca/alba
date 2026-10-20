@@ -48,7 +48,8 @@ data class MediaWork(
 /**
  * Runs user-started media actions, each in its own job with a diagnostics span and a fallback error message. Tracks
  * them per [MediaActionKey], so an unrelated action is never dropped because another one is running. Starting an
- * action whose key is already running shows a busy message instead of silently doing nothing.
+ * action whose key is already running shows a busy message instead of silently doing nothing. A failure message
+ * belongs to its key: starting that action again clears it, and starting a different action leaves it alone.
  *
  * Main-thread confined, like the scope it launches in.
  */
@@ -73,7 +74,8 @@ internal class MediaActionRunner(
                 DiagnosticOperation.MEDIA_ACTION,
                 mapOf(DiagnosticAttribute.ACTION to key.action.diagnosticTag),
             )
-            messages.clear()
+            // Only this action's own earlier failure: another action's message stays until it is replaced or dismissed.
+            messages.clear(key)
             try {
                 block()
                 span.finish(DiagnosticOutcome.SUCCESS)
@@ -83,7 +85,7 @@ internal class MediaActionRunner(
                     throw error
                 }
                 span.finish(DiagnosticOutcome.FAILED, error = error)
-                messages.show(error.toUserMessage(fallbackMessage))
+                messages.show(error.toUserMessage(fallbackMessage), owner = key)
             } finally {
                 if (jobs[key] === job) jobs.remove(key)
                 active.value = jobs.keys.toSet()
