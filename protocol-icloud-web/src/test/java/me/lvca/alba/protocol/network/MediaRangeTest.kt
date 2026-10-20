@@ -25,6 +25,27 @@ class MediaRangeTest {
         assertTrue(runCatching { transport.openRange("https://cws.icloud-content.com/movie", 0, -1) }.isFailure)
         assertEquals(1, calls)
     }
+    @Test fun streamAndRangeFollowAllowedRedirectsUpToTheLimit() = runBlocking {
+        val hops = mutableListOf<String>()
+        val transport = OkHttpAppleTransport(clientBuilder = OkHttpClient.Builder().addInterceptor { chain ->
+            val path = chain.request().url.encodedPath
+            hops += path
+            when {
+                path == "/start" -> response(chain.request(), 302, mapOf("Location" to "/final"))
+                path == "/final" -> response(chain.request(), 206, mapOf("Content-Range" to "bytes 0-2/3"))
+                else -> response(chain.request(), 307, mapOf("Location" to "/loop"))
+            }
+        })
+        val output = java.io.ByteArrayOutputStream()
+        transport.stream("https://cws.icloud-content.com/start", output)
+        assertEquals("abc", output.toString())
+        transport.openRange("https://cws.icloud-content.com/start", 0, 3).use { assertEquals("abc", it.input.reader().readText()) }
+        assertEquals(listOf("/start", "/final", "/start", "/final"), hops)
+
+        hops.clear()
+        assertTrue(runCatching { transport.stream("https://cws.icloud-content.com/loop", output) }.exceptionOrNull() is java.io.IOException)
+        assertEquals(6, hops.size)
+    }
     @Test fun rejectsWrongRangeAndReportsExpiredResource() = runBlocking {
         for (code in listOf(200, 206, 403)) {
             val transport = OkHttpAppleTransport(clientBuilder = OkHttpClient.Builder().addInterceptor { chain ->

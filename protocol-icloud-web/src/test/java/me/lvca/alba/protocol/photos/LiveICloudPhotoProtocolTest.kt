@@ -11,7 +11,6 @@ import me.lvca.alba.protocol.account.PersistedCookie
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -544,7 +543,6 @@ class LiveICloudPhotoProtocolTest {
         var rawUploadCalls = 0
         var uploadedBytes = byteArrayOf()
         var lastUploadUrl: String? = null
-        override val sessionHeaders = AppleSessionHeaders()
 
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             requests += request
@@ -639,7 +637,6 @@ class LiveICloudPhotoProtocolTest {
         }.joinToString(",")
 
         var lookupCalls = 0
-        override val sessionHeaders = AppleSessionHeaders()
 
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse = when (URI(request.url).path) {
             "/database/1/com.apple.photos.cloud/production/private/changes/zone" -> response(

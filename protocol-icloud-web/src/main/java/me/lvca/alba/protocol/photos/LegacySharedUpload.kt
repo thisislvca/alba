@@ -1,9 +1,10 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
 import kotlinx.serialization.json.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -13,24 +14,22 @@ internal class LegacySharedUpload(
     private val transport: AppleHttpTransport,
     private val account: () -> String,
     private val authorized: () -> Boolean,
-    private val journal: UploadJournal?,
+    private val journal: SharedAlbumJournal,
     private val connection: SharedAlbumSession,
-    private val persist: suspend (AppleSessionSnapshot) -> Unit,
+    private val persist: suspend (AppleSessionSnapshot, AppleHttpResponse?) -> Unit,
     private val discover: suspend () -> List<SharedAlbumRecord>,
     private val readAlbum: suspend (SharedAlbumRecord) -> List<CloudPhotoAsset>,
-    private val journalBinding: () -> AccountBinding,
-    private val save: suspend (String, String, JsonObject) -> Unit,
 ) {
     suspend fun upload(id: String, fileName: String, source: OneShotUploadSource, operationId: String) {
         require(source.byteCount > 0 && fileName.isNotBlank())
         check(authorized()) { "Sign in before contributing photos." }
         val current = connection.bound()
         val album = discover().firstOrNull { it.collection.id == id } ?: error("Shared album is no longer available.")
-        require(album.scope == "legacy" && album.collection.shared?.canContribute == true) { "You cannot add photos to this album." }
+        require(album.isLegacy && album.collection.shared?.canContribute == true) { "You cannot add photos to this album." }
         // A force-stop may lose the UI operation ID. Bind retries to the actual content instead.
         java.util.UUID.fromString(operationId)
-        val key = "shared-upload:" + digest("${account()}|$id|$fileName|${source.sha256Hex}")
-        val old = requireNotNull(journal).load(journalBinding(), key)
+        val key = SharedAlbumJournal.key("shared-upload", "${account()}|$id|$fileName|${source.sha256Hex}")
+        val old = journal.load(key)
         var phase = old?.phase ?: "READY"
         fun newUpload() = buildJsonObject {
             put("target", id); put("size", source.byteCount); put("sha256", source.sha256Hex); put("fileName", fileName)
@@ -45,7 +44,7 @@ internal class LegacySharedUpload(
             saved = newUpload(); phase = "READY"
         }
         suspend fun savePhase(next: String, additions: Map<String, JsonElement> = emptyMap()) {
-            saved = JsonObject(saved + additions); save(key, next, saved); phase = next
+            saved = JsonObject(saved + additions); journal.save(key, next, saved); phase = next
         }
         if (phase == "REGISTERING") {
             // The client-assigned asset GUID survives response loss. Do not register the same bytes twice.
@@ -67,7 +66,7 @@ internal class LegacySharedUpload(
             connection.checkSession(current); check(authorized())
             savePhase("BYTES_SENDING")
             val raw = transport.executeRawUpload(requireNotNull(saved.text("uploadUrl")), emptyMap(), source.byteCount, source::openOnce)
-            connection.checkSession(current); persist(current)
+            connection.checkSession(current); persist(current, raw)
             check(raw.code in 200..299) { "Shared upload bytes were not accepted." }
             val receipt = requireNotNull(Json.parseToJsonElement(raw.body).jsonObject["singleFile"] as? JsonObject)
             check(receipt.text("size")?.toLong() == source.byteCount && listOf("referenceChecksum", "fileChecksum", "wrappingKey", "receipt").all { !receipt.text(it).isNullOrBlank() })
@@ -107,7 +106,4 @@ internal class LegacySharedUpload(
         }
     }
 
-    private fun digest(value: String) = java.security.MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
-    private fun JsonObject.text(name: String) = (get(name) as? JsonPrimitive)?.contentOrNull
 }

@@ -1,7 +1,8 @@
 package me.lvca.alba.protocol.auth
 
 import java.math.BigInteger
-import java.security.MessageDigest
+import me.lvca.alba.protocol.sha256
+import me.lvca.alba.protocol.toHex
 import java.security.SecureRandom
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -41,6 +42,12 @@ class AppleSrpClient(
         protocol: AppleSrpProtocol,
     ): AppleSrpProof {
         require(iterations > 0) { "Apple SRP iterations must be positive" }
+        if (iterations > MAX_ITERATIONS) {
+            throw AppleProtocolException(
+                AppleProtocolError.MALFORMED_RESPONSE,
+                "Apple asked for $iterations password hashing rounds, more than the $MAX_ITERATIONS this app allows.",
+            )
+        }
         val publicBValue = positive(serverPublicB)
         require(publicBValue.mod(MODULUS) != BigInteger.ZERO) {
             "Apple SRP server public value is invalid"
@@ -98,6 +105,13 @@ class AppleSrpClient(
 
     private companion object {
         const val SHA_256_BYTES = 32
+
+        /**
+         * The server picks the PBKDF2 round count. The fixtures and pyicloud oracle use 2,048, and
+         * iCloud.com runs the rounds in browser JavaScript, so real counts stay far below this bound.
+         * It stops a hostile or broken server from pinning the CPU with a count near Int.MAX_VALUE.
+         */
+        const val MAX_ITERATIONS = 1_000_000
         const val EPHEMERAL_SECRET_BYTES = 256
         val GENERATOR = BigInteger.valueOf(2L)
         val MODULUS = BigInteger(
@@ -131,11 +145,6 @@ class AppleSrpClient(
             return ByteArray(width - value.size) + value
         }
 
-        fun sha256(vararg values: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").run {
-            values.forEach(::update)
-            digest()
-        }
-
         fun pbkdf2HmacSha256(
             password: ByteArray,
             salt: ByteArray,
@@ -166,8 +175,5 @@ class AppleSrpClient(
                 aggregate.copyInto(derived, destinationOffset = (block - 1) * hashLength)
             }
             return derived.copyOf(length)
-        }
-
-        fun ByteArray.toHex(): String = joinToString(separator = "") { byte -> "%02x".format(byte) }
-    }
+        }    }
 }

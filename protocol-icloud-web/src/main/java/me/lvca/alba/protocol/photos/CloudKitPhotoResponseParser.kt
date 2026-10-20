@@ -3,6 +3,10 @@ package me.lvca.alba.protocol.photos
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.field
+import me.lvca.alba.protocol.fieldInt
+import me.lvca.alba.protocol.fieldText
+import me.lvca.alba.protocol.text
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.time.Instant
@@ -40,6 +44,33 @@ internal data class CloudPhotoAsset(
     val byteCount: Long? = null,
 )
 
+/** The engine record for this asset, published under [id]. */
+internal fun CloudPhotoAsset.toRemoteMediaRecord(
+    id: String,
+    accentStartArgb: Long,
+    accentEndArgb: Long,
+    resourceFingerprint: String = this.resourceFingerprint,
+) = me.lvca.alba.engine.source.RemoteMediaRecord(
+    id = id,
+    fileName = fileName,
+    capturedAtEpochMillis = capturedAtEpochMillis,
+    width = width,
+    height = height,
+    sourceRevision = sourceRevision,
+    accentStartArgb = accentStartArgb,
+    accentEndArgb = accentEndArgb,
+    kind = kind,
+    mimeType = mimeType,
+    durationMillis = durationMillis,
+    masterRecordName = masterRecordName,
+    assetRecordName = assetRecordName,
+    resourceFingerprint = resourceFingerprint,
+    motionMimeType = motionMimeType,
+    addedAtEpochMillis = addedAtEpochMillis,
+    isTrashed = isTrashed,
+    byteCount = byteCount,
+)
+
 internal data class ParsedCloudPhotoPage(
     val photos: List<CloudPhotoAsset>,
     val logicalAssetCount: Int,
@@ -58,8 +89,8 @@ internal class CloudKitPhotoResponseParser {
             ?.firstOrNull()
             ?.let { it as? JsonObject }
         if (serverError != null) {
-            val reason = serverError.string("reason")
-                ?: serverError.string("message")
+            val reason = serverError.text("reason")
+                ?: serverError.text("message")
                 ?: "Apple rejected the Photos request"
             throw AppleProtocolException(AppleProtocolError.PHOTOS_UNAVAILABLE, reason)
         }
@@ -67,10 +98,10 @@ internal class CloudKitPhotoResponseParser {
         val records = (root["records"] as? JsonArray)
             ?.mapNotNull { it as? JsonObject }
             .orEmpty()
-        val masters = records.filter { it.string("recordType") == MASTER_RECORD_TYPE }.associateBy { it.string("recordName") }
+        val masters = records.filter { it.text("recordType") == MASTER_RECORD_TYPE }.associateBy { it.text("recordName") }
         val pairedRecords = records.mapNotNull { asset ->
-            if (asset.string("recordType") != ASSET_RECORD_TYPE) return@mapNotNull null
-            val masterName = (asset.fieldValue("masterRef") as? JsonObject)?.string("recordName") ?: return@mapNotNull null
+            if (asset.text("recordType") != ASSET_RECORD_TYPE) return@mapNotNull null
+            val masterName = (asset.field("masterRef") as? JsonObject)?.text("recordName") ?: return@mapNotNull null
             val master = masters[masterName] ?: return@mapNotNull null
             master to asset
         }
@@ -79,15 +110,15 @@ internal class CloudKitPhotoResponseParser {
         return ParsedCloudPhotoPage(
             photos = photos,
             logicalAssetCount = pairedRecords.size,
-            syncToken = root.string("syncToken"),
-            continuationMarker = root.string("continuationMarker"),
+            syncToken = root.text("syncToken"),
+            continuationMarker = root.text("continuationMarker"),
         )
     }
 
     private fun parsePhoto(master: JsonObject, asset: JsonObject, includeTrashed: Boolean, legacy: Boolean): CloudPhotoAsset? {
-        val assetRecordName = asset.string("recordName") ?: return null
-        val trashed = asset.fieldString("isDeleted") in setOf("1", "true")
-        if (asset.fieldString("isHidden") in setOf("1", "true") || asset.fieldString("isExpunged") in setOf("1", "true") || (trashed && !includeTrashed)) return null
+        val assetRecordName = asset.text("recordName") ?: return null
+        val trashed = asset.fieldText("isDeleted") in setOf("1", "true")
+        if (asset.fieldText("isHidden") in setOf("1", "true") || asset.fieldText("isExpunged") in setOf("1", "true") || (trashed && !includeTrashed)) return null
         val movie = master.isMovie()
         val originalUrl = master.assetUrl("resOriginalRes") ?: return null
         val motionUrl = if (movie) null else master.assetUrl("resOriginalVidComplRes")
@@ -107,8 +138,8 @@ internal class CloudKitPhotoResponseParser {
         val height = master.fieldInt("resOriginalHeight")
             ?: PREVIEW_HEIGHT_KEYS.firstNotNullOfOrNull { key -> master.fieldInt(key) }
             ?: 1
-        val masterRevision = master.string("recordChangeTag").orEmpty()
-        val assetRevision = asset.string("recordChangeTag").orEmpty()
+        val masterRevision = master.text("recordChangeTag").orEmpty()
+        val assetRevision = asset.text("recordChangeTag").orEmpty()
         val capturedAt = asset.fieldEpochMillis("assetDate")
             ?: (if (legacy) master.fieldEpochMillis("originalCreationDate") ?: asset.fieldEpochMillis("addedDate") else null)
             ?: return null
@@ -116,8 +147,8 @@ internal class CloudKitPhotoResponseParser {
         return CloudPhotoAsset(
             assetRecordName = assetRecordName,
             isTrashed = trashed,
-            byteCount = ((master.fieldValue("resOriginalRes") as? JsonObject)?.get("size") as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 }
-                ?: (master.fieldValue("resOriginalFileSize") as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 },
+            byteCount = ((master.field("resOriginalRes") as? JsonObject)?.get("size") as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 }
+                ?: (master.field("resOriginalFileSize") as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 },
             fileName = master.decodedFileName() ?: assetRecordName,
             capturedAtEpochMillis = capturedAt,
             addedAtEpochMillis = asset.fieldEpochMillis("addedDate")?.takeIf { it > 0 },
@@ -127,11 +158,11 @@ internal class CloudKitPhotoResponseParser {
             previewDownloadUrl = previewUrl,
             displayDownloadUrl = displayUrl,
             originalDownloadUrl = originalUrl,
-            masterRecordName = master.string("recordName")!!,
+            masterRecordName = master.text("recordName")!!,
             kind = when { movie -> me.lvca.alba.engine.model.MediaKind.VIDEO; motionUrl != null -> me.lvca.alba.engine.model.MediaKind.LIVE_PHOTO; else -> me.lvca.alba.engine.model.MediaKind.PHOTO },
             motionDownloadUrl = motionUrl,
-            motionMimeType = if (master.fieldString("resOriginalVidComplFileType") == "public.mpeg-4") "video/mp4" else "video/quicktime",
-            mimeType = when (master.fieldString("itemType") ?: master.fieldString("resOriginalFileType")) {
+            motionMimeType = if (master.fieldText("resOriginalVidComplFileType") == "public.mpeg-4") "video/mp4" else "video/quicktime",
+            mimeType = when (master.fieldText("itemType") ?: master.fieldText("resOriginalFileType")) {
                 "public.heic", "public.heif" -> "image/heic"
                 "public.png" -> "image/png"
                 "org.webmproject.webp" -> "image/webp"
@@ -139,10 +170,10 @@ internal class CloudKitPhotoResponseParser {
                 else -> if (movie) "video/mp4" else "image/jpeg"
             },
             // CloudKit CPLAsset duration is an INT64 count of milliseconds.
-            durationMillis = (asset.fieldValue("duration") as? JsonPrimitive)?.longOrNull,
+            durationMillis = (asset.field("duration") as? JsonPrimitive)?.longOrNull,
             resourceFingerprint = RESOURCE_PREFIXES.mapNotNull { prefix ->
-                val fingerprint = master.fieldString("${prefix}Fingerprint")
-                    ?: (master.fieldValue("${prefix}Res") as? JsonObject)?.string("fileChecksum")
+                val fingerprint = master.fieldText("${prefix}Fingerprint")
+                    ?: (master.field("${prefix}Res") as? JsonObject)?.text("fileChecksum")
                 fingerprint?.let { "$prefix:$it" }
             }.joinToString("|").ifEmpty { masterRevision },
             playbackUrl = if (movie || motionUrl != null) master.assetUrl("resVidMedRes") ?: master.assetUrl("resVidFullRes") ?: motionUrl ?: originalUrl else originalUrl,
@@ -150,13 +181,13 @@ internal class CloudKitPhotoResponseParser {
     }
 
     private fun JsonObject.isMovie(): Boolean {
-        val type = fieldString("itemType") ?: fieldString("resOriginalFileType") ?: return false
+        val type = fieldText("itemType") ?: fieldText("resOriginalFileType") ?: return false
         return type in MOVIE_TYPES || type.contains("movie", ignoreCase = true) ||
             type.contains("video", ignoreCase = true)
     }
 
     private fun JsonObject.decodedFileName(): String? {
-        val encoded = fieldString("filenameEnc") ?: return null
+        val encoded = fieldText("filenameEnc") ?: return null
         val decoded = runCatching { Base64.getDecoder().decode(encoded) }.getOrNull() ?: return encoded
         return runCatching {
             Charsets.UTF_8.newDecoder()
@@ -168,10 +199,10 @@ internal class CloudKitPhotoResponseParser {
     }
 
     private fun JsonObject.assetUrl(fieldName: String): String? =
-        (fieldValue(fieldName) as? JsonObject)?.string("downloadURL")
+        (field(fieldName) as? JsonObject)?.text("downloadURL")
 
     private fun JsonObject.fieldEpochMillis(fieldName: String): Long? {
-        val primitive = fieldValue(fieldName) as? JsonPrimitive ?: return null
+        val primitive = field(fieldName) as? JsonPrimitive ?: return null
         val numeric = primitive.doubleOrNull
         if (numeric != null) {
             val epochMillis = if (kotlin.math.abs(numeric) < SECONDS_TO_MILLIS_CUTOFF) {
@@ -185,18 +216,6 @@ internal class CloudKitPhotoResponseParser {
             ?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
             ?.takeIf { it > 0L }
     }
-
-    private fun JsonObject.fieldInt(fieldName: String): Int? =
-        (fieldValue(fieldName) as? JsonPrimitive)?.intOrNull
-
-    private fun JsonObject.fieldString(fieldName: String): String? =
-        (fieldValue(fieldName) as? JsonPrimitive)?.contentOrNull
-
-    private fun JsonObject.fieldValue(fieldName: String): JsonElement? =
-        ((this["fields"] as? JsonObject)?.get(fieldName) as? JsonObject)?.get("value")
-
-    private fun JsonObject.string(name: String): String? =
-        (this[name] as? JsonPrimitive)?.contentOrNull
 
     private fun malformed(message: String): Nothing = throw AppleProtocolException(
         AppleProtocolError.MALFORMED_RESPONSE,

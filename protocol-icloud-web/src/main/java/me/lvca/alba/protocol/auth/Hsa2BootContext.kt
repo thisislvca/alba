@@ -1,10 +1,12 @@
 package me.lvca.alba.protocol.auth
 
+import me.lvca.alba.protocol.boolean
+import me.lvca.alba.protocol.obj
+import me.lvca.alba.protocol.text
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 
@@ -58,36 +60,24 @@ internal data class Hsa2BootContext(
         }.getOrNull()
 
         private fun fromRoot(root: JsonObject): Hsa2BootContext {
-            val direct = root.objectOrNull("direct") ?: root
-            val twoSv = direct.objectOrNull("twoSV") ?: direct
-            val bridge = twoSv.objectOrNull("bridgeInitiateData") ?: JsonObject(emptyMap())
-            val phoneVerification = twoSv.objectOrNull("phoneNumberVerification")
-                ?: bridge.objectOrNull("phoneNumberVerification")
+            val direct = root.obj("direct") ?: root
+            val twoSv = direct.obj("twoSV") ?: direct
+            val bridge = twoSv.obj("bridgeInitiateData") ?: JsonObject(emptyMap())
+            val phoneVerification = twoSv.obj("phoneNumberVerification")
+                ?: bridge.obj("phoneNumberVerification")
                 ?: JsonObject(emptyMap())
             val factors = (twoSv["authFactors"] as? JsonArray)
                 .orEmpty()
                 .mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
 
             return Hsa2BootContext(
-                authInitialRoute = direct.stringOrNull("authInitialRoute").orEmpty(),
-                hasTrustedDevices = direct.booleanOrNull("hasTrustedDevices") ?: false,
+                authInitialRoute = direct.text("authInitialRoute").orEmpty(),
+                hasTrustedDevices = direct.boolean("hasTrustedDevices") ?: false,
                 authFactors = factors,
                 bridgeInitiateData = bridge,
                 phoneNumberVerification = phoneVerification,
-                sourceAppId = twoSv["sourceAppId"]
-                    ?.let { it as? JsonPrimitive }
-                    ?.contentOrNull,
+                sourceAppId = twoSv.text("sourceAppId"),
             )
         }
-
-        private fun JsonObject.objectOrNull(name: String): JsonObject? = this[name] as? JsonObject
-
-        private fun JsonObject.stringOrNull(name: String): String? = this[name]
-            ?.let { it as? JsonPrimitive }
-            ?.contentOrNull
-
-        private fun JsonObject.booleanOrNull(name: String): Boolean? = this[name]
-            ?.let { it as? JsonPrimitive }
-            ?.booleanOrNull
     }
 }

@@ -2,18 +2,15 @@ package me.lvca.alba.protocol.auth
 
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.AppleSignInResult
-import me.lvca.alba.protocol.account.AccountOperation
-import me.lvca.alba.protocol.account.AccountOutcome
 import me.lvca.alba.protocol.account.AccountTelemetry
 import me.lvca.alba.protocol.account.TwoFactorDelivery
-import me.lvca.alba.protocol.account.accountOutcome
-import me.lvca.alba.protocol.account.cookieLifetimeMetrics
-import me.lvca.alba.protocol.account.elapsedSince
-import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.int
+import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
+import me.lvca.alba.protocol.network.AppleSessionHeaderTracker
 import java.util.Base64
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -24,44 +21,32 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
-class AppleAuthenticationService private constructor(
-    private val transport: AppleHttpTransport,
+class AppleAuthenticationService internal constructor(
+    transport: AppleHttpTransport,
     private val clientIdProvider: () -> String,
-    private val trustedDeviceBridge: TrustedDeviceBridgeClient,
-    private val telemetry: AccountTelemetry,
-    private val computationDispatcher: CoroutineDispatcher,
+    trustedDeviceBridge: (AppleHttpTransport) -> TrustedDeviceBridgeClient,
+    telemetry: AccountTelemetry = AccountTelemetry.None,
+    private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     constructor(
         transport: AppleHttpTransport,
         clientIdProvider: () -> String = { UUID.randomUUID().toString().lowercase() },
         telemetry: AccountTelemetry = AccountTelemetry.None,
         computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
-    ) : this(
-        transport = transport,
-        clientIdProvider = clientIdProvider,
-        trustedDeviceBridge = TrustedDeviceBridge(transport),
-        telemetry = telemetry,
-        computationDispatcher = computationDispatcher,
-    )
+    ) : this(transport, clientIdProvider, { TrustedDeviceBridge(it) }, telemetry, computationDispatcher)
 
-    internal constructor(
-        transport: AppleHttpTransport,
-        clientIdProvider: () -> String,
-        trustedDeviceBridge: TrustedDeviceBridgeClient,
-        telemetry: AccountTelemetry = AccountTelemetry.None,
-        computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
-        @Suppress("UNUSED_PARAMETER") testConstructor: Unit = Unit,
-    ) : this(transport, clientIdProvider, trustedDeviceBridge, telemetry, computationDispatcher)
-
+    // Sign-in reads scnt and session tokens from its own responses, including the bridge's,
+    // never from another client sharing the transport.
+    private val transport = AppleSessionHeaderTracker(transport)
+    private val trustedDeviceBridge = trustedDeviceBridge(this.transport)
+    private val webSession = ICloudWebSession(this.transport, telemetry)
     private val json = Json { ignoreUnknownKeys = true }
     private var pendingAuth: PendingAuth? = null
 
@@ -74,7 +59,7 @@ class AppleAuthenticationService private constructor(
     suspend fun resendTwoFactor() = withContext(computationDispatcher) { resendTwoFactorInternal() }
 
     suspend fun restore(snapshot: AppleSessionSnapshot): AppleSessionSnapshot? =
-        withContext(computationDispatcher) { restoreInternal(snapshot) }
+        withContext(computationDispatcher) { webSession.restore(snapshot) }
 
     private suspend fun signInInternal(
         appleId: String,
@@ -127,7 +112,7 @@ class AppleAuthenticationService private constructor(
         }
         if (completion.code !in 200..299) throw invalidCredentials()
 
-        val session = establishSession(normalizedAppleId, clientId)
+        val session = webSession.establish(normalizedAppleId, clientId)
         pendingAuth = null
         return AppleSignInResult.SignedIn(session)
     }
@@ -208,7 +193,7 @@ class AppleAuthenticationService private constructor(
             )
         }
 
-        val session = establishSession(pending.appleId, pending.clientId)
+        val session = webSession.establish(pending.appleId, pending.clientId)
         clearPendingAuth()
         return session
     }
@@ -275,123 +260,9 @@ class AppleAuthenticationService private constructor(
         }
     }
 
-    private suspend fun restoreInternal(snapshot: AppleSessionSnapshot): AppleSessionSnapshot? {
-        val started = System.nanoTime()
-        transport.restore(snapshot)
-        val response = try {
-            transport.execute(
-                AppleHttpRequest(
-                    method = "POST",
-                    url = setupUrl("validate", snapshot.clientId, snapshot.dsid),
-                    headers = JSON_HEADERS,
-                    body = "null",
-                ),
-            )
-        } catch (error: Throwable) {
-            telemetry.record(
-                AccountOperation.VALIDATE,
-                error.accountOutcome(),
-                elapsedSince(started),
-                snapshot.cookieLifetimeMetrics(),
-            )
-            throw error
-        }
-        // A stale validation cookie does not necessarily mean Apple's longer-lived
-        // session and trust tokens have expired. Match iCloud.com's token login before
-        // asking the person for their password and another verification code.
-        if (response.code == 401 || response.code == 403) {
-            telemetry.record(
-                AccountOperation.VALIDATE,
-                AccountOutcome.EXPIRED,
-                elapsedSince(started),
-                snapshot.cookieLifetimeMetrics(),
-            )
-            return renewSession(snapshot)
-        }
-        check(response.code in 200..299) { "iCloud validation is temporarily unavailable (${response.code})" }
-        val restored = snapshotFromAccountResponse(
-            appleId = snapshot.accountName,
-            clientId = snapshot.clientId,
-            response = response,
-            fallback = snapshot,
-        )
-        telemetry.record(
-            AccountOperation.VALIDATE,
-            AccountOutcome.SUCCESS,
-            elapsedSince(started),
-            restored.cookieLifetimeMetrics(),
-        )
-        return restored
-    }
-
-    private suspend fun renewSession(snapshot: AppleSessionSnapshot): AppleSessionSnapshot? {
-        val started = System.nanoTime()
-        val response = try {
-            accountLogin(snapshot.clientId)
-        } catch (error: Throwable) {
-            telemetry.record(
-                AccountOperation.RENEW,
-                error.accountOutcome(),
-                elapsedSince(started),
-                snapshot.cookieLifetimeMetrics(),
-            )
-            throw error
-        }
-        if (response.code == 401 || response.code == 403) {
-            telemetry.record(
-                AccountOperation.RENEW,
-                AccountOutcome.EXPIRED,
-                elapsedSince(started),
-                snapshot.cookieLifetimeMetrics(),
-            )
-            return null
-        }
-        check(response.code in 200..299) {
-            "iCloud token renewal is temporarily unavailable (${response.code})"
-        }
-        return try {
-            snapshotFromAccountResponse(
-                appleId = snapshot.accountName,
-                clientId = snapshot.clientId,
-                response = response,
-                fallback = snapshot,
-            ).also {
-                telemetry.record(
-                    AccountOperation.RENEW,
-                    AccountOutcome.SUCCESS,
-                    elapsedSince(started),
-                    it.cookieLifetimeMetrics(),
-                )
-            }
-        } catch (error: AppleProtocolException) {
-            telemetry.record(
-                AccountOperation.RENEW,
-                error.accountOutcome(),
-                elapsedSince(started),
-                snapshot.cookieLifetimeMetrics(),
-            )
-            if (error.error == AppleProtocolError.SESSION_EXPIRED) null else throw error
-        }
-    }
-
     suspend fun logout(snapshot: AppleSessionSnapshot) {
-        transport.restore(snapshot)
         try {
-            transport.execute(
-                AppleHttpRequest(
-                    method = "POST",
-                    url = setupUrl("logout", snapshot.clientId, snapshot.dsid),
-                    headers = mapOf("Content-Type" to "text/plain;charset=UTF-8"),
-                    body = buildJsonObject {
-                        put("trustBrowser", false)
-                        put("allBrowsers", false)
-                    }.toString(),
-                ),
-            )
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            // The local session has already been removed; remote logout is best effort.
+            webSession.logout(snapshot)
         } finally {
             clearPendingAuth()
             transport.clear()
@@ -450,7 +321,7 @@ class AppleAuthenticationService private constructor(
         challengeId: String,
         proof: AppleSrpProof,
     ): AppleHttpResponse {
-        val trustToken = transport.sessionHeaders.trustToken
+        val trustToken = transport.headers.trustToken
         return transport.execute(
             AppleHttpRequest(
                 method = "POST",
@@ -558,118 +429,15 @@ class AppleAuthenticationService private constructor(
         )
     }
 
-    private suspend fun establishSession(appleId: String, clientId: String): AppleSessionSnapshot {
-        val response = accountLogin(clientId)
-        if (response.code !in 200..299) {
-            throw AppleProtocolException(
-                AppleProtocolError.SESSION_EXPIRED,
-                "Apple did not establish the iCloud web session.",
-            )
-        }
-        return snapshotFromAccountResponse(appleId, clientId, response)
-    }
-
-    private suspend fun accountLogin(clientId: String): AppleHttpResponse {
-        val headers = transport.sessionHeaders
-        val country = headers.accountCountryCode
-            ?: throw malformed("Apple did not return an account country")
-        val sessionToken = headers.sessionToken
-            ?: throw malformed("Apple did not return a session token")
-        return transport.execute(
-            AppleHttpRequest(
-                method = "POST",
-                url = setupUrl("accountLogin", clientId),
-                headers = JSON_HEADERS,
-                body = buildJsonObject {
-                    put("accountCountryCode", country)
-                    put("dsWebAuthToken", sessionToken)
-                    put("extended_login", true)
-                    put("trustToken", headers.trustToken.orEmpty())
-                }.toString(),
-            ),
-        )
-    }
-
-    private fun snapshotFromAccountResponse(
-        appleId: String,
-        clientId: String,
-        response: AppleHttpResponse,
-        fallback: AppleSessionSnapshot? = null,
-    ): AppleSessionSnapshot {
-        val root = response.requireJsonObject("Apple returned an invalid account response")
-        if ((root["termsUpdateNeeded"] as? JsonPrimitive)?.booleanOrNull == true) {
-            throw AppleProtocolException(
-                AppleProtocolError.TERMS_UPDATE_REQUIRED,
-                "Open iCloud.com and accept Apple's updated terms, then try again.",
-            )
-        }
-        val dsInfo = root["dsInfo"] as? JsonObject
-        val dsid = (dsInfo?.get("dsid") as? JsonPrimitive)?.contentOrNull ?: fallback?.dsid
-            ?: throw malformed("Apple did not return an account identifier")
-        val trusted = (dsInfo?.get("hsaVersion") as? JsonPrimitive)?.intOrNull != 2 ||
-            (root["hsaTrustedBrowser"] as? JsonPrimitive)?.booleanOrNull == true
-        if (!trusted) {
-            throw AppleProtocolException(
-                AppleProtocolError.SESSION_EXPIRED,
-                "The Apple session still requires verification.",
-            )
-        }
-        val discoveredServices = root["webservices"] as? JsonObject
-        val services = DISCOVERED_SERVICES.associateWithNotNull { serviceName ->
-            val discoveredUrl = (discoveredServices?.get(serviceName) as? JsonObject)
-                ?.get("url")
-                ?.let { it as? JsonPrimitive }
-                ?.contentOrNull
-            // A fresh inventory is authoritative: do not resurrect withdrawn services.
-            val url = if (discoveredServices != null) discoveredUrl else fallback?.webservices?.get(serviceName)
-            url?.also(AppleEndpointPolicy::requireAllowed)?.trimEnd('/')
-        }
-        services.values.forEach(AppleEndpointPolicy::requireAllowed)
-        val sessionHeaders = transport.sessionHeaders
-        return AppleSessionSnapshot(
-            accountName = appleId,
-            displayName = (dsInfo?.get("fullName") as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: listOfNotNull("firstName", "lastName").mapNotNull { key ->
-                    (dsInfo?.get(key) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
-                }.joinToString(" ").takeIf { it.isNotBlank() }
-                ?: fallback?.takeIf { it.dsid == dsid }?.displayName,
-            clientId = clientId,
-            accountCountryCode = sessionHeaders.accountCountryCode ?: fallback?.accountCountryCode
-                ?: throw malformed("Apple did not return an account country"),
-            sessionId = sessionHeaders.sessionId ?: fallback?.sessionId
-                ?: throw malformed("Apple did not return a session identifier"),
-            sessionToken = sessionHeaders.sessionToken ?: fallback?.sessionToken
-                ?: throw malformed("Apple did not return a session token"),
-            trustToken = sessionHeaders.trustToken ?: fallback?.trustToken,
-            dsid = dsid,
-            webservices = services,
-            cookies = transport.snapshotCookies(),
-        )
-    }
-
     private fun authHeaders(clientId: String): Map<String, String> = buildMap {
         putAll(AUTH_HEADERS)
         put("Referer", IDMS_ENDPOINT)
         put("X-Apple-OAuth-State", clientId)
         put("X-Apple-Frame-Id", clientId)
-        transport.sessionHeaders.scnt?.let { put("scnt", it) }
-        transport.sessionHeaders.sessionId?.let { put("X-Apple-ID-Session-Id", it) }
-        transport.sessionHeaders.authAttributes?.let { put("X-Apple-Auth-Attributes", it) }
+        transport.headers.scnt?.let { put("scnt", it) }
+        transport.headers.sessionId?.let { put("X-Apple-ID-Session-Id", it) }
+        transport.headers.authAttributes?.let { put("X-Apple-Auth-Attributes", it) }
     }
-
-    private inline fun <K, V : Any> Iterable<K>.associateWithNotNull(transform: (K) -> V?): Map<K, V> =
-        buildMap {
-            this@associateWithNotNull.forEach { key -> transform(key)?.let { value -> put(key, value) } }
-        }
-
-    private fun setupUrl(path: String, clientId: String, dsid: String? = null): String =
-        "$SETUP_ENDPOINT/$path".toHttpUrl().newBuilder()
-            .addQueryParameter("clientBuildNumber", CLIENT_BUILD)
-            .addQueryParameter("clientMasteringNumber", CLIENT_MASTERING)
-            .addQueryParameter("clientId", clientId)
-            .apply { dsid?.let { addQueryParameter("dsid", it) } }
-            .build()
-            .toString()
 
     private fun AppleHttpResponse.requireJsonObject(message: String): JsonObject = jsonObjectOrNull()
         ?: throw malformed(message)
@@ -678,14 +446,10 @@ class AppleAuthenticationService private constructor(
         json.parseToJsonElement(body).jsonObject
     }.getOrNull()
 
-    private fun JsonObject.requiredString(name: String): String = this[name]
-        ?.let { it as? JsonPrimitive }
-        ?.contentOrNull
+    private fun JsonObject.requiredString(name: String): String = text(name)
         ?: throw malformed("Apple's authentication response is missing $name")
 
-    private fun JsonObject.requiredInt(name: String): Int = this[name]
-        ?.let { it as? JsonPrimitive }
-        ?.intOrNull
+    private fun JsonObject.requiredInt(name: String): Int = int(name)
         ?: throw malformed("Apple's authentication response is missing $name")
 
     private fun JsonObject?.findTrustedPhone(): TrustedPhone? {
@@ -756,16 +520,11 @@ class AppleAuthenticationService private constructor(
     )
 
     private companion object {
-        val DISCOVERED_SERVICES = listOf("ckdatabasews", "photosupload", "account", "contacts")
         const val HTTP_TWO_FACTOR_REQUIRED = 409
         const val IDMS_ENDPOINT = "https://idmsa.apple.com"
         const val AUTH_ENDPOINT = "$IDMS_ENDPOINT/appleauth/auth"
         const val ICLOUD_HOME = "https://www.icloud.com"
-        const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         const val WIDGET_KEY = "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d"
-        const val CLIENT_BUILD = "2534Project66"
-        const val CLIENT_MASTERING = "2534B22"
-        val JSON_HEADERS = mapOf("Content-Type" to "application/json")
         val AUTH_HEADERS = mapOf(
             "Accept" to "application/json, text/javascript",
             "Content-Type" to "application/json",

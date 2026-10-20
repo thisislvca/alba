@@ -27,38 +27,25 @@ class OkHttpAppleTransport(
 ) : AppleHttpTransport {
     override suspend fun openRange(url: String, position: Long, length: Long): me.lvca.alba.engine.source.MediaRead {
         require(position >= 0 && (length == -1L || length > 0))
-        var target = AppleEndpointPolicy.requireAllowed(url)
-        repeat(MAX_DOWNLOAD_REDIRECTS + 1) {
-            val range = "bytes=$position-" + if (length > 0) Math.addExact(position, length - 1) else ""
-            val request = Request.Builder().url(target).header("Range", range).header("User-Agent", AppleClientProfile.USER_AGENT).build()
-            val response = kotlinx.coroutines.suspendCancellableCoroutine<Response> { continuation ->
-                val call = client.newCall(request)
-                continuation.invokeOnCancellation { call.cancel() }
-                call.enqueue(object : Callback {
-                    override fun onFailure(call: Call, e: IOException) { if (continuation.isActive) continuation.resumeWithException(e) }
-                    override fun onResponse(call: Call, response: Response) {
-                        continuation.resume(response) { _, value, _ -> value.close() }
-                    }
-                })
-            }
-            if (response.code in REDIRECT_CODES) {
-                val next = response.header("Location")?.let(target::resolve)
-                response.close()
-                target = AppleEndpointPolicy.requireAllowed(requireNotNull(next).toString())
-            } else {
-                if (!response.isSuccessful) { val status = response.code; response.close(); throw AppleMediaHttpException(status) }
-                if (position > 0 && response.code != 206) { response.close(); throw IOException("Apple did not honor the requested byte range") }
+        val range = "bytes=$position-" + if (length > 0) Math.addExact(position, length - 1) else ""
+        // The caller reads and closes the open response; it is released here only on failure or cancellation.
+        return downloadFollowingRedirects(url, mapOf("Range" to range), discard = { it.close() }) { response ->
+            try {
+                if (!response.isSuccessful) throw AppleMediaHttpException(response.code)
+                if (position > 0 && response.code != 206) throw IOException("Apple did not honor the requested byte range")
                 if (response.code == 206 && response.header("Content-Range")?.substringAfter("bytes ")?.substringBefore('-')?.toLongOrNull() != position) {
-                    response.close(); throw IOException("Apple returned a mismatched byte range")
+                    throw IOException("Apple returned a mismatched byte range")
                 }
-                return object : me.lvca.alba.engine.source.MediaRead {
+                object : me.lvca.alba.engine.source.MediaRead {
                     override val input = response.body.byteStream()
                     override val length = response.body.contentLength()
                     override fun close() = response.close()
                 }
+            } catch (error: Throwable) {
+                response.close()
+                throw error
             }
         }
-        throw IOException("Too many media redirects")
     }
     private val client = clientBuilder
         .cookieJar(cookieJar)
@@ -75,12 +62,6 @@ class OkHttpAppleTransport(
         .authenticator(Authenticator.NONE)
         .proxyAuthenticator(Authenticator.NONE)
         .build()
-
-    @Volatile
-    private var capturedHeaders = AppleSessionHeaders()
-
-    override val sessionHeaders: AppleSessionHeaders
-        get() = capturedHeaders
 
     override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
         val url = AppleEndpointPolicy.requireAllowed(request.url)
@@ -108,7 +89,6 @@ class OkHttpAppleTransport(
         }
 
         return (if (request.oneShot) writeClient else client).newCall(builder.build()).awaitMapped { response ->
-            captureSessionHeaders(response.headers.toMultimap().mapValues { (_, values) -> values.last() })
             AppleHttpResponse(
                 code = response.code,
                 headers = response.headers.names().associate { name ->
@@ -120,36 +100,77 @@ class OkHttpAppleTransport(
     }
 
     override suspend fun stream(url: String, output: OutputStream) {
-        var currentUrl = AppleEndpointPolicy.requireAllowed(url)
-        var redirectsRemaining = MAX_DOWNLOAD_REDIRECTS
-        while (true) {
+        downloadFollowingRedirects(url) { response ->
+            response.use {
+                if (!response.isSuccessful) throw AppleMediaHttpException(response.code)
+                response.body.byteStream().use { input -> input.copyTo(output, DEFAULT_STREAM_BUFFER_BYTES) }
+            }
+        }
+    }
+
+    /**
+     * GETs media at [url], following at most [MAX_DOWNLOAD_REDIRECTS] redirects and checking each hop
+     * against the endpoint allowlist. [read] runs in the response callback and owns the final response;
+     * [discard] releases its result if the caller was cancelled before receiving it.
+     */
+    private suspend fun <T> downloadFollowingRedirects(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        discard: (T) -> Unit = {},
+        read: (Response) -> T,
+    ): T {
+        var target = AppleEndpointPolicy.requireAllowed(url)
+        repeat(MAX_DOWNLOAD_REDIRECTS + 1) {
             val request = Request.Builder()
-                .url(currentUrl)
+                .url(target)
+                .apply { headers.forEach(::header) }
                 .header("User-Agent", AppleClientProfile.USER_AGENT)
                 .get()
                 .build()
-            val result = client.newCall(request).awaitMapped { response ->
-                captureSessionHeaders(response.headers.toMultimap().mapValues { (_, values) -> values.last() })
-                if (response.code in REDIRECT_CODES) {
-                    DownloadResult.Redirect(response.header("Location"))
-                } else {
-                    if (!response.isSuccessful) throw AppleMediaHttpException(response.code)
-                    val body = requireNotNull(response.body) { "Apple media download returned no body" }
-                    body.byteStream().use { input -> input.copyTo(output, DEFAULT_STREAM_BUFFER_BYTES) }
-                    DownloadResult.Complete
+            when (val hop = client.newCall(request).awaitHop(read, discard)) {
+                is DownloadHop.Done -> return hop.value
+                is DownloadHop.Redirect -> {
+                    val next = requireNotNull(hop.location?.let(target::resolve)) {
+                        "Apple media download returned an invalid redirect"
+                    }
+                    target = AppleEndpointPolicy.requireAllowed(next.toString())
                 }
             }
-            if (result is DownloadResult.Redirect) {
-                check(redirectsRemaining-- > 0) { "Apple media download redirected too many times" }
-                val resolved = requireNotNull(result.location?.let(currentUrl::resolve)) {
-                    "Apple media download returned an invalid redirect"
-                }
-                currentUrl = AppleEndpointPolicy.requireAllowed(resolved.toString())
-                continue
-            }
-            break
         }
+        throw IOException("Too many media redirects")
     }
+
+    private suspend fun <T> Call.awaitHop(read: (Response) -> T, discard: (T) -> Unit): DownloadHop<T> =
+        suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { cancel() }
+            enqueue(
+                object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (continuation.isActive) continuation.resumeWithException(e)
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        val hop = runCatching {
+                            if (response.code in REDIRECT_CODES) {
+                                response.use { DownloadHop.Redirect(it.header("Location")) }
+                            } else {
+                                DownloadHop.Done(read(response))
+                            }
+                        }
+                        hop.fold(
+                            onSuccess = { value ->
+                                continuation.resume(value) { _, unused, _ ->
+                                    (unused as? DownloadHop.Done)?.let { discard(it.value) }
+                                }
+                            },
+                            onFailure = { error ->
+                                if (continuation.isActive) continuation.resumeWithException(error)
+                            },
+                        )
+                    }
+                },
+            )
+        }
 
     override suspend fun executeRawUpload(
         url: String,
@@ -178,7 +199,6 @@ class OkHttpAppleTransport(
             .post(body)
             .build()
         return writeClient.newCall(request).awaitMapped { response ->
-            captureSessionHeaders(response.headers.toMultimap().mapValues { (_, values) -> values.last() })
             AppleHttpResponse(
                 code = response.code,
                 headers = response.headers.names().associate { name ->
@@ -193,31 +213,10 @@ class OkHttpAppleTransport(
 
     override fun restore(snapshot: AppleSessionSnapshot) {
         cookieJar.restore(snapshot.cookies)
-        capturedHeaders = AppleSessionHeaders(
-            accountCountryCode = snapshot.accountCountryCode,
-            sessionId = snapshot.sessionId,
-            sessionToken = snapshot.sessionToken,
-            trustToken = snapshot.trustToken,
-        )
     }
 
     override fun clear() {
         cookieJar.clear()
-        capturedHeaders = AppleSessionHeaders()
-    }
-
-    @Synchronized
-    private fun captureSessionHeaders(headers: Map<String, String>) {
-        val normalized = headers.mapKeys { (name, _) -> name.lowercase() }
-        capturedHeaders = capturedHeaders.copy(
-            accountCountryCode = normalized["x-apple-id-account-country"]
-                ?: capturedHeaders.accountCountryCode,
-            sessionId = normalized["x-apple-id-session-id"] ?: capturedHeaders.sessionId,
-            sessionToken = normalized["x-apple-session-token"] ?: capturedHeaders.sessionToken,
-            trustToken = normalized["x-apple-twosv-trust-token"] ?: capturedHeaders.trustToken,
-            scnt = normalized["scnt"] ?: capturedHeaders.scnt,
-            authAttributes = normalized["x-apple-auth-attributes"] ?: capturedHeaders.authAttributes,
-        )
     }
 
     private suspend fun <T> Call.awaitMapped(transform: (Response) -> T): T =
@@ -244,9 +243,9 @@ class OkHttpAppleTransport(
             )
         }
 
-    private sealed interface DownloadResult {
-        data class Redirect(val location: String?) : DownloadResult
-        data object Complete : DownloadResult
+    private sealed interface DownloadHop<out T> {
+        data class Redirect(val location: String?) : DownloadHop<Nothing>
+        data class Done<T>(val value: T) : DownloadHop<T>
     }
 
     private fun okhttp3.ResponseBody.readUtf8Bounded(maxBytes: Int): String {
