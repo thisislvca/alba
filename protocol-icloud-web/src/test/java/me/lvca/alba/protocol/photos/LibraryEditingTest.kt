@@ -152,7 +152,6 @@ class LibraryEditingTest {
         var reject = false
         var disconnect = false
         var afterLookup: () -> Unit = {}
-        override val sessionHeaders = AppleSessionHeaders()
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             requests += request
             val body = Json.parseToJsonElement(request.body ?: "{}").jsonObject

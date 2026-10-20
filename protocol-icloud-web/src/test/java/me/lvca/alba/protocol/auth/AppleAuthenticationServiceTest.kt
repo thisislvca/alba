@@ -7,7 +7,6 @@ import me.lvca.alba.protocol.account.TwoFactorDelivery
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.OutputStream
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -189,6 +188,8 @@ class AppleAuthenticationServiceTest {
         assertTrue(transport.requests[1].headers.containsKey("X-Apple-FD-Client-Info"))
         assertTrue(transport.requests[2].body.orEmpty().contains("\"m1\""))
         assertTrue(transport.requests[6].body.orEmpty().contains("123456"))
+        assertEquals("scnt-value", transport.requests[6].headers["scnt"])
+        assertEquals("session-id", transport.requests[6].headers["X-Apple-ID-Session-Id"])
     }
 
     @Test
@@ -198,8 +199,7 @@ class AppleAuthenticationServiceTest {
         val service = AppleAuthenticationService(
             transport = transport,
             clientIdProvider = { CLIENT_ID },
-            trustedDeviceBridge = bridge,
-            testConstructor = Unit,
+            trustedDeviceBridge = { bridge },
         )
 
         val signIn = service.signIn(APPLE_ID, PASSWORD)
@@ -287,10 +287,6 @@ class AppleAuthenticationServiceTest {
         val requests = mutableListOf<AppleHttpRequest>()
         var clearCount = 0
         var restoredSession: AppleSessionSnapshot? = null
-        private var currentHeaders = AppleSessionHeaders()
-
-        override val sessionHeaders: AppleSessionHeaders
-            get() = currentHeaders
 
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             requests += request
@@ -310,17 +306,18 @@ class AppleAuthenticationServiceTest {
                     """.trimIndent(),
                 )
 
-                "/appleauth/auth/signin/complete" -> {
-                    currentHeaders = AppleSessionHeaders(
-                        accountCountryCode = "IT",
-                        sessionId = "session-id",
-                        sessionToken = "session-token",
-                        trustToken = "trust-token",
-                        scnt = "scnt-value",
-                        authAttributes = "auth-attributes",
-                    )
-                    response(409, "{\"$authTypeKey\":\"hsa2\"}")
-                }
+                "/appleauth/auth/signin/complete" -> response(
+                    409,
+                    "{\"$authTypeKey\":\"hsa2\"}",
+                    mapOf(
+                        "x-apple-id-account-country" to "IT",
+                        "x-apple-id-session-id" to "session-id",
+                        "x-apple-session-token" to "session-token",
+                        "x-apple-twosv-trust-token" to "trust-token",
+                        "scnt" to "scnt-value",
+                        "x-apple-auth-attributes" to "auth-attributes",
+                    ),
+                )
 
                 "/appleauth/auth" -> response(200, bootHtml)
                 "/setup/ws/1/validate" -> response(validateCode, validateBody)
@@ -363,22 +360,15 @@ class AppleAuthenticationServiceTest {
 
         override fun restore(snapshot: AppleSessionSnapshot) {
             restoredSession = snapshot
-            currentHeaders = AppleSessionHeaders(
-                accountCountryCode = snapshot.accountCountryCode,
-                sessionId = snapshot.sessionId,
-                sessionToken = snapshot.sessionToken,
-                trustToken = snapshot.trustToken,
-            )
         }
 
         override fun clear() {
             clearCount += 1
-            currentHeaders = AppleSessionHeaders()
         }
 
-        private fun response(code: Int, body: String) = AppleHttpResponse(
+        private fun response(code: Int, body: String, headers: Map<String, String> = emptyMap()) = AppleHttpResponse(
             code = code,
-            headers = emptyMap(),
+            headers = headers,
             body = body,
         )
     }

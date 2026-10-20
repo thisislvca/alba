@@ -4,6 +4,7 @@ import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
 import kotlinx.serialization.json.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -15,7 +16,7 @@ internal class LegacySharedUpload(
     private val authorized: () -> Boolean,
     private val journal: UploadJournal?,
     private val connection: SharedAlbumSession,
-    private val persist: suspend (AppleSessionSnapshot) -> Unit,
+    private val persist: suspend (AppleSessionSnapshot, AppleHttpResponse?) -> Unit,
     private val discover: suspend () -> List<SharedAlbumRecord>,
     private val readAlbum: suspend (SharedAlbumRecord) -> List<CloudPhotoAsset>,
     private val journalBinding: () -> AccountBinding,
@@ -67,7 +68,7 @@ internal class LegacySharedUpload(
             connection.checkSession(current); check(authorized())
             savePhase("BYTES_SENDING")
             val raw = transport.executeRawUpload(requireNotNull(saved.text("uploadUrl")), emptyMap(), source.byteCount, source::openOnce)
-            connection.checkSession(current); persist(current)
+            connection.checkSession(current); persist(current, raw)
             check(raw.code in 200..299) { "Shared upload bytes were not accepted." }
             val receipt = requireNotNull(Json.parseToJsonElement(raw.body).jsonObject["singleFile"] as? JsonObject)
             check(receipt.text("size")?.toLong() == source.byteCount && listOf("referenceChecksum", "fileChecksum", "wrappingKey", "receipt").all { !receipt.text(it).isNullOrBlank() })

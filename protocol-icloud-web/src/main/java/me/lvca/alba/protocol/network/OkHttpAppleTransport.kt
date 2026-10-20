@@ -76,12 +76,6 @@ class OkHttpAppleTransport(
         .proxyAuthenticator(Authenticator.NONE)
         .build()
 
-    @Volatile
-    private var capturedHeaders = AppleSessionHeaders()
-
-    override val sessionHeaders: AppleSessionHeaders
-        get() = capturedHeaders
-
     override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
         val url = AppleEndpointPolicy.requireAllowed(request.url)
         val builder = Request.Builder()
@@ -108,7 +102,6 @@ class OkHttpAppleTransport(
         }
 
         return (if (request.oneShot) writeClient else client).newCall(builder.build()).awaitMapped { response ->
-            captureSessionHeaders(response.headers.toMultimap().mapValues { (_, values) -> values.last() })
             AppleHttpResponse(
                 code = response.code,
                 headers = response.headers.names().associate { name ->
@@ -129,7 +122,6 @@ class OkHttpAppleTransport(
                 .get()
                 .build()
             val result = client.newCall(request).awaitMapped { response ->
-                captureSessionHeaders(response.headers.toMultimap().mapValues { (_, values) -> values.last() })
                 if (response.code in REDIRECT_CODES) {
                     DownloadResult.Redirect(response.header("Location"))
                 } else {
@@ -178,7 +170,6 @@ class OkHttpAppleTransport(
             .post(body)
             .build()
         return writeClient.newCall(request).awaitMapped { response ->
-            captureSessionHeaders(response.headers.toMultimap().mapValues { (_, values) -> values.last() })
             AppleHttpResponse(
                 code = response.code,
                 headers = response.headers.names().associate { name ->
@@ -193,31 +184,10 @@ class OkHttpAppleTransport(
 
     override fun restore(snapshot: AppleSessionSnapshot) {
         cookieJar.restore(snapshot.cookies)
-        capturedHeaders = AppleSessionHeaders(
-            accountCountryCode = snapshot.accountCountryCode,
-            sessionId = snapshot.sessionId,
-            sessionToken = snapshot.sessionToken,
-            trustToken = snapshot.trustToken,
-        )
     }
 
     override fun clear() {
         cookieJar.clear()
-        capturedHeaders = AppleSessionHeaders()
-    }
-
-    @Synchronized
-    private fun captureSessionHeaders(headers: Map<String, String>) {
-        val normalized = headers.mapKeys { (name, _) -> name.lowercase() }
-        capturedHeaders = capturedHeaders.copy(
-            accountCountryCode = normalized["x-apple-id-account-country"]
-                ?: capturedHeaders.accountCountryCode,
-            sessionId = normalized["x-apple-id-session-id"] ?: capturedHeaders.sessionId,
-            sessionToken = normalized["x-apple-session-token"] ?: capturedHeaders.sessionToken,
-            trustToken = normalized["x-apple-twosv-trust-token"] ?: capturedHeaders.trustToken,
-            scnt = normalized["scnt"] ?: capturedHeaders.scnt,
-            authAttributes = normalized["x-apple-auth-attributes"] ?: capturedHeaders.authAttributes,
-        )
     }
 
     private suspend fun <T> Call.awaitMapped(transform: (Response) -> T): T =

@@ -104,7 +104,6 @@ class ICloudAccountProfileTest {
         var photoFailure = false
         var cancel = false
         var onPhoto: () -> Unit = {}
-        override val sessionHeaders = AppleSessionHeaders()
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             if (cancel) throw CancellationException()
             if (request.url.contains("/co/mecard/")) return AppleHttpResponse(200, emptyMap(),

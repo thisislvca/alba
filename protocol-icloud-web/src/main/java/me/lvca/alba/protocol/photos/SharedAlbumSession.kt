@@ -6,6 +6,7 @@ import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
+import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -17,7 +18,7 @@ internal class SharedAlbumSession(
     private val transport: AppleHttpTransport,
     private val session: () -> AppleSessionSnapshot,
     private val prepare: (AppleSessionSnapshot) -> Unit,
-    private val persist: suspend (AppleSessionSnapshot) -> Unit,
+    private val persist: suspend (AppleSessionSnapshot, AppleHttpResponse?) -> Unit,
     private val authorized: () -> Boolean,
     private val reject: suspend (AppleSessionSnapshot) -> Unit,
     private val onAccountChanged: () -> Unit,
@@ -53,7 +54,7 @@ internal class SharedAlbumSession(
             .addQueryParameter("dsid", current.dsid).addQueryParameter("remapEnums", "true").build().toString()
         val response = transport.execute(AppleHttpRequest("POST", target, mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE), body.toString(), oneShot = write))
         checkSession(current)
-        persist(current)
+        persist(current, response)
         if (response.code !in 200..299) {
             if (response.code == 401) reject(current)
             throw AppleProtocolException(

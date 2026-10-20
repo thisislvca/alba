@@ -19,6 +19,7 @@ import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
+import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.OutputStream
 import java.security.MessageDigest
 import kotlinx.serialization.json.Json
@@ -104,7 +105,7 @@ class LiveICloudPhotoProtocol(
             fileName = safeFileName(fileName),
             source = source,
             lastModifiedAtEpochMillis = lastModifiedAtEpochMillis,
-            persistSession = { persistTransportState(session) },
+            persistSession = { persistTransportState(session, it) },
             journal = uploadJournal,
             binding = binding,
             onSessionRejected = onSessionRejected,
@@ -263,7 +264,7 @@ class LiveICloudPhotoProtocol(
         AppleEndpointPolicy.requireAllowed(downloadUrl)
         val counting = CountingOutputStream(output)
         transport.stream(downloadUrl, counting)
-        persistTransportState(session)
+        persistTransportState(session, null)
         return RemoteOriginalObservation(hydrated.originalResourceIdentity, counting.byteCount)
     }
 
@@ -373,7 +374,7 @@ class LiveICloudPhotoProtocol(
     ): AppleHttpResponse {
         val response = transport.execute(request)
         requireCurrentSession(session)
-        persistTransportState(session)
+        persistTransportState(session, response)
         if (response.code !in 200..299) {
             if (response.code == 401 || response.code == 403) onSessionRejected(session)
             throw AppleProtocolException(
@@ -412,17 +413,9 @@ class LiveICloudPhotoProtocol(
         }
     }
 
-    private suspend fun persistTransportState(session: AppleSessionSnapshot) {
-        val headers = transport.sessionHeaders
-        onSessionUpdated(
-            session.copy(
-                accountCountryCode = headers.accountCountryCode ?: session.accountCountryCode,
-                sessionId = headers.sessionId ?: session.sessionId,
-                sessionToken = headers.sessionToken ?: session.sessionToken,
-                trustToken = headers.trustToken ?: session.trustToken,
-                cookies = transport.snapshotCookies(),
-            ),
-        )
+    private suspend fun persistTransportState(session: AppleSessionSnapshot, response: AppleHttpResponse?) {
+        val headers = response?.sessionHeaders ?: AppleSessionHeaders()
+        onSessionUpdated(headers.applyTo(session).copy(cookies = transport.snapshotCookies()))
     }
 
     private fun cloudKitUrl(session: AppleSessionSnapshot, path: String): String {

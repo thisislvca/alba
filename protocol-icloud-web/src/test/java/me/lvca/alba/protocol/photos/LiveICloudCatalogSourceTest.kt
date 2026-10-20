@@ -7,7 +7,6 @@ import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import kotlinx.coroutines.runBlocking
@@ -23,12 +22,6 @@ class LiveICloudCatalogSourceTest {
     fun `authentication rejection expires the exact catalog session`() = runBlocking {
         var rejected: AppleSessionSnapshot? = null
         val transport = object : AppleHttpTransport {
-            override val sessionHeaders = AppleSessionHeaders(
-                accountCountryCode = SESSION.accountCountryCode,
-                sessionId = SESSION.sessionId,
-                sessionToken = SESSION.sessionToken,
-                trustToken = SESSION.trustToken,
-            )
             override suspend fun execute(request: AppleHttpRequest) =
                 AppleHttpResponse(401, emptyMap(), "{}")
             override suspend fun stream(url: String, output: OutputStream) = error("Not used")
@@ -82,7 +75,6 @@ class LiveICloudCatalogSourceTest {
     }
 
     private class ChangesTransport(private val code: Int, private val body: String) : AppleHttpTransport {
-        override val sessionHeaders = AppleSessionHeaders()
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             assertTrue(request.url.contains("/changes/zone"))
             assertEquals("text/plain;charset=UTF-8", request.headers["Content-Type"])
@@ -250,12 +242,6 @@ class LiveICloudCatalogSourceTest {
         val streamedUrls = mutableListOf<String>()
         private var page = 0
 
-        override val sessionHeaders = AppleSessionHeaders(
-            accountCountryCode = SESSION.accountCountryCode,
-            sessionId = SESSION.sessionId,
-            sessionToken = SESSION.sessionToken,
-            trustToken = SESSION.trustToken,
-        )
 
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             return when {

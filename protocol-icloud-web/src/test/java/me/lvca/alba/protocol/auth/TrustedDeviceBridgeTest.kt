@@ -5,7 +5,6 @@ import me.lvca.alba.protocol.account.PersistedCookie
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.security.SecureRandom
@@ -150,7 +149,6 @@ class TrustedDeviceBridgeTest {
 
     private class BridgeTransport : AppleHttpTransport {
         val requests = mutableListOf<AppleHttpRequest>()
-        override val sessionHeaders = AppleSessionHeaders()
 
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             requests += request

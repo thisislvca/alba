@@ -14,6 +14,7 @@ import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
+import me.lvca.alba.protocol.network.AppleSessionHeaderTracker
 import java.util.Base64
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -34,35 +35,24 @@ import kotlinx.serialization.json.putJsonObject
 import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
-class AppleAuthenticationService private constructor(
-    private val transport: AppleHttpTransport,
+class AppleAuthenticationService internal constructor(
+    transport: AppleHttpTransport,
     private val clientIdProvider: () -> String,
-    private val trustedDeviceBridge: TrustedDeviceBridgeClient,
-    private val telemetry: AccountTelemetry,
-    private val computationDispatcher: CoroutineDispatcher,
+    trustedDeviceBridge: (AppleHttpTransport) -> TrustedDeviceBridgeClient,
+    private val telemetry: AccountTelemetry = AccountTelemetry.None,
+    private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     constructor(
         transport: AppleHttpTransport,
         clientIdProvider: () -> String = { UUID.randomUUID().toString().lowercase() },
         telemetry: AccountTelemetry = AccountTelemetry.None,
         computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
-    ) : this(
-        transport = transport,
-        clientIdProvider = clientIdProvider,
-        trustedDeviceBridge = TrustedDeviceBridge(transport),
-        telemetry = telemetry,
-        computationDispatcher = computationDispatcher,
-    )
+    ) : this(transport, clientIdProvider, { TrustedDeviceBridge(it) }, telemetry, computationDispatcher)
 
-    internal constructor(
-        transport: AppleHttpTransport,
-        clientIdProvider: () -> String,
-        trustedDeviceBridge: TrustedDeviceBridgeClient,
-        telemetry: AccountTelemetry = AccountTelemetry.None,
-        computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
-        @Suppress("UNUSED_PARAMETER") testConstructor: Unit = Unit,
-    ) : this(transport, clientIdProvider, trustedDeviceBridge, telemetry, computationDispatcher)
-
+    // Sign-in reads scnt and session tokens from its own responses, including the bridge's,
+    // never from another client sharing the transport.
+    private val transport = AppleSessionHeaderTracker(transport)
+    private val trustedDeviceBridge = trustedDeviceBridge(this.transport)
     private val json = Json { ignoreUnknownKeys = true }
     private var pendingAuth: PendingAuth? = null
 
@@ -451,7 +441,7 @@ class AppleAuthenticationService private constructor(
         challengeId: String,
         proof: AppleSrpProof,
     ): AppleHttpResponse {
-        val trustToken = transport.sessionHeaders.trustToken
+        val trustToken = transport.headers.trustToken
         return transport.execute(
             AppleHttpRequest(
                 method = "POST",
@@ -571,7 +561,7 @@ class AppleAuthenticationService private constructor(
     }
 
     private suspend fun accountLogin(clientId: String): AppleHttpResponse {
-        val headers = transport.sessionHeaders
+        val headers = transport.headers
         val country = headers.accountCountryCode
             ?: throw malformed("Apple did not return an account country")
         val sessionToken = headers.sessionToken
@@ -626,7 +616,7 @@ class AppleAuthenticationService private constructor(
             url?.also(AppleEndpointPolicy::requireAllowed)?.trimEnd('/')
         }
         services.values.forEach(AppleEndpointPolicy::requireAllowed)
-        val sessionHeaders = transport.sessionHeaders
+        val sessionHeaders = transport.headers
         return AppleSessionSnapshot(
             accountName = appleId,
             displayName = (dsInfo?.get("fullName") as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
@@ -653,9 +643,9 @@ class AppleAuthenticationService private constructor(
         put("Referer", IDMS_ENDPOINT)
         put("X-Apple-OAuth-State", clientId)
         put("X-Apple-Frame-Id", clientId)
-        transport.sessionHeaders.scnt?.let { put("scnt", it) }
-        transport.sessionHeaders.sessionId?.let { put("X-Apple-ID-Session-Id", it) }
-        transport.sessionHeaders.authAttributes?.let { put("X-Apple-Auth-Attributes", it) }
+        transport.headers.scnt?.let { put("scnt", it) }
+        transport.headers.sessionId?.let { put("X-Apple-ID-Session-Id", it) }
+        transport.headers.authAttributes?.let { put("X-Apple-Auth-Attributes", it) }
     }
 
     private inline fun <K, V : Any> Iterable<K>.associateWithNotNull(transform: (K) -> V?): Map<K, V> =

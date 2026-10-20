@@ -440,7 +440,6 @@ class SharedAlbumsCatalogTest {
         var loseShareResponse = false; var loseCopyResponse = false; var losePostResponse = false; var loseLegacyStatus = false
         var zoneCreates = 0; var shareCreates = 0; var copyStarts = 0; var postCreates = 0
         var createdZone: JsonObject? = null; var createdShare: JsonObject? = null; var createdPost: JsonObject? = null
-        override val sessionHeaders = AppleSessionHeaders()
         private fun zone(name: String, owner: String = "owner") = buildJsonObject { put("zoneName", name); put("ownerRecordName", owner); put("zoneType", "REGULAR_CUSTOM_ZONE") }
         var activityCount = 0
         var splitPostPreview = false

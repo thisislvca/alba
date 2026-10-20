@@ -26,7 +26,7 @@ internal class PhotosUpload(
     private val serviceRoot: String,
     private val fileName: String,
     private val source: OneShotUploadSource,
-    private val persistSession: suspend () -> Unit,
+    private val persistSession: suspend (AppleHttpResponse) -> Unit,
     private val journal: UploadJournal? = null,
     private val binding: me.lvca.alba.engine.model.AccountBinding? = null,
     private val checkAuthorized: () -> Unit = {},
@@ -104,7 +104,7 @@ internal class PhotosUpload(
         checkAuthorized()
         val uploaded = transport.executeRawUpload(target, emptyMap(), source.byteCount, source::openOnce)
         checkAuthorized()
-        persistSession()
+        persistSession(uploaded)
         val receipt = uploaded.objectBody()["singleFile"] as? JsonObject
             ?: malformed("Apple returned no upload receipt")
         if ((receipt["size"] as? JsonPrimitive)?.longOrNull != source.byteCount ||
@@ -168,7 +168,7 @@ internal class PhotosUpload(
         val response = transport.execute(AppleHttpRequest("POST", url,
             mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE), body.toString(), oneShot = true))
         checkAuthorized()
-        persistSession()
+        persistSession(response)
         return response
     }
 

@@ -15,7 +15,7 @@ internal class SharedAlbumsCatalog(
     private val session: () -> AppleSessionSnapshot,
     private val account: () -> String,
     private val prepare: (AppleSessionSnapshot) -> Unit,
-    private val persist: suspend (AppleSessionSnapshot) -> Unit,
+    private val persist: suspend (AppleSessionSnapshot, AppleHttpResponse?) -> Unit,
     private val authorized: () -> Boolean,
     private val journal: UploadJournal?,
     private val reject: suspend (AppleSessionSnapshot) -> Unit = {},
@@ -403,7 +403,7 @@ internal class SharedAlbumsCatalog(
         val current = connection.bound(); val root = requireNotNull(current.webservices["photosupload"])
         val key = "shared-save:" + digest("${account()}|$mediaId|${source.sha256Hex}")
         val accepted = PhotosUpload(transport, current, root.trimEnd('/'), fileName, source,
-            { connection.checkSession(current); persist(current) }, requireNotNull(journal), journalBinding(),
+            { response -> connection.checkSession(current); persist(current, response) }, requireNotNull(journal), journalBinding(),
             checkAuthorized = { connection.checkSession(current); check(authorized()) },
             onSessionRejected = reject).startOnce(key)
         accepted.uploadJobId?.let { pollUpload(root, it) }
@@ -428,7 +428,7 @@ internal class SharedAlbumsCatalog(
             val key = "shared-direct:" + digest("${account()}|$id|$fileName|${source.sha256Hex}")
             val batch = "CPLPost-" + java.util.UUID.nameUUIDFromBytes(key.toByteArray()).toString()
             val accepted = PhotosUpload(transport, current, root.trimEnd('/'), fileName, source,
-                { connection.checkSession(current); persist(current) }, requireNotNull(journal), journalBinding(),
+                { response -> connection.checkSession(current); persist(current, response) }, requireNotNull(journal), journalBinding(),
                 checkAuthorized = { connection.checkSession(current); check(authorized()) }, zoneName = a.zone, assetBatchId = batch,
                 onSessionRejected = reject).startOnce(key)
             accepted.uploadJobId?.let { job ->

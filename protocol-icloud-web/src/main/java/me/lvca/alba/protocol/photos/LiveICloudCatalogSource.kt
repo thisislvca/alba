@@ -10,6 +10,7 @@ import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
+import me.lvca.alba.protocol.network.AppleSessionHeaders
 import java.io.OutputStream
 import java.security.MessageDigest
 import java.util.Base64
@@ -80,7 +81,7 @@ class LiveICloudCatalogSource(
         bind(session)
         val url = cloudKitUrl(session).replace("/records/query?", "/$path?")
         val raw = transport.execute(AppleHttpRequest("POST", url, JSON_HEADERS, body.toString(), oneShot = path == "records/modify"))
-        persistTransportState(session)
+        persistTransportState(session, raw)
         // CloudKit reports an expired change token as a typed error, sometimes with a non-2xx status.
         val parsed = raw.jsonObjectOrNull()
         if (path == "changes/zone" && (raw.code == 410 || parsed?.let(CloudKitErrors::requiresSyncReset) == true)) throw CatalogResetRequired()
@@ -629,7 +630,7 @@ class LiveICloudCatalogSource(
         request: AppleHttpRequest,
     ): AppleHttpResponse {
         val response = transport.execute(request)
-        persistTransportState(session)
+        persistTransportState(session, response)
         if (response.code !in 200..299) {
             if (response.code == 401 || response.code == 403) onSessionRejected(session)
             throw photosHttpError(response)
@@ -660,17 +661,9 @@ class LiveICloudCatalogSource(
         boundAuthentication = authentication
     }
 
-    private suspend fun persistTransportState(session: AppleSessionSnapshot) {
-        val headers = transport.sessionHeaders
-        onSessionUpdated(
-            session.copy(
-                accountCountryCode = headers.accountCountryCode ?: session.accountCountryCode,
-                sessionId = headers.sessionId ?: session.sessionId,
-                sessionToken = headers.sessionToken ?: session.sessionToken,
-                trustToken = headers.trustToken ?: session.trustToken,
-                cookies = transport.snapshotCookies(),
-            ),
-        )
+    private suspend fun persistTransportState(session: AppleSessionSnapshot, response: AppleHttpResponse? = null) {
+        val headers = response?.sessionHeaders ?: AppleSessionHeaders()
+        onSessionUpdated(headers.applyTo(session).copy(cookies = transport.snapshotCookies()))
     }
 
     private fun requireSession(): AppleSessionSnapshot = sessionProvider()

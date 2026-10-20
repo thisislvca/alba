@@ -68,7 +68,6 @@ class TrashAndMembershipTest {
     }
 
     private class Transport : AppleHttpTransport {
-        override val sessionHeaders = AppleSessionHeaders()
         val writes = mutableListOf<AppleHttpRequest>()
         var trashed = false; var expunged = false; var version = 1
         var disconnect = false; var reject = false; var ignoreWrite = false
