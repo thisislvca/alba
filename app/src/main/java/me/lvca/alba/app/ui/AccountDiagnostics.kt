@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.GalleryUiState
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
@@ -30,7 +31,7 @@ internal fun AccountDiagnostics(state: GalleryUiState, check: () -> Unit) {
         else -> R.string.restoring_your_session
     }
     AlbaCard(Modifier.testTag("profile-connection")) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.padding(AlbaSpacing.xl), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.connection), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 Box(Modifier.size(8.dp).background(if (signedIn?.status == SessionStatus.VERIFIED && state.network?.online == true)

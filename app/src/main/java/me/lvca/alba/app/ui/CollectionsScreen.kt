@@ -46,7 +46,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
         }
     } }
     LazyVerticalGrid(columns = GridCells.Adaptive(150.dp), state = scroll, modifier = Modifier.fillMaxSize().testTag("collections-grid"),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = bottomSpace), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = bottomSpace), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xl)) {
         if (page == null && folder == null) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 val shortcutGap = 10.dp
@@ -74,7 +74,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
                 MosaicCard(stringResource(R.string.videos), summaries[SmartCollection.VIDEOS.id]?.media.orEmpty(), state, preview, "collection-videos", painterResource(R.drawable.icloud_videos)) { openCollection(SmartCollection.VIDEOS.id) }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.padding(top = AlbaSpacing.sm), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ICloudIcon(R.drawable.icloud_media_types)
                     Text(stringResource(R.string.media_types), style = MaterialTheme.typography.titleLarge)
                 }
@@ -96,7 +96,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
                         IconButton(onClick = openSharedInvitations, enabled = state.canEditLibrary()) { Icon(Icons.Outlined.Email, stringResource(R.string.shared_invitations)) }
                         IconButton(onClick = createSharedAlbum, enabled = state.canEditLibrary(), modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_create)) }
                     } else if (page != CollectionsPage.DEVICE) {
-                        TextButton(onClick = createAlbum, enabled = state.canEditLibrary()) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.new_album)) }
+                        TextButton(onClick = createAlbum, enabled = state.canEditLibrary()) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(R.string.new_album)) }
                     }
                 }
             }
@@ -105,7 +105,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
                     CollectionsPage.SHARED -> R.string.shared_empty
                     CollectionsPage.DEVICE -> R.string.choose_photos_to_include
                     else -> R.string.your_personal_albums_will_appear_here
-                }), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 24.dp))
+                }), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = AlbaSpacing.xxl))
             }
             items(albums, key = { it.id }) { album ->
                 val summary = if (album.isFolder) {
@@ -131,7 +131,7 @@ private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: Gallery
                 Icon(emptyIcon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             else if (covers.size == 1) CoverImage(covers.first(), state.previewRetryVersion, preview, Modifier.fillMaxWidth().aspectRatio(1f))
-            else Column(Modifier.fillMaxWidth().aspectRatio(1f).padding(4.dp).clip(MaterialTheme.shapes.small), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            else Column(Modifier.fillMaxWidth().aspectRatio(1f).padding(AlbaSpacing.xs).clip(MaterialTheme.shapes.small), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 repeat(2) { row ->
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                         repeat(2) { col ->
@@ -144,14 +144,14 @@ private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: Gallery
                 }
             }
         }
-        Text(title, Modifier.padding(top = 10.dp, bottom = 4.dp), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(title, Modifier.padding(top = 10.dp, bottom = AlbaSpacing.xs), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
 private fun ShortcutCard(title: String, modifier: Modifier, icon: @Composable () -> Unit, click: () -> Unit) {
     AlbaCard(modifier.fillMaxHeight(), onClick = click, shape = MaterialTheme.shapes.medium, verticalArrangement = Arrangement.Center) {
-        Row(Modifier.heightIn(min = 58.dp).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.heightIn(min = 58.dp).padding(horizontal = 14.dp, vertical = AlbaSpacing.md), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon() }
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
         }

@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.app.ui.theme.sheet
 
 @Composable
@@ -40,8 +41,8 @@ internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Compo
                 val scroll = rememberScrollState()
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     Column(Modifier.fillMaxSize().verticalScroll(scroll).testTag("alba-page-scroll"), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = 20.dp)
-                            .padding(top = 12.dp, bottom = 24.dp).navigationBarsPadding(), content = content)
+                        Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.xl)
+                            .padding(top = AlbaSpacing.md, bottom = AlbaSpacing.xxl).navigationBarsPadding(), content = content)
                     }
                     if (scroll.canScrollBackward) Spacer(Modifier.fillMaxWidth().height(12.dp).background(
                         Brush.verticalGradient(listOf(background, background.copy(alpha = 0f)))))
@@ -83,8 +84,8 @@ internal fun AlbaBottomSheet(
 
 @Composable
 internal fun AlbaSheetHeading(title: String, subtitle: String? = null, dismiss: () -> Unit, enabled: Boolean = true) {
-    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.Top) {
-        Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(Modifier.fillMaxWidth().padding(bottom = AlbaSpacing.sm), verticalAlignment = Alignment.Top) {
+        Column(Modifier.weight(1f).padding(top = AlbaSpacing.sm), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
             Text(title, style = MaterialTheme.typography.titleLarge)
             subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }

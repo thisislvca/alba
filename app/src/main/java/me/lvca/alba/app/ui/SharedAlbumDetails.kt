@@ -73,11 +73,11 @@ internal fun SharedContributionPicker(items: List<GalleryMedia>, preview: (Strin
     var phone by rememberSaveable { mutableStateOf(false) }
     val shown = items.filter { (it.origin == MediaOrigin.DEVICE) == phone }
     AlbaBottomSheet(onDismissRequest = dismiss, modifier = Modifier.testTag("shared-contribution-picker")) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight(.85f).padding(horizontal = 20.dp)) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(.85f).padding(horizontal = AlbaSpacing.xl)) {
             AlbaSheetHeading(stringResource(R.string.shared_add_photos), dismiss = dismiss)
-            Text(stringResource(R.string.shared_add_explanation), Modifier.padding(vertical = 12.dp))
-            if (legacy) Text(stringResource(R.string.shared_legacy_formats), Modifier.padding(bottom = 12.dp), style = MaterialTheme.typography.bodySmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.shared_add_explanation), Modifier.padding(vertical = AlbaSpacing.md))
+            if (legacy) Text(stringResource(R.string.shared_legacy_formats), Modifier.padding(bottom = AlbaSpacing.md), style = MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
                 FilterChip(!phone, { phone = false }, label = { Text(stringResource(R.string.icloud)) })
                 FilterChip(phone, { phone = true }, label = { Text(stringResource(R.string.shared_this_phone)) })
             }
@@ -97,7 +97,7 @@ internal fun SharedContributionPicker(items: List<GalleryMedia>, preview: (Strin
                     }
                 }
             }
-            Button(onClick = { contribute(selected) }, enabled = selected.isNotEmpty(), modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = 16.dp)) {
+            Button(onClick = { contribute(selected) }, enabled = selected.isNotEmpty(), modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = AlbaSpacing.lg)) {
                 Text(pluralStringResource(R.plurals.shared_add_selected, selected.size, selected.size))
             }
         }
@@ -109,7 +109,7 @@ internal fun CreateSharedAlbumDialog(dismiss: () -> Unit, create: (String, Share
     var name by rememberSaveable { mutableStateOf("") }
     var generation by rememberSaveable { mutableStateOf(SharedAlbumGeneration.MODERN) }
     AlertDialog(onDismissRequest = dismiss, title = { Text(stringResource(R.string.shared_create)) }, text = {
-        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
             OutlinedTextField(name, { name = it.take(255) }, label = { Text(stringResource(R.string.album_name)) }, singleLine = true, modifier = Modifier.testTag("shared-album-name"))
             SharedAlbumGeneration.entries.forEach { option ->
                 Row(Modifier.fillMaxWidth().testTag("shared-generation-$option").then(Modifier.selectable(selected = generation == option, onClick = { generation = option }, role = Role.RadioButton)), verticalAlignment = Alignment.CenterVertically) {

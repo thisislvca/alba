@@ -33,6 +33,7 @@ import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import java.time.Instant
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.engine.model.CloudPlanSource
 import android.content.ActivityNotFoundException
 import android.widget.Toast
@@ -85,8 +86,8 @@ internal fun ProfileOverview(
         modifier = Modifier.fillMaxWidth().testTag("profile-identity")) {
         Box {
             ProfileArtwork(Modifier.matchParentSize())
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.padding(AlbaSpacing.xxl), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
                     Box(Modifier.size(width = 144.dp, height = 124.dp).profileAvatarCloud(profileColors.avatarCloudShadow), contentAlignment = Alignment.TopStart) {
                         Box(Modifier.padding(top = 18.dp)) { AccountAvatar(profile?.photo, avatarSize = 88.dp) }
                     }
@@ -98,7 +99,7 @@ internal fun ProfileOverview(
                         }
                     }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
                     Text(profile?.displayName ?: stringResource(R.string.icloud), style = MaterialTheme.typography.headlineLarge)
                     signedIn?.let { Text(it.appleId, style = MaterialTheme.typography.bodyLarge, color = profileColors.onCardMuted) }
                     profile?.plan?.let { plan ->
@@ -122,14 +123,14 @@ internal fun ProfileOverview(
             }
         }
     }
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(AlbaSpacing.xl))
     ProfileStorage(diagnostics, demo, signedIn != null, onCheckConnection)
     diagnostics?.let {
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(AlbaSpacing.xl))
         AccountDiagnostics(it, onCheckConnection)
     }
-    Spacer(Modifier.height(24.dp))
-    Text(stringResource(R.string.profile_library_section), Modifier.padding(start = 16.dp, bottom = 8.dp),
+    Spacer(Modifier.height(AlbaSpacing.xxl))
+    Text(stringResource(R.string.profile_library_section), Modifier.padding(start = AlbaSpacing.lg, bottom = AlbaSpacing.sm),
         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     AlbaCard {
         ProfileRow(stringResource(R.string.automatic_jpeg_backup),
@@ -142,9 +143,9 @@ internal fun ProfileOverview(
             ProfileRow(stringResource(R.string.phone_storage_title), phoneSummary,
                 AlbaIcons.DownloadForOffline, profileColors.phoneTile, "profile-phone", onClick = { onNavigate(ProfilePage.PHONE) })
             diagnostics.phoneStorage?.let { usage ->
-                Column(Modifier.padding(start = 60.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.padding(start = 60.dp, end = AlbaSpacing.lg, bottom = AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
                     usage.byCategory().forEach { (category, bytes) ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
                             Text(stringResource(category.title()), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(Formatter.formatShortFileSize(context, bytes), style = MaterialTheme.typography.bodySmall)
                         }
@@ -153,13 +154,13 @@ internal fun ProfileOverview(
             }
         }
     }
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(AlbaSpacing.xxl))
     AlbaCard {
         ProfileRow(stringResource(R.string.about_title), stringResource(R.string.profile_about_detail),
             Icons.Outlined.Info, profileColors.aboutTile, "profile-about", onClick = { onNavigate(ProfilePage.ABOUT) })
     }
     if (signedIn != null) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(AlbaSpacing.xxl))
         AlbaCard {
             TextButton(onClick = onSignOut, enabled = !busy, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                 Text(stringResource(R.string.sign_out_and_use_demo_library), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
@@ -193,7 +194,7 @@ internal fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: B
     fun bytes(value: Long) = Formatter.formatShortFileSize(context, value)
     val categoryColors = AlbaTheme.colors.profile.storage
     AlbaCard {
-        Column(Modifier.padding(20.dp).testTag("profile-storage"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(AlbaSpacing.xl).testTag("profile-storage"), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
             Text(stringResource(labelRes), style = MaterialTheme.typography.titleMedium)
             if (storage != null) {
                 val usageLabel = stringResource(R.string.storage_used, bytes(storage.usedBytes), bytes(storage.totalBytes))

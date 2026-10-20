@@ -13,6 +13,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.GalleryUiState
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.engine.model.LocalMediaCategory
 import me.lvca.alba.engine.model.LocalMediaStorage
 
@@ -25,7 +26,7 @@ internal fun PhoneStorageDetails(state: GalleryUiState, actions: StorageActions)
     fun bytes(size: Long) = Formatter.formatShortFileSize(context, size)
     val busy = state.activeDownloadId != null || state.accountBusy
     AlbaCard(Modifier.testTag("phone-storage")) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
             Text(stringResource(R.string.phone_storage_title), style = MaterialTheme.typography.titleMedium)
             state.phoneStorage?.let { usage ->
                 Text(phoneStorageSummary(usage))

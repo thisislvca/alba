@@ -45,7 +45,7 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
     LaunchedEffect(album.id, revision) { load(true) }
     val byId = remember(media) { media.associateBy { it.id } }
     AlbaBottomSheet(onDismissRequest = dismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.lg)) {
             item { AlbaSheetHeading(stringResource(R.string.shared_activity), album.name, dismiss) }
             item { TextButton(onClick = { revision++ }, enabled = !busy) { Text(stringResource(R.string.shared_reload)) } }
             items(posts, key = { it.id }) { post ->
@@ -60,7 +60,7 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
                         Text(if (post.isMine) stringResource(R.string.shared_you) else post.author, style = MaterialTheme.typography.titleSmall)
                         if (post.timestamp > 0) Text(timestampLabel(post.timestamp), style = MaterialTheme.typography.labelMedium)
                         Text(post.caption.ifBlank { stringResource(R.string.shared_post_items) })
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
                             photos.mapNotNull(byId::get).take(4).forEach { item ->
                                 MediaThumbnail(item.previewReference, item.accentStartArgb, item.accentEndArgb, item.fileName,
                                     Modifier.weight(1f).aspectRatio(1f).clip(MaterialTheme.shapes.extraSmall).clickable { open(item.id) })

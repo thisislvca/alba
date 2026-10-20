@@ -36,17 +36,17 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
     refresh: () -> Unit, density: Int, changeDensity: (Int) -> Unit, dismiss: () -> Unit) {
     var dates by rememberSaveable { mutableStateOf(false) }
     AlbaBottomSheet(onDismissRequest = dismiss, maxHeightFraction = .82f) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).testTag("gallery-filter-sheet")) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = AlbaSpacing.xl).testTag("gallery-filter-sheet")) {
             AlbaSheetHeading(stringResource(R.string.filter_and_sort), dismiss = dismiss)
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("filter-options")) {
                 FilterSectionLabel(stringResource(R.string.photo_size))
-                Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
                     listOf(80 to R.string.small, 100 to R.string.medium, 160 to R.string.large).forEachIndexed { index, (size, label) ->
                         val selected = density == size
                         Surface(Modifier.weight(1f), color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .09f) else Color.Transparent,
                             shape = MaterialTheme.shapes.small) {
                             Column(Modifier.clip(MaterialTheme.shapes.small).selectable(selected, role = Role.RadioButton, onClick = { changeDensity(size) })
-                                .padding(horizontal = 4.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                                .padding(horizontal = AlbaSpacing.xs, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                 DensityGridIcon(4 - index, tint)
@@ -88,7 +88,7 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
                     }
                 }
                 if (state.query.date == GalleryDate.ADDED) Text(stringResource(R.string.uses_the_capture_date_when_the_added_date_is_unavailable),
-                    Modifier.padding(start = 36.dp, bottom = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Modifier.padding(start = 36.dp, bottom = AlbaSpacing.sm), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(Modifier.selectableGroup()) {
                     GallerySort.entries.forEach { sort ->
                         FilterMenuRow(stringResource(if (sort == GallerySort.NEWEST) R.string.newest_first else R.string.oldest_first), state.query.sort == sort,
@@ -102,9 +102,9 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
                     TextButton(onClick = { change(GalleryQuery()) }) { Text(stringResource(R.string.reset_filters)) }
                     TextButton(onClick = { refresh(); dismiss() }) { Text(stringResource(R.string.refresh_library)) }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(AlbaSpacing.sm))
             }
-            TextButton(onClick = dismiss, modifier = Modifier.fillMaxWidth().padding(top = 4.dp).navigationBarsPadding()) {
+            TextButton(onClick = dismiss, modifier = Modifier.fillMaxWidth().padding(top = AlbaSpacing.xs).navigationBarsPadding()) {
                 Text(stringResource(R.string.show_photos))
             }
         }
@@ -125,13 +125,13 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
 
 @Composable
 private fun FilterSectionLabel(title: String) {
-    Text(title, Modifier.padding(start = 8.dp, top = 4.dp, bottom = 8.dp),
+    Text(title, Modifier.padding(start = AlbaSpacing.sm, top = AlbaSpacing.xs, bottom = AlbaSpacing.sm),
         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
 private fun FilterDivider() {
-    AlbaDivider(Modifier.padding(vertical = 12.dp))
+    AlbaDivider(Modifier.padding(vertical = AlbaSpacing.md))
 }
 
 @Composable

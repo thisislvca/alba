@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @Composable
 internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
@@ -42,7 +43,7 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
             // between a fixed header and buttons. Larger portrait windows keep actions in reach.
             val compact = maxHeight < 600.dp
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).widthIn(max = 560.dp).fillMaxSize()
-                .then(if (compact) Modifier.verticalScroll(pageScroll) else Modifier).navigationBarsPadding().padding(horizontal = 24.dp),
+                .then(if (compact) Modifier.verticalScroll(pageScroll) else Modifier).navigationBarsPadding().padding(horizontal = AlbaSpacing.xxl),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (page > 0) IconButton(onClick = { page-- }) {
@@ -57,7 +58,7 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
                 AnimatedContent(page, modifier = Modifier.then(if (!compact) Modifier.weight(1f) else Modifier).fillMaxWidth(),
                     transitionSpec = { fadeIn(tween(180, 80)).togetherWith(fadeOut(tween(100))) }, label = "welcome-page") { current ->
                     Column(Modifier.then(if (compact) Modifier.fillMaxWidth() else Modifier.fillMaxSize().verticalScroll(rememberScrollState()))
-                        .padding(top = 24.dp, bottom = 20.dp)) {
+                        .padding(top = AlbaSpacing.xxl, bottom = AlbaSpacing.xl)) {
                         Surface(shape = MaterialTheme.shapes.extraLarge,
                             color = if (current == 0) Color.White else MaterialTheme.colorScheme.primaryContainer,
                             shadowElevation = if (current == 0) 1.dp else 0.dp,
@@ -68,11 +69,11 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
                                 else Icon(Icons.Outlined.Lock, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
                             }
                         }
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(AlbaSpacing.xxl))
                         Text(stringResource(if (current == 0) R.string.welcome_title else R.string.welcome_choices_title),
                             style = MaterialTheme.typography.headlineLarge,
                             modifier = Modifier.semantics { heading() }.testTag("welcome-title"))
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(AlbaSpacing.md))
                         Text(stringResource(if (current == 0) R.string.welcome_intro else R.string.welcome_choices_intro),
                             style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(28.dp))
@@ -88,8 +89,8 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
                     }
                 }
 
-                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(top = 12.dp, bottom = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(top = AlbaSpacing.md, bottom = AlbaSpacing.md),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
                     Button(onClick = { if (page == 0) page = 1 else onConnect() }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
                         Text(stringResource(if (page == 0) R.string.welcome_continue else R.string.welcome_connect))
                     }

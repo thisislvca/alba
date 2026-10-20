@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.GallerySection
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.engine.model.GalleryDate
 import androidx.compose.ui.Alignment
 import me.lvca.alba.engine.model.GalleryMedia
@@ -33,15 +34,15 @@ internal fun GalleryDateSheet(sections: List<GallerySection>, firstVisible: Int,
     val currentMonth = offsets.indexOfLast { it <= firstVisible }.coerceAtLeast(0)
     val monthList = rememberLazyListState(initialFirstVisibleItemIndex = currentMonth)
     AlbaBottomSheet(onDismissRequest = dismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = AlbaSpacing.xl)) {
             AlbaSheetHeading(stringResource(R.string.browse_by_date), dismiss = dismiss)
             if (sections.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(AlbaSpacing.md))
                 LazyColumn(state = monthList, contentPadding = PaddingValues(bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()), modifier = Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 384.dp).testTag("date-months")) {
                     itemsIndexed(sections, key = { _, item -> item.month.toString() }) { index, section ->
-                        AlbaCard(Modifier.padding(bottom = 8.dp), onClick = { jump(offsets[index]); dismiss() }) {
-                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        AlbaCard(Modifier.padding(bottom = AlbaSpacing.sm), onClick = { jump(offsets[index]); dismiss() }) {
+                            Row(Modifier.padding(AlbaSpacing.lg), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
                                 Text(monthLabel(section.month), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                                 Text(itemCount(section.items.size), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             }

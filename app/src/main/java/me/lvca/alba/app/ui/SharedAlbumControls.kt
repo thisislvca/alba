@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.launch
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @Composable
 internal fun sharedRole(role: SharedAlbumRole): String = stringResource(when (role) {
@@ -51,7 +52,7 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
                 Text(sharedRole(info.role))
                 if (info.canManage) {
                     AlbaCard {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(Modifier.padding(AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(name, { name = it.take(255) }, label = { Text(stringResource(R.string.album_name)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())
                             TextButton(onClick = { pending = SharedCommand(SharedAction.RENAME, value = name.trim()) }, enabled = !busy && name.isNotBlank() && name != state.album.name) { Text(stringResource(R.string.rename_album)) }
                             OutlinedTextField(email, { email = it }, label = { Text(stringResource(R.string.shared_invite_email)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("shared-invite-email"))
@@ -95,7 +96,7 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
                 }
                 state.participants.forEach { p ->
                     AlbaCard {
-                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(AlbaSpacing.lg)) {
                             Text(p.name, style = MaterialTheme.typography.titleSmall)
                             Text(if (p.pending) stringResource(R.string.label_with_detail, sharedRole(p.role), stringResource(R.string.shared_invited)) else sharedRole(p.role),
                                 style = MaterialTheme.typography.bodySmall)
@@ -239,7 +240,7 @@ private fun SharedChangeConfirmation(command: SharedCommand, target: String? = n
         else -> R.string.shared_confirm_change
     }
     AlertDialog(onDismissRequest = cancel, title = { Text(stringResource(R.string.shared_confirm_title)) }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
             Text(stringResource(message))
             val actionLabel = when (command.action) {
                 SharedAction.INVITE -> R.string.shared_invite

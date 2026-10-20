@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.AlbaApplication
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import android.content.ActivityNotFoundException
 import android.widget.Toast
 
@@ -39,9 +40,9 @@ internal fun AboutScreen(onBack: () -> Unit) {
     var showLimitations by rememberSaveable { mutableStateOf(false) }
     var showNotices by rememberSaveable { mutableStateOf(false) }
     AlbaPageScaffold(stringResource(R.string.about_title), onBack) {
-        Column(Modifier.testTag("about-screen"), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Column(Modifier.testTag("about-screen"), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xl)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
                 Image(painterResource(R.drawable.alba_logo_mark), contentDescription = null,
                     modifier = Modifier.size(72.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -86,9 +87,9 @@ internal fun AboutScreen(onBack: () -> Unit) {
                     R.string.about_missing_provider, R.string.about_missing_support)
                 AlbaCard {
                     limitations.forEachIndexed { index, label ->
-                        Text(stringResource(label), Modifier.fillMaxWidth().padding(16.dp),
+                        Text(stringResource(label), Modifier.fillMaxWidth().padding(AlbaSpacing.lg),
                             style = MaterialTheme.typography.bodyMedium)
-                        if (index < limitations.lastIndex) AlbaDivider(Modifier.padding(horizontal = 16.dp))
+                        if (index < limitations.lastIndex) AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
                     }
                 }
             }
@@ -133,7 +134,7 @@ private fun AboutFeatureSection(title: Int, entries: List<AboutFeature>, subtitl
         AlbaCard {
             entries.forEachIndexed { index, entry ->
                 AlbaFeatureRow(entry.icon, stringResource(entry.title), stringResource(entry.detail))
-                if (index < entries.lastIndex) AlbaDivider(Modifier.padding(start = AlbaFeatureRowTextInset, end = 16.dp))
+                if (index < entries.lastIndex) AlbaDivider(Modifier.padding(start = AlbaFeatureRowTextInset, end = AlbaSpacing.lg))
             }
         }
     }
