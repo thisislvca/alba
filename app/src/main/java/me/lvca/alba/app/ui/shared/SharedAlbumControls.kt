@@ -28,6 +28,7 @@ import me.lvca.alba.app.ui.designsystem.attempt
 import me.lvca.alba.app.ui.designsystem.rememberLoadable
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.timestampLabel
+import me.lvca.alba.protocol.fixture.isDemoSharedId
 
 @Composable
 internal fun sharedRole(role: SharedAlbumRole): String = stringResource(when (role) {
@@ -52,7 +53,7 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
     val clipboard = LocalClipboardManager.current
     AlbaBottomSheet(onDismissRequest = { if (!busy) dismiss() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), modifier = Modifier.testTag("shared-management")) {
         AlbaSheetBody(stringResource(R.string.shared_manage), dismiss, subtitle = album.name, dismissEnabled = !busy) {
-            if (album.id.startsWith("shared:demo-library:")) Text(stringResource(R.string.demo_shared_notice))
+            if (isDemoSharedId(album.id)) Text(stringResource(R.string.demo_shared_notice))
             AlbaLoadState(busy || management.loading, management.failed, stringResource(R.string.shared_action_failed),
                 onReload = management::reload, reloadEnabled = !busy)
             data?.let { state ->

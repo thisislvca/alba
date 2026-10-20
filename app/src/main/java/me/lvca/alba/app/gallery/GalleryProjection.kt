@@ -13,6 +13,8 @@ import me.lvca.alba.protocol.account.ICloudAccountState
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
+import me.lvca.alba.protocol.fixture.isDemoId
+import me.lvca.alba.protocol.fixture.isDemoSharedId
 
 data class GallerySection(
     val month: YearMonth,
@@ -103,7 +105,7 @@ internal fun visibleCollections(
 ): List<GalleryCollection> = collections.filter { collection ->
     when (accountState) {
         ICloudAccountState.Demo -> true
-        is ICloudAccountState.SignedIn -> !collection.id.startsWith("shared:demo-library:")
+        is ICloudAccountState.SignedIn -> !isDemoSharedId(collection.id)
         else -> false
     }
 } + deviceFolders
@@ -133,8 +135,8 @@ internal fun buildGallerySections(
 }
 
 private fun GalleryMedia.isVisibleFor(accountState: ICloudAccountState): Boolean = when (accountState) {
-    is ICloudAccountState.SignedIn -> !id.startsWith("fixture:") && !id.startsWith("shared:demo-library:")
-    ICloudAccountState.Demo -> !id.startsWith("icloud:") && (!isShared || id.startsWith("shared:demo-library:"))
+    is ICloudAccountState.SignedIn -> !isDemoId(id)
+    ICloudAccountState.Demo -> !id.startsWith("icloud:") && (!isShared || isDemoSharedId(id))
     else -> origin == MediaOrigin.DEVICE
 }
 
