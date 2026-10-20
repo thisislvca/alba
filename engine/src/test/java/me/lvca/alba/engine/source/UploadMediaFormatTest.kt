@@ -12,7 +12,7 @@ class UploadMediaFormatTest {
 
     @Test fun validatesBytesInsteadOfTrustingNameOrMime() {
         assertEquals(UploadMediaFormat.JPEG, UploadMediaFormat.detect(byteArrayOf(-1, -40, -1)))
-        assertEquals(UploadMediaFormat.PNG, UploadMediaFormat.detect(byteArrayOf(-119,80,78,71,13,10,26,10)))
+        assertEquals(UploadMediaFormat.PNG, UploadMediaFormat.detect(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10)))
         assertEquals(UploadMediaFormat.WEBP, UploadMediaFormat.detect("RIFF0000WEBP".toByteArray()))
         assertEquals(UploadMediaFormat.HEIC, UploadMediaFormat.detect(ftyp("heic", "mif1", "heic")))
         assertEquals(UploadMediaFormat.MOV, UploadMediaFormat.detect(ftyp("qt  ", "qt  ")))

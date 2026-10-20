@@ -1,13 +1,13 @@
 package me.lvca.alba.app.gallery
 
 import kotlinx.coroutines.CancellationException
-import me.lvca.alba.engine.model.GalleryRepository
 import me.lvca.alba.app.R
 import me.lvca.alba.app.actions.MediaAction
 import me.lvca.alba.app.actions.MediaActionKey
 import me.lvca.alba.app.actions.MediaActionRunner
 import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.messages.UserMessages
+import me.lvca.alba.engine.model.GalleryRepository
 
 /** The most photos one favorite or album edit may change, so a failure is easy to retry and report. */
 internal const val MAX_EDIT_ITEMS = 50

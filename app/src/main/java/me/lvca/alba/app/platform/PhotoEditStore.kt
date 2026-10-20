@@ -3,19 +3,19 @@ package me.lvca.alba.app.platform
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.ColorSpace
 import android.graphics.ImageDecoder
 import android.graphics.Matrix
 import android.graphics.Rect
+import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
+import kotlinx.coroutines.*
 import me.lvca.alba.engine.model.*
 import java.io.File
-import kotlinx.coroutines.*
-import android.graphics.ColorSpace
-import android.net.Uri
-import android.provider.DocumentsContract
 import java.io.OutputStream
 import kotlin.math.sqrt
 

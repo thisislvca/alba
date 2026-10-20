@@ -3,6 +3,9 @@ package me.lvca.alba.app.demo
 import android.net.Uri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import me.lvca.alba.app.R
+import me.lvca.alba.app.messages.UserMessages
+import me.lvca.alba.app.transfers.TransferMode
 import me.lvca.alba.engine.model.BackupDraft
 import me.lvca.alba.engine.model.BackupDraftId
 import me.lvca.alba.engine.model.BackupSetupEffect
@@ -14,9 +17,6 @@ import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.protocol.account.ICloudAccountManager
 import me.lvca.alba.protocol.account.ICloudAccountState
-import me.lvca.alba.app.R
-import me.lvca.alba.app.messages.UserMessages
-import me.lvca.alba.app.transfers.TransferMode
 
 /**
  * The demo walkthrough: "uploads" copy media into the demo library and backup animates sample rows. Nothing reaches

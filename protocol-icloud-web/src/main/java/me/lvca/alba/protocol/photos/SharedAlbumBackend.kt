@@ -1,10 +1,10 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.engine.model.SharedAlbumManagement
-import me.lvca.alba.engine.model.SharedComment
-import me.lvca.alba.engine.model.SharedCommand
-import me.lvca.alba.engine.model.SharedDiscussion
 import kotlinx.serialization.json.JsonObject
+import me.lvca.alba.engine.model.SharedAlbumManagement
+import me.lvca.alba.engine.model.SharedCommand
+import me.lvca.alba.engine.model.SharedComment
+import me.lvca.alba.engine.model.SharedDiscussion
 
 /**
  * One generation of shared albums: legacy shared streams or modern CloudKit shares. Callers check

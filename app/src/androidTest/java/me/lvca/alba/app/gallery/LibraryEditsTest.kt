@@ -3,12 +3,8 @@ package me.lvca.alba.app.gallery
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
-import me.lvca.alba.engine.model.MediaOrigin
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.MainActivity
@@ -19,6 +15,10 @@ import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
+import me.lvca.alba.engine.model.MediaOrigin
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class LibraryEditsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -41,9 +42,6 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.companion.BatchAction
-import me.lvca.alba.engine.model.GalleryMedia
-import androidx.compose.material3.AlertDialog
 import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.PhoneStorageState
@@ -58,6 +56,8 @@ import me.lvca.alba.app.ui.viewer.LocalPhotoTransition
 import me.lvca.alba.app.ui.viewer.MediaDetailScreen
 import me.lvca.alba.app.ui.viewer.PHOTO_TRANSITION_MILLIS
 import me.lvca.alba.app.ui.viewer.PhotoTransitionScope
+import me.lvca.alba.engine.companion.BatchAction
+import me.lvca.alba.engine.model.GalleryMedia
 
 /**
  * Where the app is. Derived from the account screen flag and the open photo, which the ViewModel keeps in saved

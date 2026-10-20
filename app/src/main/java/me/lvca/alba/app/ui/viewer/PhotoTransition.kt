@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui.viewer
 
+import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.CubicBezierEasing
@@ -11,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import android.provider.Settings
 
 internal const val PHOTO_TRANSITION_MILLIS = 250
 internal val galleryEaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)

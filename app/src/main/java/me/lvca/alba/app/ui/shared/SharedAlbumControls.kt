@@ -16,7 +16,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.SharedActions
@@ -28,6 +27,7 @@ import me.lvca.alba.app.ui.designsystem.attempt
 import me.lvca.alba.app.ui.designsystem.rememberLoadable
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.timestampLabel
+import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.fixture.isDemoSharedId
 
 @Composable

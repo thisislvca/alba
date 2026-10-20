@@ -1,5 +1,7 @@
 package me.lvca.alba.protocol.auth
 
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.AppleSignInResult
 import me.lvca.alba.protocol.account.PersistedCookie
@@ -7,13 +9,11 @@ import me.lvca.alba.protocol.account.TwoFactorDelivery
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import java.io.OutputStream
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.asCoroutineDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.OutputStream
 
 class AppleAuthenticationServiceTest {
     @Test fun authenticationRunsOnItsDispatcherAndReturnsToCaller() = runBlocking {

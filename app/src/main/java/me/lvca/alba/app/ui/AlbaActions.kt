@@ -62,6 +62,7 @@ interface LibraryEditActions {
     fun addToAlbum(albumId: String, mediaIds: List<String>)
     fun confirmRemoveFromAlbum(albumId: String, mediaIds: List<String>)
     fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean)
+
     /** Asks Android to move phone copies to its trash, or to restore them from it. */
     fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean)
     fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>)
@@ -106,6 +107,7 @@ interface AccountActions {
     fun retryRestore()
     fun enableAutomaticBackup()
     fun disableAutomaticBackup()
+
     /** Drives the demo backup walkthrough: interrupt, pause for Wi-Fi, clean up or retry a sample row. */
     fun demoBackupAction(transferId: TransferId)
     fun setDiagnosticsEnabled(enabled: Boolean)

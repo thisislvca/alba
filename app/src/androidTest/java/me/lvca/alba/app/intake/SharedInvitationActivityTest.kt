@@ -6,13 +6,13 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.UI_WAIT
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class SharedInvitationActivityTest {
     @get:Rule val compose = createEmptyComposeRule()
@@ -52,9 +52,9 @@ class SharedInvitationActivityTest {
 
     @Test fun incomingLinkIntentValidationDoesNotConfuseMediaOrUntrustedUrls() {
         val link = "https://photos.icloud.com/shared/album/fixture"
-        assertEquals(link,incomingSharedInvitation(Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,"Album\n$link") }))
-        assertEquals(link,incomingSharedInvitation(Intent(Intent.ACTION_VIEW,Uri.parse(link))))
-        assertEquals("",incomingSharedInvitation(Intent(Intent.ACTION_VIEW,Uri.parse("https://evil.test/shared/album/fixture"))))
-        assertNull(incomingSharedInvitation(Intent(Intent.ACTION_VIEW,Uri.parse("content://gallery/photo"))))
+        assertEquals(link, incomingSharedInvitation(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "Album\n$link") }))
+        assertEquals(link, incomingSharedInvitation(Intent(Intent.ACTION_VIEW, Uri.parse(link))))
+        assertEquals("", incomingSharedInvitation(Intent(Intent.ACTION_VIEW, Uri.parse("https://evil.test/shared/album/fixture"))))
+        assertNull(incomingSharedInvitation(Intent(Intent.ACTION_VIEW, Uri.parse("content://gallery/photo"))))
     }
 }

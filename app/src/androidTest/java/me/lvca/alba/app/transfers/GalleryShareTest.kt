@@ -5,19 +5,19 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.test.core.app.ApplicationProvider
-import me.lvca.alba.engine.model.GalleryRepository
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.OutputStream
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Test
-import org.junit.Rule
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.testing.MediaStoreFixtures
 import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.engine.model.GalleryRepository
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.OutputStream
 
 class GalleryShareTest {
     @get:Rule val onboarding = OnboardingRule()

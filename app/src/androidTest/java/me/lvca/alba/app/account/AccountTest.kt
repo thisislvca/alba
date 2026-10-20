@@ -2,15 +2,15 @@ package me.lvca.alba.app.account
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import org.junit.Rule
-import org.junit.Test
-import me.lvca.alba.engine.model.*
-import org.junit.Assert.*
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
+import me.lvca.alba.engine.model.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class AccountTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

@@ -2,6 +2,8 @@ package me.lvca.alba.app.ui.designsystem
 
 // Material Icons path data is licensed under Apache-2.0; see THIRD_PARTY_NOTICES.md.
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -17,10 +19,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.size
 import androidx.compose.ui.res.painterResource
-import androidx.annotation.DrawableRes
+import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 
 internal object AlbaIcons {

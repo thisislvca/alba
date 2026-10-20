@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui.collections
 
+import android.provider.Settings
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -14,9 +15,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -25,13 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import android.provider.Settings
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.graphics.RectangleShape
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.InitialAvatar
@@ -42,6 +41,7 @@ import me.lvca.alba.app.ui.designsystem.theme.heroTitle
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.itemCount
 import me.lvca.alba.app.ui.localizedName
+import me.lvca.alba.engine.model.*
 
 internal data class CollectionPreview(val count: Int = 0, val media: List<GalleryMedia> = emptyList())
 
@@ -70,8 +70,8 @@ internal fun rememberCollectionPreviews(media: List<GalleryMedia>, collections: 
     return summaries
 }
 
-internal fun GalleryMedia.coverReference(): String? = previewReference ?: viewerReference ?:
-    (linkedDeviceReference ?: originalReference)?.takeIf { kind != MediaKind.VIDEO || it.startsWith("content://") }
+internal fun GalleryMedia.coverReference(): String? = previewReference ?: viewerReference
+    ?: (linkedDeviceReference ?: originalReference)?.takeIf { kind != MediaKind.VIDEO || it.startsWith("content://") }
 
 @Composable
 internal fun CoverImage(media: GalleryMedia?, retry: Int, preview: (String) -> Unit, modifier: Modifier = Modifier) {

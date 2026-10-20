@@ -10,11 +10,11 @@ import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.dateMillis
 import me.lvca.alba.engine.model.isShared
 import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.fixture.isDemoId
+import me.lvca.alba.protocol.fixture.isDemoSharedId
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
-import me.lvca.alba.protocol.fixture.isDemoId
-import me.lvca.alba.protocol.fixture.isDemoSharedId
 
 data class GallerySection(
     val month: YearMonth,

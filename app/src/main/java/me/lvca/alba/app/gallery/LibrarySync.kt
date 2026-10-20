@@ -8,13 +8,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import me.lvca.alba.engine.model.GalleryRepository
-import me.lvca.alba.engine.model.MaintenanceWakeup
-import me.lvca.alba.engine.model.WakeReason
-import me.lvca.alba.protocol.account.ICloudAccountManager
-import me.lvca.alba.protocol.account.ICloudAccountState
-import me.lvca.alba.protocol.account.SessionStatus
-import java.time.Instant
 import me.lvca.alba.app.R
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
 import me.lvca.alba.app.diagnostics.DiagnosticAttribute
@@ -24,6 +17,13 @@ import me.lvca.alba.app.diagnostics.measure
 import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.transfers.TransferController
+import me.lvca.alba.engine.model.GalleryRepository
+import me.lvca.alba.engine.model.MaintenanceWakeup
+import me.lvca.alba.engine.model.WakeReason
+import me.lvca.alba.protocol.account.ICloudAccountManager
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
+import java.time.Instant
 
 /** Whether the library is refreshing, when it last did, and whether the saved account could not be opened. */
 data class SyncState(

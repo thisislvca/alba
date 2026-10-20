@@ -3,9 +3,6 @@ package me.lvca.alba.app.transfers
 import android.Manifest
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
@@ -13,6 +10,9 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.UI_WAIT
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 /** Exercises the shipped demo through MainActivity, including its disclosure and permission-free routing. */
 class DemoBackupFlowTest {

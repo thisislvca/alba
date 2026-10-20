@@ -1,10 +1,22 @@
 package me.lvca.alba.app.di
 
 import android.content.Context
+import me.lvca.alba.app.demo.DemoMediaImporter
+import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
+import me.lvca.alba.app.platform.AndroidAutomaticBackupPolicy
+import me.lvca.alba.app.platform.GalleryExporter
+import me.lvca.alba.app.platform.OnboardingPreferences
+import me.lvca.alba.app.platform.PhotoEditStore
+import me.lvca.alba.app.platform.networkStatus
+import me.lvca.alba.app.transfers.TransferScheduler
+import me.lvca.alba.app.work.UserTransferScheduler
+import me.lvca.alba.app.work.WorkManagerWakeupScheduler
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.companion.DefaultPhotoCompanion
+import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.database.AlbaDatabase
+import me.lvca.alba.engine.database.RoomUploadCheckpointStore
 import me.lvca.alba.engine.model.MaintenanceWakeup
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.repository.DefaultGalleryRepository
@@ -16,22 +28,10 @@ import me.lvca.alba.protocol.auth.AppleAuthenticationService
 import me.lvca.alba.protocol.fixture.FixtureICloudCatalogSource
 import me.lvca.alba.protocol.network.OkHttpAppleTransport
 import me.lvca.alba.protocol.photos.AccountAwareICloudCatalogSource
+import me.lvca.alba.protocol.photos.EncryptedUploadJournal
 import me.lvca.alba.protocol.photos.LiveICloudCatalogSource
 import me.lvca.alba.protocol.photos.LiveICloudPhotoProtocol
-import me.lvca.alba.app.demo.DemoMediaImporter
-import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
-import me.lvca.alba.app.platform.AndroidAutomaticBackupPolicy
-import me.lvca.alba.app.platform.GalleryExporter
-import me.lvca.alba.app.platform.OnboardingPreferences
-import me.lvca.alba.app.platform.PhotoEditStore
-import me.lvca.alba.app.platform.networkStatus
-import me.lvca.alba.app.transfers.TransferScheduler
-import me.lvca.alba.app.work.UserTransferScheduler
-import me.lvca.alba.app.work.WorkManagerWakeupScheduler
 import java.io.File
-import me.lvca.alba.engine.companion.GalleryBatchActions
-import me.lvca.alba.engine.database.RoomUploadCheckpointStore
-import me.lvca.alba.protocol.photos.EncryptedUploadJournal
 
 class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
     private val appContext = context.applicationContext

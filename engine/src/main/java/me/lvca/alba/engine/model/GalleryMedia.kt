@@ -101,7 +101,7 @@ enum class SmartCollection(val id: String, val title: String, val appleFilter: S
     PANORAMAS("smart:panoramas", "Panoramas", "PANORAMA"),
     BURSTS("smart:bursts", "Bursts", null),
     SLO_MO("smart:slomo", "Slo-mo", "SLOMO"),
-    TIME_LAPSE("smart:timelapse", "Time-lapse", "TIMELAPSE");
+    TIME_LAPSE("smart:timelapse", "Time-lapse", "TIMELAPSE")
 }
 
 data class CloudStorageUsage(val usedBytes: Long, val totalBytes: Long,

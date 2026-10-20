@@ -1,8 +1,8 @@
 package me.lvca.alba.protocol.auth
 
-import java.math.BigInteger
 import me.lvca.alba.protocol.sha256
 import me.lvca.alba.protocol.toHex
+import java.math.BigInteger
 import java.security.SecureRandom
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -175,5 +175,5 @@ class AppleSrpClient(
                 aggregate.copyInto(derived, destinationOffset = (block - 1) * hashLength)
             }
             return derived.copyOf(length)
-        }    }
+        } }
 }

@@ -40,4 +40,3 @@ internal class HashingOutputStream : OutputStream() {
         .digest()
         .joinToString(separator = "") { byte -> "%02x".format(byte) }
 }
-

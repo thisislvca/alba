@@ -2,6 +2,9 @@ package me.lvca.alba.app.transfers
 
 import android.net.Uri
 import kotlinx.coroutines.flow.Flow
+import me.lvca.alba.app.R
+import me.lvca.alba.app.messages.UserMessages
+import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.model.BackupChange
@@ -13,9 +16,6 @@ import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.PhotoCompanion
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
-import me.lvca.alba.app.R
-import me.lvca.alba.app.messages.UserMessages
-import me.lvca.alba.app.messages.localizedStoredMessage
 
 /** Starts the platform job that runs queued transfers. */
 fun interface TransferScheduler {

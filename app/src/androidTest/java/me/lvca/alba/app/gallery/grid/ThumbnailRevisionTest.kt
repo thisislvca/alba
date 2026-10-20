@@ -14,12 +14,12 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import me.lvca.alba.app.testing.SHORT_WAIT
-import me.lvca.alba.app.ui.gallery.MediaThumbnail
+import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class ThumbnailRevisionTest {

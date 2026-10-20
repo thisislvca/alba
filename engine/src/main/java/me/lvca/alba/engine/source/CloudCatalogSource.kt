@@ -1,9 +1,9 @@
 package me.lvca.alba.engine.source
 
-import java.io.OutputStream
-import java.io.InputStream
-import me.lvca.alba.engine.model.MediaKind
 import me.lvca.alba.engine.model.GalleryCollection
+import me.lvca.alba.engine.model.MediaKind
+import java.io.InputStream
+import java.io.OutputStream
 
 data class RemoteMediaRecord(
     val id: String,

@@ -2,11 +2,11 @@ package me.lvca.alba.protocol.account
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.protocol.photos.EncryptedUploadJournal
 import me.lvca.alba.protocol.photos.UploadCheckpoint
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 

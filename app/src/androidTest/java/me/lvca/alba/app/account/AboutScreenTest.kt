@@ -2,8 +2,6 @@ package me.lvca.alba.app.account
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.BuildConfig
 import me.lvca.alba.app.MainActivity
@@ -12,6 +10,8 @@ import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.UI_WAIT
+import org.junit.Rule
+import org.junit.Test
 
 class AboutScreenTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

@@ -1,33 +1,33 @@
 package me.lvca.alba.app.ui.gallery
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
-import java.time.YearMonth
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import me.lvca.alba.app.ui.designsystem.theme.galleryOverlay
 import me.lvca.alba.app.ui.monthLabel
 import me.lvca.alba.app.ui.monthNameLabel
 import me.lvca.alba.app.ui.viewer.galleryEaseOut
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
+import java.time.YearMonth
+import kotlin.math.roundToInt
 
 /** Follow the nested scroll directly. Only the remaining header occupies space above the grid. */
 @OptIn(ExperimentalMaterial3Api::class)

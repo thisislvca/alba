@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,21 +19,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import me.lvca.alba.engine.companion.BatchAction
-import me.lvca.alba.engine.companion.GalleryBatchActions
-import me.lvca.alba.engine.model.BackupDraftId
-import me.lvca.alba.engine.model.BackupSetupEffect
-import me.lvca.alba.engine.model.BackupView
-import me.lvca.alba.engine.model.BatchItem
-import me.lvca.alba.engine.model.GalleryRepository
-import me.lvca.alba.engine.model.MediaOrigin
-import me.lvca.alba.engine.model.PhotoCompanion
-import me.lvca.alba.engine.model.SystemConsentCallback
-import me.lvca.alba.engine.model.TransferId
-import me.lvca.alba.engine.model.TransferView
-import me.lvca.alba.engine.model.TrashAttemptId
-import me.lvca.alba.protocol.account.ICloudAccountManager
-import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.app.AlbaEffect
 import me.lvca.alba.app.R
 import me.lvca.alba.app.actions.MediaAction
@@ -49,7 +35,21 @@ import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.work.BackgroundSessionDecision
 import me.lvca.alba.app.work.backgroundSessionDecision
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import me.lvca.alba.engine.companion.BatchAction
+import me.lvca.alba.engine.companion.GalleryBatchActions
+import me.lvca.alba.engine.model.BackupDraftId
+import me.lvca.alba.engine.model.BackupSetupEffect
+import me.lvca.alba.engine.model.BackupView
+import me.lvca.alba.engine.model.BatchItem
+import me.lvca.alba.engine.model.GalleryRepository
+import me.lvca.alba.engine.model.MediaOrigin
+import me.lvca.alba.engine.model.PhotoCompanion
+import me.lvca.alba.engine.model.SystemConsentCallback
+import me.lvca.alba.engine.model.TransferId
+import me.lvca.alba.engine.model.TransferView
+import me.lvca.alba.engine.model.TrashAttemptId
+import me.lvca.alba.protocol.account.ICloudAccountManager
+import me.lvca.alba.protocol.account.ICloudAccountState
 
 /** Batches, uploads and automatic backup, as the UI shows them. */
 data class TransferState(

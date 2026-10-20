@@ -6,6 +6,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.setAlbaContent
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
@@ -17,10 +21,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import me.lvca.alba.app.account.SessionState
-import me.lvca.alba.app.gallery.GalleryState
-import me.lvca.alba.app.testing.openViewerDetails
-import me.lvca.alba.app.testing.setAlbaContent
 
 class UploadControlsTest {
     @get:Rule

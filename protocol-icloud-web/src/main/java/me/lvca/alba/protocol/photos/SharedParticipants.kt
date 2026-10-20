@@ -1,14 +1,14 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.engine.model.SharedAlbumRole
-import me.lvca.alba.protocol.obj
-import me.lvca.alba.protocol.text
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import me.lvca.alba.engine.model.SharedAlbumRole
+import me.lvca.alba.protocol.obj
+import me.lvca.alba.protocol.text
 
 /** Reads and writes the participant entries of CloudKit shares and legacy sharing rows. */
 internal object SharedParticipants {

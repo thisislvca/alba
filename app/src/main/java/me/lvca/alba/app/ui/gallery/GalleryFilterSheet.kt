@@ -23,9 +23,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.*
-import java.time.Instant
-import java.time.ZoneOffset
 import me.lvca.alba.app.R
 import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.ui.collections.icon
@@ -38,6 +35,9 @@ import me.lvca.alba.app.ui.designsystem.AlbaSheetHeading
 import me.lvca.alba.app.ui.designsystem.FavoriteIcon
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.localizedTitle
+import me.lvca.alba.engine.model.*
+import java.time.Instant
+import java.time.ZoneOffset
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

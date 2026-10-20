@@ -1,7 +1,7 @@
 package me.lvca.alba.app.ui.collections
 
-import me.lvca.alba.engine.model.*
 import me.lvca.alba.app.R
+import me.lvca.alba.engine.model.*
 
 /** A personal iCloud album or folder: not shared, not a smart collection and not a phone folder. */
 internal val GalleryCollection.isPersonal: Boolean

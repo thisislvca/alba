@@ -2,17 +2,17 @@ package me.lvca.alba.engine.repository
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.companion.*
 import me.lvca.alba.engine.database.*
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.*
-import java.io.OutputStream
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.OutputStream
+import java.util.concurrent.atomic.AtomicInteger
 
 class LibraryFeaturesTest {
     @Test fun incrementalRefreshKeepsCachesAndFailedSnapshotKeepsVisibleState() = runBlocking {

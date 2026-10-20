@@ -3,22 +3,18 @@ package me.lvca.alba.engine.repository
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.source.CloudCatalogPage
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.engine.source.RemoteMediaRecord
-import java.io.OutputStream
-import java.util.concurrent.Executor
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.yield
-import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,6 +22,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.OutputStream
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(AndroidJUnit4::class)
 class DefaultGalleryRepositoryTest {
@@ -361,8 +361,7 @@ class DefaultGalleryRepositoryTest {
             override suspend fun fetchPage(cursor: String?, limit: Int): CloudCatalogPage = throw java.io.IOException("Offline")
         }
         val device = object : me.lvca.alba.engine.source.DeviceCatalogSource {
-            override suspend fun scanImages() = listOf(me.lvca.alba.engine.source.DeviceMediaRecord(
-                "device:1", "phone.jpg", 42, 100, 100, "content://media/external/images/media/1", "1"))
+            override suspend fun scanImages() = listOf(me.lvca.alba.engine.source.DeviceMediaRecord("device:1", "phone.jpg", 42, 100, 100, "content://media/external/images/media/1", "1"))
             override suspend fun writeOriginal(contentUri: String, output: OutputStream): me.lvca.alba.engine.source.DeviceOriginalEvidence = error("Unused")
         }
         val repository = DefaultGalleryRepository(database, brokenCloud, device, cache)

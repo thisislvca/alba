@@ -4,21 +4,21 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import me.lvca.alba.engine.model.AccountChangeResult
-import me.lvca.alba.engine.model.PhotoCompanion
-import me.lvca.alba.protocol.account.ICloudAccountState
-import java.io.IOException
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import org.junit.Assert.*
-import org.junit.Test
-import org.junit.runner.RunWith
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.testDependencies
+import me.lvca.alba.engine.model.AccountChangeResult
+import me.lvca.alba.engine.model.PhotoCompanion
+import me.lvca.alba.protocol.account.ICloudAccountState
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.IOException
 
 @RunWith(AndroidJUnit4::class)
 class AccountPreparationTest {

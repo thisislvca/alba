@@ -1,7 +1,5 @@
 package me.lvca.alba.protocol.auth
 
-import me.lvca.alba.protocol.toHex
-import java.io.ByteArrayOutputStream
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -9,7 +7,9 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
+import me.lvca.alba.protocol.toHex
 import okio.ByteString.Companion.encodeUtf8
+import java.io.ByteArrayOutputStream
 
 internal data class BridgeConnectionResponse(
     val pushTokenBase64: String,

@@ -1,10 +1,10 @@
 package me.lvca.alba.protocol.auth
 
 import me.lvca.alba.protocol.toHex
-import java.math.BigInteger
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.math.BigInteger
 
 class TrustedDeviceBridgeProverTest {
     @Test

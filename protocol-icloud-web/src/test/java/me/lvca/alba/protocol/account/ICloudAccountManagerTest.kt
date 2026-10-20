@@ -1,12 +1,12 @@
 package me.lvca.alba.protocol.account
 
+import kotlinx.coroutines.*
 import me.lvca.alba.protocol.auth.AppleAuthenticationService
 import me.lvca.alba.protocol.network.*
-import java.io.IOException
-import java.io.OutputStream
-import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.IOException
+import java.io.OutputStream
 
 class ICloudAccountManagerTest {
     @Test fun demoRequiresExplicitSelectionAndSignOutClearsIt() = runBlocking {

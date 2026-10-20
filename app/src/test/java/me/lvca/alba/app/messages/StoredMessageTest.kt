@@ -1,9 +1,9 @@
 package me.lvca.alba.app.messages
 
+import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.StoredMessage
 import org.junit.Assert.*
 import org.junit.Test
-import me.lvca.alba.app.R
 
 class StoredMessageTest {
     @Test fun oldAndNewJournalMessagesUseTheSameLocalizedResource() {

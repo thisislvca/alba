@@ -2,8 +2,8 @@ package me.lvca.alba.protocol.network
 
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.PersistedCookie
-import java.io.OutputStream
 import java.io.InputStream
+import java.io.OutputStream
 
 data class AppleSessionHeaders(
     val accountCountryCode: String? = null,

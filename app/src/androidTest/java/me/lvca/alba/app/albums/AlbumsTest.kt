@@ -2,13 +2,9 @@ package me.lvca.alba.app.albums
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import me.lvca.alba.engine.model.*
+import androidx.test.espresso.Espresso
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
-import androidx.test.espresso.Espresso
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
@@ -20,6 +16,10 @@ import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
+import me.lvca.alba.engine.model.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class AlbumsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

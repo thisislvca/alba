@@ -1,5 +1,6 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.SharedAction
 import me.lvca.alba.engine.model.SharedAlbumGeneration
@@ -16,7 +17,6 @@ import me.lvca.alba.protocol.obj
 import me.lvca.alba.protocol.text
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlinx.serialization.json.*
 
 /** Shared albums of the legacy shared-streams web service. */
 internal class LegacySharedAlbums(

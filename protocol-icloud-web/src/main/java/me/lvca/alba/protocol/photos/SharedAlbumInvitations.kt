@@ -1,5 +1,6 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedAlbumLinks
 import me.lvca.alba.engine.model.SharedInvitation
@@ -7,7 +8,6 @@ import me.lvca.alba.protocol.field
 import me.lvca.alba.protocol.obj
 import me.lvca.alba.protocol.text
 import java.util.UUID
-import kotlinx.serialization.json.*
 
 /**
  * Invitations to join shared albums: pending legacy invitations, which can be accepted or declined,

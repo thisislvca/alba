@@ -9,14 +9,14 @@ import android.provider.MediaStore
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import me.lvca.alba.engine.model.BackupScope
-import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.runBlocking
+import me.lvca.alba.engine.model.BackupScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.ByteArrayOutputStream
 
 @RunWith(AndroidJUnit4::class)
 class AndroidMediaStoreSourceTest {

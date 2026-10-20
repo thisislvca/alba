@@ -1,9 +1,9 @@
 package me.lvca.alba.protocol.auth
 
-import java.util.Base64
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.util.Base64
 
 class AppleSrpClientTest {
     @Test

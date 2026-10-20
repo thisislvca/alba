@@ -5,12 +5,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
-import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
@@ -18,6 +14,10 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.viewer.VideoPlayer
+import me.lvca.alba.engine.model.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class VideoPlayerTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
@@ -43,8 +43,7 @@ class VideoPlayerTest {
         compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("retry-video").fetchSemanticsNodes().isNotEmpty() }
         broken.set(false)
         compose.onNodeWithTag("retry-video").performClick()
-        compose.waitUntil(LONG_WAIT) { compose.onAllNodes(SemanticsMatcher.expectValue(
-            androidx.compose.ui.semantics.SemanticsProperties.StateDescription, text(R.string.ready))).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodes(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, text(R.string.ready))).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("retry-video").assertDoesNotExist()
     }
 }

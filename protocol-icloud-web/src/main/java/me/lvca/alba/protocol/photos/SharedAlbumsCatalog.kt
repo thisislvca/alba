@@ -1,5 +1,6 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.*
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
@@ -9,7 +10,6 @@ import me.lvca.alba.protocol.text
 import java.io.OutputStream
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlinx.serialization.json.*
 
 /**
  * Shared albums of both generations behind one [SharedAlbumOperations]. Every operation runs alone
@@ -195,6 +195,7 @@ internal class SharedAlbumsCatalog(
     private companion object {
         const val SHARED_ACCENT_START = 0xff294e63
         const val SHARED_ACCENT_END = 0xff497187
+
         /** Statuses of a signed download URL that expired; the photo is read again for a fresh one. */
         val EXPIRED_URL_STATUSES = setOf(401, 403, 404, 410)
     }

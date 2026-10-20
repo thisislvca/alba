@@ -1,11 +1,11 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.source.CatalogResetRequired
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.recordType
-import kotlinx.serialization.json.*
 
 /** The catalog's requests to the personal library's PrimarySync zone in the private CloudKit database. */
 internal class PersonalLibraryDatabase(

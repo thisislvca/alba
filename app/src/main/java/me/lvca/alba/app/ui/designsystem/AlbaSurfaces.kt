@@ -14,10 +14,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
@@ -44,8 +44,7 @@ internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Compo
                         Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.xl)
                             .padding(top = AlbaSpacing.md, bottom = AlbaSpacing.xxl).navigationBarsPadding(), content = content)
                     }
-                    if (scroll.canScrollBackward) Spacer(Modifier.fillMaxWidth().height(12.dp).background(
-                        Brush.verticalGradient(listOf(background, background.copy(alpha = 0f)))))
+                    if (scroll.canScrollBackward) Spacer(Modifier.fillMaxWidth().height(12.dp).background(Brush.verticalGradient(listOf(background, background.copy(alpha = 0f)))))
                 }
             }
         }

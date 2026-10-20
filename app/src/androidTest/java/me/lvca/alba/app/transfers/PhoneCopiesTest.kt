@@ -1,19 +1,12 @@
 package me.lvca.alba.app.transfers
 
 import android.provider.MediaStore
-import me.lvca.alba.engine.model.BatchItemState
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
-import me.lvca.alba.engine.model.*
-import java.io.ByteArrayOutputStream
-import java.util.zip.ZipInputStream
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.platform.GalleryExporter
@@ -25,6 +18,13 @@ import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
+import me.lvca.alba.engine.model.*
+import me.lvca.alba.engine.model.BatchItemState
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipInputStream
 
 /** Copies Alba publishes to the phone gallery: saved selections and Live Photo pairs. */
 class PhoneCopiesTest {

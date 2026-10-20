@@ -2,13 +2,8 @@ package me.lvca.alba.app.shared
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
-import java.io.ByteArrayOutputStream
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
@@ -20,6 +15,11 @@ import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForVideoPlaying
+import me.lvca.alba.engine.model.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import java.io.ByteArrayOutputStream
 
 /** Full native navigation and repository wiring, using the explicitly labelled demo account. */
 class SharedAlbumsFlowTest {

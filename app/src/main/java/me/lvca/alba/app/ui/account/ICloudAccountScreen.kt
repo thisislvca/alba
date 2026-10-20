@@ -48,13 +48,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.BackupView
-import me.lvca.alba.engine.model.TransferId
-import me.lvca.alba.engine.model.TransferView
-import me.lvca.alba.engine.model.TransferViewState
-import me.lvca.alba.protocol.account.ICloudAccountState
-import me.lvca.alba.protocol.account.SessionStatus
-import me.lvca.alba.protocol.account.TwoFactorDelivery
 import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.PhoneStorageState
@@ -70,6 +63,13 @@ import me.lvca.alba.app.ui.designsystem.AlbaPageScaffold
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.timestampLabel
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
+import me.lvca.alba.engine.model.BackupView
+import me.lvca.alba.engine.model.TransferId
+import me.lvca.alba.engine.model.TransferView
+import me.lvca.alba.engine.model.TransferViewState
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
+import me.lvca.alba.protocol.account.TwoFactorDelivery
 
 @Composable
 fun ICloudAccountScreen(

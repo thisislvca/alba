@@ -2,10 +2,6 @@ package me.lvca.alba.app.transfers
 
 import android.net.Uri
 import kotlinx.coroutines.channels.SendChannel
-import me.lvca.alba.engine.model.GalleryMedia
-import me.lvca.alba.engine.model.GalleryRepository
-import me.lvca.alba.engine.model.MediaKind
-import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.app.AlbaEffect
 import me.lvca.alba.app.R
 import me.lvca.alba.app.actions.MediaAction
@@ -13,6 +9,10 @@ import me.lvca.alba.app.actions.MediaActionKey
 import me.lvca.alba.app.actions.MediaActionRunner
 import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.platform.GalleryExporter
+import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.engine.model.GalleryRepository
+import me.lvca.alba.engine.model.MediaKind
+import me.lvca.alba.engine.model.StoredMessage
 
 /** Gets copies out of Alba: the share sheet, the phone gallery and exported documents. Never touches the source. */
 internal class ExportController(

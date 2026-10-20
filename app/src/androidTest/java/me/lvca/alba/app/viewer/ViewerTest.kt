@@ -1,13 +1,10 @@
 package me.lvca.alba.app.viewer
 
-import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.compose.ui.semantics.SemanticsProperties
-import org.junit.Rule
-import org.junit.Test
-import org.junit.Assert.*
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import androidx.test.espresso.Espresso
@@ -23,6 +20,9 @@ import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitForVideoPlaying
 import me.lvca.alba.app.testing.waitUntilDisplayed
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class ViewerTest {

@@ -4,13 +4,13 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Test
-import java.io.File
 import me.lvca.alba.app.platform.PhotoCrop
 import me.lvca.alba.app.platform.SmallerPhotoCopyRequired
 import me.lvca.alba.app.platform.renderPhotoEdit
 import me.lvca.alba.app.platform.saveEditedCopy
+import org.junit.Assert.*
+import org.junit.Test
+import java.io.File
 
 class PhotoEditRenderingTest {
 

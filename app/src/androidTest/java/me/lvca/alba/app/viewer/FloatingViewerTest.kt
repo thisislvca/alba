@@ -4,9 +4,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
@@ -16,6 +13,9 @@ import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class FloatingViewerTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

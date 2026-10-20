@@ -12,12 +12,12 @@ import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.StoredMessage
 import java.io.OutputStream
 import java.security.MessageDigest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 class AndroidMediaStoreSource(
     context: Context,
@@ -219,8 +219,8 @@ class AndroidMediaStoreSource(
     }
 
     private fun queryGalleryImages(video: Boolean = false): List<DeviceMediaRecord> {
-        if (Build.VERSION.SDK_INT >= 33 && !has(if (video) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_MEDIA_IMAGES)
-            && !(Build.VERSION.SDK_INT >= 34 && has(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))) return emptyList()
+        if (Build.VERSION.SDK_INT >= 33 && !has(if (video) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_MEDIA_IMAGES) &&
+            !(Build.VERSION.SDK_INT >= 34 && has(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))) return emptyList()
         val collection = if (video) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else galleryCollection()
         val version = if (Build.VERSION.SDK_INT >= 29) MediaStore.getVersion(appContext, MediaStore.VOLUME_EXTERNAL) else "legacy"
         val args = Bundle().apply {
@@ -416,7 +416,7 @@ class AndroidMediaStoreSource(
         }.getOrNull()
         return values ?: SourceMetadata(
             displayName = displayNameHint ?: uri.lastPathSegment ?: "selected-media",
-            revision = "${uri}:unknown",
+            revision = "$uri:unknown",
             lineageKey = "selected:${sha256(uri.toString())}",
         )
     }

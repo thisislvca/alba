@@ -1,14 +1,14 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import me.lvca.alba.engine.model.SharedAction
 import me.lvca.alba.engine.model.SharedAlbumRole
 import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.protocol.photos.SharedAlbumJournal.Companion.data
 import me.lvca.alba.protocol.text
 import java.util.UUID
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 /**
  * Applies a [SharedCommand] once. Each change is journaled before it is sent, and a change whose

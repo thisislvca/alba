@@ -13,17 +13,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import me.lvca.alba.engine.model.AccountChangeResult
-import me.lvca.alba.engine.model.CloudAccountProfile
-import me.lvca.alba.engine.model.CloudStorageUsage
-import me.lvca.alba.engine.model.GalleryRepository
-import me.lvca.alba.engine.model.PhotoCompanion
-import me.lvca.alba.engine.model.StoredMessage
-import me.lvca.alba.protocol.account.AppleSignInResult
-import me.lvca.alba.protocol.account.ICloudAccountManager
-import me.lvca.alba.protocol.account.ICloudAccountState
-import me.lvca.alba.protocol.account.SessionStatus
-import java.time.Instant
 import me.lvca.alba.app.R
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
 import me.lvca.alba.app.diagnostics.DiagnosticAttribute
@@ -35,6 +24,17 @@ import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.platform.NetworkStatus
+import me.lvca.alba.engine.model.AccountChangeResult
+import me.lvca.alba.engine.model.CloudAccountProfile
+import me.lvca.alba.engine.model.CloudStorageUsage
+import me.lvca.alba.engine.model.GalleryRepository
+import me.lvca.alba.engine.model.PhotoCompanion
+import me.lvca.alba.engine.model.StoredMessage
+import me.lvca.alba.protocol.account.AppleSignInResult
+import me.lvca.alba.protocol.account.ICloudAccountManager
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
+import java.time.Instant
 
 data class AccountInfo(
     val profile: CloudAccountProfile? = null,

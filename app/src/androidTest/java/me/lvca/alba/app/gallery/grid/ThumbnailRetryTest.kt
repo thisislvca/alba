@@ -7,13 +7,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
-import me.lvca.alba.engine.model.*
-import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.platform.NetworkStatus
@@ -24,6 +19,11 @@ import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.testDependencies
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.gallery.MediaTile
+import me.lvca.alba.engine.model.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 class ThumbnailRetryTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

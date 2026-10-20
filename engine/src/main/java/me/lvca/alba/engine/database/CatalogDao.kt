@@ -2,8 +2,8 @@ package me.lvca.alba.engine.database
 
 import androidx.room.Dao
 import androidx.room.Query
-import androidx.room.Upsert
 import androidx.room.Transaction
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 data class DisplayLink(val cloudId: String, val deviceId: String, val accountId: String)

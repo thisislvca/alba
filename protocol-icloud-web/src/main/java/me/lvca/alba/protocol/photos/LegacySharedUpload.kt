@@ -1,12 +1,12 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
-import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import kotlinx.serialization.json.*
+import me.lvca.alba.protocol.text
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /** Content-bound retry journal for the legacy shared-streams upload protocol. */
@@ -105,5 +105,4 @@ internal class LegacySharedUpload(
             savePhase("DONE")
         }
     }
-
 }

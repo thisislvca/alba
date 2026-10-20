@@ -4,12 +4,12 @@ import android.content.ContentResolver
 import android.content.ContentValues
 import android.net.Uri
 import android.provider.MediaStore
-import java.io.OutputStream
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.StoredMessage
+import java.io.OutputStream
 
 /** One new gallery file: the MediaStore collection and columns it gets, and how to write its bytes. */
 internal class MediaStoreCopy(

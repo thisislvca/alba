@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.SharedInvitation
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.InvitationActions
@@ -21,6 +20,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaSheetBody
 import me.lvca.alba.app.ui.designsystem.attempt
 import me.lvca.alba.app.ui.designsystem.rememberLoadable
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
+import me.lvca.alba.engine.model.SharedInvitation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import me.lvca.alba.app.diagnostics.AlbaDiagnostics
+import me.lvca.alba.app.diagnostics.DiagnosticOperation
+import me.lvca.alba.app.diagnostics.measure
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.GalleryDate
 import me.lvca.alba.engine.model.GalleryMedia
@@ -23,9 +26,6 @@ import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.engine.source.MediaRead
 import me.lvca.alba.protocol.account.ICloudAccountManager
 import java.time.LocalDate
-import me.lvca.alba.app.diagnostics.AlbaDiagnostics
-import me.lvca.alba.app.diagnostics.DiagnosticOperation
-import me.lvca.alba.app.diagnostics.measure
 
 /** What the gallery shows: the query, its results, the selection and the photo open in the viewer. */
 data class GalleryState(

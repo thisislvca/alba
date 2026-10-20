@@ -3,15 +3,12 @@ package me.lvca.alba.app.ui.viewer
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.ui.input.nestedscroll.*
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -36,28 +33,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
-import me.lvca.alba.engine.model.*
-import me.lvca.alba.protocol.account.ICloudAccountState
-import me.lvca.alba.protocol.account.SessionStatus
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlin.math.roundToInt
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.MediaScreenActions
 import me.lvca.alba.app.ui.collections.AlbumChooser
@@ -76,8 +74,10 @@ import me.lvca.alba.app.ui.shared.SharedPhotoControls
 import me.lvca.alba.app.ui.timeLabel
 import me.lvca.alba.app.ui.timestampLabel
 import me.lvca.alba.app.ui.transfers.DeviceUploadControls
-import androidx.compose.ui.graphics.layer.GraphicsLayer
-import kotlinx.coroutines.CancellationException
+import me.lvca.alba.engine.model.*
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
+import kotlin.math.roundToInt
 
 @Composable
 internal fun MediaDetailScreen(
@@ -448,8 +448,7 @@ private fun ViewerActionBar(
         } else ViewerAction(stringResource(R.string.details), true, onDetails, Modifier.weight(1f)) {
             Icon(Icons.Outlined.Info, null)
         }
-        if (media.kind == MediaKind.LIVE_PHOTO) ViewerAction(
-            stringResource(if (playingLive) R.string.show_still_photo else R.string.play_live_photo), true, onLive, Modifier.weight(1f)) {
+        if (media.kind == MediaKind.LIVE_PHOTO) ViewerAction(stringResource(if (playingLive) R.string.show_still_photo else R.string.play_live_photo), true, onLive, Modifier.weight(1f)) {
             Icon(Icons.Filled.PlayArrow, null)
         }
     }

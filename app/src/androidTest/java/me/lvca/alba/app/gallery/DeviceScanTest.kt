@@ -3,12 +3,12 @@ package me.lvca.alba.app.gallery
 import android.content.ContentValues
 import android.provider.MediaStore
 import androidx.test.core.app.ApplicationProvider
-import me.lvca.alba.engine.source.AndroidMediaStoreSource
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Test
 import me.lvca.alba.app.testing.MediaStoreFixtures
 import me.lvca.alba.app.testing.grantTestMediaPermissions
+import me.lvca.alba.engine.source.AndroidMediaStoreSource
+import org.junit.Assert.*
+import org.junit.Test
 
 class DeviceScanTest {
 

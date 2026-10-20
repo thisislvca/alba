@@ -1,9 +1,9 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.protocol.array
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import me.lvca.alba.protocol.array
 
 /**
  * Typed CloudKit Web Services errors. A code is read only from a `serverErrorCode` property, never

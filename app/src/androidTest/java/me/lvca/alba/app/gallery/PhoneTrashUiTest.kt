@@ -7,11 +7,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
-import me.lvca.alba.engine.source.AndroidMediaStoreSource
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
@@ -23,6 +19,10 @@ import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForVideoPlaying
+import me.lvca.alba.engine.source.AndroidMediaStoreSource
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 @SdkSuppress(minSdkVersion = 33)
 class PhoneTrashUiTest {

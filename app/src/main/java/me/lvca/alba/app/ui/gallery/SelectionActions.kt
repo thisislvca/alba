@@ -1,32 +1,32 @@
 package me.lvca.alba.app.ui.gallery
 
-import androidx.compose.ui.res.stringResource
-import androidx.compose.material.icons.outlined.Close
+import android.os.Build
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.Alignment
-import me.lvca.alba.engine.companion.BatchAction
-import me.lvca.alba.engine.model.*
-import me.lvca.alba.protocol.account.ICloudAccountState
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.material.icons.Icons
-import android.os.Build
-import me.lvca.alba.engine.source.UploadMediaFormat
-import me.lvca.alba.protocol.account.SessionStatus
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.ui.GalleryScreenActions
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.collections.isUserAlbum
+import me.lvca.alba.engine.companion.BatchAction
+import me.lvca.alba.engine.model.*
+import me.lvca.alba.engine.source.UploadMediaFormat
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 
 @Composable
 internal fun SelectionActions(gallery: GalleryState, session: SessionState, mediaBusy: Boolean, actions: GalleryScreenActions) {

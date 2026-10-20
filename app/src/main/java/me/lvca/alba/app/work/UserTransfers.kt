@@ -25,6 +25,7 @@ import java.io.IOException
 private const val TRANSFER_JOB_ID = 1701
 internal const val TRANSFER_NOTIFICATION_ID = 1702
 private const val TRANSFER_CHANNEL = "photo-transfers"
+
 // Named before the Alba rename and stored on devices; keep it.
 private const val TRANSFER_WORK = "mela-user-transfers"
 
@@ -61,8 +62,7 @@ internal suspend fun runUserTransfers(app: AlbaApplication) {
 }
 
 internal fun transferNotification(context: Context): Notification {
-    context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-        NotificationChannel(TRANSFER_CHANNEL, context.getString(R.string.transfer_channel), NotificationManager.IMPORTANCE_LOW))
+    context.getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(TRANSFER_CHANNEL, context.getString(R.string.transfer_channel), NotificationManager.IMPORTANCE_LOW))
     val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), flags)
     val cancel = PendingIntent.getBroadcast(context, 0, Intent(context, CancelTransfersReceiver::class.java), flags)

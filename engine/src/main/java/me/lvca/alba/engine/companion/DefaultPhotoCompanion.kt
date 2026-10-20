@@ -1,6 +1,11 @@
 package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.TransferProjection
@@ -27,11 +32,6 @@ import me.lvca.alba.engine.model.WakeSummary
 import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
  * The photo companion: wires account binding, intake, upload, reconciliation, backup and trash, and runs them

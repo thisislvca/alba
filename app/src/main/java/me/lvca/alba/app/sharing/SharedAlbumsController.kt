@@ -3,6 +3,16 @@ package me.lvca.alba.app.sharing
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import me.lvca.alba.app.R
+import me.lvca.alba.app.actions.MediaAction
+import me.lvca.alba.app.actions.MediaActionKey
+import me.lvca.alba.app.actions.MediaActionRunner
+import me.lvca.alba.app.diagnostics.AlbaDiagnostics
+import me.lvca.alba.app.diagnostics.DiagnosticOperation
+import me.lvca.alba.app.diagnostics.measure
+import me.lvca.alba.app.gallery.GalleryBrowser
+import me.lvca.alba.app.messages.UiMessage
+import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.GalleryRepository
 import me.lvca.alba.engine.model.SharedAction
@@ -15,16 +25,6 @@ import me.lvca.alba.engine.model.SharedInvitation
 import me.lvca.alba.protocol.account.ICloudAccountManager
 import me.lvca.alba.protocol.account.ICloudAccountState
 import java.util.UUID
-import me.lvca.alba.app.R
-import me.lvca.alba.app.actions.MediaAction
-import me.lvca.alba.app.actions.MediaActionKey
-import me.lvca.alba.app.actions.MediaActionRunner
-import me.lvca.alba.app.diagnostics.AlbaDiagnostics
-import me.lvca.alba.app.diagnostics.DiagnosticOperation
-import me.lvca.alba.app.diagnostics.measure
-import me.lvca.alba.app.gallery.GalleryBrowser
-import me.lvca.alba.app.messages.UiMessage
-import me.lvca.alba.app.messages.UserMessages
 
 /**
  * iCloud shared albums: reading activity and discussions, invitations, and changes. Remote writes reuse an operation

@@ -1,9 +1,5 @@
 package me.lvca.alba.app.ui.gallery
 
-
-
-
-
 /** Unknown durations stay unknown; hours do not wrap back to zero minutes. */
 internal fun mediaDuration(durationMillis: Long?): String? {
     if (durationMillis == null || durationMillis < 0) return null

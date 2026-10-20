@@ -9,9 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import java.time.YearMonth
 import me.lvca.alba.app.ui.itemCount
 import me.lvca.alba.app.ui.monthLabel
+import java.time.YearMonth
 
 @Composable
 internal fun MonthHeader(month: YearMonth, count: Int) {

@@ -1,5 +1,9 @@
 package me.lvca.alba.app.testing
 
+import me.lvca.alba.app.AlbaDependencies
+import me.lvca.alba.app.di.AlbaGraph
+import me.lvca.alba.app.transfers.TransferScheduler
+import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
@@ -12,10 +16,6 @@ import me.lvca.alba.engine.model.SharedDiscussion
 import me.lvca.alba.engine.model.SharedInvitation
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.source.MediaRead
-import me.lvca.alba.app.AlbaDependencies
-import me.lvca.alba.app.di.AlbaGraph
-import me.lvca.alba.app.transfers.TransferScheduler
-import me.lvca.alba.app.ui.AlbaActions
 
 /**
  * The app's real collaborators for a ViewModel under test, minus the platform side effects a test must not trigger:

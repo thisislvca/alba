@@ -1,6 +1,12 @@
 package me.lvca.alba.engine.cache
 
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
+import me.lvca.alba.engine.model.LocalMediaCategory
+import me.lvca.alba.engine.model.LocalMediaStorage
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -8,12 +14,6 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
-import me.lvca.alba.engine.model.LocalMediaCategory
-import me.lvca.alba.engine.model.LocalMediaStorage
 
 data class CachePruneResult(
     val evictedPaths: Set<String>,
@@ -28,6 +28,7 @@ class MediaFileCache(
         check(isDirectory || mkdirs()) { "Could not create private media cache" }
     }
     private val canonicalRoot = root.canonicalFile
+
     // Browsed thumbnails are part of the local library, not disposable Android cache.
     private val previewRoot = File(context.applicationContext.filesDir, "gallery_previews").apply {
         check(isDirectory || mkdirs()) { "Could not create thumbnail storage" }

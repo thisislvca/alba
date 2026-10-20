@@ -3,12 +3,14 @@ package me.lvca.alba.engine.cache
 import android.content.Context
 import android.system.Os
 import android.system.OsConstants
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.source.DeviceOriginalEvidence
 import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.UploadMediaFormat
 import me.lvca.alba.engine.source.UploadMediaValidator
-import kotlinx.coroutines.currentCoroutineContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -19,8 +21,6 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 data class StagedUploadFile(
     val path: String,

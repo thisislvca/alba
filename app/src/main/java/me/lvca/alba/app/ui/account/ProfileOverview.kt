@@ -1,6 +1,8 @@
 package me.lvca.alba.app.ui.account
 
+import android.content.ActivityNotFoundException
 import android.text.format.Formatter
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -16,25 +18,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.BackupView
-import me.lvca.alba.protocol.account.ICloudAccountState
-import me.lvca.alba.protocol.account.SessionStatus
-import java.time.Instant
-import me.lvca.alba.engine.model.CloudPlanSource
-import android.content.ActivityNotFoundException
-import android.widget.Toast
-import java.util.Locale
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
@@ -51,10 +45,19 @@ import me.lvca.alba.app.ui.designsystem.theme.StorageColors
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.storageCategoryLabel
 import me.lvca.alba.app.ui.timestampLabel
+import me.lvca.alba.engine.model.BackupView
+import me.lvca.alba.engine.model.CloudPlanSource
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
+import java.time.Instant
+import java.util.Locale
 
 internal enum class ProfilePage(val title: Int) {
-    OVERVIEW(R.string.profile_title), ACTIVATION(R.string.how_to_activate_icloud_photos), SIGN_IN(R.string.icloud_account),
-    BACKUP(R.string.backup_title), PHONE(R.string.phone_storage_title),
+    OVERVIEW(R.string.profile_title),
+    ACTIVATION(R.string.how_to_activate_icloud_photos),
+    SIGN_IN(R.string.icloud_account),
+    BACKUP(R.string.backup_title),
+    PHONE(R.string.phone_storage_title),
     ABOUT(R.string.about_title),
 }
 

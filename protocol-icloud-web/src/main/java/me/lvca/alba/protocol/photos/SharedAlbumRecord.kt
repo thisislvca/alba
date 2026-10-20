@@ -1,7 +1,7 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.engine.model.GalleryCollection
 import kotlinx.serialization.json.*
+import me.lvca.alba.engine.model.GalleryCollection
 
 internal data class SharedAlbumRecord(
     val collection: GalleryCollection,

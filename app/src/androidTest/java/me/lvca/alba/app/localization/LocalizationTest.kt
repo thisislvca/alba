@@ -9,9 +9,6 @@ import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.messages.UiMessage
@@ -19,6 +16,9 @@ import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.Screenshots
 import me.lvca.alba.app.testing.UI_WAIT
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 /** Exercise system locale changes with native accessibility, independently of Compose's test clock. */
 @SdkSuppress(minSdkVersion = 33)

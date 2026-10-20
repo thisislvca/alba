@@ -1,11 +1,11 @@
 package me.lvca.alba.app.ui.gallery
 
+import me.lvca.alba.app.gallery.GallerySection
 import me.lvca.alba.engine.model.GalleryDate
 import me.lvca.alba.engine.model.GalleryMedia
-import java.time.LocalDate
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
-import me.lvca.alba.app.gallery.GallerySection
 
 /** Indexes include the month headers, so a jump lands at a date instead of an arbitrary photo. */
 internal fun galleryMonthOffsets(sections: List<GallerySection>, permissionHeader: Boolean, days: Boolean = false, date: GalleryDate = GalleryDate.CAPTURED, leadingItems: Int = 0, showDateHeaders: Boolean = true): List<Int> {

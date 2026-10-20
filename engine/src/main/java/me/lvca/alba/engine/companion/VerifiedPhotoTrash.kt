@@ -1,6 +1,7 @@
 package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.sync.withLock
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.ReclaimProposalEntity
 import me.lvca.alba.engine.database.ReclaimProposalItemEntity
@@ -16,7 +17,6 @@ import me.lvca.alba.engine.model.TrashHandoff
 import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
-import kotlinx.coroutines.sync.withLock
 
 /** Exact-proof checks and Android consent obligations share the companion's account gate. */
 internal class VerifiedPhotoTrash(

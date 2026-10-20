@@ -75,9 +75,11 @@ internal class Loadable<T>(initial: T) {
     /** The last successfully loaded value; kept while a reload runs and after a failure. */
     var value by mutableStateOf(initial)
         private set
+
     /** True until the first load settles, and during every load after it. */
     var loading by mutableStateOf(true)
         private set
+
     /** Set when a load fails. Actions that change what was loaded may set it too, to offer a reload. */
     var failed by mutableStateOf(false)
     internal var revision by mutableIntStateOf(0)

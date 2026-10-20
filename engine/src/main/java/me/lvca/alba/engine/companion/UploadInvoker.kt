@@ -1,6 +1,8 @@
 package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.withLock
 import me.lvca.alba.engine.cache.StagedOriginalUnavailableException
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AccountWriteSlotEntity
@@ -20,8 +22,6 @@ import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.WakeupScheduler
 import java.util.UUID
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.sync.withLock
 
 /**
  * Starts uploads one at a time per account. Arming an attempt takes the account's write slot in the same

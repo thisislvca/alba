@@ -1,15 +1,17 @@
 package me.lvca.alba.app.ui.editor
 
 import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,28 +20,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import me.lvca.alba.engine.model.GalleryMedia
-import java.io.File
-import kotlinx.coroutines.*
-import kotlin.math.hypot
-import android.net.Uri
-import android.os.Build
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.*
 import me.lvca.alba.app.R
 import me.lvca.alba.app.platform.PhotoCrop
 import me.lvca.alba.app.platform.SmallerPhotoCopyRequired
@@ -49,6 +46,9 @@ import me.lvca.alba.app.platform.renderPhotoEdit
 import me.lvca.alba.app.platform.saveEditedCopy
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.gallery.loadThumbnail
+import me.lvca.alba.engine.model.GalleryMedia
+import java.io.File
+import kotlin.math.hypot
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -190,7 +190,7 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
                                 drawRect(shade, size = Size(size.width, t)); drawRect(shade, Offset(0f, b), Size(size.width, size.height - b))
                                 drawRect(shade, Offset(0f, t), Size(l, b - t)); drawRect(shade, Offset(r, t), Size(size.width - r, b - t))
                                 drawRect(Color.White, Offset(l, t), Size(r - l, b - t), style = Stroke(2.dp.toPx()))
-                                listOf(Offset(l,t),Offset(r,t),Offset(r,b),Offset(l,b)).forEach { drawCircle(Color.White, 6.dp.toPx(), it) }
+                                listOf(Offset(l, t), Offset(r, t), Offset(r, b), Offset(l, b)).forEach { drawCircle(Color.White, 6.dp.toPx(), it) }
                             }
                         }
                     }
@@ -203,7 +203,7 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
                     TextButton(enabled = !busy && preview != null, onClick = {
                         val aspect = preview!!.width.toFloat() / preview!!.height
                         val inset = if (aspect > 1) (1 - 1 / aspect) / 2 else (1 - aspect) / 2
-                        edit.change(edit.current.copy(crop = if (aspect > 1) PhotoCrop(inset, 0f, 1-inset, 1f) else PhotoCrop(0f, inset, 1f, 1-inset)))
+                        edit.change(edit.current.copy(crop = if (aspect > 1) PhotoCrop(inset, 0f, 1 - inset, 1f) else PhotoCrop(0f, inset, 1f, 1 - inset)))
                     }) { Text(stringResource(R.string.square_crop)) }
                     TextButton(enabled = !busy, onClick = { edit.change(edit.current.copy(turns = (turns + 1) % 4)) }) { Text(stringResource(R.string.rotate_degrees, turns * 90)) }
                     TextButton(enabled = !busy, onClick = { adjustments = !adjustments }) { Text(stringResource(R.string.adjust_crop)) }

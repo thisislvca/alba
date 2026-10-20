@@ -5,9 +5,6 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
@@ -16,6 +13,9 @@ import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilDisplayed
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class GalleryGridTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
@@ -44,7 +44,7 @@ class GalleryGridTest {
         compose.scrollToGalleryMedia("fixture:icloud:0020")
         val before = compose.onNodeWithTag("media-fixture:icloud:0020").fetchSemanticsNode().boundsInRoot.width
         compose.onNodeWithTag("gallery-grid").performTouchInput {
-            pinch(Offset(width*.4f,height*.35f),Offset(width*.2f,height*.35f),Offset(width*.6f,height*.35f),Offset(width*.8f,height*.35f),450)
+            pinch(Offset(width * .4f, height * .35f), Offset(width * .2f, height * .35f), Offset(width * .6f, height * .35f), Offset(width * .8f, height * .35f), 450)
         }
         compose.scrollToGalleryMedia("fixture:icloud:0020")
         val after = compose.onNodeWithTag("media-fixture:icloud:0020").fetchSemanticsNode().boundsInRoot.width

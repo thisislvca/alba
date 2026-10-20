@@ -10,6 +10,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
+import me.lvca.alba.app.R
+import me.lvca.alba.app.testing.LONG_WAIT
+import me.lvca.alba.app.testing.MediaStoreFixtures
+import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 import me.lvca.alba.protocol.account.ICloudAccountState
 import org.junit.Assert.*
 import org.junit.Rule
@@ -18,14 +22,11 @@ import org.junit.rules.RuleChain
 import org.junit.rules.TestRule
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
-import me.lvca.alba.app.R
-import me.lvca.alba.app.testing.LONG_WAIT
-import me.lvca.alba.app.testing.MediaStoreFixtures
-import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 
 @SdkSuppress(minSdkVersion = 33)
 class UploadIntakeTest {
     private val compose = createComposeRule()
+
     // Dialogs obtain configuration from their Android window. Set the real app locale
     // before the test activity launches, then restore it after that activity closes.
     @get:Rule val rules: TestRule = RuleChain.outerRule(object : TestRule {
@@ -52,7 +53,7 @@ class UploadIntakeTest {
         val resolver = context.contentResolver
         val uris = mutableListOf<Uri>()
         try {
-            for ((name,mime) in listOf("png.png" to "image/png", "avc.mp4" to "video/mp4", "animated.gif" to "image/gif")) {
+            for ((name, mime) in listOf("png.png" to "image/png", "avc.mp4" to "video/mp4", "animated.gif" to "image/gif")) {
                 uris += MediaStoreFixtures.insertAsset(InstrumentationRegistry.getInstrumentation().context.assets, "upload-formats/$name",
                     "alba-intake-${System.nanoTime()}-$name", mime, if (mime.startsWith("video/")) "Movies/AlbaTests" else "Pictures/AlbaTests")
             }
@@ -76,6 +77,6 @@ class UploadIntakeTest {
             compose.onNodeWithTag("confirm-incoming-upload").performClick()
             compose.runOnIdle { assertEquals(uris.take(2), queued) }
             compose.onNodeWithTag("queue-incoming-upload").assertIsNotEnabled()
-        } finally { uris.forEach { resolver.delete(it,null,null) } }
+        } finally { uris.forEach { resolver.delete(it, null, null) } }
     }
 }

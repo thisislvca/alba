@@ -1,12 +1,12 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.protocol.account.AppleSessionSnapshot
-import me.lvca.alba.protocol.network.AppleEndpointPolicy
-import me.lvca.alba.protocol.network.AppleClientProfile
-import me.lvca.alba.protocol.network.AppleHttpRequest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
+import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.network.AppleClientProfile
+import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.network.AppleHttpRequest
 
 /** Serializes shared-album operations and validates their session before and after network I/O. */
 internal class SharedAlbumSession(
@@ -54,8 +54,10 @@ internal class SharedAlbumSession(
         val root = element as? JsonObject ?: return element
         check(!CloudKitErrors.rejectedRequest(root)) { "Apple could not load shared albums." }
         if (write) {
-            for (key in listOf("records", "zones")) check((root[key] as? JsonArray).orEmpty().none { (it as? JsonObject)?.get("serverErrorCode") != null }) {
+            for (key in listOf("records", "zones")) {
+                check((root[key] as? JsonArray).orEmpty().none { (it as? JsonObject)?.get("serverErrorCode") != null }) {
                 "Apple could not confirm the shared album change. Refresh before retrying."
+            }
             }
         }
         return root

@@ -1,11 +1,15 @@
 package me.lvca.alba.app.ui
 
+import android.icu.text.DateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import me.lvca.alba.app.R
+import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.engine.model.GalleryCollection
+import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.SmartCollection
 import java.time.Instant
 import java.time.LocalDate
@@ -13,12 +17,8 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import android.icu.text.DateFormat
 import java.util.Date
 import java.util.Locale
-import me.lvca.alba.engine.model.MediaAvailability
-import me.lvca.alba.app.R
-import me.lvca.alba.app.messages.UiMessage
 
 @Composable internal fun UiMessage.localized(): String {
     LocalConfiguration.current
@@ -43,13 +43,17 @@ private fun YearMonth.epochMillis(): Long = atDay(1).atStartOfDay(ZoneId.systemD
 /** "October 2026", or "Oct 2026" when [abbreviated], in the locale's order. */
 @Composable internal fun monthLabel(month: YearMonth, abbreviated: Boolean = false): String =
     monthLabel(month, abbreviated, currentLocale())
+
 /** [monthLabel] for an explicit [locale], so a list of labels can be remembered outside composition. */
 internal fun monthLabel(month: YearMonth, abbreviated: Boolean, locale: Locale): String =
     formatSkeleton(if (abbreviated) "MMMy" else "MMMMy", locale, month.epochMillis())
+
 /** The stand-alone month name, for layouts that show the year separately. */
 @Composable internal fun monthNameLabel(month: YearMonth): String = formatSkeleton("LLLL", currentLocale(), month.epochMillis())
+
 /** Day and abbreviated month without the year: "Oct 20" in English, "20 ott" in Italian. */
 @Composable internal fun dayMonthLabel(epochMillis: Long): String = formatSkeleton("MMMd", currentLocale(), epochMillis)
+
 /** Hours and minutes in the user's 12/24-hour preference. */
 @Composable internal fun timeLabel(epochMillis: Long): String =
     formatSkeleton(if (uses24HourClock()) "Hm" else "hm", currentLocale(), epochMillis)

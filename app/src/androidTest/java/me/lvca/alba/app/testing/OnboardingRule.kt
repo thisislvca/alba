@@ -2,9 +2,9 @@ package me.lvca.alba.app.testing
 
 import android.content.Context
 import androidx.test.platform.app.InstrumentationRegistry
-import org.junit.rules.ExternalResource
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.platform.OnboardingPreferences
+import org.junit.rules.ExternalResource
 
 /** Existing gallery tests start past the introduction; welcome tests exercise the fresh-install path. */
 class OnboardingRule(private val completed: Boolean = true) : ExternalResource() {

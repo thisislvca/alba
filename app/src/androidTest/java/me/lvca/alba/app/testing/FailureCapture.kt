@@ -3,9 +3,9 @@ package me.lvca.alba.app.testing
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
-import java.io.File
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
+import java.io.File
 
 /**
  * Saves a screenshot and the semantics tree when a test fails, so CI-only failures can be diagnosed.

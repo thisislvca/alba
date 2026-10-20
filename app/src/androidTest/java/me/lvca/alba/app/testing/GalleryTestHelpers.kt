@@ -1,11 +1,11 @@
 package me.lvca.alba.app.testing
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.*
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.junit4.ComposeTestRule
 
 internal fun ComposeTestRule.waitForGalleryMedia(id: String = "fixture:icloud:0020") {
     // Wait for the item in the lazy grid's data, even when phone photos put it offscreen.

@@ -1,5 +1,7 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.delay
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
@@ -7,8 +9,6 @@ import me.lvca.alba.protocol.network.AppleHttpTransport
 import me.lvca.alba.protocol.photos.SharedAlbumJournal.Companion.data
 import me.lvca.alba.protocol.text
 import java.util.UUID
-import kotlinx.coroutines.delay
-import kotlinx.serialization.json.*
 
 /**
  * Moves photos between the library and shared albums: server-side copies in both directions and

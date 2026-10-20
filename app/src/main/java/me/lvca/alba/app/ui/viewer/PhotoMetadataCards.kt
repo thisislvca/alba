@@ -1,25 +1,25 @@
 package me.lvca.alba.app.ui.viewer
 
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.*
-import me.lvca.alba.protocol.account.ICloudAccountState
-import java.text.NumberFormat
-import android.text.format.Formatter
-import androidx.compose.ui.platform.LocalContext
-import java.util.Locale
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.label
+import me.lvca.alba.engine.model.*
+import me.lvca.alba.protocol.account.ICloudAccountState
+import java.text.NumberFormat
+import java.util.Locale
 
 /** Only show metadata and backup claims that the local catalog actually establishes. */
 @Composable

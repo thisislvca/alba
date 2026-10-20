@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.SharedActions
@@ -22,6 +21,7 @@ import me.lvca.alba.app.ui.designsystem.attempt
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.timestampLabel
+import me.lvca.alba.engine.model.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

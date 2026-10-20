@@ -1,5 +1,8 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.fieldFlag
@@ -11,9 +14,6 @@ import me.lvca.alba.protocol.recordType
 import me.lvca.alba.protocol.text
 import java.util.Base64
 import java.util.UUID
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.*
 
 /**
  * Edits to the personal library: favorites, albums, album membership and Recently Deleted. Edits run
@@ -97,7 +97,9 @@ internal class PersonalLibraryEdits(
             putJsonObject("fields") {
                 put("albumNameEnc", albumName(name))
                 for ((key, value) in mapOf("albumType" to 0L, "isDeleted" to 0L, "isExpunged" to 0L,
-                    "position" to position, "sortType" to 1L, "sortAscending" to 1L)) put(key, writeField("INT64", JsonPrimitive(value)))
+                    "position" to position, "sortType" to 1L, "sortAscending" to 1L)) {
+                        put(key, writeField("INT64", JsonPrimitive(value)))
+                    }
             }
         })))
         GalleryCollection(id, name, position = position)

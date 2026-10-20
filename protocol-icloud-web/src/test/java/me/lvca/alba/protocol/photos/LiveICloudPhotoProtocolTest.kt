@@ -1,16 +1,21 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
-import me.lvca.alba.protocol.auth.AppleProtocolException
-import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.PersistedCookie
+import me.lvca.alba.protocol.auth.AppleProtocolError
+import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -18,11 +23,6 @@ import java.io.OutputStream
 import java.net.URI
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.*
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
 
 class LiveICloudPhotoProtocolTest {
     @Test

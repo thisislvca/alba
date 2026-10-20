@@ -1,14 +1,14 @@
 package me.lvca.alba.protocol.auth
 
-import me.lvca.alba.protocol.boolean
-import me.lvca.alba.protocol.obj
-import me.lvca.alba.protocol.text
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import me.lvca.alba.protocol.boolean
+import me.lvca.alba.protocol.obj
+import me.lvca.alba.protocol.text
 
 internal data class Hsa2BootContext(
     val authInitialRoute: String = "",

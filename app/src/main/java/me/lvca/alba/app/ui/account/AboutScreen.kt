@@ -1,18 +1,20 @@
 package me.lvca.alba.app.ui.account
 
+import android.content.ActivityNotFoundException
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
@@ -20,8 +22,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import android.content.ActivityNotFoundException
-import android.widget.Toast
 import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaCard

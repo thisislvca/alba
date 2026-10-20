@@ -1,6 +1,7 @@
 package me.lvca.alba.app.ui.transfers
 
 import android.os.Build
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,19 +21,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.TransferView
-import me.lvca.alba.engine.model.TransferViewState
-import android.text.format.Formatter
-import androidx.compose.ui.platform.LocalContext
 import me.lvca.alba.app.R
 import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.localized
+import me.lvca.alba.engine.model.TransferView
+import me.lvca.alba.engine.model.TransferViewState
 
 @Composable
 internal fun DeviceUploadControls(

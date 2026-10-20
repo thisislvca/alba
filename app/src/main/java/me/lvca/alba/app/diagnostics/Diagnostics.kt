@@ -1,10 +1,7 @@
 package me.lvca.alba.app.diagnostics
 
 import android.content.Context
-import me.lvca.alba.protocol.account.AccountOperation
-import me.lvca.alba.protocol.account.AccountOutcome
-import me.lvca.alba.protocol.account.AccountTelemetry
-import me.lvca.alba.protocol.account.CookieLifetimeMetrics
+import android.content.SharedPreferences
 import io.sentry.Breadcrumb
 import io.sentry.DataCollection
 import io.sentry.Hint
@@ -17,16 +14,19 @@ import io.sentry.SentryLevel
 import io.sentry.SpanStatus
 import io.sentry.android.core.SentryAndroid
 import io.sentry.protocol.Message
+import io.sentry.protocol.SentryTransaction
 import io.sentry.protocol.User
-import java.util.Locale
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import me.lvca.alba.app.BuildConfig
-import android.content.SharedPreferences
-import io.sentry.protocol.SentryTransaction
+import me.lvca.alba.protocol.account.AccountOperation
+import me.lvca.alba.protocol.account.AccountOutcome
+import me.lvca.alba.protocol.account.AccountTelemetry
+import me.lvca.alba.protocol.account.CookieLifetimeMetrics
+import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 enum class DiagnosticOperation(val wireName: String, val sampleRate: Double) {
     APP_INITIALIZED("app.initialized", 1.0),
@@ -322,7 +322,6 @@ class SentryAlbaDiagnostics(context: Context) : AlbaDiagnostics, AccountTelemetr
 
         fun safeErrorType(error: Throwable): String =
             error::class.java.simpleName.take(80).filter { it.isLetterOrDigit() || it == '_' }
-
     }
 
     private fun anonymousUser() = User().apply {

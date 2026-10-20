@@ -3,13 +3,7 @@ package me.lvca.alba.app.transfers
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import me.lvca.alba.engine.model.*
-import java.io.ByteArrayOutputStream
-import java.io.File
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.MainActivity
@@ -19,6 +13,12 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.engine.model.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.io.File
 
 class DemoUploadTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

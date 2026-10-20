@@ -1,14 +1,14 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.engine.model.CloudPlanSource
 import me.lvca.alba.protocol.account.*
 import me.lvca.alba.protocol.network.*
-import java.io.OutputStream
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.OutputStream
 
 class ICloudAccountProfileTest {
     private val session = AppleSessionSnapshot("alex@example.com", "client", "GB", "session", "token", null,

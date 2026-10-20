@@ -6,9 +6,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
@@ -18,6 +15,9 @@ import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.waitUntilDisplayed
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class IncomingMediaActivityTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

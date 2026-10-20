@@ -3,13 +3,13 @@ package me.lvca.alba.app.gallery.grid
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.scrollToGalleryMedia
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class GalleryPinchAnimationTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

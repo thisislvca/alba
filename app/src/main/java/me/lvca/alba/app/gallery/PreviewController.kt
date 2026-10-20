@@ -11,12 +11,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import me.lvca.alba.engine.model.GalleryRepository
 import me.lvca.alba.app.R
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
 import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.platform.NetworkStatus
+import me.lvca.alba.engine.model.GalleryRepository
 
 /** Thumbnail downloads for visible tiles, and the signal that tells tiles to retry after a failure may have cleared. */
 internal class PreviewController(

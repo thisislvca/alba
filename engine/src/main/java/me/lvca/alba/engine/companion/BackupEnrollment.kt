@@ -3,9 +3,12 @@ package me.lvca.alba.engine.companion
 import android.Manifest
 import android.os.Build
 import androidx.room.withTransaction
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.withLock
+import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.BackupEnrollmentDraftEntity
 import me.lvca.alba.engine.database.BackupEnrollmentEntity
-import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
 import me.lvca.alba.engine.model.BackupChange
 import me.lvca.alba.engine.model.BackupDraft
@@ -17,9 +20,6 @@ import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.sync.withLock
 
 /** Owns disclosure, account-fenced enrollment, and disabling future automatic uploads. */
 internal class BackupEnrollment(

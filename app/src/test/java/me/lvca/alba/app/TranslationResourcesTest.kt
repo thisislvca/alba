@@ -1,10 +1,10 @@
 package me.lvca.alba.app
 
-import java.io.File
-import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.*
 import org.junit.Test
 import org.w3c.dom.Element
+import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
 
 class TranslationResourcesTest {
     private fun resources(language: String): Map<String, String> {

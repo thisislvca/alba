@@ -1,12 +1,13 @@
 package me.lvca.alba.app.ui.intake
 
-import me.lvca.alba.engine.source.UploadMediaFormat
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Share
@@ -18,14 +19,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import me.lvca.alba.protocol.account.ICloudAccountState
-import me.lvca.alba.protocol.account.SessionStatus
-import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import me.lvca.alba.app.R
 import me.lvca.alba.app.intake.IncomingItem
 import me.lvca.alba.app.intake.IncomingRequest
@@ -35,11 +37,9 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.viewer.VideoPlayer
-import android.content.ClipData
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.view.WindowCompat
+import me.lvca.alba.engine.source.UploadMediaFormat
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 
 @Composable
 internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: ICloudAccountState, message: UiMessage?,

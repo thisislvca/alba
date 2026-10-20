@@ -1,11 +1,11 @@
 package me.lvca.alba.protocol.fixture
 
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.CloudCatalogSource
-import java.io.ByteArrayOutputStream
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 
 /** Contract checks against the shipped demo backend, not a test-only substitute. */
 class DemoFeatureCoverageTest {

@@ -8,11 +8,11 @@ import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.protocol.account.ICloudAccountState
-import java.time.Instant
-import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.Instant
+import java.time.ZoneId
 
 class GalleryProjectionTest {
     private val utc = ZoneId.of("UTC")

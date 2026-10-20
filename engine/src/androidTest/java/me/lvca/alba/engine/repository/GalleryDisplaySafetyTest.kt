@@ -2,12 +2,12 @@ package me.lvca.alba.engine.repository
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.database.*
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.*
-import me.lvca.alba.engine.cache.MediaFileCache
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -65,7 +65,7 @@ class GalleryDisplaySafetyTest {
         }
         var deviceVisible = true
         val device = object : DeviceCatalogSource {
-            override suspend fun scanImages() = if (!deviceVisible) emptyList() else listOf(DeviceMediaRecord("device", "local.jpg", 1, 20, 20, "content://media/external/images/media/1", "revision", deviceFolderId="device-folder:camera", deviceFolderName="Camera"))
+            override suspend fun scanImages() = if (!deviceVisible) emptyList() else listOf(DeviceMediaRecord("device", "local.jpg", 1, 20, 20, "content://media/external/images/media/1", "revision", deviceFolderId = "device-folder:camera", deviceFolderName = "Camera"))
             override suspend fun writeOriginal(contentUri: String, output: java.io.OutputStream) = error("unused")
         }
         val repository = DefaultGalleryRepository(db, cloud, device, cache)
@@ -90,13 +90,14 @@ class GalleryDisplaySafetyTest {
         val db = Room.inMemoryDatabaseBuilder(context, AlbaDatabase::class.java).build()
         try {
             val sql = db.openHelper.writableDatabase
+
             // Seed all required fields; only explicit proof relationships may collapse the display.
             fun seed(table: String, values: Map<String, Any?>) {
                 val columns = sql.query("PRAGMA table_info($table)").use { c -> buildList {
                     while(c.moveToNext()) add(Triple(c.getString(1), c.getString(2), c.getInt(3)))
                 } }
-                val args = columns.map { (name,type,required) -> if (values.containsKey(name)) values[name] else if (required == 0) null else if(type == "INTEGER") 0 else "" }
-                sql.execSQL("INSERT INTO $table (${columns.joinToString { it.first }}) VALUES (${columns.joinToString { "?" }})",args.toTypedArray())
+                val args = columns.map { (name, type, required) -> if (values.containsKey(name)) values[name] else if (required == 0) null else if(type == "INTEGER") 0 else "" }
+                sql.execSQL("INSERT INTO $table (${columns.joinToString { it.first }}) VALUES (${columns.joinToString { "?" }})", args.toTypedArray())
             }
             seed("accounts", mapOf("accountId" to "a", "active" to 1))
             seed("catalog_items", mapOf("mediaId" to "local", "origin" to "DEVICE", "sourceRevision" to "local-rev", "isTrashed" to 0))

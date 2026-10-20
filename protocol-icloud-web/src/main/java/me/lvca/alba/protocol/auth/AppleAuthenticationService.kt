@@ -1,18 +1,5 @@
 package me.lvca.alba.protocol.auth
 
-import me.lvca.alba.protocol.account.AppleSessionSnapshot
-import me.lvca.alba.protocol.account.AppleSignInResult
-import me.lvca.alba.protocol.account.AccountTelemetry
-import me.lvca.alba.protocol.account.TwoFactorDelivery
-import me.lvca.alba.protocol.int
-import me.lvca.alba.protocol.text
-import me.lvca.alba.protocol.network.AppleClientProfile
-import me.lvca.alba.protocol.network.AppleHttpRequest
-import me.lvca.alba.protocol.network.AppleHttpResponse
-import me.lvca.alba.protocol.network.AppleHttpTransport
-import me.lvca.alba.protocol.network.AppleSessionHeaderTracker
-import java.util.Base64
-import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +13,20 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import me.lvca.alba.protocol.account.AccountTelemetry
+import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.account.AppleSignInResult
+import me.lvca.alba.protocol.account.TwoFactorDelivery
+import me.lvca.alba.protocol.int
+import me.lvca.alba.protocol.network.AppleClientProfile
+import me.lvca.alba.protocol.network.AppleHttpRequest
+import me.lvca.alba.protocol.network.AppleHttpResponse
+import me.lvca.alba.protocol.network.AppleHttpTransport
+import me.lvca.alba.protocol.network.AppleSessionHeaderTracker
+import me.lvca.alba.protocol.text
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import java.util.Base64
+import java.util.UUID
 
 class AppleAuthenticationService internal constructor(
     transport: AppleHttpTransport,

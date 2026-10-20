@@ -1,12 +1,12 @@
 package me.lvca.alba.app.demo
 
-import me.lvca.alba.engine.model.TransferViewState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
+import me.lvca.alba.engine.model.TransferViewState
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -80,5 +80,4 @@ class DemoBackupTest {
             assertTrue(demo.transfers.value.isEmpty())
         } finally { scope.cancel() }
     }
-
 }

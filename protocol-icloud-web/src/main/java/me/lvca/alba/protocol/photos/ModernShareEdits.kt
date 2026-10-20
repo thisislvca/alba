@@ -1,12 +1,12 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.SharedAction
 import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.protocol.array
 import me.lvca.alba.protocol.obj
 import me.lvca.alba.protocol.text
 import java.util.UUID
-import kotlinx.serialization.json.*
 
 /**
  * The `cloudkit.share` properties a sharing command rewrites. Each value starts from the share as it
@@ -54,12 +54,10 @@ internal object ModernShareEdits {
                         put("requesters", JsonArray(requests - target))
                         put("blocked", JsonArray(share.array("blocked") + buildJsonObject { put("blockedInformation", identity) }))
                     } else {
-                        put("participants", JsonArray(participants + SharedParticipants.invitedContributor(
-                            pending.getValue("recordName"), SharedParticipants.lookupInfo(identity), approvedRequester = true)))
+                        put("participants", JsonArray(participants + SharedParticipants.invitedContributor(pending.getValue("recordName"), SharedParticipants.lookupInfo(identity), approvedRequester = true)))
                     }
                 }
-                SharedAction.INVITE -> put("participants", JsonArray(participants + SharedParticipants.invitedContributor(
-                    pending.getValue("recordName"), buildJsonObject { put("emailAddress", command.value) }, approvedRequester = true)))
+                SharedAction.INVITE -> put("participants", JsonArray(participants + SharedParticipants.invitedContributor(pending.getValue("recordName"), buildJsonObject { put("emailAddress", command.value) }, approvedRequester = true)))
                 SharedAction.REMOVE_PARTICIPANT, SharedAction.ROLE -> {
                     val target = participants.first { it.text("participantId") == command.subject }
                     require(target.text("type") != "OWNER")

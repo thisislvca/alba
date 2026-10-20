@@ -9,8 +9,8 @@ import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
 import me.lvca.alba.protocol.network.AppleSessionHeaders
-import java.util.concurrent.CopyOnWriteArrayList
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * What every iCloud Photos web-service caller shares: binding the shared transport to the signed-in

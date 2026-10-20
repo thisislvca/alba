@@ -10,8 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.protocol.account.ICloudAccountState
-import me.lvca.alba.protocol.account.SessionStatus
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.ui.designsystem.AlbaCard
@@ -20,6 +18,8 @@ import me.lvca.alba.app.ui.designsystem.AlbaFact
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.timestampLabel
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 
 /** Useful connection facts live on the overview rather than behind another destination. */
 @Composable
@@ -64,4 +64,3 @@ internal fun AccountDiagnostics(state: SessionState, check: () -> Unit) {
         }
     }
 }
-

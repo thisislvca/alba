@@ -1,5 +1,6 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.SharedAccessRequest
 import me.lvca.alba.engine.model.SharedAction
@@ -21,7 +22,6 @@ import me.lvca.alba.protocol.text
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.util.UUID
-import kotlinx.serialization.json.*
 
 /** Shared albums stored as CloudKit zones and shared through a `cloudkit.share` record. */
 internal class ModernSharedAlbums(

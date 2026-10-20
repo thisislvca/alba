@@ -1,28 +1,27 @@
 package me.lvca.alba.app.ui.collections
 
-import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.style.TextOverflow
-import me.lvca.alba.engine.model.*
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.ui.designsystem.AlbaCard
@@ -34,9 +33,12 @@ import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.mosaicCell
 import me.lvca.alba.app.ui.localizedTitle
+import me.lvca.alba.engine.model.*
 
 internal enum class CollectionsPage(val title: Int) {
-    ALBUMS(R.string.albums), SHARED(R.string.shared_albums), DEVICE(R.string.on_this_phone)
+    ALBUMS(R.string.albums),
+    SHARED(R.string.shared_albums),
+    DEVICE(R.string.on_this_phone)
 }
 
 @Composable

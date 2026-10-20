@@ -1,6 +1,7 @@
 package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.CancellationException
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.AssetLinkEntity
 import me.lvca.alba.engine.database.ReconciliationMatchEntity
@@ -20,7 +21,6 @@ import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
 import java.security.MessageDigest
 import java.util.UUID
-import kotlinx.coroutines.CancellationException
 
 /**
  * Looks for an uncertain upload in iCloud by exact bytes. One exact match verifies it; several, or none by the

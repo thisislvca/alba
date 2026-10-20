@@ -1,10 +1,10 @@
 package me.lvca.alba.engine.repository
 
-import java.io.File
-import java.security.MessageDigest
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
+import java.security.MessageDigest
 
 class SharedUploadPreparationTest {
     @Test fun preparesOffCallerThreadAndExposesExactBytesOnlyOnce() = runBlocking {
@@ -29,5 +29,4 @@ class SharedUploadPreparationTest {
             Unit
         } finally { file.delete() }
     }
-
 }

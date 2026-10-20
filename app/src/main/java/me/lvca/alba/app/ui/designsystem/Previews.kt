@@ -11,7 +11,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import java.time.YearMonth
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.gallery.EmptyLibrary
@@ -19,6 +18,7 @@ import me.lvca.alba.app.ui.gallery.FloatingGalleryNavigation
 import me.lvca.alba.app.ui.gallery.FloatingGridDate
 import me.lvca.alba.app.ui.gallery.GalleryTab
 import me.lvca.alba.app.ui.gallery.MonthHeader
+import java.time.YearMonth
 
 /** Shows a preview in both of Alba's palettes. Keep preview functions private to their component's file. */
 @Preview(name = "Light", showBackground = true, widthDp = 360)

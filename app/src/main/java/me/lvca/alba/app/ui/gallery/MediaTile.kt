@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,18 +21,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.GalleryMedia
-import me.lvca.alba.engine.model.MediaAvailability
-import me.lvca.alba.engine.model.MediaKind
-import me.lvca.alba.engine.model.MediaOrigin
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.ui.res.painterResource
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.collections.coverReference
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
@@ -41,6 +37,10 @@ import me.lvca.alba.app.ui.designsystem.MediaScrim
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.tile
 import me.lvca.alba.app.ui.label
+import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.engine.model.MediaAvailability
+import me.lvca.alba.engine.model.MediaKind
+import me.lvca.alba.engine.model.MediaOrigin
 
 @Composable
 internal fun MediaTile(

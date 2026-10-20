@@ -1,19 +1,19 @@
 package me.lvca.alba.app.ui.transfers
 
-import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.lazy.items
-import me.lvca.alba.engine.model.*
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.ui.localized
+import me.lvca.alba.engine.model.*
 
 @Composable
 internal fun BatchProgress(batches: List<BatchItem>, items: List<GalleryMedia>, retry: (String) -> Unit, cancel: (String) -> Unit = {}) {

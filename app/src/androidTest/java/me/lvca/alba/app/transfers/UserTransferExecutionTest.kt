@@ -2,15 +2,8 @@ package me.lvca.alba.app.transfers
 
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
-import me.lvca.alba.engine.companion.BatchAction
-import me.lvca.alba.engine.model.BatchItemState
-import me.lvca.alba.engine.model.MediaAvailability
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.MainActivity
@@ -20,6 +13,13 @@ import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.work.UserTransferScheduler
 import me.lvca.alba.app.work.cancelUserTransfers
+import me.lvca.alba.engine.companion.BatchAction
+import me.lvca.alba.engine.model.BatchItemState
+import me.lvca.alba.engine.model.MediaAvailability
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Rule
+import org.junit.Test
 
 class UserTransferExecutionTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

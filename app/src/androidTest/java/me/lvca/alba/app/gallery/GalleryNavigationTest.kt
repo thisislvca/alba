@@ -2,12 +2,8 @@ package me.lvca.alba.app.gallery
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import me.lvca.alba.engine.model.MediaAvailability
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertTrue
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
@@ -20,6 +16,10 @@ import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilDisplayed
+import me.lvca.alba.engine.model.MediaAvailability
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
 
 class GalleryNavigationTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

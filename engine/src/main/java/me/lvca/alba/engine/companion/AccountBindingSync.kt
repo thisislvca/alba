@@ -1,6 +1,8 @@
 package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.lvca.alba.engine.database.AccountEntity
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.model.AccountBinding
@@ -10,8 +12,6 @@ import me.lvca.alba.engine.model.PhotoCompanionException
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.WakeupScheduler
 import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
  * Mirrors the protocol's signed-in destination into the single active account row. A new session bumps the

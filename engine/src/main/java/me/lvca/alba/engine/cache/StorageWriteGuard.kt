@@ -1,10 +1,10 @@
 package me.lvca.alba.engine.cache
 
+import kotlinx.coroutines.ensureActive
 import me.lvca.alba.engine.model.StoredMessage
 import java.io.IOException
 import java.io.OutputStream
 import kotlin.coroutines.CoroutineContext
-import kotlinx.coroutines.ensureActive
 
 class InsufficientStorageException : IOException(StoredMessage.PHONE_STORAGE_LOW.code)
 

@@ -1,24 +1,24 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
-import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
-import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import me.lvca.alba.protocol.network.AppleClientProfile
+import me.lvca.alba.protocol.network.AppleClientProfile.addUploadClientBuild
+import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
+import me.lvca.alba.protocol.text
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.time.Instant
 import java.time.ZoneId
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.serialization.json.*
-import me.lvca.alba.protocol.network.AppleClientProfile.addUploadClientBuild
-import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /** pyicloud 2.7.0 / Apple's photosupload protocol. One invocation, no write retries. */
 internal class PhotosUpload(

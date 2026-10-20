@@ -11,29 +11,29 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.res.stringResource
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.MediaPill
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 // Use a single half-circle: corner shapes can shrink their radii to this tab's narrow width.
 private val ScrubberTabShape = GenericShape { size, _ ->

@@ -1,14 +1,14 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.MediaKind
 import me.lvca.alba.engine.model.SmartCollection
 import me.lvca.alba.protocol.account.*
 import me.lvca.alba.protocol.network.*
-import java.io.OutputStream
-import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.OutputStream
 
 class LibraryEditingTest {
     private val session = AppleSessionSnapshot("test@example.invalid", "client", "IT", "session", "token", null,

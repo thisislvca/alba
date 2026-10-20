@@ -1,5 +1,11 @@
 package me.lvca.alba.app.demo
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import me.lvca.alba.engine.model.BackupDraft
 import me.lvca.alba.engine.model.BackupDraftId
 import me.lvca.alba.engine.model.BackupScope
@@ -8,12 +14,6 @@ import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
 import java.util.UUID
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 /** Sample-only walkthrough: no account, device photos, network, work scheduler, or durable upload queue. */
 internal class DemoBackup(

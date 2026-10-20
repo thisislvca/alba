@@ -3,10 +3,10 @@ package me.lvca.alba.engine.source
 import android.graphics.BitmapFactory
 import android.media.MediaExtractor
 import android.media.MediaFormat
-import java.io.File
-import java.io.RandomAccessFile
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import java.io.File
+import java.io.RandomAccessFile
 
 /** Checks the staged original, never a converted preview or a filename extension. */
 internal object UploadMediaValidator {

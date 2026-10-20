@@ -35,6 +35,7 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 internal enum class MediaScrimStrength(vararg val alphas: Float) {
     /** Grid tiles: just enough behind a duration or an offline badge. */
     Subtle(0f, .6f),
+
     /** Covers with titles: keeps the top of the photo clear, then darkens strongly behind the text. */
     Strong(0f, .12f, .85f),
 }

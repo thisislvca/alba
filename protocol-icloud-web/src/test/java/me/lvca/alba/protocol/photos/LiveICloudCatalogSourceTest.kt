@@ -1,5 +1,6 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.PersistedCookie
 import me.lvca.alba.protocol.auth.AppleProtocolError
@@ -7,15 +8,14 @@ import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
-import java.io.ByteArrayOutputStream
-import java.io.OutputStream
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.io.OutputStream
 
 class LiveICloudCatalogSourceTest {
     @Test
@@ -244,9 +244,7 @@ class LiveICloudCatalogSourceTest {
         val streamedUrls = mutableListOf<String>()
         private var page = 0
 
-
-        override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
-            return when {
+        override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse = when {
                 request.url.contains("requestWebAccessState") -> response(
                     "{\"isICDRSDisabled\":$webAccessDisabled}",
                 )
@@ -265,7 +263,6 @@ class LiveICloudCatalogSourceTest {
                 request.url.contains("/records/lookup") -> response("""{"records":[{"recordName":"asset-1","serverErrorCode":"NOT_FOUND"}]}""")
                 else -> error("Unexpected request: ${request.method} ${request.url}")
             }
-        }
 
         override suspend fun stream(url: String, output: OutputStream) {
             streamedUrls += url

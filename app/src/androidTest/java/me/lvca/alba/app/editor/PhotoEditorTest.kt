@@ -1,16 +1,13 @@
 package me.lvca.alba.app.editor
 
+import android.provider.MediaStore
 import androidx.compose.ui.semantics.SemanticsActions
-import kotlinx.coroutines.flow.first
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
-import kotlinx.coroutines.runBlocking
-import android.provider.MediaStore
 import androidx.test.espresso.Espresso
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
@@ -22,6 +19,9 @@ import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class PhotoEditorTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
@@ -41,7 +41,7 @@ class PhotoEditorTest {
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.viewer_edit)).performClick()
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(compose.activity.getString(R.string.square_crop)).performClick()
-        compose.onNodeWithText(compose.activity.getString(R.string.rotate_degrees,0)).performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.rotate_degrees, 0)).performClick()
         compose.onNodeWithTag("save-edited-copy").performClick()
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("incoming-media").assertIsDisplayed()

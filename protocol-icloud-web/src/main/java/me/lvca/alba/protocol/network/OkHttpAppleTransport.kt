@@ -1,16 +1,10 @@
 package me.lvca.alba.protocol.network
 
+import kotlinx.coroutines.suspendCancellableCoroutine
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.PersistedCookie
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
-import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.suspendCancellableCoroutine
-import okhttp3.Call
 import okhttp3.Authenticator
+import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -20,6 +14,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okio.Buffer
 import okio.source
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class OkHttpAppleTransport(
     private val cookieJar: PersistingCookieJar = PersistingCookieJar(),

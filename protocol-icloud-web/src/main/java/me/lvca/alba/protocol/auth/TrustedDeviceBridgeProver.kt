@@ -1,11 +1,11 @@
 package me.lvca.alba.protocol.auth
 
+import me.lvca.alba.protocol.sha256
+import me.lvca.alba.protocol.toHex
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import me.lvca.alba.protocol.sha256
-import me.lvca.alba.protocol.toHex
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64

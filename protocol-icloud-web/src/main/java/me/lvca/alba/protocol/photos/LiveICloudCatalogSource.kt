@@ -1,25 +1,6 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.engine.source.CloudCatalogPage
-import me.lvca.alba.engine.source.CloudCatalogSource
-import me.lvca.alba.engine.source.RemoteMediaRecord
-import me.lvca.alba.protocol.account.AppleSessionSnapshot
-import me.lvca.alba.protocol.fieldFlag
-import me.lvca.alba.protocol.fieldObject
-import me.lvca.alba.protocol.fieldInt
-import me.lvca.alba.protocol.fieldLong
-import me.lvca.alba.protocol.fieldText
-import me.lvca.alba.protocol.isRemovedFromLibrary
-import me.lvca.alba.protocol.recordName
-import me.lvca.alba.protocol.recordType
-import me.lvca.alba.protocol.auth.AppleProtocolError
-import me.lvca.alba.protocol.auth.AppleProtocolException
-import me.lvca.alba.protocol.network.AppleHttpRequest
-import me.lvca.alba.protocol.network.AppleHttpResponse
-import me.lvca.alba.protocol.network.AppleHttpTransport
-import java.io.OutputStream
-import java.util.Base64
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.serialization.json.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -29,12 +10,31 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
-import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
-import okhttp3.HttpUrl.Companion.toHttpUrl
-import me.lvca.alba.engine.source.*
 import me.lvca.alba.engine.model.*
+import me.lvca.alba.engine.source.*
+import me.lvca.alba.engine.source.CloudCatalogPage
+import me.lvca.alba.engine.source.CloudCatalogSource
+import me.lvca.alba.engine.source.RemoteMediaRecord
+import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.auth.AppleProtocolError
+import me.lvca.alba.protocol.auth.AppleProtocolException
+import me.lvca.alba.protocol.fieldFlag
+import me.lvca.alba.protocol.fieldInt
+import me.lvca.alba.protocol.fieldLong
+import me.lvca.alba.protocol.fieldObject
+import me.lvca.alba.protocol.fieldText
+import me.lvca.alba.protocol.isRemovedFromLibrary
+import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
+import me.lvca.alba.protocol.network.AppleHttpRequest
+import me.lvca.alba.protocol.network.AppleHttpResponse
+import me.lvca.alba.protocol.network.AppleHttpTransport
 import me.lvca.alba.protocol.network.AppleMediaHttpException
-import kotlinx.serialization.json.*
+import me.lvca.alba.protocol.recordName
+import me.lvca.alba.protocol.recordType
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import java.io.OutputStream
+import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 
 class LiveICloudCatalogSource(
     private val transport: AppleHttpTransport,
@@ -86,6 +86,7 @@ class LiveICloudCatalogSource(
             it["zoneID"]!!.jsonObject["zoneName"]!!.jsonPrimitive.content == PrimarySyncZone.NAME
         }["syncToken"]!!.jsonPrimitive.content
     }
+
     /** Maps [photo] to the engine record and remembers its signed download URLs. */
     private fun mapped(photo: CloudPhotoAsset, namespace: String = accountLabel): RemoteMediaRecord {
         val id = "icloud:$namespace:${photo.assetRecordName}"

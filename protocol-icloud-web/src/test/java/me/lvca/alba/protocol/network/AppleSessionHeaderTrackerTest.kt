@@ -1,12 +1,12 @@
 package me.lvca.alba.protocol.network
 
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.PersistedCookie
-import java.io.OutputStream
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.io.OutputStream
 
 class AppleSessionHeaderTrackerTest {
     @Test fun eachClientReadsOnlyItsOwnResponsesFromASharedTransport() = runBlocking {

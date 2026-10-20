@@ -1,14 +1,11 @@
 package me.lvca.alba.app.viewer
 
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.width
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.width
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.MainActivity
@@ -17,6 +14,9 @@ import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.scrollToGalleryMedia
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class PhotoTransitionTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

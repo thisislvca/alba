@@ -2,7 +2,13 @@ package me.lvca.alba.engine.model
 
 /** Progress of one photo in a user batch: keep offline, remove a cached copy, upload or save to the phone. */
 enum class BatchItemState {
-    WAITING, RUNNING, DONE, FAILED, NEEDS_ATTENTION, STOPPED, CANCELED;
+    WAITING,
+    RUNNING,
+    DONE,
+    FAILED,
+    NEEDS_ATTENTION,
+    STOPPED,
+    CANCELED;
 
     /** Still queued or running, so the batch can be canceled. */
     val isPending: Boolean get() = this == WAITING || this == RUNNING

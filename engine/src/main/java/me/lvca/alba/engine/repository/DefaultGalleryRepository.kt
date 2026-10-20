@@ -1,12 +1,24 @@
 package me.lvca.alba.engine.repository
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import me.lvca.alba.engine.cache.MediaFileCache
+import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.CatalogCheckpointEntity
 import me.lvca.alba.engine.database.CatalogItemEntity
 import me.lvca.alba.engine.database.CollectionEntity
 import me.lvca.alba.engine.database.CollectionMemberEntity
-import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.toEntity
 import me.lvca.alba.engine.database.toModel
 import me.lvca.alba.engine.model.*
@@ -20,18 +32,6 @@ import me.lvca.alba.engine.source.*
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.engine.source.DeviceCatalogSource
 import java.util.UUID
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.withPermit
 
 class DefaultGalleryRepository(
     private val database: AlbaDatabase,
@@ -383,7 +383,6 @@ class DefaultGalleryRepository(
 
         if (includeDeviceMedia) exclusiveCatalog { publishDeviceScan(deviceRecords, refreshedAt) }
 
-
         val account = cloudSource.accountLabel
         val scope = "icloud:$account"
         val oldItems = exclusiveCatalog {
@@ -461,7 +460,6 @@ class DefaultGalleryRepository(
             pruneResult.evictedPaths.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { paths ->
                 dao.clearPreviewPaths(paths); dao.clearViewerPaths(paths)
             }
-
         }
 
         RefreshSummary(

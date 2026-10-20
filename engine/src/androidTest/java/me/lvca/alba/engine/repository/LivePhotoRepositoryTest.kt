@@ -2,16 +2,16 @@ package me.lvca.alba.engine.repository
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.*
-import java.io.ByteArrayOutputStream
-import java.io.OutputStream
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.io.OutputStream
 
 class LivePhotoRepositoryTest {
     @Test fun offlineLivePhotoRetainsBothResourcesAndPlaybackUsesMotion() = runBlocking {

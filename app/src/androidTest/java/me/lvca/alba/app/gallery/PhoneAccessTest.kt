@@ -6,12 +6,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.testing.setAlbaContent
 import me.lvca.alba.protocol.account.ICloudAccountState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
-import me.lvca.alba.app.account.SessionState
-import me.lvca.alba.app.testing.setAlbaContent
 
 class PhoneAccessTest {
     @get:Rule

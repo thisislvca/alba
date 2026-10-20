@@ -1,14 +1,14 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.engine.source.CatalogResetRequired
-import me.lvca.alba.engine.model.*
-import me.lvca.alba.protocol.account.*
-import me.lvca.alba.protocol.network.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
-import java.io.*
+import me.lvca.alba.engine.model.*
+import me.lvca.alba.engine.source.CatalogResetRequired
+import me.lvca.alba.protocol.account.*
+import me.lvca.alba.protocol.network.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.*
 
 class CatalogFeaturesTest {
     private val session = AppleSessionSnapshot("test@example.com", "client", "IT", "session", "token", null,

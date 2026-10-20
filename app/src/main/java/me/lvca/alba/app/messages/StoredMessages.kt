@@ -1,7 +1,7 @@
 package me.lvca.alba.app.messages
 
-import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.app.R
+import me.lvca.alba.engine.model.StoredMessage
 
 /** Read both stable codes and pre-code journals without rewriting queued work. */
 internal fun localizedStoredMessage(message: String?, fallback: Int = R.string.operation_needs_attention): UiMessage =

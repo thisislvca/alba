@@ -3,8 +3,8 @@ package me.lvca.alba.protocol.photos
 import me.lvca.alba.engine.source.CloudCatalogPage
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
-import java.io.OutputStream
 import me.lvca.alba.protocol.fixture.isDemoId
+import java.io.OutputStream
 
 class AccountAwareICloudCatalogSource(
     private val demoSource: CloudCatalogSource,

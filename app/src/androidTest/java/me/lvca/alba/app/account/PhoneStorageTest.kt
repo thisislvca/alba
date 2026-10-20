@@ -3,12 +3,8 @@ package me.lvca.alba.app.account
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
-import me.lvca.alba.engine.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import org.junit.Assert.*
-import org.junit.Rule
-import org.junit.Test
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
@@ -17,6 +13,10 @@ import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.ui.account.PhoneStorageDetails
 import me.lvca.alba.app.ui.designsystem.AlbaPageScaffold
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.engine.model.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
 class PhoneStorageTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()

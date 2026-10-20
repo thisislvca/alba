@@ -1,9 +1,9 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.protocol.account.*
-import me.lvca.alba.protocol.network.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
+import me.lvca.alba.protocol.account.*
+import me.lvca.alba.protocol.network.*
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.OutputStream

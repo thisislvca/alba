@@ -1,16 +1,5 @@
 package me.lvca.alba.protocol.photos
 
-import me.lvca.alba.protocol.auth.AppleProtocolError
-import me.lvca.alba.protocol.auth.AppleProtocolException
-import me.lvca.alba.protocol.network.AppleEndpointPolicy
-import me.lvca.alba.protocol.field
-import me.lvca.alba.protocol.fieldInt
-import me.lvca.alba.protocol.fieldText
-import me.lvca.alba.protocol.text
-import java.nio.ByteBuffer
-import java.nio.charset.CodingErrorAction
-import java.time.Instant
-import java.util.Base64
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -20,6 +9,17 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
+import me.lvca.alba.protocol.auth.AppleProtocolError
+import me.lvca.alba.protocol.auth.AppleProtocolException
+import me.lvca.alba.protocol.field
+import me.lvca.alba.protocol.fieldInt
+import me.lvca.alba.protocol.fieldText
+import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.text
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.time.Instant
+import java.util.Base64
 
 internal data class CloudPhotoAsset(
     val assetRecordName: String,

@@ -42,16 +42,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
-import me.lvca.alba.engine.companion.BatchAction
-import me.lvca.alba.engine.model.GalleryMedia
-import me.lvca.alba.engine.model.GalleryQuery
-import me.lvca.alba.engine.model.LocalMediaCategory
-import me.lvca.alba.engine.model.SharedAlbumGeneration
-import me.lvca.alba.engine.model.SharedCommand
-import me.lvca.alba.engine.model.SystemConsentCallback
-import me.lvca.alba.engine.model.TransferId
-import me.lvca.alba.protocol.account.ICloudAccountState
-import me.lvca.alba.protocol.account.SessionStatus
 import me.lvca.alba.app.intake.IncomingRequest
 import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
@@ -74,6 +64,16 @@ import me.lvca.alba.app.ui.editor.PhotoEditorScreen
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 import me.lvca.alba.app.ui.onboarding.WelcomeScreen
 import me.lvca.alba.app.ui.shared.SharedInvitations
+import me.lvca.alba.engine.companion.BatchAction
+import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.engine.model.GalleryQuery
+import me.lvca.alba.engine.model.LocalMediaCategory
+import me.lvca.alba.engine.model.SharedAlbumGeneration
+import me.lvca.alba.engine.model.SharedCommand
+import me.lvca.alba.engine.model.SystemConsentCallback
+import me.lvca.alba.engine.model.TransferId
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 
 /** A confirmation or choice the root shows over the app. Only one is open at a time. */
 internal sealed interface RootDialog {
@@ -244,8 +244,7 @@ private fun AlbaMain(
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || items.isEmpty()) return
                 val uris = phoneTrashUris(items)?.map(Uri::parse) ?: return viewModel.localOperationFailed()
                 runCatching {
-                    phoneTrash.launch(IntentSenderRequest.Builder(
-                        MediaStore.createTrashRequest(context.contentResolver, uris, !restore).intentSender).build())
+                    phoneTrash.launch(IntentSenderRequest.Builder(MediaStore.createTrashRequest(context.contentResolver, uris, !restore).intentSender).build())
                 }.onFailure { viewModel.localOperationFailed() }
             }
 

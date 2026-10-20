@@ -1,34 +1,34 @@
 package me.lvca.alba.app.platform
 
+import android.content.ClipData
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.StatFs
+import android.provider.DocumentsContract
 import android.provider.MediaStore
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import me.lvca.alba.engine.cache.StorageWriteGuard
-import me.lvca.alba.engine.model.GalleryMedia
-import me.lvca.alba.engine.model.MediaKind
-import me.lvca.alba.engine.model.OriginalExporter
-import me.lvca.alba.engine.model.StoredMessage
-import java.io.OutputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
-import android.content.ClipData
-import android.content.Intent
-import android.os.StatFs
-import android.provider.DocumentsContract
-import androidx.core.content.FileProvider
+import me.lvca.alba.engine.cache.StorageWriteGuard
+import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.engine.model.MediaKind
+import me.lvca.alba.engine.model.MediaOrigin
+import me.lvca.alba.engine.model.OriginalExporter
+import me.lvca.alba.engine.model.StoredMessage
 import java.io.File
+import java.io.OutputStream
 import java.util.UUID
 import java.util.zip.Deflater
-import me.lvca.alba.engine.model.MediaOrigin
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /** Publishes new copies only; it never modifies the source or asks for broad storage access. */
 class GalleryExporter(context: Context, private val repository: OriginalExporter) {

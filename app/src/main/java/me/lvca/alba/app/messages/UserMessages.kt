@@ -4,9 +4,9 @@ import androidx.annotation.StringRes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import me.lvca.alba.app.R
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
-import me.lvca.alba.app.R
 
 /** The one transient message the UI shows. A newer message replaces an older one. */
 internal class UserMessages {

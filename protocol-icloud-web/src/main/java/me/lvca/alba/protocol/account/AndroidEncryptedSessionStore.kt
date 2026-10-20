@@ -2,9 +2,9 @@ package me.lvca.alba.protocol.account
 
 import android.content.Context
 import android.util.Base64
-import me.lvca.alba.protocol.crypto.KeystoreAesGcm
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import me.lvca.alba.protocol.crypto.KeystoreAesGcm
 
 class AndroidEncryptedSessionStore(
     context: Context,

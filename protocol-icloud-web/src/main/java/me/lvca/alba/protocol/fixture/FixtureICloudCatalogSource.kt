@@ -9,15 +9,15 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.CloudCatalogPage
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.engine.source.RemoteMediaRecord
-import java.io.OutputStream
-import me.lvca.alba.engine.model.*
 import java.io.File
 import java.io.InputStream
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import java.io.OutputStream
 import java.time.Instant
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -55,6 +55,7 @@ class FixtureICloudCatalogSource(
                     shared = me.lvca.alba.engine.model.SharedAlbumInfo(me.lvca.alba.engine.model.SharedAlbumGeneration.MODERN, me.lvca.alba.engine.model.SharedAlbumRole.OWNER, participantCount = 1)))
             }
     }
+
     // Reuse the compact bundled media while keeping stable, album-scoped identities.
     private val sharedFixtures = mutableMapOf<String, FixtureRecord>().apply {
         val photosByAlbum = listOf(
@@ -174,6 +175,7 @@ class FixtureICloudCatalogSource(
         invitations.remove(invitation)
         sharedDone += operationId
     }
+
     /** Copies are session-local and cannot create upload verification or reclaim eligibility. */
     override suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: OneShotUploadSource) {
         require(mediaId in sharedIds(mediaId.substringBeforeLast(':')))
@@ -277,8 +279,7 @@ class FixtureICloudCatalogSource(
         if (trashed) this.trashed.addAll(mediaIds) else this.trashed.removeAll(mediaIds.toSet())
     }
     override suspend fun recentlyDeleted() = personalRecords().filter { it.id in trashed }.map { it.copy(isTrashed = true) }
-    override suspend fun storageUsage() = me.lvca.alba.engine.model.CloudStorageUsage(
-        3_200_000_000, 5_000_000_000, listOf(me.lvca.alba.engine.model.StorageCategory("Photos", 2_800_000_000),
+    override suspend fun storageUsage() = me.lvca.alba.engine.model.CloudStorageUsage(3_200_000_000, 5_000_000_000, listOf(me.lvca.alba.engine.model.StorageCategory("Photos", 2_800_000_000),
             me.lvca.alba.engine.model.StorageCategory("Other", 400_000_000)), System.currentTimeMillis(), isDemo = true)
     override suspend fun writeMotion(mediaId: String, output: OutputStream) {
         require(requireFixture(mediaId).index == 20)
