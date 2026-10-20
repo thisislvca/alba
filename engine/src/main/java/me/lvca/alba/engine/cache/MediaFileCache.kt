@@ -48,6 +48,8 @@ class MediaFileCache(
             "original", "motion" -> originalRoot
             else -> canonicalRoot
         }
+        // Android may delete the cache directory itself when storage runs low, so recreate it per write.
+        check(directory.isDirectory || directory.mkdirs()) { "Could not create private media cache" }
         val destination = File(directory, "$stem-$variant.jpg")
         val temporary = File(directory, "$stem-$variant.tmp")
 
