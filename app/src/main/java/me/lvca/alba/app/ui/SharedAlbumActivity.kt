@@ -60,7 +60,7 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
                 Surface(shape = MaterialTheme.shapes.large, color = albaGroupColor()) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(if (post.isMine) stringResource(R.string.shared_you) else post.author, style = MaterialTheme.typography.titleSmall)
-                        if (post.timestamp > 0) Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(post.timestamp)), style = MaterialTheme.typography.labelMedium)
+                        if (post.timestamp > 0) Text(timestampLabel(post.timestamp), style = MaterialTheme.typography.labelMedium)
                         Text(post.caption.ifBlank { stringResource(R.string.shared_post_items) })
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             photos.mapNotNull(byId::get).take(4).forEach { item ->

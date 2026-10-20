@@ -13,12 +13,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.layout
@@ -58,7 +56,7 @@ internal fun FloatingGridDate(month: YearMonth?, dates: () -> Unit,
         animationSpec = if (reducedMotion) snap() else tween(160, easing = galleryEaseOut), label = "scroll-date-reveal")
     var lastMonth by remember { mutableStateOf(month) }
     SideEffect { if (month != null) lastMonth = month }
-    val locale = LocalConfiguration.current.locales[0]
+    val monthDescription = lastMonth?.let { monthLabel(it) }.orEmpty()
     val lift = with(LocalDensity.current) { 6.dp.toPx() }
     BoxWithConstraints(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)
         .testTag("floating-grid-controls")) {
@@ -71,10 +69,10 @@ internal fun FloatingGridDate(month: YearMonth?, dates: () -> Unit,
                     .then(if (month == null) Modifier.clearAndSetSemantics {} else Modifier)
                     .testTag("floating-date-button")) {
                 Crossfade(lastMonth, modifier = Modifier.clearAndSetSemantics {
-                    contentDescription = lastMonth?.format(DateTimeFormatter.ofPattern("MMMM yyyy", locale)).orEmpty()
+                    contentDescription = monthDescription
                 }, animationSpec = if (reducedMotion) snap() else tween(100, easing = galleryEaseOut), label = "scroll-month") { date ->
                     if (date != null) Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(date.format(DateTimeFormatter.ofPattern("MMMM", locale)), style = MaterialTheme.typography.titleMedium,
+                        Text(monthNameLabel(date), style = MaterialTheme.typography.titleMedium,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(date.year.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1)

@@ -224,7 +224,7 @@ private fun SharedDiscussionControls(id: String, title: String, post: Boolean, a
                     Surface(shape = MaterialTheme.shapes.medium, color = albaGroupColor()) {
                         Column(Modifier.fillMaxWidth().padding(14.dp)) {
                             Text(if (comment.isMine) stringResource(R.string.shared_you) else comment.author, style = MaterialTheme.typography.labelLarge)
-                            if (comment.timestamp > 0) Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(comment.timestamp)), style = MaterialTheme.typography.labelSmall)
+                            if (comment.timestamp > 0) Text(timestampLabel(comment.timestamp), style = MaterialTheme.typography.labelSmall)
                             Text(comment.text)
                             if (comment.canDelete) TextButton(onClick = { pending = SharedCommand(if (post) SharedAction.POST_DELETE_COMMENT else SharedAction.DELETE_COMMENT, id, comment.id) }, enabled = !busy) { Text(stringResource(R.string.shared_delete_comment)) }
                         }

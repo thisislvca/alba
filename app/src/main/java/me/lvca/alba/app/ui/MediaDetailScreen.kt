@@ -55,16 +55,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.sp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.LocalAlbaDarkTheme
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.roundToInt
 
@@ -273,7 +269,7 @@ internal fun MediaDetailScreen(
                     }
                     Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding()) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(timestampLabel(Instant.ofEpochMilli(media.capturedAtEpochMillis)), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                            Text(timestampLabel(media.capturedAtEpochMillis), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                             IconButton(onClick = { showDetails(false) }) { Icon(Icons.Outlined.Close, stringResource(R.string.close_details)) }
                         }
                         Spacer(Modifier.height(20.dp))
@@ -378,10 +374,6 @@ private fun ViewerTopBar(
     onToggleLoop: () -> Unit,
     onPlaybackSpeed: () -> Unit,
 ) {
-    val locale = LocalConfiguration.current.locales[0]
-    val date = remember(media.capturedAtEpochMillis, locale) {
-        Instant.ofEpochMilli(media.capturedAtEpochMillis).atZone(ZoneId.systemDefault())
-    }
     val colors = viewerColors()
     val ink = colors.secondary
     Box(Modifier.fillMaxWidth().background(colors.canvas).statusBarsPadding().height(64.dp)) {
@@ -390,9 +382,9 @@ private fun ViewerTopBar(
             Icon(Icons.AutoMirrored.Outlined.ArrowBack, backLabel, tint = ink)
         }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(date.format(DateTimeFormatter.ofPattern("MMM d", locale)), color = colors.foreground,
+            Text(dayMonthLabel(media.capturedAtEpochMillis), color = colors.foreground,
                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium))
-            Text(date.format(DateTimeFormatter.ofPattern("h:mm a", locale)), color = ink,
+            Text(timeLabel(media.capturedAtEpochMillis), color = ink,
                 style = MaterialTheme.typography.bodyMedium)
         }
         Row(Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)) {
