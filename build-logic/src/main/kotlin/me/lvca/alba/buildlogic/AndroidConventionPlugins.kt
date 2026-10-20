@@ -10,6 +10,7 @@ import org.gradle.kotlin.dsl.configure
 class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.android.application")
+        configureStaticAnalysis()
         extensions.configure<ApplicationExtension> {
             configureAndroidCommon(this)
             configureManagedDevices()
@@ -22,6 +23,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
 class AndroidLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.android.library")
+        configureStaticAnalysis()
         extensions.configure<LibraryExtension> {
             configureAndroidCommon(this)
             configureManagedDevices()
@@ -33,6 +35,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
 class AndroidTestConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.android.test")
+        configureStaticAnalysis()
         extensions.configure<TestExtension> {
             configureAndroidCommon(this)
             defaultConfig.targetSdk = TARGET_SDK

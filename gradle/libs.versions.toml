@@ -23,6 +23,9 @@ benchmark = "1.5.0"
 uiautomator = "2.3.0"
 exifinterface = "1.4.2"
 media3 = "1.11.1"
+detekt = "1.23.8"
+ktlint-gradle = "14.2.0"
+ktlint = "1.8.0"
 
 [libraries]
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
@@ -61,6 +64,8 @@ sentry-android = { module = "io.sentry:sentry-android", version.ref = "sentry" }
 # Build logic
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+detekt-gradlePlugin = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+ktlint-gradlePlugin = { module = "org.jlleitschuh.gradle:ktlint-gradle", version.ref = "ktlint-gradle" }
 
 [plugins]
 android-test = { id = "com.android.test", version.ref = "agp" }

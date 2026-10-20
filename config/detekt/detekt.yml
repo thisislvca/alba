@@ -1,0 +1,49 @@
+# Overrides on top of detekt's default config (buildUponDefaultConfig = true).
+# Existing findings live in each module's detekt-baseline.xml; see README "Static analysis".
+
+complexity:
+  LongMethod:
+    threshold: 120
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 10
+    ignoreDefaultParameters: true
+    ignoreAnnotated: ['Composable']
+  CyclomaticComplexMethod:
+    threshold: 20
+    ignoreSimpleWhenEntries: true
+  TooManyFunctions:
+    thresholdInFiles: 30
+    thresholdInClasses: 25
+    thresholdInInterfaces: 25
+    thresholdInObjects: 25
+    ignorePrivate: true
+  LargeClass:
+    threshold: 800
+  NestedBlockDepth:
+    threshold: 5
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    # Compose values such as `private val CardShape = ...` are PascalCase.
+    constantPattern: '[A-Z][A-Za-z0-9_]*'
+    privatePropertyPattern: '(_)?[A-Za-z][A-Za-z0-9]*'
+
+style:
+  MaxLineLength:
+    # ktlint's max-line-length (160, from .editorconfig) reports long lines.
+    active: false
+  WildcardImport:
+    active: false
+  MagicNumber:
+    excludes: ['**/test/**', '**/androidTest/**', '**/benchmark/**', '**/fixture/**']
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreAnnotated: ['Composable', 'Preview']
+  UnusedPrivateMember:
+    ignoreAnnotated: ['Preview']
+  ReturnCount:
+    max: 4
+    excludeGuardClauses: true

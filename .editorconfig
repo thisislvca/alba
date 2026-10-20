@@ -1,0 +1,49 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+max_line_length = 160
+
+# kotlin.code.style=official is IntelliJ's Kotlin style, which ktlint calls intellij_idea.
+ktlint_code_style = intellij_idea
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+
+# Composables are PascalCase functions.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# The codebase uses wildcard imports for Compose and model packages.
+ktlint_standard_no-wildcard-imports = disabled
+
+# Trailing commas and signature wrapping are left to the author.
+ktlint_standard_trailing-comma-on-call-site = disabled
+ktlint_standard_trailing-comma-on-declaration-site = disabled
+ktlint_standard_function-signature = disabled
+ktlint_standard_class-signature = disabled
+
+# The codebase is deliberately dense: short bodies and lambdas on one line, several arguments
+# per line, annotations on the declaration line and `catch`/`else` starting a new line.
+# These rules would rewrap most files, so they are off.
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_parameter-list-wrapping = disabled
+ktlint_standard_wrapping = disabled
+ktlint_standard_statement-wrapping = disabled
+ktlint_standard_function-literal = disabled
+ktlint_standard_binary-expression-wrapping = disabled
+ktlint_standard_multiline-if-else = disabled
+ktlint_standard_blank-line-between-when-conditions = disabled
+ktlint_standard_annotation = disabled
+ktlint_standard_spacing-between-declarations-with-annotations = disabled
+ktlint_standard_keyword-spacing = disabled
+ktlint_standard_indent = disabled
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
