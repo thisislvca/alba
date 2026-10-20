@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -45,8 +44,8 @@ internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) ->
                     listOf(80 to R.string.small, 100 to R.string.medium, 160 to R.string.large).forEachIndexed { index, (size, label) ->
                         val selected = density == size
                         Surface(Modifier.weight(1f), color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .09f) else Color.Transparent,
-                            shape = RoundedCornerShape(12.dp)) {
-                            Column(Modifier.clip(RoundedCornerShape(12.dp)).selectable(selected, role = Role.RadioButton, onClick = { changeDensity(size) })
+                            shape = MaterialTheme.shapes.small) {
+                            Column(Modifier.clip(MaterialTheme.shapes.small).selectable(selected, role = Role.RadioButton, onClick = { changeDensity(size) })
                                 .padding(horizontal = 4.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -132,12 +131,12 @@ private fun FilterSectionLabel(title: String) {
 
 @Composable
 private fun FilterDivider() {
-    HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+    AlbaDivider(Modifier.padding(vertical = 12.dp))
 }
 
 @Composable
 private fun FilterMenuRow(label: String, selected: Boolean, onClick: () -> Unit, icon: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).selectable(selected, role = Role.RadioButton, onClick = onClick)
+    Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraSmall).selectable(selected, role = Role.RadioButton, onClick = onClick)
         .heightIn(min = 48.dp).padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {

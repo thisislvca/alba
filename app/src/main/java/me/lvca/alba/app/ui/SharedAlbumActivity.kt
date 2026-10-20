@@ -65,7 +65,7 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             photos.mapNotNull(byId::get).take(4).forEach { item ->
                                 MediaThumbnail(item.previewReference, item.accentStartArgb, item.accentEndArgb, item.fileName,
-                                    Modifier.weight(1f).aspectRatio(1f).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).clickable { open(item.id) })
+                                    Modifier.weight(1f).aspectRatio(1f).clip(MaterialTheme.shapes.extraSmall).clickable { open(item.id) })
                             }
                         }
                         if (previewFailed) Text(stringResource(R.string.shared_action_failed), color = MaterialTheme.colorScheme.error)

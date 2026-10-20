@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.AlbaTheme
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.horizontalScroll
@@ -136,7 +137,7 @@ internal fun GalleryUiState.canEditLibrary() = (accountState == ICloudAccountSta
 
 @Composable
 internal fun ICloudIcon(@androidx.annotation.DrawableRes resource: Int) {
-    Icon(painterResource(resource), contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF009FFF), modifier = Modifier.size(24.dp))
+    Icon(painterResource(resource), contentDescription = null, tint = AlbaTheme.colors.accent, modifier = Modifier.size(24.dp))
 }
 
 internal fun SmartCollection.icon(): Int = when (this) {

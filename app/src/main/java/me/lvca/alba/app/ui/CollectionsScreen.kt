@@ -1,11 +1,11 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.mosaicCell
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -76,7 +76,7 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
             item(span = { GridItemSpan(maxLineSpan) }) {
                 AlbaGroup {
                     SmartCollection.entries.filter { it != SmartCollection.VIDEOS }.forEachIndexed { index, smart ->
-                        if (index > 0) HorizontalDivider(Modifier.padding(start = 60.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                        if (index > 0) AlbaDivider(Modifier.padding(start = 60.dp))
                         CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) }) { openCollection(smart.id) }
                     }
                 }
@@ -119,17 +119,17 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
 @Composable
 private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: GalleryUiState, preview: (String) -> Unit, tag: String, click: () -> Unit) {
     Column(Modifier.clickable(onClick = click).testTag(tag)) {
-        Surface(shape = RoundedCornerShape(16.dp), color = albaGroupColor()) {
+        Surface(shape = MaterialTheme.shapes.medium, color = albaGroupColor()) {
             if (covers.isEmpty()) Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
                 if (tag == "collection-device") Icon(AlbaIcons.PhoneAndroid, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 else Icon(androidx.compose.ui.res.painterResource(if (tag == "collection-videos") R.drawable.icloud_videos else R.drawable.icloud_albums), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             else if (covers.size == 1) CoverImage(covers.first(), state.previewRetryVersion, preview, Modifier.fillMaxWidth().aspectRatio(1f))
-            else Column(Modifier.fillMaxWidth().aspectRatio(1f).padding(4.dp).clip(RoundedCornerShape(12.dp)), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            else Column(Modifier.fillMaxWidth().aspectRatio(1f).padding(4.dp).clip(MaterialTheme.shapes.small), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 repeat(2) { row ->
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                         repeat(2) { col ->
-                            val cell = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(3.dp))
+                            val cell = Modifier.weight(1f).fillMaxHeight().clip(MaterialTheme.shapes.mosaicCell)
                             val cover = covers.getOrNull(row * 2 + col)
                             if (cover == null) Box(cell.background(MaterialTheme.colorScheme.surfaceContainerHigh))
                             else CoverImage(cover, state.previewRetryVersion, preview, cell)
@@ -144,7 +144,7 @@ private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: Gallery
 
 @Composable
 private fun ShortcutCard(title: String, modifier: Modifier, icon: @Composable () -> Unit, click: () -> Unit) {
-    Surface(onClick = click, modifier = modifier.fillMaxHeight(), shape = RoundedCornerShape(16.dp), color = albaGroupColor()) {
+    Surface(onClick = click, modifier = modifier.fillMaxHeight(), shape = MaterialTheme.shapes.medium, color = albaGroupColor()) {
         Row(Modifier.heightIn(min = 58.dp).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon() }
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
@@ -154,7 +154,7 @@ private fun ShortcutCard(title: String, modifier: Modifier, icon: @Composable ()
 
 @Composable
 internal fun CollectionRow(title: String, subtitle: String?, count: Int? = null, icon: @Composable () -> Unit, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { icon() }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)

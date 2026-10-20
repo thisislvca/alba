@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.tile
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateBounds
 import androidx.compose.animation.animateColorAsState
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -276,7 +276,7 @@ internal fun GalleryHome(
                                 if (!hero) Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 else Spacer(Modifier.weight(1f))
                             } else {
-                                Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(44.dp).clip(MaterialTheme.shapes.small), contentAlignment = Alignment.Center) {
                                     androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.alba_logo_mark), stringResource(R.string.brand_name), Modifier.size(44.dp))
                                 }
                                 if (!wide && tab == GalleryTab.LIBRARY) Spacer(Modifier.weight(1f))
@@ -340,7 +340,7 @@ internal fun GalleryHome(
                                 OutlinedTextField(state.query.filename, { change(state.query.copy(filename = it)) },
                                     label = { Text(stringResource(R.string.search_filenames)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
                                     trailingIcon = { if (state.query.filename.isNotEmpty()) IconButton(onClick = { change(state.query.copy(filename = "")) }) { Icon(Icons.Outlined.Close, stringResource(R.string.clear_search)) } },
-                                    singleLine = true, shape = RoundedCornerShape(28.dp),
+                                    singleLine = true, shape = MaterialTheme.shapes.extraLarge,
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("search-field"))
                             }
                             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -391,7 +391,7 @@ internal fun GalleryHome(
                     if (collapseHeader) FloatingGridDate(visibleMonth,
                         dates = { jump = true }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
                     if (!wide && state.selection.isNotEmpty()) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(12.dp)
-                        .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = RoundedCornerShape(28.dp), tonalElevation = 8.dp, shadowElevation = 8.dp) {
+                        .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = MaterialTheme.shapes.extraLarge, tonalElevation = 8.dp, shadowElevation = 8.dp) {
                         SelectionActions(state, selectAll, clear, batch, actions)
                     }
                     else if (!wide) FloatingGalleryNavigation(tab, { navigate(it) },
@@ -491,7 +491,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
         horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = PaddingValues(bottom = bottomSpace)) {
         if (permission) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
             Surface(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
-                shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+                shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Icon(AlbaIcons.PhoneAndroid, null, Modifier.padding(top = 2.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -553,7 +553,7 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
         }
         if (addMedia != null) item(key = "add-media") {
             Surface(onClick = addMedia, modifier = Modifier.aspectRatio(1f).testTag("album-add-media"),
-                shape = RoundedCornerShape(2.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                shape = MaterialTheme.shapes.tile, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }
             }
         }

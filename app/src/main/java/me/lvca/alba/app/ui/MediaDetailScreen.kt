@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.sheet
 import me.lvca.alba.app.ui.theme.viewerTitle
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -21,7 +22,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -56,7 +56,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import me.lvca.alba.app.R
-import me.lvca.alba.app.ui.theme.LocalAlbaDarkTheme
+import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
@@ -118,7 +118,7 @@ internal fun MediaDetailScreen(
     }) { id ->
         libraryActions.addToAlbum(id, listOf(media.id)); choosingAlbum = false
     }
-    val darkViewer = LocalAlbaDarkTheme.current
+    val darkViewer = AlbaTheme.colors.isDark
     val colors = viewerColors()
     BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
         val density = LocalDensity.current
@@ -261,10 +261,10 @@ internal fun MediaDetailScreen(
                 }
             }
             if (expanded) Surface(Modifier.fillMaxWidth().height(panelHeight).clipToBounds().testTag("photo-details-panel"),
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), color = colors.canvas, contentColor = colors.foreground) {
+                shape = MaterialTheme.shapes.sheet, color = colors.canvas, contentColor = colors.foreground) {
                 Column {
                     Box(Modifier.fillMaxWidth().height(32.dp).then(gesture).testTag("details-drag-handle"), contentAlignment = Alignment.Center) {
-                        Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = Color(0xFFDADCE6)) {}
+                        Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = AlbaTheme.colors.sheetHandle) {}
                     }
                     Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding()) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -284,7 +284,7 @@ internal fun MediaDetailScreen(
                         }
                         Spacer(Modifier.height(24.dp))
                         if (media.origin == MediaOrigin.ICLOUD) {
-                            Surface(shape = RoundedCornerShape(20.dp), color = colors.card, contentColor = colors.foreground) {
+                            Surface(shape = MaterialTheme.shapes.large, color = colors.card, contentColor = colors.foreground) {
                                 Column {
                                     if (!media.isShared) {
                                     DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,

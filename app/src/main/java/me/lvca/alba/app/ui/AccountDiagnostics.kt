@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.AlbaTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -7,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -34,10 +34,10 @@ internal fun AccountDiagnostics(state: GalleryUiState, check: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.connection), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 Box(Modifier.size(8.dp).background(if (signedIn?.status == SessionStatus.VERIFIED && state.network?.online == true)
-                    Color(0xFF268858) else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
+                    AlbaTheme.colors.success else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
             }
             Text(stringResource(status), style = MaterialTheme.typography.bodyMedium)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+            AlbaDivider()
             ConnectionFact(stringResource(R.string.profile_network), stringResource(when {
                 state.network == null -> R.string.checking_network
                 !state.network.online -> R.string.no_internet_connection

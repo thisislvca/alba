@@ -22,7 +22,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -238,8 +237,7 @@ private fun SignInForm(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
             modifier = Modifier.fillMaxWidth(),
         )
-        HorizontalDivider(Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
+        AlbaDivider(Modifier.padding(horizontal = 16.dp))
         TextField(
             value = password, onValueChange = onPasswordChange,
             label = { Text(stringResource(R.string.password)) },

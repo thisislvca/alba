@@ -10,7 +10,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -59,7 +58,7 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
                     transitionSpec = { fadeIn(tween(180, 80)).togetherWith(fadeOut(tween(100))) }, label = "welcome-page") { current ->
                     Column(Modifier.then(if (compact) Modifier.fillMaxWidth() else Modifier.fillMaxSize().verticalScroll(rememberScrollState()))
                         .padding(top = 24.dp, bottom = 20.dp)) {
-                        Surface(shape = RoundedCornerShape(28.dp),
+                        Surface(shape = MaterialTheme.shapes.extraLarge,
                             color = if (current == 0) Color.White else MaterialTheme.colorScheme.primaryContainer,
                             shadowElevation = if (current == 0) 1.dp else 0.dp,
                             modifier = Modifier.size(100.dp)) {

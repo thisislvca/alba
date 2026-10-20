@@ -21,7 +21,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -55,7 +55,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
 import me.lvca.alba.engine.source.MediaRead
-import me.lvca.alba.app.ui.theme.LocalAlbaDarkTheme
+import me.lvca.alba.app.ui.theme.AlbaTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.Locale
@@ -224,8 +224,8 @@ fun VideoPlayer(
             interactionSource = remember { MutableInteractionSource() }, indication = null,
         ) { overlayVisible = !overlayVisible })
         if (showPlaybackControls && (!isPlaying || overlayVisible || scrubbing)) {
-            val darkControls = LocalAlbaDarkTheme.current || isPlaying || controlsOnVideo
-            val ink = if (darkControls) Color(0xFFF4F4F4) else Color(0xFF30323A)
+            val darkControls = AlbaTheme.colors.isDark || isPlaying || controlsOnVideo
+            val ink = (if (darkControls) VideoControlsOnDark else VideoControlsOnLight).ink
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = navBottom + 76.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -283,7 +283,7 @@ fun VideoPlayer(
         dragHandle = {
             Box(Modifier.fillMaxWidth().height(26.dp), contentAlignment = Alignment.TopCenter) {
                 Surface(Modifier.padding(top = 8.dp).size(32.dp, 4.dp),
-                    shape = RoundedCornerShape(100), color = colors.secondary.copy(alpha = .5f)) {}
+                    shape = CircleShape, color = colors.secondary.copy(alpha = .5f)) {}
             }
         }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).navigationBarsPadding()) {
@@ -293,7 +293,7 @@ fun VideoPlayer(
                 listOf(.25f, .5f, 1f, 1.5f, 2f).forEach { value ->
                     Surface(onClick = { speed = value; player.setPlaybackSpeed(value); onDismissOptions() },
                         modifier = Modifier.weight(1f).height(44.dp),
-                        shape = RoundedCornerShape(12.dp), color = if (speed == value) MaterialTheme.colorScheme.primaryContainer else colors.canvas) {
+                        shape = MaterialTheme.shapes.small, color = if (speed == value) MaterialTheme.colorScheme.primaryContainer else colors.canvas) {
                         Box(contentAlignment = Alignment.Center) {
                             val label = when (value) { .25f -> "0.25X"; .5f -> "0.5X"; 1f -> "1X"; 1.5f -> "1.5X"; else -> "2X" }
                             Text(if (speed == value) "✓ $label" else label,
@@ -323,8 +323,9 @@ private fun VideoTimeline(
     onSeek: (Long) -> Unit,
     onSeekFinished: () -> Unit,
 ) {
-    val played = if (darkCanvas) Color(0xFFF4F4F4) else Color(0xFF30323A)
-    val remaining = if (darkCanvas) Color(0xFF929292) else Color(0xFF838489)
+    val controls = if (darkCanvas) VideoControlsOnDark else VideoControlsOnLight
+    val played = controls.ink
+    val remaining = controls.track
     val fraction = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     val beginSeek by rememberUpdatedState(onSeekStart)
     val seek by rememberUpdatedState(onSeek)

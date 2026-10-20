@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.tile
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -440,7 +441,7 @@ internal fun MediaTile(
                 this.selected = selected
                 contentDescription = description
             },
-        shape = RoundedCornerShape(2.dp),
+        shape = MaterialTheme.shapes.tile,
         tonalElevation = 1.dp,
     ) {
         Box {
@@ -577,7 +578,7 @@ internal fun DeviceUploadControls(
         if (uploadTransfer.state != TransferViewState.VERIFIED) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
+                shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ) {

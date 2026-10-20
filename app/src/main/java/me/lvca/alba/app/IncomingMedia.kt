@@ -1,5 +1,6 @@
 package me.lvca.alba.app
 
+import androidx.compose.foundation.shape.CornerSize
 import me.lvca.alba.engine.source.UploadMediaFormat
 import android.content.Context
 import android.content.Intent
@@ -126,7 +127,7 @@ internal fun IncomingMediaScreen(request: IncomingMediaRequest, state: GalleryUi
                     }
                     if (shareFailed) Text(stringResource(R.string.message_no_app_could_open_the_share_sheet), Modifier.padding(16.dp))
                     items?.takeIf { it.isNotEmpty() }?.let { loaded ->
-                        Column(Modifier.fillMaxWidth().background(Color(0xFF1C1C1E), androidx.compose.foundation.shape.RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)).navigationBarsPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.large.copy(bottomStart = CornerSize(0), bottomEnd = CornerSize(0))).navigationBarsPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (loaded.size > 1) Text(stringResource(R.string.incoming_position, pager.currentPage + 1, loaded.size))
                             val eligible = loaded.filter { UploadMediaFormat.isCandidate(it.mime) }
                             if (!request.savedCopy && loaded.any { it.failure == null && it.mime != null }) {

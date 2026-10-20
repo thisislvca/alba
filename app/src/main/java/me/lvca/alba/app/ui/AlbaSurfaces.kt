@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.sheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -82,7 +83,7 @@ internal fun AlbaBottomSheet(
             isAppearanceLightStatusBars = MaterialTheme.colorScheme.background.luminance() > .5f,
             isAppearanceLightNavigationBars = MaterialTheme.colorScheme.background.luminance() > .5f,
         ),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = MaterialTheme.shapes.sheet,
         // Scrolling bodies supply their own trailing navigation inset. Avoid clipping the
         // whole sheet above the gesture area, which creates an opaque rectangular shelf.
         contentWindowInsets = { WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal) },

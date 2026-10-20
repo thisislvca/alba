@@ -1,12 +1,14 @@
 package me.lvca.alba.app.ui
 
+import androidx.compose.ui.graphics.Color
+import me.lvca.alba.app.ui.theme.AlbaTheme
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asImageBitmap
@@ -17,6 +19,7 @@ import androidx.compose.ui.unit.dp
 /** Original vector geometry for Alba's account card. */
 @Composable
 internal fun ProfileArtwork(modifier: Modifier = Modifier) {
+    val palette = AlbaTheme.colors.profile
     Box(modifier.drawWithCache {
         val w = size.width
         val h = size.height
@@ -38,20 +41,20 @@ internal fun ProfileArtwork(modifier: Modifier = Modifier) {
             close()
         }
         val base = Brush.linearGradient(
-            0f to Color(0xFF9BCFFF),
-            .48f to Color(0xFFA18FFF),
-            1f to Color(0xFF2D43D2),
+            0f to palette.skyStart,
+            .48f to palette.skyMiddle,
+            1f to palette.skyEnd,
             start = Offset.Zero, end = Offset(w, h * .16f),
         )
         val plane = Brush.linearGradient(
-            0f to Color(0xFF62C2FF),
-            .30f to Color(0xFF388BE9),
-            .62f to Color(0xFF5364DE),
-            1f to Color(0xFF8750D6),
+            0f to palette.planeStart,
+            .30f to palette.planeAzure,
+            .62f to palette.planeIndigo,
+            1f to palette.planeEnd,
             start = Offset.Zero, end = Offset(w * .85f, h),
         )
         val facet = Brush.linearGradient(
-            listOf(Color(0xFF5B53E9).copy(alpha = .16f), Color(0xFF8270FF).copy(alpha = .02f)),
+            listOf(palette.facetStart, palette.facetEnd),
             start = Offset(w, 0f), end = Offset(w * .7f, h * .35f),
         )
         onDrawBehind {
@@ -63,7 +66,7 @@ internal fun ProfileArtwork(modifier: Modifier = Modifier) {
 }
 
 /** The 88 dp portrait and the central cloud dome share the exact same centre (44, 62). */
-internal fun Modifier.profileAvatarCloud(): Modifier = drawWithCache {
+internal fun Modifier.profileAvatarCloud(shadowColor: Color): Modifier = drawWithCache {
     val unit = 1.dp.toPx()
     fun oval(left: Float, top: Float, right: Float, bottom: Float) = Path().apply {
         addOval(Rect(left * unit, top * unit, right * unit, bottom * unit))
@@ -91,7 +94,7 @@ internal fun Modifier.profileAvatarCloud(): Modifier = drawWithCache {
         strokeWidth = 12.dp.toPx()
         maskFilter = android.graphics.BlurMaskFilter(7.dp.toPx(), android.graphics.BlurMaskFilter.Blur.NORMAL)
         shader = android.graphics.LinearGradient(0f, 0f, 0f, 118.dp.toPx(),
-            intArrayOf(0x55202D70, 0x00202D70), floatArrayOf(0f, 1f), android.graphics.Shader.TileMode.CLAMP)
+            intArrayOf(shadowColor.toArgb(), shadowColor.copy(alpha = 0f).toArgb()), floatArrayOf(0f, 1f), android.graphics.Shader.TileMode.CLAMP)
     }
     canvas.drawPath(cloud.asAndroidPath(), edgeShadow)
     val shadow = bitmap.asImageBitmap()

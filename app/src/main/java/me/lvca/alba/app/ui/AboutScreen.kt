@@ -87,8 +87,7 @@ internal fun AboutScreen(onBack: () -> Unit) {
                     limitations.forEachIndexed { index, label ->
                         Text(stringResource(label), Modifier.fillMaxWidth().padding(16.dp),
                             style = MaterialTheme.typography.bodyMedium)
-                        if (index < limitations.lastIndex) HorizontalDivider(Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
+                        if (index < limitations.lastIndex) AlbaDivider(Modifier.padding(horizontal = 16.dp))
                     }
                 }
             }
@@ -146,8 +145,7 @@ private fun AboutFeatureSection(title: Int, entries: List<AboutFeature>, subtitl
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                if (index < entries.lastIndex) HorizontalDivider(Modifier.padding(start = 50.dp, end = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
+                if (index < entries.lastIndex) AlbaDivider(Modifier.padding(start = 50.dp, end = 16.dp))
             }
         }
     }

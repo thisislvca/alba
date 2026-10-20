@@ -16,7 +16,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
@@ -186,7 +185,7 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
                     if (busy) CircularProgressIndicator()
                 }
                 // Explicit presets also make cropping usable without precise drag gestures.
-                FlowRow(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0xFF1C1C1E)).padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                FlowRow(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                     TextButton(enabled = !busy && edit.canUndo, onClick = edit::undo, modifier = Modifier.testTag("undo-edit")) { Text(stringResource(R.string.undo_edit)) }
                     TextButton(enabled = !busy && edit.dirty, onClick = { edit.change(EditStep()) }) { Text(stringResource(R.string.reset)) }
                     TextButton(enabled = !busy && preview != null, onClick = {

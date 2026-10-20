@@ -1,7 +1,6 @@
 package me.lvca.alba.app.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,7 +29,7 @@ internal fun PhotoMetadataCards(media: GalleryMedia, account: ICloudAccountState
         else -> stringResource(R.string.personal_icloud_library)
     }
     val number = NumberFormat.getNumberInstance(LocalConfiguration.current.locales[0]).apply { maximumFractionDigits = 1 }
-    Surface(shape = RoundedCornerShape(20.dp), color = colors.card, contentColor = colors.foreground, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = MaterialTheme.shapes.large, color = colors.card, contentColor = colors.foreground, modifier = Modifier.fillMaxWidth()) {
         Column {
             Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(when {
@@ -68,7 +67,7 @@ internal fun PhotoMetadataCards(media: GalleryMedia, account: ICloudAccountState
 @Composable
 private fun MetadataChip(label: String) {
     val colors = viewerColors()
-    Surface(shape = RoundedCornerShape(8.dp), color = colors.chip, contentColor = colors.secondary) {
+    Surface(shape = MaterialTheme.shapes.extraSmall, color = colors.chip, contentColor = colors.secondary) {
         Text(label, Modifier.padding(horizontal = 8.dp, vertical = 5.dp), style = MaterialTheme.typography.bodySmall)
     }
 }

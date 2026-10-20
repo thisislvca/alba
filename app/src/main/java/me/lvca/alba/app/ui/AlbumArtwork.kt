@@ -1,5 +1,7 @@
 package me.lvca.alba.app.ui
 
+import androidx.compose.ui.graphics.RectangleShape
+import me.lvca.alba.app.ui.theme.AlbaTheme
 import me.lvca.alba.app.ui.theme.heroTitle
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -8,7 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -108,7 +109,7 @@ internal fun AlbumCover(media: List<GalleryMedia>, retry: Int, preview: (String)
 internal fun OwnerAvatar(name: String?, modifier: Modifier = Modifier) {
     val description = name?.let { stringResource(R.string.shared_owner, it) }
     Surface(modifier.size(34.dp).then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
-        shape = CircleShape, color = Color(0xFFEEECE8), contentColor = Color(0xFF35383C), shadowElevation = 2.dp) {
+        shape = CircleShape, color = AlbaTheme.colors.avatar, contentColor = AlbaTheme.colors.onAvatar, shadowElevation = 2.dp) {
         Box(contentAlignment = Alignment.Center) {
             val initial = name?.trim()?.firstOrNull()?.uppercaseChar()?.toString()
             if (initial == null) Icon(Icons.Outlined.AccountCircle, null, Modifier.size(26.dp))
@@ -121,10 +122,10 @@ internal fun OwnerAvatar(name: String?, modifier: Modifier = Modifier) {
 internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, retry: Int,
     preview: (String) -> Unit, modifier: Modifier = Modifier, featured: Boolean = false, open: () -> Unit) {
     Surface(onClick = open, modifier = modifier.testTag("${if (album.shared != null) "shared-" else ""}album-${album.id}"),
-        shape = if (featured) RoundedCornerShape(16.dp) else androidx.compose.ui.graphics.RectangleShape,
+        shape = if (featured) MaterialTheme.shapes.medium else RectangleShape,
         color = MaterialTheme.colorScheme.background) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(RoundedCornerShape(16.dp))) {
+            Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(MaterialTheme.shapes.medium)) {
                 AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), coverMediaId = album.coverMediaId)
                 if (album.shared != null) OwnerAvatar(album.shared?.ownerName, Modifier.align(Alignment.TopStart).padding(10.dp))
                 if (featured) {
