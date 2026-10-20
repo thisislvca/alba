@@ -4,6 +4,7 @@ import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
@@ -86,7 +87,7 @@ internal class PhotosUpload(
             put("zoneName", zoneName)
             putJsonObject("assets") { put(clientId, source.byteCount) }
         }).objectBody()
-        val target = (reservation["uploadUrls"] as? JsonObject)?.string(clientId)
+        val target = (reservation["uploadUrls"] as? JsonObject)?.text(clientId)
             ?: malformed("Apple did not reserve the requested upload")
         save("RESERVED", mapOf("target" to JsonPrimitive(target)))
         }
@@ -108,7 +109,7 @@ internal class PhotosUpload(
         val receipt = uploaded.objectBody()["singleFile"] as? JsonObject
             ?: malformed("Apple returned no upload receipt")
         if ((receipt["size"] as? JsonPrimitive)?.longOrNull != source.byteCount ||
-            listOf("referenceChecksum", "fileChecksum", "wrappingKey", "receipt").any { receipt.string(it).isNullOrBlank() }) {
+            listOf("referenceChecksum", "fileChecksum", "wrappingKey", "receipt").any { receipt.text(it).isNullOrBlank() }) {
             malformed("Apple returned an incomplete or mismatched upload receipt")
         }
         save("RECEIPT_SAVED", mapOf("receipt" to receipt))
@@ -144,12 +145,12 @@ internal class PhotosUpload(
         }
         val acceptance = UploadAcceptance(
             requestUuid = null,
-            masterRecordName = result.string("cplMaster")?.takeIf(String::isNotBlank)
+            masterRecordName = result.text("cplMaster")?.takeIf(String::isNotBlank)
                 ?: malformed("Apple returned no master record name"),
-            assetRecordName = result.string("cplAsset")?.takeIf(String::isNotBlank)
+            assetRecordName = result.text("cplAsset")?.takeIf(String::isNotBlank)
                 ?: malformed("Apple returned no asset record name"),
             duplicateHint = status == 409,
-            uploadJobId = result.string("uploadJobId")?.takeIf(String::isNotBlank),
+            uploadJobId = result.text("uploadJobId")?.takeIf(String::isNotBlank),
         )
         save("ACCEPTED", mapOf("result" to result))
         return acceptance
@@ -187,7 +188,6 @@ internal class PhotosUpload(
     private suspend fun AppleHttpResponse.objectBody() = elementBody() as? JsonObject
         ?: malformed("Apple returned an invalid upload response")
 
-    private fun JsonObject.string(key: String) = (this[key] as? JsonPrimitive)?.contentOrNull
     private fun malformed(message: String): Nothing =
         throw AppleProtocolException(AppleProtocolError.MALFORMED_RESPONSE, message)
     companion object { val RESUMABLE = setOf("RESERVING", "RESERVED", "RECEIPT_SAVED", "ACCEPTED") }

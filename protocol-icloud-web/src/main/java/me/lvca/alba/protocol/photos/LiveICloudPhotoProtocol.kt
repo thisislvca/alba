@@ -12,6 +12,13 @@ import me.lvca.alba.engine.model.RemoteRecordRef
 import me.lvca.alba.engine.model.UploadProcessingStatus
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.array
+import me.lvca.alba.protocol.boolean
+import me.lvca.alba.protocol.fieldObject
+import me.lvca.alba.protocol.isTombstone
+import me.lvca.alba.protocol.long
+import me.lvca.alba.protocol.obj
+import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
@@ -26,11 +33,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -78,9 +81,9 @@ class LiveICloudPhotoProtocol(
         ).jsonObject("Apple returned an invalid Photos zone response")
         val zone = response.array("zones")
             .mapNotNull { it as? JsonObject }
-            .firstOrNull { it.obj("zoneID")?.string("zoneName") == PRIMARY_ZONE_NAME }
+            .firstOrNull { it.obj("zoneID")?.text("zoneName") == PRIMARY_ZONE_NAME }
             ?: throw unavailable("Apple did not return the Personal Library zone")
-        return zone.string("syncToken")
+        return zone.text("syncToken")
             ?: throw unavailable("Apple did not return a Photos change token")
     }
 
@@ -192,25 +195,25 @@ class LiveICloudPhotoProtocol(
             ?: throw unavailable("Apple returned no Personal Library changes")
         val changedRecords = zone.array("records").mapNotNull { it as? JsonObject }
         val changedAssets = changedRecords.filter {
-            it.string("recordType") == ASSET_RECORD_TYPE && !it.recordDeleted()
+            it.text("recordType") == ASSET_RECORD_TYPE && !it.isTombstone()
         }
         val changedCandidateNames = linkedSetOf<Pair<String, String>>()
         val unresolvedAssetNames = changedAssets.mapNotNull { asset ->
-            asset.string("recordName")
-                ?.takeIf { asset.fieldObject("masterRef")?.string("recordName") == null }
+            asset.text("recordName")
+                ?.takeIf { asset.fieldObject("masterRef")?.text("recordName") == null }
         }
         val resolvedAssetsByName = lookupRecordsInBatches(session, unresolvedAssetNames)
             .asSequence()
-            .filter { it.string("recordType") == ASSET_RECORD_TYPE }
-            .mapNotNull { asset -> asset.string("recordName")?.let { it to asset } }
+            .filter { it.text("recordType") == ASSET_RECORD_TYPE }
+            .mapNotNull { asset -> asset.text("recordName")?.let { it to asset } }
             .toMap()
 
         changedAssets.forEach { asset ->
-            val assetName = asset.string("recordName") ?: return@forEach
-            val masterName = asset.fieldObject("masterRef")?.string("recordName")
+            val assetName = asset.text("recordName") ?: return@forEach
+            val masterName = asset.fieldObject("masterRef")?.text("recordName")
                 ?: resolvedAssetsByName[assetName]
                     ?.fieldObject("masterRef")
-                    ?.string("recordName")
+                    ?.text("recordName")
             if (masterName != null) {
                 val names = masterName to assetName
                 candidateNames += names
@@ -225,7 +228,7 @@ class LiveICloudPhotoProtocol(
             }
         }
         val hydratedRecords = lookupRecordsInBatches(session, namesToHydrate).associateBy { record ->
-            RecordIdentity(record.string("recordType"), record.string("recordName"))
+            RecordIdentity(record.text("recordType"), record.text("recordName"))
         }
         val candidates = candidateNames.mapNotNull { names ->
             val (masterName, assetName) = names
@@ -237,7 +240,7 @@ class LiveICloudPhotoProtocol(
         }
         return CandidatePage(
             candidates = candidates,
-            nextChangeToken = zone.string("syncToken"),
+            nextChangeToken = zone.text("syncToken"),
             moreComing = zone.boolean("moreComing") ?: false,
         )
     }
@@ -257,8 +260,8 @@ class LiveICloudPhotoProtocol(
         require(hydrated.originalResourceIdentity == pair.originalResourceIdentity) {
             "The iCloud original changed before verification"
         }
-        val master = records.first { it.string("recordType") == MASTER_RECORD_TYPE }
-        val downloadUrl = master.fieldObject(ORIGINAL_RESOURCE_KEY)?.string("downloadURL")
+        val master = records.first { it.text("recordType") == MASTER_RECORD_TYPE }
+        val downloadUrl = master.fieldObject(ORIGINAL_RESOURCE_KEY)?.text("downloadURL")
             ?: throw unavailable("The iCloud original resource is unavailable")
         AppleEndpointPolicy.requireAllowed(downloadUrl)
         val counting = CountingOutputStream(output)
@@ -273,7 +276,7 @@ class LiveICloudPhotoProtocol(
         assetName: String,
     ): RemotePairCandidate? = parseHydratedPair(
         records.associateBy { record ->
-            RecordIdentity(record.string("recordType"), record.string("recordName"))
+            RecordIdentity(record.text("recordType"), record.text("recordName"))
         },
         masterName,
         assetName,
@@ -286,17 +289,17 @@ class LiveICloudPhotoProtocol(
     ): RemotePairCandidate? {
         val master = records[RecordIdentity(MASTER_RECORD_TYPE, masterName)] ?: return null
         val asset = records[RecordIdentity(ASSET_RECORD_TYPE, assetName)] ?: return null
-        val masterTag = master.string("recordChangeTag") ?: return null
-        val assetTag = asset.string("recordChangeTag") ?: return null
-        val relation = asset.fieldObject("masterRef")?.string("recordName") == masterName
-        val masterDeleted = master.recordDeleted()
-        val assetDeleted = asset.recordDeleted()
+        val masterTag = master.text("recordChangeTag") ?: return null
+        val assetTag = asset.text("recordChangeTag") ?: return null
+        val relation = asset.fieldObject("masterRef")?.text("recordName") == masterName
+        val masterDeleted = master.isTombstone()
+        val assetDeleted = asset.isTombstone()
         val resource = master.fieldObject(ORIGINAL_RESOURCE_KEY) ?: return null
         val resourceFingerprint = listOfNotNull(
-            resource.string("fileChecksum"),
-            resource.string("referenceChecksum"),
+            resource.text("fileChecksum"),
+            resource.text("referenceChecksum"),
             resource.long("size")?.toString(),
-            resource.string("wrappingKey"),
+            resource.text("wrappingKey"),
         ).joinToString(":")
         val resourceIdentity = ICloudAccountIdentity.stableId(
             masterName,
@@ -438,23 +441,6 @@ class LiveICloudPhotoProtocol(
     private fun AppleHttpResponse.jsonObject(message: String): JsonObject = runCatching {
         json.parseToJsonElement(body) as? JsonObject
     }.getOrNull() ?: throw AppleProtocolException(AppleProtocolError.MALFORMED_RESPONSE, message)
-
-    private fun JsonObject.array(name: String): JsonArray = this[name] as? JsonArray ?: JsonArray(emptyList())
-
-    private fun JsonObject.obj(name: String): JsonObject? = this[name] as? JsonObject
-
-    private fun JsonObject.string(name: String): String? = (this[name] as? JsonPrimitive)?.contentOrNull
-
-    private fun JsonObject.long(name: String): Long? = (this[name] as? JsonPrimitive)?.longOrNull
-
-    private fun JsonObject.boolean(name: String): Boolean? = (this[name] as? JsonPrimitive)?.booleanOrNull
-
-    private fun JsonObject.fieldObject(name: String): JsonObject? =
-        (((this["fields"] as? JsonObject)?.get(name) as? JsonObject)?.get("value") as? JsonObject)
-
-    private fun JsonObject.recordDeleted(): Boolean = boolean("deleted") == true ||
-        string("deleted") == "true" ||
-        runCatching { this["deleted"]?.jsonPrimitive?.longOrNull == 1L }.getOrDefault(false)
 
     private fun safeFileName(value: String): String {
         val cleaned = value.substringAfterLast('/').substringAfterLast('\\')

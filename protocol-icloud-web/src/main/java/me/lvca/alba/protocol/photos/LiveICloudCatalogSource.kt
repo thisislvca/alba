@@ -4,6 +4,16 @@ import me.lvca.alba.engine.source.CloudCatalogPage
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.engine.source.RemoteMediaRecord
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.field
+import me.lvca.alba.protocol.fieldFlag
+import me.lvca.alba.protocol.fieldObject
+import me.lvca.alba.protocol.fieldInt
+import me.lvca.alba.protocol.fieldLong
+import me.lvca.alba.protocol.fieldText
+import me.lvca.alba.protocol.isRemovedFromLibrary
+import me.lvca.alba.protocol.recordName
+import me.lvca.alba.protocol.recordType
+import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleClientProfile
@@ -104,10 +114,6 @@ class LiveICloudCatalogSource(
             put("zoneID", zone()); putJsonArray("records") { batch.forEach { add(buildJsonObject { put("recordName", it) }) } }
         })["records"]!!.jsonArray.map { it.jsonObject }
     }
-    private fun JsonObject.field(name: String): JsonElement? = ((get("fields") as? JsonObject)?.get(name) as? JsonObject)?.get("value")
-    private fun JsonObject.name() = get("recordName")?.jsonPrimitive?.contentOrNull
-    private fun JsonObject.deleted() = get("deleted")?.jsonPrimitive?.content in setOf("true", "1") ||
-        field("isDeleted")?.jsonPrimitive?.content in setOf("true", "1") || field("isHidden")?.jsonPrimitive?.content in setOf("true", "1")
     private fun mapped(photo: CloudPhotoAsset): RemoteMediaRecord {
         val id = "icloud:${accountLabel}:${photo.assetRecordName}"
         downloads[id] = DownloadReferences(photo.previewDownloadUrl, photo.originalDownloadUrl, photo.playbackUrl, photo.motionDownloadUrl, photo.displayDownloadUrl)
@@ -118,10 +124,10 @@ class LiveICloudCatalogSource(
     private suspend fun hydrate(assetNames: Collection<String>, includeTrashed: Boolean = false): List<CloudPhotoAsset> {
         val assets = lookup(assetNames)
         if (assets.any { it["serverErrorCode"] != null }) throw CatalogResetRequired()
-        val masters = lookup(assets.mapNotNull { (it.field("masterRef") as? JsonObject)?.get("recordName")?.jsonPrimitive?.content })
+        val masters = lookup(assets.mapNotNull { it.fieldObject("masterRef")?.recordName() })
         if (masters.any { it["serverErrorCode"] != null }) throw CatalogResetRequired()
         val parsed = parser.parse(buildJsonObject { put("records", JsonArray(assets + masters)) }.toString(), includeTrashed).photos
-        if (parsed.size < assets.count { !it.deleted() }) throw CatalogResetRequired()
+        if (parsed.size < assets.count { !it.isRemovedFromLibrary() }) throw CatalogResetRequired()
         return parsed
     }
     override suspend fun changes(token: String, known: List<RemoteMediaRecord>): CloudChanges {
@@ -135,9 +141,9 @@ class LiveICloudCatalogSource(
         val changedAssets = mutableSetOf<String>()
         for (element in result["records"]!!.jsonArray) {
             val record = element.jsonObject
-            val name = record.name() ?: throw CatalogResetRequired()
-            val type = record["recordType"]?.jsonPrimitive?.content
-            if (record.deleted()) { deleted += name; continue }
+            val name = record.recordName() ?: throw CatalogResetRequired()
+            val type = record.recordType()
+            if (record.isRemovedFromLibrary()) { deleted += name; continue }
             when (type) {
                 "CPLAsset" -> changedAssets += name
                 "CPLMaster" -> {
@@ -180,7 +186,7 @@ class LiveICloudCatalogSource(
             })
             val records = page["records"]!!.jsonArray.map { it.jsonObject }
             result += records
-            logicalCount += records.count { it["recordType"]?.jsonPrimitive?.content in setOf("CPLAsset", "CPLContainerRelation") }
+            logicalCount += records.count { it.recordType() in setOf("CPLAsset", "CPLContainerRelation") }
             check(result.size <= 200_000) { "Collection is too large" }
             marker = page["continuationMarker"]?.jsonPrimitive?.contentOrNull
             val logicalLimit = if (type.contains("AssetAndMaster")) 100 else 200
@@ -197,14 +203,14 @@ class LiveICloudCatalogSource(
             val parent = pending.removeFirst()
             check(visited.add(parent)) { "Repeated album folder" }
             for (record in queryAll("CPLAlbumByPositionLive", if (parent == null) null else "parentId", parent)) {
-                if (record.deleted()) continue
-                val id = record.name() ?: continue
+                if (record.isRemovedFromLibrary()) continue
+                val id = record.recordName() ?: continue
                 if (albums.any { it.id == id }) continue
-                val encoded = record.field("albumNameEnc")?.jsonPrimitive?.contentOrNull ?: continue
+                val encoded = record.fieldText("albumNameEnc") ?: continue
                 val name = runCatching { String(Base64.getDecoder().decode(encoded), Charsets.UTF_8) }.getOrDefault(encoded)
-                val folder = record.field("albumType")?.jsonPrimitive?.intOrNull == 3
-                albums += GalleryCollection(id, name, record.field("parentId")?.jsonPrimitive?.contentOrNull ?: parent,
-                    folder, record.field("position")?.jsonPrimitive?.longOrNull ?: albums.size.toLong())
+                val folder = record.fieldInt("albumType") == 3
+                albums += GalleryCollection(id, name, record.fieldText("parentId") ?: parent,
+                    folder, record.fieldLong("position") ?: albums.size.toLong())
                 if (folder) pending.add(id)
             }
             check(albums.size < 10000)
@@ -213,16 +219,16 @@ class LiveICloudCatalogSource(
         fun id(name: String) = "icloud:$accountLabel:$name"
         for (album in albums.filterNot { it.isFolder }) {
             members[album.id] = queryAll("CPLContainerRelationLiveByAssetDate", "parentId", album.id, true)
-                .mapNotNull { it.field("itemId")?.jsonPrimitive?.contentOrNull?.let(::id) }.toSet()
+                .mapNotNull { it.fieldText("itemId")?.let(::id) }.toSet()
         }
         members[GalleryQuery.FAVORITES] = queryAll("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", "FAVORITE", true)
-            .filter { it["recordType"]?.jsonPrimitive?.content == "CPLAsset" }.mapNotNull { it.name()?.let(::id) }.toSet()
+            .filter { it.recordType() == "CPLAsset" }.mapNotNull { it.recordName()?.let(::id) }.toSet()
         for (smart in SmartCollection.entries) {
             albums += GalleryCollection(smart.id, smart.title, position = smart.ordinal.toLong())
             val records = if (smart == SmartCollection.BURSTS) queryAll("CPLBurstStackAssetAndMasterByAssetDate", ranked = true)
                 else queryAll("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", smart.appleFilter, true)
-            members[smart.id] = records.filter { it["recordType"]?.jsonPrimitive?.content == "CPLAsset" && !it.deleted() }
-                .mapNotNull { it.name()?.let(::id) }.toSet()
+            members[smart.id] = records.filter { it.recordType() == "CPLAsset" && !it.isRemovedFromLibrary() }
+                .mapNotNull { it.recordName()?.let(::id) }.toSet()
         }
         return CollectionSnapshot(albums, members)
     }
@@ -248,10 +254,10 @@ class LiveICloudCatalogSource(
         return id.removePrefix(prefix).also { require(it.isNotBlank() && ':' !in it) }
     }
     private suspend fun editableRecord(name: String, type: String): JsonObject = lookup(listOf(name)).single().also {
-        check(it["serverErrorCode"] == null && it["recordType"]?.jsonPrimitive?.content == type && !it.deleted()) {
+        check(it["serverErrorCode"] == null && it.recordType() == type && !it.isRemovedFromLibrary()) {
             "This item is no longer editable. Refresh the library."
         }
-        check(it["recordChangeTag"]?.jsonPrimitive?.contentOrNull != null) { "Apple omitted the edit version. Refresh the library." }
+        check(it.text("recordChangeTag") != null) { "Apple omitted the edit version. Refresh the library." }
     }
     private fun writeField(type: String, value: JsonElement) = buildJsonObject { put("type", type); put("value", value) }
     private fun operation(type: String, record: JsonObject) = buildJsonObject { put("operationType", type); put("record", record) }
@@ -263,8 +269,8 @@ class LiveICloudCatalogSource(
         checkIdentity(session)
         val results = root["records"]?.jsonArray?.map { it.jsonObject }.orEmpty()
         val expected = operations.map { it["record"]!!.jsonObject["recordName"]!!.jsonPrimitive.content }.toSet()
-        check(results.size == expected.size && results.all { it.name() in expected && it["serverErrorCode"] == null } &&
-            results.mapNotNull { it.name() }.toSet() == expected) {
+        check(results.size == expected.size && results.all { it.recordName() in expected && it["serverErrorCode"] == null } &&
+            results.mapNotNull { it.recordName() }.toSet() == expected) {
             "Apple did not confirm the edit. Refresh the library before trying again."
         }
         return results
@@ -276,7 +282,7 @@ class LiveICloudCatalogSource(
             put("recordName", name); put("recordType", "CPLAsset"); put("recordChangeTag", existing["recordChangeTag"]!!)
             putJsonObject("fields") { put("isFavorite", writeField("INT64", JsonPrimitive(if (favorite) 1 else 0))) }
         }))).single()
-        check(result.field("isFavorite")?.jsonPrimitive?.content == if (favorite) "1" else "0") {
+        check(result.fieldText("isFavorite") == if (favorite) "1" else "0") {
             "Favorite change was not confirmed. Refresh the library."
         }
     }
@@ -300,12 +306,12 @@ class LiveICloudCatalogSource(
     override suspend fun deleteAlbum(id: String) = authorizedEdit { session ->
         require(!id.startsWith("smart:"))
         val existing = editableRecord(id, "CPLAlbum")
-        check(existing.field("albumType")?.jsonPrimitive?.intOrNull == 0) { "Choose a personal album." }
+        check(existing.fieldInt("albumType") == 0) { "Choose a personal album." }
         val result = modify(session, listOf(operation("update", buildJsonObject {
             put("recordName", id); put("recordType", "CPLAlbum"); put("recordChangeTag", existing["recordChangeTag"]!!)
             putJsonObject("fields") { put("isDeleted", writeField("INT64", JsonPrimitive(1))) }
         }))).single()
-        check(result.field("isDeleted")?.jsonPrimitive?.content in setOf("1", "true")) {
+        check(result.fieldFlag("isDeleted")) {
             "Album deletion was not confirmed. Refresh before retrying."
         }
         Unit
@@ -313,7 +319,7 @@ class LiveICloudCatalogSource(
     override suspend fun renameAlbum(id: String, name: String) = authorizedEdit { session ->
         require(!id.startsWith("smart:"))
         val existing = editableRecord(id, "CPLAlbum")
-        check(existing.field("albumType")?.jsonPrimitive?.intOrNull == 0) { "Choose a personal album." }
+        check(existing.fieldInt("albumType") == 0) { "Choose a personal album." }
         modify(session, listOf(operation("update", buildJsonObject {
             put("recordName", id); put("recordType", "CPLAlbum"); put("recordChangeTag", existing["recordChangeTag"]!!)
             putJsonObject("fields") { put("albumNameEnc", albumName(name)) }
@@ -325,14 +331,14 @@ class LiveICloudCatalogSource(
         val names = mediaIds.distinct().map { mediaRecordName(it, session) }
         require(names.isNotEmpty() && names.size <= 50) { "Select up to 50 iCloud photos." }
         val album = editableRecord(id, "CPLAlbum")
-        check(album.field("albumType")?.jsonPrimitive?.intOrNull == 0) { "Choose a personal album." }
+        check(album.fieldInt("albumType") == 0) { "Choose a personal album." }
         val assets = lookup(names)
-        check(assets.size == names.size && assets.all { it["serverErrorCode"] == null && !it.deleted() && it["recordType"]?.jsonPrimitive?.content == "CPLAsset" }) { "Some photos are no longer available. Refresh the library." }
+        check(assets.size == names.size && assets.all { it["serverErrorCode"] == null && !it.isRemovedFromLibrary() && it.recordType() == "CPLAsset" }) { "Some photos are no longer available. Refresh the library." }
         // Deterministic relation IDs make checking an earlier uncertain request possible, without replaying it.
         val relations = names.associateBy { "$it-IN-$id" }
         val existing = lookup(relations.keys)
-        check(existing.all { it["serverErrorCode"] == null || it["serverErrorCode"]?.jsonPrimitive?.content == "NOT_FOUND" }) { "Could not check album membership." }
-        val present = existing.filter { it["serverErrorCode"] == null && !it.deleted() }.mapNotNull { it.name() }.toSet()
+        check(existing.all { it["serverErrorCode"] == null || it.text("serverErrorCode") == "NOT_FOUND" }) { "Could not check album membership." }
+        val present = existing.filter { it["serverErrorCode"] == null && !it.isRemovedFromLibrary() }.mapNotNull { it.recordName() }.toSet()
         val missing = relations.filterKeys { it !in present }
         if (missing.isNotEmpty()) modify(session, missing.map { (relation, name) -> operation("create", buildJsonObject {
             put("recordName", relation); put("recordType", "CPLContainerRelation")
@@ -370,8 +376,8 @@ class LiveICloudCatalogSource(
         checkIdentity(session)
         check(records.all { it["serverErrorCode"] == null })
         val parsed = parser.parse(buildJsonObject { put("records", JsonArray(records)) }.toString(), includeTrashed = true).photos
-        val expected = records.count { it["recordType"]?.jsonPrimitive?.content == "CPLAsset" &&
-            it.field("isHidden")?.jsonPrimitive?.content !in setOf("1", "true") && it.field("isExpunged")?.jsonPrimitive?.content !in setOf("1", "true") }
+        val expected = records.count { it.recordType() == "CPLAsset" &&
+            !it.fieldFlag("isHidden") && !it.fieldFlag("isExpunged") }
         check(parsed.size == expected) { "Recently Deleted was incomplete. Refresh to try again." }
         return parsed.filter { it.isTrashed }.map(::mapped)
     }
@@ -379,20 +385,20 @@ class LiveICloudCatalogSource(
     override suspend fun removeFromAlbum(id: String, mediaIds: List<String>) = authorizedEdit { session ->
         require(!id.startsWith("smart:"))
         val album = editableRecord(id, "CPLAlbum")
-        check(album.field("albumType")?.jsonPrimitive?.intOrNull == 0)
+        check(album.fieldInt("albumType") == 0)
         val names = mediaIds.distinct().map { mediaRecordName(it, session) }.toSet()
         require(names.size in 1..50)
         // Discover actual relation names; do not assume every client used our deterministic name.
         val relations = queryAll("CPLContainerRelationLiveByAssetDate", "parentId", id, true)
-            .filter { it.field("itemId")?.jsonPrimitive?.content in names }
+            .filter { it.fieldText("itemId") in names }
         check(relations.size <= 50)
-        val fresh = lookup(relations.mapNotNull { it.name() })
-        check(fresh.size == relations.size && fresh.mapNotNull { it.name() }.toSet() == relations.mapNotNull { it.name() }.toSet())
+        val fresh = lookup(relations.mapNotNull { it.recordName() })
+        check(fresh.size == relations.size && fresh.mapNotNull { it.recordName() }.toSet() == relations.mapNotNull { it.recordName() }.toSet())
         val operations = fresh.map { record ->
-            check(record["serverErrorCode"] == null && record["recordType"]?.jsonPrimitive?.content == "CPLContainerRelation")
-            check(record.field("containerId")?.jsonPrimitive?.content == id && record.field("itemId")?.jsonPrimitive?.content in names)
-            val tag = JsonPrimitive(checkNotNull(record["recordChangeTag"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }))
-            operation("delete", buildJsonObject { put("recordName", record.name()!!); put("recordType", "CPLContainerRelation"); put("recordChangeTag", tag) })
+            check(record["serverErrorCode"] == null && record.recordType() == "CPLContainerRelation")
+            check(record.fieldText("containerId") == id && record.fieldText("itemId") in names)
+            val tag = JsonPrimitive(checkNotNull(record.text("recordChangeTag")?.takeIf { it.isNotBlank() }))
+            operation("delete", buildJsonObject { put("recordName", record.recordName()!!); put("recordType", "CPLContainerRelation"); put("recordChangeTag", tag) })
         }
         if (operations.isNotEmpty()) {
             val result = modify(session, operations)
@@ -405,16 +411,16 @@ class LiveICloudCatalogSource(
         val names = mediaIds.distinct().map { mediaRecordName(it, session) }
         require(names.size in 1..50)
         val records = lookup(names)
-        check(records.mapNotNull { it.name() }.toSet() == names.toSet() && records.size == names.size)
+        check(records.mapNotNull { it.recordName() }.toSet() == names.toSet() && records.size == names.size)
         val operations = records.mapNotNull { record ->
-            check(record["serverErrorCode"] == null && record["fields"] is JsonObject && record["recordType"]?.jsonPrimitive?.content == "CPLAsset" &&
+            check(record["serverErrorCode"] == null && record["fields"] is JsonObject && record.recordType() == "CPLAsset" &&
                 record["deleted"]?.jsonPrimitive?.booleanOrNull != true &&
-                record.field("isExpunged")?.jsonPrimitive?.content !in setOf("1", "true") &&
-                record.field("isHidden")?.jsonPrimitive?.content !in setOf("1", "true")) { "This photo is no longer available. Refresh the library." }
-            val isTrashed = record.field("isDeleted")?.jsonPrimitive?.content in setOf("1", "true")
+                !record.fieldFlag("isExpunged") &&
+                !record.fieldFlag("isHidden")) { "This photo is no longer available. Refresh the library." }
+            val isTrashed = record.fieldFlag("isDeleted")
             if (isTrashed == trashed) return@mapNotNull null
             operation("update", buildJsonObject {
-                put("recordName", record.name()!!); put("recordType", "CPLAsset"); put("recordChangeTag", checkNotNull(record["recordChangeTag"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }))
+                put("recordName", record.recordName()!!); put("recordType", "CPLAsset"); put("recordChangeTag", checkNotNull(record.text("recordChangeTag")?.takeIf { it.isNotBlank() }))
                 putJsonObject("fields") {
                     // Apple clears the flags on recovery; it does not create another master/resource.
                     put("isDeleted", writeField("INT64", if (trashed) JsonPrimitive(1) else JsonNull))
@@ -424,15 +430,15 @@ class LiveICloudCatalogSource(
         }
         if (operations.isNotEmpty()) {
             val result = modify(session, operations)
-            check(result.all { (it.field("isDeleted")?.jsonPrimitive?.content in setOf("1", "true")) == trashed }) {
+            check(result.all { it.fieldFlag("isDeleted") == trashed }) {
                 "iCloud did not confirm the trash change. Refresh before retrying."
             }
             // A second read is required when a restore response omits nullable fields.
             val confirmed = lookup(operations.map { it["record"]!!.jsonObject["recordName"]!!.jsonPrimitive.content })
             val changedNames = operations.map { it["record"]!!.jsonObject["recordName"]!!.jsonPrimitive.content }.toSet()
-            check(confirmed.size == operations.size && confirmed.mapNotNull { it.name() }.toSet() == changedNames && confirmed.all { it["serverErrorCode"] == null && it["fields"] is JsonObject && it["recordType"]?.jsonPrimitive?.content == "CPLAsset" &&
-                it["deleted"]?.jsonPrimitive?.booleanOrNull != true && it.field("isExpunged")?.jsonPrimitive?.content !in setOf("1", "true") &&
-                (it.field("isDeleted")?.jsonPrimitive?.content in setOf("1", "true")) == trashed }) { "Refresh to confirm the iCloud result." }
+            check(confirmed.size == operations.size && confirmed.mapNotNull { it.recordName() }.toSet() == changedNames && confirmed.all { it["serverErrorCode"] == null && it["fields"] is JsonObject && it.recordType() == "CPLAsset" &&
+                it["deleted"]?.jsonPrimitive?.booleanOrNull != true && !it.fieldFlag("isExpunged") &&
+                it.fieldFlag("isDeleted") == trashed }) { "Refresh to confirm the iCloud result." }
         }
         checkIdentity(session)
     }
@@ -611,10 +617,7 @@ class LiveICloudCatalogSource(
             ?.let { it as? kotlinx.serialization.json.JsonArray }
             ?.firstOrNull()
             ?.let { it as? JsonObject }
-            ?.let { record ->
-                (((record["fields"] as? JsonObject)?.get("state") as? JsonObject)?.get("value")
-                    as? JsonPrimitive)?.contentOrNull
-            }
+            ?.fieldText("state")
         if (state != null && state != "FINISHED") {
             throw AppleProtocolException(
                 AppleProtocolError.PHOTOS_UNAVAILABLE,

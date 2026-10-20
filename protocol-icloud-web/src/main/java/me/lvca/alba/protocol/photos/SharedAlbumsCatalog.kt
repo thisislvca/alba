@@ -3,6 +3,8 @@ package me.lvca.alba.protocol.photos
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.*
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.field
+import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.sha256Hex
 import me.lvca.alba.protocol.network.*
 import java.io.OutputStream
@@ -1072,6 +1074,4 @@ internal class SharedAlbumsCatalog(
     private fun filter(name: String, value: JsonPrimitive, type: String) = buildJsonObject {
         put("fieldName", name); put("comparator", "EQUALS"); putJsonObject("fieldValue") { put("type", type); put("value", value) }
     }
-    private fun JsonObject.text(name: String) = (get(name) as? JsonPrimitive)?.contentOrNull
-    private fun JsonObject.field(name: String) = ((get("fields") as? JsonObject)?.get(name) as? JsonObject)?.get("value")
 }

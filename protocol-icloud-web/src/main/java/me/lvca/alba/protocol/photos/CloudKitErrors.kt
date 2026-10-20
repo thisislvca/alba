@@ -1,6 +1,6 @@
 package me.lvca.alba.protocol.photos
 
-import kotlinx.serialization.json.JsonArray
+import me.lvca.alba.protocol.array
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -30,5 +30,5 @@ internal object CloudKitErrors {
         (this["serverErrorCode"] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
     private fun JsonObject.entries(name: String): List<JsonObject> =
-        (this[name] as? JsonArray).orEmpty().filterIsInstance<JsonObject>()
+        array(name).filterIsInstance<JsonObject>()
 }

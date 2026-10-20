@@ -3,6 +3,7 @@ package me.lvca.alba.protocol.photos
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.sha256Hex
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import me.lvca.alba.protocol.network.AppleHttpResponse
@@ -109,5 +110,4 @@ internal class LegacySharedUpload(
         }
     }
 
-    private fun JsonObject.text(name: String) = (get(name) as? JsonPrimitive)?.contentOrNull
 }

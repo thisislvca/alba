@@ -9,6 +9,8 @@ import me.lvca.alba.protocol.account.TwoFactorDelivery
 import me.lvca.alba.protocol.account.accountOutcome
 import me.lvca.alba.protocol.account.cookieLifetimeMetrics
 import me.lvca.alba.protocol.account.elapsedSince
+import me.lvca.alba.protocol.int
+import me.lvca.alba.protocol.text
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
@@ -668,14 +670,10 @@ class AppleAuthenticationService internal constructor(
         json.parseToJsonElement(body).jsonObject
     }.getOrNull()
 
-    private fun JsonObject.requiredString(name: String): String = this[name]
-        ?.let { it as? JsonPrimitive }
-        ?.contentOrNull
+    private fun JsonObject.requiredString(name: String): String = text(name)
         ?: throw malformed("Apple's authentication response is missing $name")
 
-    private fun JsonObject.requiredInt(name: String): Int = this[name]
-        ?.let { it as? JsonPrimitive }
-        ?.intOrNull
+    private fun JsonObject.requiredInt(name: String): Int = int(name)
         ?: throw malformed("Apple's authentication response is missing $name")
 
     private fun JsonObject?.findTrustedPhone(): TrustedPhone? {
