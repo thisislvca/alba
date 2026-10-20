@@ -40,9 +40,6 @@ internal fun PhotoExtraMetadata(media: GalleryMedia) {
         }
     }
     entries.forEach { (label, value) ->
-        Column(Modifier.fillMaxWidth().padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(label), style = MaterialTheme.typography.labelMedium)
-            Text(value, style = MaterialTheme.typography.bodyMedium)
-        }
+        AlbaFact(stringResource(label), value, Modifier.fillMaxWidth().padding(top = 16.dp), labelColor = LocalContentColor.current)
     }
 }

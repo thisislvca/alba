@@ -463,11 +463,7 @@ private fun ViewerAction(label: String, enabled: Boolean, click: () -> Unit, mod
 private fun DetailAction(label: String, enabled: Boolean, click: () -> Unit, icon: @Composable () -> Unit) {
     val colors = viewerColors()
     CompositionLocalProvider(LocalContentColor provides if (enabled) colors.foreground else colors.disabled) {
-        Row(Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = click)
-            .heightIn(min = 56.dp).padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) { icon() }
-            Spacer(Modifier.width(18.dp))
-            Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        }
+        AlbaListRow(label, click, enabled = enabled, leading = icon, leadingSize = 28.dp, gap = 18.dp,
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp))
     }
 }

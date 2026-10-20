@@ -130,17 +130,8 @@ private fun AboutFeatureSection(title: Int, entries: List<AboutFeature>, subtitl
             color = MaterialTheme.colorScheme.onSurfaceVariant) }
         AlbaCard {
             entries.forEachIndexed { index, entry ->
-                Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top) {
-                    Icon(entry.icon, contentDescription = null, modifier = Modifier.padding(top = 1.dp).size(22.dp),
-                        tint = MaterialTheme.colorScheme.primary)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(entry.title), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(entry.detail), style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                if (index < entries.lastIndex) AlbaDivider(Modifier.padding(start = 50.dp, end = 16.dp))
+                AlbaFeatureRow(entry.icon, stringResource(entry.title), stringResource(entry.detail))
+                if (index < entries.lastIndex) AlbaDivider(Modifier.padding(start = AlbaFeatureRowTextInset, end = 16.dp))
             }
         }
     }

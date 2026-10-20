@@ -107,12 +107,6 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
 @Composable
 private fun WelcomeFeature(icon: ImageVector, title: Int, body: Int) {
     AlbaCard(Modifier.padding(bottom = 10.dp)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp).size(24.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+        AlbaFeatureRow(icon, stringResource(title), stringResource(body))
     }
 }

@@ -48,20 +48,13 @@ private fun ProfileRow(
     title: String, subtitle: String? = null, icon: ImageVector, color: Color,
     tag: String, enabled: Boolean = true, onClick: () -> Unit,
 ) {
-    Surface(onClick = onClick, enabled = enabled, color = Color.Transparent, modifier = Modifier.fillMaxWidth().testTag(tag)) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp).heightIn(min = 32.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    AlbaListRow(title, onClick, Modifier.testTag(tag), subtitle = subtitle, enabled = enabled, leadingSize = null,
+        leading = {
             Box(Modifier.size(32.dp).background(color, MaterialTheme.shapes.extraSmall), contentAlignment = Alignment.Center) {
                 Icon(icon, null, tint = AlbaTheme.colors.profile.onCard, modifier = Modifier.size(20.dp))
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge)
-                subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp))
-        }
-    }
+        },
+        trailing = { AlbaChevron(Modifier.size(18.dp)) })
 }
 
 @Composable

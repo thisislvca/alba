@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.app.ui.theme.AlbaTheme
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.outlined.Close
@@ -175,14 +176,9 @@ internal fun AlbumChooser(collections: List<GalleryCollection>, dismiss: () -> U
             }
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp), contentPadding = PaddingValues(bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
                 items(albums, key = { it.id }) { album ->
-                    TextButton(modifier = Modifier.fillMaxWidth(), onClick = { choose(album.id) }) {
-                        ICloudIcon(R.drawable.icloud_albums)
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(album.name)
-                            collections.firstOrNull { it.id == album.parentId }?.let { Text(it.name, style = MaterialTheme.typography.bodySmall) }
-                        }
-                    }
+                    AlbaListRow(album.name, { choose(album.id) }, subtitle = collections.firstOrNull { it.id == album.parentId }?.name,
+                        leading = { ICloudIcon(R.drawable.icloud_albums) }, shape = MaterialTheme.shapes.small,
+                        contentPadding = PaddingValues(horizontal = AlbaSpacing.md, vertical = AlbaSpacing.sm))
                 }
             }
         }

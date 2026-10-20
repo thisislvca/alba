@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.ui.theme.AlbaSpacing
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -136,15 +137,16 @@ private fun FilterDivider() {
 
 @Composable
 private fun FilterMenuRow(label: String, selected: Boolean, onClick: () -> Unit, icon: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraSmall).selectable(selected, role = Role.RadioButton, onClick = onClick)
-        .heightIn(min = 48.dp).padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
-            if (selected) Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary)
-        }
-        if (icon != null) CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) { icon() }
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-    }
+    AlbaListRow(label, onClick, selected = selected, shape = MaterialTheme.shapes.extraSmall, leadingSize = null, minHeight = 48.dp,
+        contentPadding = PaddingValues(AlbaSpacing.sm),
+        leading = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+                Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
+                    if (selected) Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary)
+                }
+                if (icon != null) CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) { icon() }
+            }
+        })
 }
 
 @Composable

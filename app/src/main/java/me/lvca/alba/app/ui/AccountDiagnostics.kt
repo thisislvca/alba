@@ -38,13 +38,13 @@ internal fun AccountDiagnostics(state: GalleryUiState, check: () -> Unit) {
             }
             Text(stringResource(status), style = MaterialTheme.typography.bodyMedium)
             AlbaDivider()
-            ConnectionFact(stringResource(R.string.profile_network), stringResource(when {
+            AlbaFact(stringResource(R.string.profile_network), stringResource(when {
                 state.network == null -> R.string.checking_network
                 !state.network.online -> R.string.no_internet_connection
                 state.network.metered -> R.string.metered_network_automatic_backup_waits_for_unmetered_internet
                 else -> R.string.unmetered_internet_automatic_backup_can_run_when_enabled
             }))
-            if (signedIn != null) ConnectionFact(stringResource(R.string.photos), stringResource(when (info.photosAvailable) {
+            if (signedIn != null) AlbaFact(stringResource(R.string.photos), stringResource(when (info.photosAvailable) {
                 true -> R.string.photos_service_is_available_for_this_account
                 false -> R.string.apple_did_not_provide_a_photos_service_for_this_account
                 null -> R.string.photos_service_has_not_been_checked
@@ -60,10 +60,3 @@ internal fun AccountDiagnostics(state: GalleryUiState, check: () -> Unit) {
     }
 }
 
-@Composable
-private fun ConnectionFact(title: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium)
-    }
-}
