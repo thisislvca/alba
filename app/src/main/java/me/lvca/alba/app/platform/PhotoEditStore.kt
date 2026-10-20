@@ -101,25 +101,23 @@ internal suspend fun prepareEditedCopy(context: Context, bitmap: Bitmap, source:
 internal suspend fun publishEditedCopy(context: Context, media: GalleryMedia, prepared: File,
     document: Uri? = null): Uri = withContext(Dispatchers.IO) {
     val resolver = context.contentResolver
-    val uri = document ?: run {
+    if (document == null) {
         check(Build.VERSION.SDK_INT >= 29)
-        checkNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
+        return@withContext publishToMediaStore(resolver, listOf(MediaStoreCopy(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, media.fileName.substringBeforeLast('.') + "-edited-${System.currentTimeMillis()}.jpg")
             put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
             put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/Alba")
-            put(MediaStore.MediaColumns.IS_PENDING, 1)
             put(MediaStore.MediaColumns.DATE_TAKEN, media.capturedAtEpochMillis)
-        }))
+        }) { output -> prepared.inputStream().use { it.copyTo(output) } })).single()
     }
     try {
-        checkNotNull(resolver.openOutputStream(uri, "w")).use { output -> prepared.inputStream().use { it.copyTo(output) } }
+        checkNotNull(resolver.openOutputStream(document, "w")).use { output -> prepared.inputStream().use { it.copyTo(output) } }
         ensureActive()
-        if (document == null) check(resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1)
     } catch (e: Throwable) {
-        withContext(NonCancellable) { runCatching { if (document == null) resolver.delete(uri, null, null) else DocumentsContract.deleteDocument(resolver, uri) } }
+        withContext(NonCancellable) { runCatching { DocumentsContract.deleteDocument(resolver, document) } }
         throw e
     }
-    uri
+    document
 }
 
 private fun copyPhotoMetadata(source: File?, target: File, width: Int, height: Int) {

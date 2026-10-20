@@ -100,37 +100,24 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
 
     suspend fun saveToGallery(media: GalleryMedia) = withContext(Dispatchers.IO) {
         if (Build.VERSION.SDK_INT < 29) error(StoredMessage.USE_EXPORT_ORIGINAL_ON_ANDROID_9.code)
-        val pending = mutableListOf<Uri>()
-        try {
-            for (motion in if (media.kind == MediaKind.LIVE_PHOTO) listOf(false, true) else listOf(false)) {
-                val mime = if (motion) media.motionMimeType else media.mimeType
-                val collection = if (mime.startsWith("video/")) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                    else MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                val uri = checkNotNull(resolver.insert(collection, ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, exportName(media, motion))
-                    put(MediaStore.MediaColumns.MIME_TYPE, mime)
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, if (mime.startsWith("video/")) "Movies/Alba" else "Pictures/Alba")
-                    put(MediaStore.MediaColumns.IS_PENDING, 1)
-                    put(MediaStore.MediaColumns.DATE_TAKEN, media.capturedAtEpochMillis)
-                })) { StoredMessage.ANDROID_COULD_NOT_CREATE_A_GALLERY_COPY.code }
-                pending += uri
-                checkNotNull(resolver.openOutputStream(uri, "w")).use { output ->
-                    repository.exportOriginal(media.id, StorageWriteGuard(output, currentCoroutineContext(), {
-                        StatFs((appContext.getExternalFilesDir(null) ?: appContext.filesDir).path).availableBytes
-                    }), motion)
-                }
+        // Both Live Photo resources are written before either is made visible.
+        val copies = (if (media.kind == MediaKind.LIVE_PHOTO) listOf(false, true) else listOf(false)).map { motion ->
+            val mime = if (motion) media.motionMimeType else media.mimeType
+            val collection = if (mime.startsWith("video/")) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                else MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            MediaStoreCopy(collection, ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, exportName(media, motion))
+                put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, if (mime.startsWith("video/")) "Movies/Alba" else "Pictures/Alba")
+                put(MediaStore.MediaColumns.DATE_TAKEN, media.capturedAtEpochMillis)
+            }) { output ->
+                repository.exportOriginal(media.id, StorageWriteGuard(output, currentCoroutineContext(), {
+                    StatFs((appContext.getExternalFilesDir(null) ?: appContext.filesDir).path).availableBytes
+                }), motion)
             }
-            currentCoroutineContext().ensureActive()
-            // Both Live Photo resources are written before either is made visible.
-            pending.forEach { uri ->
-                check(resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1) {
-                    StoredMessage.ANDROID_COULD_NOT_PUBLISH_THE_GALLERY_COPY.code
-                }
-            }
-        } catch (error: Throwable) {
-            withContext(NonCancellable) { pending.forEach { uri -> runCatching { resolver.delete(uri, null, null) } } }
-            throw error
         }
+        publishToMediaStore(resolver, copies)
+        Unit
     }
 
     suspend fun exportDocument(media: GalleryMedia, uri: Uri, livePair: Boolean) = withContext(Dispatchers.IO) {
