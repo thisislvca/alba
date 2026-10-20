@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.testing.UI_WAIT
 
 class SharedInvitationActivityTest {
     @get:Rule val compose = createEmptyComposeRule()
@@ -17,7 +18,7 @@ class SharedInvitationActivityTest {
         assertNull((context as AlbaApplication).graph.accountManager.authorizedSession)
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://photos.icloud.com/shared/album/fixture"), context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->
-            compose.waitUntil(15000) { compose.onAllNodesWithText(context.getString(R.string.shared_invitation_sign_in)).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText(context.getString(R.string.shared_invitation_sign_in)).fetchSemanticsNodes().isNotEmpty() }
             scenario.recreate()
             compose.onNodeWithText(context.getString(R.string.shared_invitation_sign_in)).assertIsDisplayed()
             assertNull((context as AlbaApplication).graph.accountManager.authorizedSession)
@@ -30,7 +31,7 @@ class SharedInvitationActivityTest {
             putExtra(Intent.EXTRA_TEXT, "https://photos.icloud.com/shared/album/fixture")
         }
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->
-            compose.waitUntil(15000) { compose.onAllNodesWithText(context.getString(R.string.shared_invitation_sign_in)).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText(context.getString(R.string.shared_invitation_sign_in)).fetchSemanticsNodes().isNotEmpty() }
             scenario.onActivity { activity ->
                 activity.startActivity(Intent(activity, MainActivity::class.java).apply {
                     action = Intent.ACTION_SEND; type = "text/plain"
@@ -38,7 +39,7 @@ class SharedInvitationActivityTest {
                     putExtra(Intent.EXTRA_TEXT, "https://evil.test/shared/album/x")
                 })
             }
-            compose.waitUntil(15000) { compose.onAllNodesWithText(context.getString(R.string.shared_invalid_link)).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText(context.getString(R.string.shared_invalid_link)).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText(context.getString(R.string.shared_invalid_link)).assertIsDisplayed()
             compose.onNodeWithText(context.getString(R.string.incoming_connect)).assertDoesNotExist()
             scenario.onActivity { assertEquals("https://evil.test/shared/album/x", it.intent.getStringExtra(Intent.EXTRA_TEXT)) }

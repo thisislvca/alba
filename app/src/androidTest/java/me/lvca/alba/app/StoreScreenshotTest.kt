@@ -1,6 +1,5 @@
 package me.lvca.alba.app
 
-import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
@@ -10,7 +9,6 @@ import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.CloudStorageUsage
 import me.lvca.alba.engine.model.StorageCategory
 import me.lvca.alba.protocol.account.ICloudAccountState
-import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
@@ -18,6 +16,15 @@ import org.junit.Test
 import me.lvca.alba.app.account.AccountInfo
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.LONG_WAIT
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Screenshots
+import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.testAlbaActions
+import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -33,21 +40,18 @@ class StoreScreenshotTest {
         compose.waitForIdle()
         SystemClock.sleep(800) // Settle screen transitions and async photo decoding before the capture.
         if (name == "02-viewer") {
-            compose.waitUntil(20_000) {
+            compose.waitUntil(LONG_WAIT) {
                 compose.onAllNodes(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo))
                     .fetchSemanticsNodes().isEmpty()
             }
         }
-        val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
-        val dir = compose.activity.getExternalFilesDir("store-screenshots")!!.apply { mkdirs() }
-        File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
+        Screenshots.capture(name, Screenshots.appFiles("store-screenshots"))
     }
     private fun open(id: String) {
         compose.scrollToGalleryMedia(id)
         // A scrolled cell can sit beneath the date pill; invoke the cell's own action.
         compose.onNodeWithTag("media-$id").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
-        compose.waitUntil(15_000) { compose.onAllNodesWithTag(if (id == "fixture:icloud:0019") "video-player" else "viewer-image-$id").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag(if (id == "fixture:icloud:0019") "video-player" else "viewer-image-$id").fetchSemanticsNodes().isNotEmpty() }
     }
     @Test fun captureStoreScreens() {
         // This opt-in capture utility produces store artwork; ordinary device runs do not capture it.
@@ -67,7 +71,7 @@ class StoreScreenshotTest {
         open("fixture:icloud:0008")
         capture("02-viewer")
         compose.onNodeWithText(compose.activity.getString(R.string.viewer_edit)).performClick()
-        compose.waitUntil(15_000) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("save-edited-copy").assertIsEnabled()
         capture("05-editor")
         compose.onNodeWithText(compose.activity.getString(R.string.cancel)).performClick()
@@ -75,7 +79,7 @@ class StoreScreenshotTest {
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         capture("03-collections")
         compose.onNodeWithTag("collection-shared").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Family moments").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithText("Family moments").fetchSemanticsNodes().isNotEmpty() }
         capture("03-shared-albums")
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Good company"))
         compose.onNodeWithText("Good company").performClick()
@@ -88,7 +92,7 @@ class StoreScreenshotTest {
         compose.onNodeWithContentDescription("Back to collections").performClick()
         compose.onNodeWithTag("tab-LIBRARY").performClick()
         open("fixture:icloud:0019")
-        compose.waitUntil(15_000) {
+        compose.waitUntil(UI_WAIT) {
             compose.onAllNodes(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Ready") or
                 SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Playing"))
                 .fetchSemanticsNodes().isNotEmpty()
@@ -104,7 +108,7 @@ class StoreScreenshotTest {
             // Freeze the native player for a repeatable frame with its real controls visible.
             requireNotNull(findPlayer(compose.activity.window.decorView)?.player).pause()
         }
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("video-timeline").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithTag("video-timeline").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("video-timeline").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(.35f) }
         capture("06-video")
         // Show the production backup settings with a synthetic account, as in

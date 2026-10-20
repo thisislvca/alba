@@ -3,35 +3,26 @@ package me.lvca.alba.app
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.openGalleryMedia
+import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.waitForGalleryMedia
 
 class GalleryImprovementsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
-    private fun loaded() = compose.waitForGalleryMedia()
-    private fun open(id: String) {
-        compose.scrollToGalleryMedia("$id")
-        compose.onNodeWithTag("media-$id").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isNotEmpty() }
-    }
-    private fun capture(name: String) {
-        compose.waitForIdle()
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
-        val directory = instrumentation.targetContext.getExternalFilesDir("gallery-improvements")!!.apply { mkdirs() }
-        java.io.File(directory, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
-    }
 
     @Test fun viewerSwipesZoomsHidesControlsAndRestoresSelectedPhoto() {
-        loaded()
-        open("fixture:icloud:0016")
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia("fixture:icloud:0016")
         compose.onNodeWithTag("media-pager").performTouchInput { swipe(androidx.compose.ui.geometry.Offset(width * 0.8f, height * 0.5f), androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.5f), 350) }
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").assertIsDisplayed()
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").performTouchInput { doubleClick() }
@@ -45,24 +36,22 @@ class GalleryImprovementsTest {
         // detectTapGestures defers single taps while waiting for a possible second tap.
         // waitUntil uses wall time; advance the gesture coroutine's Compose clock too.
         compose.mainClock.advanceTimeBy(600)
-        compose.waitUntil(2_000) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithContentDescription("Share").assertDoesNotExist()
-        capture("viewer-hidden")
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").performTouchInput { advanceEventTime(500); click() }
         compose.mainClock.advanceTimeBy(600)
-        compose.waitUntil(2_000) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Share").assertIsDisplayed()
-        capture("viewer")
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
-        open("fixture:icloud:0001")
+        compose.openGalleryMedia("fixture:icloud:0001")
         compose.onNodeWithTag("viewer-image-fixture:icloud:0001").assertIsDisplayed()
     }
 
     @Test fun swipingAwayFromVideoReleasesPlayback() {
-        loaded()
-        open("fixture:icloud:0019")
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia("fixture:icloud:0019")
         compose.onNodeWithTag("video-player").assertIsDisplayed()
         compose.onNodeWithTag("media-pager").performTouchInput {
             swipe(androidx.compose.ui.geometry.Offset(width * 0.8f, height * 0.5f), androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.5f), 350)
@@ -72,18 +61,16 @@ class GalleryImprovementsTest {
     }
 
     @Test fun dateAndDensityRestoreAndMonthJumpReachesPhotos() {
-        loaded()
+        compose.waitForGalleryMedia()
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.filter_and_sort)).performClick()
         compose.onNodeWithText("Added", useUnmergedTree = true).performScrollTo().performClick()
         compose.onNodeWithText("Large").performScrollTo().performClick()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("Added").performScrollTo().assertIsSelected()
         compose.onNodeWithText("Large").performScrollTo().assertIsSelected()
-        capture("filters")
         compose.onNodeWithText("Show photos").performClick()
         compose.scrollToGalleryMedia("fixture:icloud:0016")
         compose.onNodeWithTag("floating-date-button").performClick()
-        capture("dates")
         // Demo spans months; selecting the earliest jumps to that month's grid header.
         val repository = (compose.activity.application as AlbaApplication).graph.galleryRepository
         val oldest = runBlocking { repository.observeGallery().first()
@@ -94,11 +81,10 @@ class GalleryImprovementsTest {
         compose.onNodeWithTag("date-months").performScrollToNode(hasText(label))
         compose.onAllNodesWithText(label).onLast().performClick()
         compose.onNodeWithTag("media-${oldest.id}").assertExists()
-        capture("date-jump")
     }
 
     @Test fun albumDeleteRequiresConfirmationAndKeepsLibraryPhotos() {
-        loaded()
+        compose.waitForGalleryMedia()
         val repository = (compose.activity.application as AlbaApplication).graph.galleryRepository
         val originalCount = runBlocking { repository.observeGallery().first().size }
         val album = runBlocking {
@@ -113,9 +99,8 @@ class GalleryImprovementsTest {
         assertTrue(runBlocking { repository.observeCollections().first().any { it.id == album.id } })
         compose.onNodeWithContentDescription("Album options").performClick()
         compose.onNodeWithText("Delete album").performClick()
-        capture("delete-album")
         compose.onNodeWithText("Delete album", useUnmergedTree = true).performClick()
-        compose.waitUntil(5_000) { runBlocking { repository.observeCollections().first().none { it.id == album.id } } }
+        compose.waitUntil(SHORT_WAIT) { runBlocking { repository.observeCollections().first().none { it.id == album.id } } }
         assertEquals(originalCount, runBlocking { repository.observeGallery().first().size })
         assertTrue(runBlocking { repository.observeGallery().first().any { it.id == "fixture:icloud:0001" } })
     }

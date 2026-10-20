@@ -1,6 +1,5 @@
 package me.lvca.alba.app
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -8,10 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.engine.model.*
-import me.lvca.alba.protocol.account.ICloudAccountState
-import java.io.File
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -25,12 +21,6 @@ class SharedAlbumsUiTest {
     @get:Rule val compose = createComposeRule()
     private val context get() = ApplicationProvider.getApplicationContext<AlbaApplication>()
     private fun label(id: Int) = context.getString(id)
-    private fun capture(name: String) {
-        compose.waitForIdle()
-        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
-        File(context.getExternalFilesDir("shared-albums")!!.apply { mkdirs() }, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
-    }
     @Test fun versionBadgeOpensAccessibleExplanationAndKeepsRoleDistinct() {
         val album = GalleryCollection("shared:test:legacy:owner:album", "Family archive", shared = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, SharedAlbumRole.VIEWER))
         compose.setContent {
@@ -44,7 +34,6 @@ class SharedAlbumsUiTest {
         compose.onNodeWithText(label(R.string.shared_legacy_title)).assertIsDisplayed()
         compose.onNodeWithText(label(R.string.shared_role_viewer)).assertIsDisplayed()
         compose.onNodeWithText(label(R.string.shared_copy_notice)).assertIsDisplayed()
-        capture("legacy-details")
         compose.onNodeWithText(label(R.string.shared_understood)).performScrollTo().performClick()
         compose.onNodeWithTag("shared-album-details").assertDoesNotExist()
     }
@@ -61,7 +50,6 @@ class SharedAlbumsUiTest {
         }
         compose.onNodeWithText(label(R.string.shared_new_title)).assertIsDisplayed()
         compose.onNodeWithText(label(R.string.shared_role_owner)).assertIsDisplayed()
-        capture("modern-details")
         compose.onNodeWithText(label(R.string.shared_understood)).performScrollTo().performClick()
         compose.onNodeWithTag("shared-select-fixture:test").performClick()
         compose.onNodeWithText(context.resources.getQuantityString(R.plurals.shared_add_selected, 1, 1)).performClick()

@@ -3,7 +3,6 @@ package me.lvca.alba.app
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.engine.model.*
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -11,6 +10,11 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.LONG_WAIT
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.scrollToGalleryMedia
 
 class DemoReviewGapsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
@@ -21,14 +25,6 @@ class DemoReviewGapsTest {
     private fun label(id: Int) = compose.activity.getString(id)
     private fun click(id: Int) = compose.onNodeWithText(label(id)).performScrollTo().performClick()
     private fun confirm() = compose.onNodeWithText(label(R.string.shared_confirm)).performClick()
-    private fun capture(name: String) {
-        compose.waitForIdle()
-        android.os.SystemClock.sleep(500) // Let Android window animations settle; Compose idle does not cover them.
-        val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
-        val dir = compose.activity.getExternalFilesDir("demo-review")!!.apply { mkdirs() }
-        File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
-    }
     private fun sharedAlbums() {
         compose.scrollToGalleryMedia("fixture:icloud:0020")
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
@@ -36,20 +32,18 @@ class DemoReviewGapsTest {
     }
 
     @Test fun manualSampleUploadUsesPublicEntryPointAndAppearsInTheLibrary() {
-        compose.waitUntil(20_000) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(label(R.string.upload_photos)).performClick()
         compose.onNodeWithText(label(R.string.demo_upload_disclosure)).assertIsDisplayed()
-        capture("demo-manual-upload-disclosure")
         compose.onNodeWithText(label(R.string.demo_upload_sample)).performClick()
         var id: String? = null
-        compose.waitUntil(15_000) {
+        compose.waitUntil(UI_WAIT) {
             id = runBlocking { graph.demoCatalog.fetchPage(null, 100).records.firstOrNull { it.fileName == "Sample upload.webp" }?.id }
             id != null
         }
         compose.scrollToGalleryMedia(requireNotNull(id))
         compose.onNodeWithTag("media-$id").assertIsDisplayed().performClick()
         compose.onNodeWithTag("media-pager").assertIsDisplayed()
-        capture("demo-manual-upload-viewer")
         assertNull(graph.accountManager.session.value)
         assertNull(graph.demoCatalog.writeAccountId)
     }
@@ -66,7 +60,7 @@ class DemoReviewGapsTest {
                 androidx.lifecycle.ViewModelProvider(compose.activity)[AlbaViewModel::class.java].transfers.uploadPicked(listOf(selected, missing))
             }
             var id: String? = null
-            compose.waitUntil(15_000) {
+            compose.waitUntil(UI_WAIT) {
                 id = runBlocking { graph.demoCatalog.fetchPage(null, 100).records.firstOrNull { it.fileName == file.name }?.id }
                 id != null
             }
@@ -79,7 +73,6 @@ class DemoReviewGapsTest {
             assertArrayEquals(file.readBytes(), exported.toByteArray())
             compose.onNodeWithTag("media-$id").performClick()
             compose.onNodeWithTag("media-pager").assertIsDisplayed()
-            capture("demo-selected-upload-exact-photo")
             val owner = "shared:demo-library:private:owner:two"
             val before = runBlocking { graph.demoCatalog.sharedAlbums().records.size }
             val corrupt = object : OneShotUploadSource {
@@ -97,23 +90,21 @@ class DemoReviewGapsTest {
         sharedAlbums()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasContentDescription(label(R.string.shared_invitations)))
         compose.onNodeWithContentDescription(label(R.string.shared_invitations)).performClick()
-        compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithText("Sample weekend together").fetchSemanticsNodes().isNotEmpty() }
-        capture("demo-incoming-invitations")
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithText("Sample weekend together").fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodesWithText(label(R.string.shared_accept))[0].performScrollTo().performClick()
         confirm()
-        compose.waitUntil(15_000) { runBlocking { repository.pendingSharedInvitations().size == 1 } }
+        compose.waitUntil(UI_WAIT) { runBlocking { repository.pendingSharedInvitations().size == 1 } }
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Sample weekend together"))
         compose.onNodeWithText("Sample weekend together").assertIsDisplayed()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Family moments"))
         compose.onNodeWithText("Family moments").performClick()
         compose.onNodeWithContentDescription(label(R.string.shared_manage)).performClick()
-        compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithText("Alex (sample)").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithText("Alex (sample)").fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodesWithText(label(R.string.shared_approve))[0].performScrollTo().performClick()
         confirm()
-        compose.waitUntil(15_000) { runBlocking { repository.sharedManagement("shared:demo-library:private:owner:two").participants.any { it.id == "sample-alex" } } }
+        compose.waitUntil(UI_WAIT) { runBlocking { repository.sharedManagement("shared:demo-library:private:owner:two").participants.any { it.id == "sample-alex" } } }
         compose.onNodeWithText("Alex (sample)").performScrollTo().assertIsDisplayed()
-        capture("demo-approved-participant")
     }
 
     @Test fun selectedSharedBytesAndLegacySaveAreRealCopiesAndCoverPersists() = runBlocking {
@@ -144,10 +135,8 @@ class DemoReviewGapsTest {
         assertEquals(cover, repository.sharedManagement(owner).album.coverMediaId)
         sharedAlbums()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Family moments"))
-        capture("demo-selected-album-cover")
         compose.onNodeWithText("Family moments").performClick()
         compose.onNodeWithTag("album-hero").assertIsDisplayed()
-        capture("demo-selected-cover-hero")
         assertNull(graph.accountManager.session.value)
         assertNull(graph.demoCatalog.writeAccountId)
     }

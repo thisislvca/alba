@@ -1,20 +1,16 @@
 package me.lvca.alba.app
 
-import android.content.ContentValues
 import android.app.LocaleManager
 import android.content.Context
 import android.content.res.Configuration
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.LocaleList
-import android.provider.MediaStore
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.protocol.account.ICloudAccountState
-import java.io.File
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -23,6 +19,8 @@ import org.junit.rules.TestRule
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
 import me.lvca.alba.app.intake.IncomingRequest
+import me.lvca.alba.app.testing.LONG_WAIT
+import me.lvca.alba.app.testing.MediaStoreFixtures
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 
 @SdkSuppress(minSdkVersion = 33)
@@ -55,18 +53,8 @@ class UploadIntakeTest {
         val uris = mutableListOf<Uri>()
         try {
             for ((name,mime) in listOf("png.png" to "image/png", "avc.mp4" to "video/mp4", "animated.gif" to "image/gif")) {
-                val uri = requireNotNull(resolver.insert(if (mime.startsWith("video/")) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                    else MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, "alba-intake-${System.nanoTime()}-$name")
-                    put(MediaStore.MediaColumns.MIME_TYPE, mime)
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, if (mime.startsWith("video/")) "Movies/AlbaTests" else "Pictures/AlbaTests")
-                    put(MediaStore.MediaColumns.IS_PENDING, 1)
-                }))
-                uris += uri
-                InstrumentationRegistry.getInstrumentation().context.assets.open("upload-formats/$name").use { input ->
-                    resolver.openOutputStream(uri)!!.use { input.copyTo(it) }
-                }
-                resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+                uris += MediaStoreFixtures.insertAsset(InstrumentationRegistry.getInstrumentation().context.assets, "upload-formats/$name",
+                    "alba-intake-${System.nanoTime()}-$name", mime, if (mime.startsWith("video/")) "Movies/AlbaTests" else "Pictures/AlbaTests")
             }
             val configuration = Configuration(context.resources.configuration).apply { setLocales(LocaleList.forLanguageTags(language)) }
             val localized = context.createConfigurationContext(configuration)
@@ -76,7 +64,7 @@ class UploadIntakeTest {
                     ICloudAccountState.SignedIn("test@example.invalid"), message = null,
                     close = {}, connect = { error("Must use supplied screen state only") }, upload = { queued = it })
             }
-            compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithTag("queue-incoming-upload").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("queue-incoming-upload").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText(localized.getString(R.string.incoming_upload_explanation)).assertIsDisplayed()
             assertNull(queued)
             compose.onNodeWithTag("queue-incoming-upload").performClick()
@@ -85,12 +73,6 @@ class UploadIntakeTest {
             assertNull(queued)
             compose.onNodeWithTag("queue-incoming-upload").performClick()
             compose.onNodeWithTag("confirm-incoming-upload").assertIsDisplayed()
-            compose.waitForIdle()
-            android.os.SystemClock.sleep(350)
-            val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
-            val directory = context.getExternalFilesDir("upload-formats")!!.apply { mkdirs() }
-            File(directory,"intake-$language.png").outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            screenshot.recycle()
             compose.onNodeWithTag("confirm-incoming-upload").performClick()
             compose.runOnIdle { assertEquals(uris.take(2), queued) }
             compose.onNodeWithTag("queue-incoming-upload").assertIsNotEnabled()

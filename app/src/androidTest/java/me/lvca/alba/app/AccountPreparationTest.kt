@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.*
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import me.lvca.alba.app.testing.LONG_WAIT
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.testDependencies
 
 @RunWith(AndroidJUnit4::class)
 class AccountPreparationTest {
@@ -37,13 +40,13 @@ class AccountPreparationTest {
         }
         val collector = launch { vm.account.state.collect() }
         try {
-            withTimeout(20_000) { vm.account.state.first { it.accountState == ICloudAccountState.Demo && !it.isRefreshing } }
+            withTimeout(LONG_WAIT) { vm.account.state.first { it.accountState == ICloudAccountState.Demo && !it.isRefreshing } }
             repeat(2) { attempt ->
                 withContext(Dispatchers.Main) { vm.dismissMessage() }
-                withTimeout(5_000) { session(vm).first { (state, message) -> message == null && !state.accountBusy } }
+                withTimeout(SHORT_WAIT) { session(vm).first { (state, message) -> message == null && !state.accountBusy } }
                 withContext(Dispatchers.Main) { vm.account.signIn("unused@example.test", "unused") }
-                withTimeout(5_000) { attempts.first { it == attempt + 1 } }
-                val state = withTimeout(5_000) {
+                withTimeout(SHORT_WAIT) { attempts.first { it == attempt + 1 } }
+                val state = withTimeout(SHORT_WAIT) {
                     session(vm).first { (state, message) -> !state.accountBusy && message != null }
                 }
                 assertEquals(app.getString(R.string.message_could_not_sign_in_to_icloud), state.second!!.resolve(app))

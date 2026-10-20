@@ -18,6 +18,12 @@ import org.junit.Rule
 import org.junit.Test
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.platform.NetworkStatus
+import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.LONG_WAIT
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.testAlbaActions
+import me.lvca.alba.app.testing.testDependencies
 import me.lvca.alba.app.ui.account.PhoneStorageDetails
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.designsystem.AlbaPageScaffold
@@ -74,15 +80,15 @@ class GalleryWorkflowComponentsTest {
                 gallery.items.firstOrNull()?.let { media -> MediaTile(media = media, retryVersion = retryVersion,
                     onClick = {}, onVisible = { vm.previews.request(media.id) }) }
             } }
-            compose.waitUntil(CI_WAIT_MS) { attempts.get() >= 1 }
+            compose.waitUntil(LONG_WAIT) { attempts.get() >= 1 }
             network.value = NetworkStatus(true, false)
-            compose.waitUntil(CI_WAIT_MS) { gallery.value.single().previewReference != null }
+            compose.waitUntil(LONG_WAIT) { gallery.value.single().previewReference != null }
             val completedAttempts = attempts.get()
             network.value = NetworkStatus(false, false)
-            withTimeout(5_000) { vm.account.state.first { it.network?.online == false } }
+            withTimeout(SHORT_WAIT) { vm.account.state.first { it.network?.online == false } }
             val version = vm.previews.retryVersion.value
             network.value = NetworkStatus(true, false)
-            withTimeout(5_000) { vm.previews.retryVersion.first { it > version } }
+            withTimeout(SHORT_WAIT) { vm.previews.retryVersion.first { it > version } }
             compose.waitForIdle()
             assertEquals(completedAttempts, attempts.get())
             compose.onNodeWithTag("media-fixture:reconnect").assertIsDisplayed()
@@ -121,10 +127,10 @@ class GalleryWorkflowComponentsTest {
                 }
             }, modifier = Modifier.fillMaxSize())
         } }
-        compose.waitUntil(20_000) { compose.onAllNodesWithTag("retry-video").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("retry-video").fetchSemanticsNodes().isNotEmpty() }
         broken.set(false)
         compose.onNodeWithTag("retry-video").performClick()
-        compose.waitUntil(CI_WAIT_MS) { compose.onAllNodes(SemanticsMatcher.expectValue(
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodes(SemanticsMatcher.expectValue(
             androidx.compose.ui.semantics.SemanticsProperties.StateDescription, text(R.string.ready))).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("retry-video").assertDoesNotExist()
     }
@@ -149,9 +155,9 @@ class GalleryWorkflowComponentsTest {
             SavedStateHandle()).also { store.put("album", it) } }
         val observing = launch { vm.account.state.collect() }
         try {
-            withTimeout(5_000) { vm.account.state.first { !it.isRefreshing } }
+            withTimeout(SHORT_WAIT) { vm.account.state.first { !it.isRefreshing } }
             withContext(Dispatchers.Main) { vm.edits.createAlbumWithPhotos("Weekend", listOf("fixture:photo")) }
-            val message = withTimeout(5_000) { vm.message.first { it?.resolve(app)?.contains("Weekend") == true } }
+            val message = withTimeout(SHORT_WAIT) { vm.message.first { it?.resolve(app)?.contains("Weekend") == true } }
             assertEquals(app.getString(R.string.album_created_membership_uncertain, "Weekend"), message!!.resolve(app))
             assertEquals(1, creates.get()); assertEquals(1, additions.get())
         } finally { observing.cancelAndJoin(); withContext(Dispatchers.Main) { store.clear() } }

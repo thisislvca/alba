@@ -1,7 +1,6 @@
 package me.lvca.alba.app
 
 import android.content.res.Configuration
-import android.graphics.Bitmap
 import android.os.LocaleList
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalConfiguration
@@ -15,12 +14,12 @@ import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import me.lvca.alba.protocol.account.TwoFactorDelivery
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -52,12 +51,10 @@ class LocalizedAccountTest {
         androidx.test.espresso.Espresso.closeSoftKeyboard()
         compose.onNodeWithText("Verifica e continua").performScrollTo().performClick()
         assertEquals("123456", submitted)
-        capture("08-two-factor-it-large")
         compose.runOnIdle { state = ICloudAccountState.SignedIn("family@example.com") }
         compose.onNodeWithTag("profile-backup").performScrollTo().performClick()
         compose.onNodeWithText("Il backup automatico è disattivato.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Configura backup automatico").performScrollTo().assertIsDisplayed()
-        capture("09-backup-it-large")
     }
 
     @Test fun italianWebOnlyAccountExplainsActivationAndCanRetry() {
@@ -86,13 +83,5 @@ class LocalizedAccountTest {
             .performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Ricontrolla").performScrollTo().performClick()
         assertEquals(1, checks)
-    }
-    private fun capture(name: String) {
-        compose.waitForIdle()
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
-        val dir = instrumentation.targetContext.getExternalFilesDir("localization")!!.apply { mkdirs() }
-        File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
     }
 }

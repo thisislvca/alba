@@ -5,6 +5,9 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import org.junit.Rule
 import org.junit.Test
 import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
+import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.UI_WAIT
 
 class AboutScreenTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
@@ -13,7 +16,7 @@ class AboutScreenTest {
     private fun label(id: Int) = compose.activity.getString(id)
 
     @Test fun aboutShowsFeaturesAndUpcomingAndRestoresWithoutLeavingAccount() {
-        compose.waitUntil(15000) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("account-button").performClick()
         compose.onNodeWithText(label(R.string.about_title)).performScrollTo().performClick()
         compose.onNodeWithTag("about-screen").assertIsDisplayed()
@@ -23,10 +26,8 @@ class AboutScreenTest {
         compose.onNodeWithText(compose.activity.getString(R.string.about_version, "${info.versionName} (${info.longVersionCode})")).assertIsDisplayed()
         compose.onNodeWithText(label(R.string.about_features)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(label(R.string.about_feature_shared_title)).performScrollTo().assertIsDisplayed()
-        capture("about-features")
         compose.onNodeWithText(label(R.string.about_upcoming)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(label(R.string.about_upcoming_older_detail)).performScrollTo().assertIsDisplayed()
-        capture("about-upcoming")
         compose.onNodeWithText(label(R.string.about_missing_support)).assertDoesNotExist()
         compose.onNodeWithTag("about-limitations").performScrollTo().performClick()
         compose.activityRule.scenario.recreate()
@@ -40,7 +41,7 @@ class AboutScreenTest {
     }
 
     @Test fun diagnosticsRespectBuildConfigurationAndTheChoicePersists() {
-        compose.waitUntil(15000) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("account-button").performClick()
         compose.onNodeWithText(label(R.string.about_title)).performScrollTo().performClick()
         if (BuildConfig.SENTRY_DSN.isBlank()) {
@@ -65,13 +66,5 @@ class AboutScreenTest {
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("diagnostics-switch").performScrollTo().assertIsOff().performClick()
         compose.onNodeWithTag("diagnostics-switch").assertIsOn()
-    }
-
-    private fun capture(name: String) {
-        compose.waitForIdle()
-        val bitmap = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
-        val dir = compose.activity.getExternalFilesDir("release-prep")!!.apply { mkdirs() }
-        java.io.File(dir, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
     }
 }

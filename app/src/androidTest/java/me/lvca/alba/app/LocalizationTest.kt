@@ -2,7 +2,6 @@ package me.lvca.alba.app
 
 import android.app.LocaleManager
 import android.content.res.Configuration
-import android.graphics.Bitmap
 import android.os.LocaleList
 import android.os.SystemClock
 import android.view.KeyEvent
@@ -10,12 +9,14 @@ import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.messages.localizedStoredMessage
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.Screenshots
+import me.lvca.alba.app.testing.UI_WAIT
 
 /** Exercise system locale changes with native accessibility, independently of Compose's test clock. */
 @SdkSuppress(minSdkVersion = 33)
@@ -41,12 +42,12 @@ class LocalizationTest {
         }
     }
     private fun waitFor(text: String): AccessibilityNodeInfo {
-        val end = SystemClock.uptimeMillis() + 10_000
+        val end = SystemClock.uptimeMillis() + UI_WAIT
         do {
             label(text)?.let { return it }
             SystemClock.sleep(50)
         } while (SystemClock.uptimeMillis() < end)
-        capture("failure")
+        Screenshots.capture("failure-LocalizationTest", Screenshots.testOutput("failures"))
         val labels = mutableListOf<String>()
         find(instrumentation.uiAutomation.rootInActiveWindow) {
             it.text?.let { value -> labels.add(value.toString()) }
@@ -57,19 +58,11 @@ class LocalizationTest {
     }
     private fun click(text: String) {
         waitFor(text)
-        instrumentation.uiAutomation.waitForIdle(500, 10_000)
+        instrumentation.uiAutomation.waitForIdle(500, UI_WAIT)
         var node = waitFor(text)
         while (!node.isClickable && node.parent != null) node = node.parent
         check(node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) { "Could not click $text" }
-        instrumentation.uiAutomation.waitForIdle(500, 10_000)
-    }
-    private fun capture(name: String) {
-        instrumentation.waitForIdleSync()
-        SystemClock.sleep(350) // Capture settled native window transitions, not a rotation/recreation frame.
-        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
-        val dir = instrumentation.targetContext.getExternalFilesDir("localization")!!.apply { mkdirs() }
-        File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
+        instrumentation.uiAutomation.waitForIdle(500, UI_WAIT)
     }
     @Test fun switchingLanguagePreservesOnboardingAndLocalizesGalleryAndSignIn() {
         val previous = instrumentation.targetContext.getSystemService(LocaleManager::class.java).applicationLocales.toLanguageTags()
@@ -77,32 +70,26 @@ class LocalizationTest {
             language("it")
             ActivityScenario.launch(MainActivity::class.java).use {
                 waitFor("Le tue foto di iCloud.\nSu Android.")
-                capture("01-onboarding-it")
                 click("Continua")
                 waitFor("Decidi tu.")
                 language("en")
                 waitFor("You’re in control.")
                 language("it")
                 waitFor("Decidi tu.")
-                capture("02-choices-it")
                 click("Prova la demo")
                 waitFor("Alba")
                 waitFor("Foto")
-                capture("03-library-it")
                 click("Filtra e ordina")
                 waitFor("Dimensione foto")
-                capture("04-filters-it")
                 instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
                 click("Raccolte")
                 waitFor("Preferiti")
                 waitFor("Album condivisi")
                 click("Album")
                 waitFor("Nuovo album")
-                capture("05-collections-it")
                 click("Torna alle raccolte")
                 click("Apri account iCloud")
                 waitFor("Accedi a iCloud")
-                capture("06-sign-in-it")
                 language("en")
                 waitFor("Sign in to iCloud")
                 assertNull(label("Your iCloud photos.\nOn Android."))

@@ -4,7 +4,6 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.LocaleList
 import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -18,7 +17,6 @@ import me.lvca.alba.engine.model.CloudStorageUsage
 import me.lvca.alba.engine.model.StorageCategory
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -26,6 +24,8 @@ import me.lvca.alba.app.account.AccountInfo
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.platform.NetworkStatus
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -54,8 +54,7 @@ class ProfileScreenTest {
         compose.onNodeWithText("200 GB").assertIsDisplayed()
         compose.onNodeWithText("Alex Example").assertIsDisplayed()
         compose.onNodeWithText("iCloud+").assertIsDisplayed()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("account-photo").fetchSemanticsNodes().isNotEmpty() }
-        capture("profile-light")
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithTag("account-photo").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("profile-manage-plan").performScrollTo().performClick()
         assertEquals(listOf("https://www.icloud.com/plan"), opened)
         compose.onNodeWithTag("profile-backup").performScrollTo().performClick()
@@ -65,14 +64,12 @@ class ProfileScreenTest {
         androidx.test.espresso.Espresso.pressBack()
         compose.runOnIdle { dark = true }
         compose.onNodeWithText("alex@example.com").performScrollTo()
-        capture("profile-dark")
         compose.onNodeWithTag("profile-phone").performScrollTo().performClick()
         compose.onNodeWithTag("phone-storage").assertIsDisplayed()
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithText("Apple session verified").performScrollTo()
         compose.onNodeWithText("Apple session verified").assertIsDisplayed()
         compose.onNodeWithTag("profile-check-connection").performScrollTo()
-        capture("profile-inline-connection")
         compose.onNodeWithTag("profile-check-connection").performClick()
         assertEquals(1, checks)
     }
@@ -80,10 +77,8 @@ class ProfileScreenTest {
     @Test fun italianLargeTextProfileKeepsActionsReachable() {
         render({ true }, locale = "it", scale = 1.5f)
         compose.onNodeWithText("200 GB").assertIsDisplayed()
-        capture("profile-it-large-top")
         compose.onNodeWithTag("profile-manage-plan").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("profile-about").performScrollTo().assertIsDisplayed()
-        capture("profile-it-large-settings")
     }
 
     @Test fun expiredAccountDoesNotShowDemoAllowanceAndCanReconnect() {
@@ -94,9 +89,7 @@ class ProfileScreenTest {
         compose.onNodeWithTag("profile-sign-in").performScrollTo().performClick()
         compose.onNodeWithText("alex@example.com").assertIsDisplayed()
         compose.onNodeWithText("Password").assertIsDisplayed()
-        capture("sign-in-light")
         compose.runOnIdle { dark = true }
-        capture("sign-in-dark")
     }
 
     private fun render(dark: () -> Boolean, locale: String = "en", scale: Float = 1f,
@@ -133,13 +126,5 @@ class ProfileScreenTest {
                 }
             }
         }
-    }
-    private fun capture(name: String) {
-        compose.waitForIdle()
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val image = compose.onRoot().captureToImage().asAndroidBitmap()
-        val dir = instrumentation.targetContext.getExternalFilesDir("profile-redesign")!!.apply { mkdirs() }
-        File(dir, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        image.recycle()
     }
 }

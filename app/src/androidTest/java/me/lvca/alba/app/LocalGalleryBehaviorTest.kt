@@ -1,12 +1,10 @@
 package me.lvca.alba.app
 
-import android.Manifest
 import android.content.ContentValues
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.provider.MediaStore
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.engine.source.AndroidMediaStoreSource
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -16,6 +14,8 @@ import me.lvca.alba.app.platform.PhotoCrop
 import me.lvca.alba.app.platform.SmallerPhotoCopyRequired
 import me.lvca.alba.app.platform.renderPhotoEdit
 import me.lvca.alba.app.platform.saveEditedCopy
+import me.lvca.alba.app.testing.MediaStoreFixtures
+import me.lvca.alba.app.testing.grantTestMediaPermissions
 
 class LocalGalleryBehaviorTest {
     @Test fun editsPreserveExifAndRequireConsentBeforeReducingResolution() = runBlocking {
@@ -65,15 +65,8 @@ class LocalGalleryBehaviorTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         grantTestMediaPermissions(context)
         val resolver = context.contentResolver
-        val uri = requireNotNull(resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "alba-table-stakes-test.mp4")
-            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/AlbaTest")
-            put(MediaStore.MediaColumns.IS_PENDING, 1)
-        }))
+        val uri = MediaStoreFixtures.insertAsset(context.assets, "fixture_video.mp4", "alba-table-stakes-test.mp4", "video/mp4", "Movies/AlbaTest")
         try {
-            context.assets.open("fixture_video.mp4").use { input -> resolver.openOutputStream(uri)!!.use(input::copyTo) }
-            resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
             val source = AndroidMediaStoreSource(context)
             val video = source.scanImages().single { it.contentUri == uri.toString() }
             assertEquals("video/mp4", video.mimeType)

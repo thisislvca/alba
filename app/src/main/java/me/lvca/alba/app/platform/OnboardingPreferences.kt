@@ -7,15 +7,22 @@ import me.lvca.alba.protocol.account.DemoModeStore
 /** Installation-level introduction; independent of Apple accounts and backup consent. */
 internal class OnboardingPreferences(context: Context) : DemoModeStore {
     override var enabled: Boolean
-        get() = preferences.getBoolean("demo-explicitly-selected", false)
-        set(value) { preferences.edit { putBoolean("demo-explicitly-selected", value) } }
+        get() = preferences.getBoolean(DEMO_SELECTED, false)
+        set(value) { preferences.edit { putBoolean(DEMO_SELECTED, value) } }
 
-    // Named before the Alba rename and stored on devices; keep it.
-    private val preferences = context.applicationContext.getSharedPreferences("mela-onboarding", Context.MODE_PRIVATE)
+    private val preferences = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
-    val completed: Boolean get() = preferences.getBoolean("completed", false)
+    val completed: Boolean get() = preferences.getBoolean(COMPLETED, false)
 
     fun complete() {
-        preferences.edit { putBoolean("completed", true) }
+        preferences.edit { putBoolean(COMPLETED, true) }
+    }
+
+    /** Stored on devices; device tests set them directly to start past or at the introduction. */
+    companion object {
+        // Named before the Alba rename; keep it.
+        const val FILE = "mela-onboarding"
+        const val COMPLETED = "completed"
+        const val DEMO_SELECTED = "demo-explicitly-selected"
     }
 }

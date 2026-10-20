@@ -1,49 +1,33 @@
 package me.lvca.alba.app
 
-import android.Manifest
-import android.content.ContentValues
-import android.content.Intent
-import android.graphics.Bitmap
 import android.net.Uri
-import android.provider.MediaStore
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
-import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.engine.model.MediaOrigin
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.LONG_WAIT
+import me.lvca.alba.app.testing.MediaStoreFixtures
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.grantTestMediaPermissions
+import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.waitForGalleryMedia
 
 class GalleryCompletionTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val repository get() = (compose.activity.application as AlbaApplication).graph.galleryRepository
-    private fun loaded() = compose.waitForGalleryMedia()
-    private fun capture(name: String) {
-        compose.waitForIdle()
-        android.os.SystemClock.sleep(350) // Let native dialog windows reach the compositor before capture.
-        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
-        val directory = compose.activity.getExternalFilesDir("table-stakes-finish")!!.apply { mkdirs() }
-        java.io.File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }; bitmap.recycle()
-    }
-    private fun image(): Uri {
-        val resolver = compose.activity.contentResolver
-        val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "alba-completion-${System.nanoTime()}.jpg")
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg"); put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/AlbaTest")
-            put(MediaStore.MediaColumns.IS_PENDING, 1)
-        }))
-        val bitmap = Bitmap.createBitmap(80, 60, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.RED) }
-        resolver.openOutputStream(uri)!!.use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }; bitmap.recycle()
-        resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
-        return uri
-    }
+    private fun image(): Uri = MediaStoreFixtures.insertJpeg("alba-completion-${System.nanoTime()}.jpg")
     @Test fun foregroundMediaStoreChangesAppearWithoutLeavingTheApp() {
-        loaded()
+        compose.waitForGalleryMedia()
         grantTestMediaPermissions(compose.activity)
         // Resume updates permission state and starts the lifecycle-bound observer.
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
@@ -51,19 +35,19 @@ class GalleryCompletionTest {
         compose.waitForIdle()
         val uri = image()
         try {
-            compose.waitUntil(15_000) { runBlocking { repository.observeGallery().first().any { it.originalReference == uri.toString() } } }
+            compose.waitUntil(UI_WAIT) { runBlocking { repository.observeGallery().first().any { it.originalReference == uri.toString() } } }
             compose.activity.contentResolver.delete(uri, null, null)
-            compose.waitUntil(15_000) { runBlocking { repository.observeGallery().first().none { it.originalReference == uri.toString() } } }
+            compose.waitUntil(UI_WAIT) { runBlocking { repository.observeGallery().first().none { it.originalReference == uri.toString() } } }
         } finally { runCatching { compose.activity.contentResolver.delete(uri, null, null) } }
     }
     @Test fun bulkFavoritesAlbumRemovalAndCloudTrashRestoreWorkInDemo() {
-        loaded()
+        compose.waitForGalleryMedia()
         val ids = listOf("fixture:icloud:0016", "fixture:icloud:0017")
         val previous = runBlocking { repository.observeGallery().first().filter { it.id in ids }.associate { it.id to it.isFavorite } }
         val album = runBlocking { repository.createAlbum("Completion test").also { repository.addToAlbum(it.id, ids) } }
         try {
             compose.runOnUiThread { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].apply { gallery.selectItems(ids.toSet(), true); edits.setFavorites(ids, true) } }
-            compose.waitUntil(CI_WAIT_MS) { runBlocking { repository.observeGallery().first().filter { it.id in ids }.all { it.isFavorite } } }
+            compose.waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().filter { it.id in ids }.all { it.isFavorite } } }
             runBlocking { repository.removeFromAlbum(album.id, ids); repository.setCloudTrashed(ids, true); repository.refresh(false) }
             var items = runBlocking { repository.observeGallery().first().filter { it.id in ids } }
             assertEquals(2, items.size); assertTrue(items.all { it.isTrashed && album.id !in it.collectionIds && it.origin == MediaOrigin.ICLOUD })
@@ -73,7 +57,7 @@ class GalleryCompletionTest {
         } finally { runBlocking { repository.setCloudTrashed(ids, false); previous.forEach { (id, value) -> repository.setFavorite(id, value) }; repository.deleteAlbum(album.id) } }
     }
     @Test fun cloudTrashRequiresConfirmationAndCanBeRestoredFromItsCollection() {
-        loaded()
+        compose.waitForGalleryMedia()
         val id = "fixture:icloud:0017"
         try {
             compose.scrollToGalleryMedia(id)
@@ -82,14 +66,12 @@ class GalleryCompletionTest {
             val trash = compose.activity.getString(R.string.trash_in_icloud)
             compose.onNodeWithText(trash).performScrollTo().performClick()
             compose.onNodeWithText(compose.activity.resources.getQuantityString(R.plurals.cloud_trash_confirmation, 1, 1)).assertIsDisplayed()
-            capture("icloud-trash-confirmation")
             compose.onNodeWithText(compose.activity.getString(R.string.cancel)).performClick()
             assertFalse(runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed })
             compose.onNodeWithText(trash).performScrollTo().performClick()
             compose.onAllNodesWithText(trash).onLast().performClick()
-            compose.waitUntil(CI_WAIT_MS) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed } }
-            compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
-            capture("after-cloud-trash")
+            compose.waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed } }
+            compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
             compose.runOnIdle {
                 val lightTheme = compose.activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK != android.content.res.Configuration.UI_MODE_NIGHT_YES
                 assertEquals("Gallery must restore system-bar contrast after the viewer exits", lightTheme,
@@ -99,8 +81,7 @@ class GalleryCompletionTest {
             val tab = compose.onNodeWithTag("tab-COLLECTIONS").fetchSemanticsNode().boundsInRoot
             assertTrue("Status messages must not cover floating navigation", snackbar.bottom <= tab.top)
             compose.onNodeWithTag("tab-COLLECTIONS").performClick()
-            try { compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithTag("collections-grid").fetchSemanticsNodes().isNotEmpty() } }
-            catch (failure: Throwable) { capture("collections-navigation-failure"); throw failure }
+            compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("collections-grid").fetchSemanticsNodes().isNotEmpty() }
             // Snackbar timeout runs on the injected clock, not waitUntil's wall clock.
             compose.mainClock.advanceTimeBy(5_000)
             compose.onNodeWithTag("collections-grid").performScrollToNode(hasText(compose.activity.getString(R.string.icloud_recently_deleted)))
@@ -114,20 +95,14 @@ class GalleryCompletionTest {
                     androidx.compose.ui.geometry.Offset(width * .5f, height * .65f - extra), 350)
             }
             compose.onNodeWithText(compose.activity.getString(R.string.icloud_recently_deleted)).performClick()
-            try { compose.waitUntil(CI_WAIT_MS) { compose.onNodeWithTag("media-$id").isDisplayed() } }
-            catch (failure: Throwable) {
-                capture("recently-deleted-failure")
-                java.io.File(compose.activity.getExternalFilesDir("table-stakes-finish"), "recently-deleted-tree.txt").writeText(compose.onRoot().printToString())
-                throw failure
-            }
+            compose.waitUntil(LONG_WAIT) { compose.onNodeWithTag("media-$id").isDisplayed() }
             compose.onNodeWithTag("media-$id").assertIsDisplayed()
-            capture("icloud-recently-deleted")
             compose.onNodeWithTag("media-$id").performClick()
             compose.openViewerDetails()
             val restore = compose.activity.getString(R.string.restore_from_icloud)
             compose.onNodeWithText(restore).performScrollTo().performClick()
             compose.onAllNodesWithText(restore).onLast().performClick()
-            compose.waitUntil(CI_WAIT_MS) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed.not() } }
+            compose.waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed.not() } }
         } finally { runBlocking { repository.setCloudTrashed(listOf(id), false) } }
     }
 }

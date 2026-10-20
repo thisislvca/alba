@@ -11,6 +11,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.LONG_WAIT
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.work.UserTransferScheduler
 import me.lvca.alba.app.work.cancelUserTransfers
 
@@ -28,7 +32,7 @@ class UserTransferExecutionTest {
             graph.batches.enqueue(BatchAction.KEEP_OFFLINE, listOf(id))
         }
         compose.runOnIdle { UserTransferScheduler(compose.activity).enqueue() }
-        compose.waitUntil(30_000) {
+        compose.waitUntil(LONG_WAIT) {
             runBlocking { graph.batches.observe().first().any { it.batchId == batch && it.status == BatchItemState.DONE } }
         }
         assertEquals(MediaAvailability.ORIGINAL_CACHED, runBlocking { graph.galleryRepository.findMedia(id)?.availability })
@@ -45,7 +49,7 @@ class UserTransferExecutionTest {
         compose.runOnIdle {
             ViewModelProvider(compose.activity)[AlbaViewModel::class.java].transfers.keepOriginalOffline(id)
         }
-        compose.waitUntil(30_000) {
+        compose.waitUntil(LONG_WAIT) {
             runBlocking { graph.batches.observe().first().any {
                 it.batchId !in previous && it.mediaId == id && it.action == BatchAction.KEEP_OFFLINE.name && it.status == BatchItemState.DONE
             } }
@@ -79,7 +83,7 @@ class UserTransferExecutionTest {
             graph.batches.enqueue(BatchAction.KEEP_OFFLINE, listOf(id))
         }
         compose.runOnIdle { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].sync.refresh() }
-        compose.waitUntil(30_000) {
+        compose.waitUntil(LONG_WAIT) {
             runBlocking { graph.batches.observe().first().any { it.batchId == batch && it.status == BatchItemState.DONE } }
         }
         assertEquals(MediaAvailability.ORIGINAL_CACHED, runBlocking { graph.galleryRepository.findMedia(id)?.availability })

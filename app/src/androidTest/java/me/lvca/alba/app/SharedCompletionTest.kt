@@ -11,6 +11,7 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import me.lvca.alba.app.intake.incomingSharedInvitation
+import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.ui.shared.SharedAlbumActivity
 import me.lvca.alba.app.ui.shared.SharedAlbumControls
 import me.lvca.alba.app.ui.shared.SharedInvitations
@@ -20,11 +21,6 @@ class SharedCompletionTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private fun label(id: Int) = context.getString(id)
     private val album = GalleryCollection("shared:test:private:owner:album", "Family test", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))
-    private fun capture(name: String) {
-        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
-        val dir = context.getExternalFilesDir("shared-completion")!!.apply { mkdirs() }
-        java.io.File(dir,"$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }; bitmap.recycle()
-    }
     @Test fun denyingExplainsBlockAndUnblockingDoesNotInvite() {
         val person = SharedAccessRequest("guest", "Test requester")
         var state = SharedAlbumManagement(album, emptyList(), requests = listOf(person))
@@ -45,7 +41,6 @@ class SharedCompletionTest {
         compose.waitUntil { compose.onAllNodesWithText(label(R.string.shared_unblock)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(label(R.string.shared_unblock)).performScrollTo().performClick()
         compose.onNodeWithText(label(R.string.shared_confirm_unblock)).assertIsDisplayed()
-        capture("unblock-confirmation")
         compose.onNodeWithText(label(R.string.shared_confirm)).performClick()
         compose.waitUntil { changes.size == 2 && compose.onAllNodesWithText(label(R.string.shared_unblock)).fetchSemanticsNodes().isEmpty() }
         assertTrue(state.participants.isEmpty())
@@ -78,7 +73,6 @@ class SharedCompletionTest {
         compose.onNodeWithText(label(R.string.shared_load_more)).performScrollTo().performClick()
         compose.waitUntil { compose.onAllNodesWithText("Earlier post").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(listOf(0,1), requests)
-        capture("album-activity")
         compose.onAllNodesWithText(label(R.string.shared_post_discussion))[0].performScrollTo().performClick()
         compose.waitUntil { compose.onAllNodesWithTag("shared-comment-input").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("shared-comment-input").performScrollTo().performTextInput("Whole post discussion")

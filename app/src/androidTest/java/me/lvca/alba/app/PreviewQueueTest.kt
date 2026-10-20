@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.*
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.testDependencies
 
 @RunWith(AndroidJUnit4::class)
 class PreviewQueueTest {
@@ -42,22 +45,22 @@ class PreviewQueueTest {
                     SavedStateHandle()).also { store.put("preview-test", it) }
             }
             collect = launch { vm.gallery.state.collect() }
-            withTimeout(10_000) { vm.gallery.state.first { it.catalogItems.size == 120 } }
+            withTimeout(UI_WAIT) { vm.gallery.state.first { it.catalogItems.size == 120 } }
             assertEquals(ICloudAccountState.Demo, graph.accountManager.state.value)
             withContext(Dispatchers.Main) { vm.previews.prefetch(items.take(48).map { it.id }) }
-            withTimeout(5_000) { started.first { it.size == 4 } }
+            withTimeout(SHORT_WAIT) { started.first { it.size == 4 } }
             withContext(Dispatchers.Main) {
                 vm.previews.prefetch(items.takeLast(48).map { it.id })
                 release.complete(Unit)
             }
-            withTimeout(10_000) { gallery.first { rows -> rows.takeLast(48).take(44).all { it.previewReference != null } } }
+            withTimeout(UI_WAIT) { gallery.first { rows -> rows.takeLast(48).take(44).all { it.previewReference != null } } }
             assertEquals(48, started.value.size)
             assertEquals(items.take(4).map { it.id } + items.takeLast(48).take(44).map { it.id }, started.value)
             assertTrue(gallery.value.take(4).all { it.previewReference != null })
             // Scrolling back over retained thumbnails must not schedule new downloads.
-            withTimeout(5_000) { vm.gallery.state.first { it.catalogItems.count { row -> row.previewReference != null } == 48 } }
+            withTimeout(SHORT_WAIT) { vm.gallery.state.first { it.catalogItems.count { row -> row.previewReference != null } == 48 } }
             withContext(Dispatchers.Main) { vm.previews.prefetch(items.takeLast(48).map { it.id }) }
-            withTimeout(10_000) { gallery.first { rows -> rows.takeLast(48).all { it.previewReference != null } } }
+            withTimeout(UI_WAIT) { gallery.first { rows -> rows.takeLast(48).all { it.previewReference != null } } }
             assertEquals(52, started.value.size)
         } finally {
             release.complete(Unit)

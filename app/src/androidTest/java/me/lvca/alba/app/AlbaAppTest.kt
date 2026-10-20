@@ -8,6 +8,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Screenshots
+import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.waitForGalleryMedia
+import me.lvca.alba.app.testing.waitForVideoPlaying
+import me.lvca.alba.app.testing.waitUntilDisplayed
 
 @RunWith(AndroidJUnit4::class)
 class AlbaAppTest {
@@ -17,7 +26,7 @@ class AlbaAppTest {
 
     @Test
     fun browseFixtureAndKeepAnOriginalOffline() {
-        waitForDemoLibrary()
+        compose.waitForGalleryMedia()
         compose.onNodeWithTag("tab-LIBRARY").assertIsSelected()
 
         compose.scrollToGalleryMedia("fixture:icloud:0001")
@@ -26,18 +35,18 @@ class AlbaAppTest {
         compose.openViewerDetails()
         compose.onAllNodesWithText("IMG_8421.JPG").onFirst().assertIsDisplayed()
 
-        compose.waitUntil(timeoutMillis = 15_000) {
+        compose.waitUntil(timeoutMillis = UI_WAIT) {
             hasNodeWithText("Keep original offline") || hasNodeWithText("Remove offline copy")
         }
         if (hasNodeWithText("Remove offline copy")) {
             compose.onNodeWithText("Remove offline copy").performScrollTo().performClick()
-            compose.waitUntil(timeoutMillis = 15_000) {
+            compose.waitUntil(timeoutMillis = UI_WAIT) {
                 hasNodeWithText("Keep original offline")
             }
         }
         compose.onNodeWithText("Keep original offline").performScrollTo().performClick()
 
-        compose.waitUntil(timeoutMillis = 15_000) {
+        compose.waitUntil(timeoutMillis = UI_WAIT) {
             hasNodeWithText("Remove offline copy")
         }
         compose.onNodeWithText("Remove offline copy").performScrollTo().assertIsDisplayed()
@@ -45,49 +54,37 @@ class AlbaAppTest {
 
     @Test
     fun demoVideoActuallyPlaysAndCapturesFeatureScreens() {
-        waitForDemoLibrary()
+        compose.waitForGalleryMedia()
         compose.scrollToGalleryMedia("fixture:icloud:0019")
-        capture("features-gallery.png")
+        // scripts/run_android_tests.sh collects the features-* captures.
+        Screenshots.capture("features-gallery")
         compose.onNodeWithTag("media-fixture:icloud:0019").performClick()
         compose.waitForVideoPlaying()
-        capture("features-video.png")
+        Screenshots.capture("features-video")
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
         compose.waitForVideoPlaying()
         compose.openViewerDetails()
         if (hasNodeWithText("Remove offline copy")) {
             compose.onNodeWithText("Remove offline copy").performScrollTo().performClick()
-            compose.waitUntil(timeoutMillis = 15_000) { hasNodeWithText("Keep original offline") }
+            compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Keep original offline") }
         }
         compose.onNodeWithText("Keep original offline").performScrollTo().performClick()
-        compose.waitUntil(timeoutMillis = 15000) { hasNodeWithText("Remove offline copy") }
+        compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Remove offline copy") }
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
-        compose.waitUntil(timeoutMillis = 5000) {
+        compose.waitUntil(timeoutMillis = SHORT_WAIT) {
             compose.onAllNodes(hasTestTag("video-player")).fetchSemanticsNodes().isEmpty()
         }
     }
 
-    private fun capture(name: String) {
-        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
-        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
-        val directory = androidx.test.platform.app.InstrumentationRegistry.getArguments()
-            .getString("additionalTestOutputDir")?.let { java.io.File(it) }
-            ?: instrumentation.targetContext.cacheDir
-        directory.mkdirs()
-        java.io.File(directory, name).outputStream().use {
-            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-        bitmap.recycle()
-    }
-
     @Test
     fun searchFavoritesAlbumsAndSelectionAreUsable() {
-        waitForDemoLibrary()
+        compose.waitForGalleryMedia()
         compose.onNodeWithTag("tab-SEARCH").performClick()
         compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
         compose.activityRule.scenario.recreate()
-        compose.waitUntil(timeoutMillis = 15000) { hasNodeWithText("Sea breeze") }
+        compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Sea breeze") }
         compose.scrollToGalleryMedia("fixture:icloud:0019")
         compose.onNodeWithTag("media-fixture:icloud:0019").performTouchInput { longClick() }
         compose.onNodeWithText("1 selected").assertIsDisplayed()
@@ -100,14 +97,14 @@ class AlbaAppTest {
         compose.onNodeWithTag("collection-albums").performClick()
         compose.onNodeWithText("Journeys").performClick()
         compose.activityRule.scenario.recreate()
-        compose.waitUntil(timeoutMillis = 15000) { hasNodeWithText("By the sea") }
+        compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("By the sea") }
         compose.onNodeWithText("By the sea").performClick()
         compose.onNodeWithText("By the sea").assertIsDisplayed()
     }
 
     @Test
     fun opensLocalAppleAccountSignInWithoutStartingNetworkTraffic() {
-        waitForDemoLibrary()
+        compose.waitForGalleryMedia()
 
         compose.onNodeWithTag("account-button").performClick()
         compose.onNodeWithTag("profile-sign-in").performClick()
@@ -124,7 +121,7 @@ class AlbaAppTest {
 
     @Test
     fun androidBackClearsSelectionAndDetailKeepsGalleryPosition() {
-        waitForDemoLibrary()
+        compose.waitForGalleryMedia()
         val media = "media-fixture:icloud:0019"
         compose.scrollToGalleryMedia("fixture:icloud:0019")
         compose.onNodeWithTag(media).performTouchInput { longClick() }
@@ -132,14 +129,14 @@ class AlbaAppTest {
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag(media).assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, false))
         compose.onNodeWithTag(media).performClick()
-        compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isNotEmpty() }
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         compose.waitUntilDisplayed(hasTestTag(media))
     }
 
     @Test
     fun accountDraftAndDestinationRestoreButPasswordDoesNot() {
-        waitForDemoLibrary()
+        compose.waitForGalleryMedia()
         compose.onNodeWithTag("account-button").performClick()
         compose.onNodeWithTag("profile-sign-in").performClick()
         compose.onNodeWithText("Apple Account").performTextInput("local-restoration@example.invalid")
@@ -147,11 +144,6 @@ class AlbaAppTest {
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("local-restoration@example.invalid").assertIsDisplayed()
         compose.onNodeWithText("never-persist-this").assertDoesNotExist()
-    }
-
-    private fun waitForDemoLibrary() {
-        // The account banner appears before the asynchronous Room catalog is published.
-        compose.waitForGalleryMedia()
     }
 
     private fun hasNodeWithText(text: String): Boolean =

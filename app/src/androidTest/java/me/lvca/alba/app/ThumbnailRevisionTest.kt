@@ -18,6 +18,7 @@ import java.io.File
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 
 @RunWith(AndroidJUnit4::class)
@@ -44,7 +45,7 @@ class ThumbnailRevisionTest {
             compose.runOnIdle { reference.value = original.path }
             compose.onNodeWithTag("upgrading-photo").performTouchInput { advanceEventTime(60); up() }
             compose.mainClock.advanceTimeBy(600)
-            compose.waitUntil(2_000) { taps.get() == 1 }
+            compose.waitUntil(SHORT_WAIT) { taps.get() == 1 }
         } finally { preview.delete(); original.delete() }
     }
 
@@ -69,10 +70,10 @@ class ThumbnailRevisionTest {
                 MediaThumbnail(file.path, 0xff000000, 0xff000000, null,
                     Modifier.size(100.dp).testTag("thumbnail"), sourceRevision = revision.value, sharedMediaId = "revision-photo")
             }
-            compose.waitUntil(5_000) { hasColor(red = true) }
+            compose.waitUntil(SHORT_WAIT) { hasColor(red = true) }
             writeColor(android.graphics.Color.BLUE)
             compose.runOnIdle { revision.value = "second" }
-            compose.waitUntil(5_000) { hasColor(red = false) }
+            compose.waitUntil(SHORT_WAIT) { hasColor(red = false) }
         } finally { file.delete() }
     }
 
@@ -100,7 +101,7 @@ class ThumbnailRevisionTest {
                         sharedMediaId = "visible-handoff", sourceRevision = "first")
                 }
             }
-            compose.waitUntil(5_000) { isRed("visible-tile") }
+            compose.waitUntil(SHORT_WAIT) { isRed("visible-tile") }
             preview.delete()
             compose.runOnIdle { showViewer.value = true }
             // No reference or fallback can provide pixels: this must use the visible endpoint.
@@ -129,7 +130,7 @@ class ThumbnailRevisionTest {
                     contentScale = if (viewer.value) ContentScale.Fit else ContentScale.Crop,
                     fallbackReference = preview.path, sourceRevision = "unchanged")
             }
-            compose.waitUntil(5_000) { isRed() }
+            compose.waitUntil(SHORT_WAIT) { isRed() }
             // A cache-only preview must survive both the reference switch and larger viewer bounds.
             preview.delete()
             compose.runOnIdle { viewer.value = true }

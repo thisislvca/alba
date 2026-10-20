@@ -21,6 +21,8 @@ import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.actions.MediaWork
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.AlbaApp
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme

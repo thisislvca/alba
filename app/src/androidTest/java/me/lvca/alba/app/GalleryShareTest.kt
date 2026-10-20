@@ -15,6 +15,8 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.Rule
 import me.lvca.alba.app.platform.GalleryExporter
+import me.lvca.alba.app.testing.MediaStoreFixtures
+import me.lvca.alba.app.testing.OnboardingRule
 
 class GalleryShareTest {
     @get:Rule val onboarding = OnboardingRule()
@@ -54,18 +56,13 @@ class GalleryShareTest {
     @Test fun phonePhotoSharesGrantedContentWithoutCloudCalls() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repository = (context as AlbaApplication).graph.galleryRepository
-        val uri = requireNotNull(context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            android.content.ContentValues().apply {
-                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "alba-share-test.png")
-                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "image/png")
-            }))
+        val expected = ByteArrayOutputStream().also { output ->
+            val bitmap = android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888)
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)
+            bitmap.recycle()
+        }.toByteArray()
+        val uri = MediaStoreFixtures.insert("alba-share-test.png", "image/png", "Pictures/AlbaTest") { it.write(expected) }
         try {
-            val expected = ByteArrayOutputStream().also { output ->
-                val bitmap = android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888)
-                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)
-                bitmap.recycle()
-            }.toByteArray()
-            context.contentResolver.openOutputStream(uri)!!.use { it.write(expected) }
             val photo = me.lvca.alba.engine.model.GalleryMedia("device:test", "alba-share-test.png", 1, 1, 1,
                 me.lvca.alba.engine.model.MediaOrigin.DEVICE, me.lvca.alba.engine.model.MediaAvailability.DEVICE_ORIGINAL,
                 uri.toString(), uri.toString(), 0, 0, mimeType = "image/png")

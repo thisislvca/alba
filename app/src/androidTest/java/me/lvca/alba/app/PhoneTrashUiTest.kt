@@ -1,8 +1,6 @@
 package me.lvca.alba.app
 
 import android.Manifest
-import android.content.ContentValues
-import android.provider.MediaStore
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
@@ -14,6 +12,14 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.MediaStoreFixtures
+import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.waitForVideoPlaying
 
 @SdkSuppress(minSdkVersion = 33)
 class PhoneTrashUiTest {
@@ -24,7 +30,7 @@ class PhoneTrashUiTest {
     private fun systemButton(id: String): AccessibilityNodeInfo? =
         instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByViewId("android:id/$id")?.firstOrNull()
     private fun confirm(id: String) {
-        val deadline = android.os.SystemClock.uptimeMillis() + 10_000
+        val deadline = android.os.SystemClock.uptimeMillis() + UI_WAIT
         var button: AccessibilityNodeInfo? = null
         while (button == null && android.os.SystemClock.uptimeMillis() < deadline) {
             button = systemButton(id)
@@ -37,32 +43,19 @@ class PhoneTrashUiTest {
         val context = compose.activity.applicationContext
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_VIDEO)
         val resolver = context.contentResolver
-        val uri = requireNotNull(resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "alba-native-trash-test.mp4")
-            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/AlbaTest")
-            put(MediaStore.MediaColumns.IS_PENDING, 1)
-        }))
+        val uri = MediaStoreFixtures.insertAsset(instrumentation.context.assets, "portrait_video.mp4", "alba-native-trash-test.mp4", "video/mp4", "Movies/AlbaTest")
         try {
-            instrumentation.context.assets.open("portrait_video.mp4").use { input -> resolver.openOutputStream(uri)!!.use(input::copyTo) }
-            resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
             val source = AndroidMediaStoreSource(context)
             val id = runBlocking { source.scanImages().single { it.contentUri == uri.toString() }.id }
             compose.activityRule.scenario.recreate()
             val model = androidx.lifecycle.ViewModelProvider(compose.activity)[AlbaViewModel::class.java]
-            compose.waitUntil(15_000) { model.gallery.state.value.items.any { it.id == id } }
+            compose.waitUntil(UI_WAIT) { model.gallery.state.value.items.any { it.id == id } }
             compose.scrollToGalleryMedia(id)
             compose.onNodeWithTag("media-$id").performClick()
             compose.waitForVideoPlaying()
             val playerBounds = compose.onNodeWithTag("video-player").fetchSemanticsNode().boundsInRoot
             assertTrue("Portrait video must use the available height", playerBounds.height > playerBounds.width)
-            val screenshot = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
-            val directory = context.getExternalFilesDir("table-stakes")!!.apply { mkdirs() }
-            java.io.File(directory, "portrait-video.png").outputStream().use {
-                screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-            }
-            screenshot.recycle()
-            compose.waitUntil(5_000) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, context.getString(R.string.playing))).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(SHORT_WAIT) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, context.getString(R.string.playing))).fetchSemanticsNodes().isNotEmpty() }
             compose.openViewerDetails()
             compose.onNodeWithText(context.getString(R.string.trash_phone_copy)).performScrollTo().performClick()
             confirm("button2")
@@ -70,17 +63,17 @@ class PhoneTrashUiTest {
             assertFalse(runBlocking { source.scanImages().single { it.id == id }.isTrashed })
             compose.onNodeWithText(context.getString(R.string.trash_phone_copy)).performScrollTo().performClick()
             confirm("button1")
-            compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
+            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
             assertTrue(runBlocking { source.scanImages().single { it.id == id }.isTrashed })
             compose.onNodeWithTag("tab-COLLECTIONS").performClick()
             compose.onNodeWithTag("collections-grid").performScrollToNode(hasText(context.getString(R.string.phone_trash)))
             compose.onNodeWithText(context.getString(R.string.phone_trash)).performClick()
-            compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-$id").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-$id").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("media-$id").performClick()
             compose.openViewerDetails()
             compose.onNodeWithText(context.getString(R.string.restore_photo)).performScrollTo().performClick()
             confirm("button1")
-            compose.waitUntil(15_000) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
+            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
             assertFalse(runBlocking { source.scanImages().single { it.id == id }.isTrashed })
         } finally { resolver.delete(uri, null, null) }
     }

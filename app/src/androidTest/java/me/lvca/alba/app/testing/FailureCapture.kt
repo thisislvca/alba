@@ -1,10 +1,8 @@
-package me.lvca.alba.app
+package me.lvca.alba.app.testing
 
-import android.graphics.Bitmap
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
-import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
@@ -15,16 +13,9 @@ import org.junit.runner.Description
  */
 class FailureCapture(private val compose: () -> ComposeTestRule) : TestWatcher() {
     override fun failed(e: Throwable, description: Description) {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
-            ?: File(instrumentation.targetContext.getExternalFilesDir(null), "failures")
-        directory.mkdirs()
+        val directory = Screenshots.testOutput("failures")
         val name = "failure-${description.testClass.simpleName}-${description.methodName}"
-        runCatching {
-            val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
-            File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            bitmap.recycle()
-        }
+        runCatching { Screenshots.capture(name, directory) }
         runCatching {
             File(directory, "$name-semantics.txt").writeText(compose().onRoot(useUnmergedTree = true).printToString())
         }

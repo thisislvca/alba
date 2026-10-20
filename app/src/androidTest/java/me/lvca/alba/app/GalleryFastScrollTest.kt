@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material3.*
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -64,12 +63,6 @@ class GalleryFastScrollTest {
         compose.waitForIdle()
         assertEquals("Equal finger travel should produce equal scroll progress", firstMove - before, progress() - firstMove, .015f)
         compose.onNodeWithTag("fast-scroll-year-2026").assertIsDisplayed()
-        val screenshot = compose.onRoot().captureToImage()
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        val dir = context.getExternalFilesDir("gallery-polish")!!.apply { mkdirs() }
-        java.io.File(dir, "scrubber-years.png").outputStream().use {
-            screenshot.asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
         val yearBounds = compose.onNodeWithTag("fast-scroll-year-2026").fetchSemanticsNode().boundsInRoot
         rail.performTouchInput { moveBy(Offset(0f, -height.toFloat()), 500) }
         compose.waitForIdle()

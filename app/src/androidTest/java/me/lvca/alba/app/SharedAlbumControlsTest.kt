@@ -7,6 +7,7 @@ import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.shared.SharedAlbumControls
 import me.lvca.alba.app.ui.shared.SharedInvitations
@@ -16,11 +17,6 @@ class SharedAlbumControlsTest {
     @get:Rule val compose = createComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private fun label(id: Int) = context.getString(id)
-    private fun capture(name: String) {
-        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
-        val dir = context.getExternalFilesDir("shared-controls")!!.apply { mkdirs() }
-        java.io.File(dir,"$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }; bitmap.recycle()
-    }
     @Test fun incomingInvitationShowsAlbumAndRequiresExplicitJoin() {
         val invitation = SharedInvitation("invitation:test:legacy:album","Invited family",SharedAlbumGeneration.LEGACY,true)
         var pending = true; val responses = mutableListOf<Pair<String,Boolean>>()
@@ -33,7 +29,6 @@ class SharedAlbumControlsTest {
         compose.onNodeWithText(label(R.string.shared_confirm)).performClick()
         compose.waitUntil { responses.size == 1 && compose.onAllNodesWithText(label(R.string.shared_no_invitations)).fetchSemanticsNodes().isNotEmpty() }
         assertEquals(invitation.id to true,responses.single())
-        capture("invitations-accepted")
     }
 
     @Test fun invitationsRequireConfirmationAndShowPendingParticipant() {
@@ -45,7 +40,6 @@ class SharedAlbumControlsTest {
             if(c.action == SharedAction.INVITE) state = state.copy(participants=state.participants+SharedParticipant("guest",c.value,SharedAlbumRole.CONTRIBUTOR,pending=true))
         }), {}) } }
         compose.waitUntil { compose.onAllNodesWithTag("shared-invite-email").fetchSemanticsNodes().isNotEmpty() }
-        capture("management-overview")
         compose.onNodeWithTag("shared-invite-email").performScrollTo().performTextInput("family@example.com")
         androidx.test.espresso.Espresso.closeSoftKeyboard()
         compose.onNodeWithText(label(R.string.shared_invite)).performScrollTo().performClick()
@@ -56,7 +50,6 @@ class SharedAlbumControlsTest {
         compose.onNodeWithText("family@example.com").performScrollTo()
         compose.waitForIdle()
         compose.onNodeWithText("family@example.com").assertIsDisplayed()
-        capture("management-invited")
     }
     @Test fun viewerCannotEditAlbumAndLeavingNeedsConfirmation() {
         val album = GalleryCollection("shared:test:shared:owner:album", "Read-only", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.VIEWER))
@@ -69,7 +62,6 @@ class SharedAlbumControlsTest {
         compose.onNodeWithText(label(R.string.shared_confirm_leave)).assertIsDisplayed()
         compose.onNodeWithText(label(R.string.shared_cancel)).performClick()
         assertTrue(commands.isEmpty())
-        capture("viewer-permissions")
     }
     @Test fun commentsPostAndFailuresKeepDraftWithoutPretendingSuccess() {
         val album = GalleryCollection("shared:test:private:owner:album","Family",shared=SharedAlbumInfo(SharedAlbumGeneration.MODERN,SharedAlbumRole.OWNER))
@@ -93,6 +85,5 @@ class SharedAlbumControlsTest {
         compose.onNodeWithText(label(R.string.shared_you)).assertExists()
         compose.onNodeWithTag("shared-comment-input").assertTextContains("")
         compose.onNodeWithText("Hello from Android").performScrollTo().assertIsDisplayed()
-        capture("posted-comment")
     }
 }
