@@ -150,8 +150,8 @@ internal class UploadInvoker(
                 } catch (error: Throwable) {
                     if (error is CancellationException) throw error
                     if (!protocol.isWriteAuthorized()) return@forEach
-                    // Alba's own refusals are final. Any other failure with durable safe state can continue at the next wake.
-                    if (!error.isFinalRefusal() && protocol.canResume(binding, attemptId)) {
+                    // Only failures that may pass on retry, with durable safe state, continue at the next wake.
+                    if (!error.failsEveryRetry() && protocol.canResume(binding, attemptId)) {
                         if (transfer.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
                         return@forEach
                     }
@@ -340,3 +340,10 @@ internal class UploadInvoker(
         const val READY_LEASE_MILLIS = 2 * 60 * 1_000L
     }
 }
+
+/**
+ * Alba's refusals and the protocol's own check/require failures (a changed source file, an unexpected
+ * upload host) fail the same way on every attempt, so resuming would loop and hold the account's write slot.
+ */
+private fun Throwable.failsEveryRetry(): Boolean =
+    isFinalRefusal() || this is IllegalStateException || this is IllegalArgumentException

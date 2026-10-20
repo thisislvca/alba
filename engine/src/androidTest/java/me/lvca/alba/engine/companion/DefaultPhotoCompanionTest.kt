@@ -563,6 +563,20 @@ class DefaultPhotoCompanionTest {
     }
 
     @Test
+    fun deterministicResumeFailureEndsInReconciliationInsteadOfLooping() = runBlocking {
+        val protocol = FakeProtocol(UploadMode.THROW_BEFORE_BODY, null).apply { safeResume = true }
+        val photos = companion(FakeOriginalSource(context), protocol)
+        photos.uploadSelected(UserSelectedPhoto("content://picker/changed", "changed.jpg"))
+        photos.syncNow()
+        // The protocol's own checks fail the same way on every attempt, e.g. when the source file changed.
+        protocol.beforePrepare = { error("Upload filename changed") }
+        photos.wake(WakeReason.USER_TRANSFER)
+        val row = requireNotNull(database.transferDao().findTransfer(photos.observeTransfers().first().single().id.value))
+        assertTrue(row.state != me.lvca.alba.engine.database.TransferState.SENDING)
+        assertEquals(1, protocol.uploadStarts.get())
+    }
+
+    @Test
     fun futureReconciliationSchedulesItsDueTime() = runBlocking {
         val times = mutableListOf<Long>()
         val scheduler = object : WakeupScheduler {
