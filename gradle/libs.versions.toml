@@ -18,14 +18,19 @@ okhttp = "5.5.0"
 serialization-json = "1.11.0"
 sentry = "8.58.0"
 sentry-plugin = "6.23.0"
+profileinstaller = "1.4.1"
+benchmark = "1.5.0"
+uiautomator = "2.3.0"
+exifinterface = "1.4.2"
+media3 = "1.11.1"
 
 [libraries]
-androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version = "1.4.1" }
-androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version = "1.5.0" }
-androidx-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version = "2.3.0" }
-androidx-exif = { module = "androidx.exifinterface:exifinterface", version = "1.4.2" }
-media3-player = { module = "androidx.media3:media3-exoplayer", version = "1.11.1" }
-media3-ui = { module = "androidx.media3:media3-ui", version = "1.11.1" }
+androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
+androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
+androidx-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
+androidx-exif = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
+media3-player = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
