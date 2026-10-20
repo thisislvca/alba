@@ -382,7 +382,7 @@ class AppleAuthenticationService private constructor(
                 AppleHttpRequest(
                     method = "POST",
                     url = setupUrl("logout", snapshot.clientId, snapshot.dsid),
-                    headers = mapOf("Content-Type" to "text/plain;charset=UTF-8"),
+                    headers = mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE),
                     body = buildJsonObject {
                         put("trustBrowser", false)
                         put("allBrowsers", false)

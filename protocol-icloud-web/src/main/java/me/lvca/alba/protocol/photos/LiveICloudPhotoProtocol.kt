@@ -15,6 +15,7 @@ import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
@@ -138,7 +139,7 @@ class LiveICloudPhotoProtocol(
         val response = executeRead(session, AppleHttpRequest(
             method = "POST",
             url = url,
-            headers = mapOf("Content-Type" to "text/plain;charset=UTF-8"),
+            headers = mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE),
             body = buildJsonObject {
                 putJsonArray("uploadJobIds") { add(JsonPrimitive(jobId)) }
             }.toString(),
@@ -508,7 +509,7 @@ class LiveICloudPhotoProtocol(
         const val ASSET_RECORD_TYPE = "CPLAsset"
         const val ORIGINAL_RESOURCE_KEY = "resOriginalRes"
         const val RECORD_LOOKUP_BATCH_SIZE = 100
-        val JSON_HEADERS = mapOf("Content-Type" to "plain/text")
+        val JSON_HEADERS = mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE)
         val LOOKUP_KEYS = listOf(
             "filenameEnc",
             "itemType",

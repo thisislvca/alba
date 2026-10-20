@@ -4,6 +4,7 @@ import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpTransport
 import kotlinx.coroutines.sync.Mutex
@@ -50,7 +51,7 @@ internal class SharedAlbumSession(
         AppleEndpointPolicy.requireAllowed(url)
         val target = url.toHttpUrl().newBuilder().addQueryParameter("clientId", current.clientId)
             .addQueryParameter("dsid", current.dsid).addQueryParameter("remapEnums", "true").build().toString()
-        val response = transport.execute(AppleHttpRequest("POST", target, mapOf("Content-Type" to "text/plain;charset=UTF-8"), body.toString(), oneShot = write))
+        val response = transport.execute(AppleHttpRequest("POST", target, mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE), body.toString(), oneShot = write))
         checkSession(current)
         persist(current)
         if (response.code !in 200..299) {

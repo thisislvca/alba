@@ -7,6 +7,7 @@ import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
+import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
@@ -165,7 +166,7 @@ internal class PhotosUpload(
             .addUploadClientBuild()
             .build().toString()
         val response = transport.execute(AppleHttpRequest("POST", url,
-            mapOf("Content-Type" to "text/plain;charset=UTF-8"), body.toString(), oneShot = true))
+            mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE), body.toString(), oneShot = true))
         checkAuthorized()
         persistSession()
         return response

@@ -17,6 +17,12 @@ object AppleClientProfile {
     const val UPLOAD_CLIENT_BUILD = "2634Build25"
     const val UPLOAD_CLIENT_MASTERING = "2634Build25"
 
+    /**
+     * iCloud.com posts its JSON bodies to CloudKit, setup and upload services as a text string,
+     * which the browser labels with exactly this value. The upload tests pin it.
+     */
+    const val WEB_SERVICE_CONTENT_TYPE = "text/plain;charset=UTF-8"
+
     internal fun HttpUrl.Builder.addWebClientBuild(): HttpUrl.Builder = this
         .addQueryParameter("clientBuildNumber", WEB_CLIENT_BUILD)
         .addQueryParameter("clientMasteringNumber", WEB_CLIENT_MASTERING)

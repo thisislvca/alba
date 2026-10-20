@@ -6,6 +6,7 @@ import me.lvca.alba.engine.source.RemoteMediaRecord
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
+import me.lvca.alba.protocol.network.AppleClientProfile
 import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
@@ -804,7 +805,7 @@ class LiveICloudCatalogSource(
         const val PRIMARY_ZONE_TYPE = "REGULAR_CUSTOM_ZONE"
         const val PHOTO_LIST_RECORD_TYPE = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"
         const val RECORDS_PER_PHOTO = 2
-        val JSON_HEADERS = mapOf("Content-Type" to "plain/text")
+        val JSON_HEADERS = mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE)
         val PHOTO_DESIRED_KEYS = listOf(
             "resOriginalVidComplRes", "resOriginalVidComplFileType", "resOriginalVidComplFingerprint",
             "isHidden", "isDeleted", "isFavorite", "duration", "resOriginalFingerprint", "resVidMedRes", "resVidFullRes",

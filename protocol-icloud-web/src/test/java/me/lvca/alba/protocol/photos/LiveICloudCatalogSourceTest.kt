@@ -85,6 +85,7 @@ class LiveICloudCatalogSourceTest {
         override val sessionHeaders = AppleSessionHeaders()
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             assertTrue(request.url.contains("/changes/zone"))
+            assertEquals("text/plain;charset=UTF-8", request.headers["Content-Type"])
             return AppleHttpResponse(code, emptyMap(), body)
         }
         override suspend fun stream(url: String, output: OutputStream) = error("Not used")
