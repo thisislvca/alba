@@ -12,6 +12,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.*
+import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /** Read-only endpoints also used by pyicloud's AccountService; no family inventory is requested. */
@@ -19,8 +20,7 @@ internal class ICloudAccountProfileService(private val transport: AppleHttpTrans
     suspend fun load(session: AppleSessionSnapshot): CloudAccountProfile = coroutineScope {
         val suffix = if (session.accountCountryCode.equals("CN", ignoreCase = true)) ".cn" else ""
         fun url(base: String) = base.toHttpUrl().newBuilder()
-            .addQueryParameter("clientBuildNumber", "2534Project66")
-            .addQueryParameter("clientMasteringNumber", "2534B22")
+            .addWebClientBuild()
             .addQueryParameter("clientId", session.clientId)
             .addQueryParameter("dsid", session.dsid)
         val plan = async { optional {

@@ -15,6 +15,7 @@ import java.time.ZoneId
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.serialization.json.*
+import me.lvca.alba.protocol.network.AppleClientProfile.addUploadClientBuild
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /** pyicloud 2.7.0 / Apple's photosupload protocol. One invocation, no write retries. */
@@ -161,8 +162,7 @@ internal class PhotosUpload(
         val url = "$serviceRoot/photosupload/$path".toHttpUrl().newBuilder()
             .addQueryParameter("dsid", session.dsid)
             .addQueryParameter("clientId", session.clientId)
-            .addQueryParameter("clientBuildNumber", "2634Build25")
-            .addQueryParameter("clientMasteringNumber", "2634Build25")
+            .addUploadClientBuild()
             .build().toString()
         val response = transport.execute(AppleHttpRequest("POST", url,
             mapOf("Content-Type" to "text/plain;charset=UTF-8"), body.toString(), oneShot = true))

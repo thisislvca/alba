@@ -22,6 +22,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import me.lvca.alba.engine.source.*
 import me.lvca.alba.engine.model.*
@@ -686,8 +687,7 @@ class LiveICloudCatalogSource(
         return "$root/database/1/com.apple.photos.cloud/production/private/records/query"
             .toHttpUrl()
             .newBuilder()
-            .addQueryParameter("clientBuildNumber", CLIENT_BUILD)
-            .addQueryParameter("clientMasteringNumber", CLIENT_MASTERING)
+            .addWebClientBuild()
             .addQueryParameter("clientId", session.clientId)
             .addQueryParameter("dsid", session.dsid)
             .addQueryParameter("remapEnums", "true")
@@ -698,8 +698,7 @@ class LiveICloudCatalogSource(
 
     private fun setupUrl(path: String, session: AppleSessionSnapshot): String =
         "$SETUP_ENDPOINT/$path".toHttpUrl().newBuilder()
-            .addQueryParameter("clientBuildNumber", CLIENT_BUILD)
-            .addQueryParameter("clientMasteringNumber", CLIENT_MASTERING)
+            .addWebClientBuild()
             .addQueryParameter("clientId", session.clientId)
             .addQueryParameter("dsid", session.dsid)
             .build()
@@ -801,8 +800,6 @@ class LiveICloudCatalogSource(
 
     private companion object {
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
-        const val CLIENT_BUILD = "2534Project66"
-        const val CLIENT_MASTERING = "2534B22"
         const val PRIMARY_ZONE_NAME = "PrimarySync"
         const val PRIMARY_ZONE_TYPE = "REGULAR_CUSTOM_ZONE"
         const val PHOTO_LIST_RECORD_TYPE = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"

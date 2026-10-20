@@ -34,6 +34,8 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
+import me.lvca.alba.protocol.network.AppleClientProfile.addUploadClientBuild
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 class LiveICloudPhotoProtocol(
@@ -131,8 +133,7 @@ class LiveICloudPhotoProtocol(
         val url = "${root.trimEnd('/')}/photosupload/uploadStatus".toHttpUrl().newBuilder()
             .addQueryParameter("dsid", session.dsid)
             .addQueryParameter("clientId", session.clientId)
-            .addQueryParameter("clientBuildNumber", "2634Build25")
-            .addQueryParameter("clientMasteringNumber", "2634Build25")
+            .addUploadClientBuild()
             .build().toString()
         val response = executeRead(session, AppleHttpRequest(
             method = "POST",
@@ -433,8 +434,7 @@ class LiveICloudPhotoProtocol(
         return "$root/database/1/com.apple.photos.cloud/production/private$path"
             .toHttpUrl()
             .newBuilder()
-            .addQueryParameter("clientBuildNumber", CLIENT_BUILD)
-            .addQueryParameter("clientMasteringNumber", CLIENT_MASTERING)
+            .addWebClientBuild()
             .addQueryParameter("clientId", session.clientId)
             .addQueryParameter("dsid", session.dsid)
             .addQueryParameter("remapEnums", "true")
@@ -502,8 +502,6 @@ class LiveICloudPhotoProtocol(
     private companion object {
         const val CLOUDKIT_SERVICE = "ckdatabasews"
         const val UPLOAD_SERVICE = "photosupload"
-        const val CLIENT_BUILD = "2534Project66"
-        const val CLIENT_MASTERING = "2534B22"
         const val PRIMARY_ZONE_NAME = "PrimarySync"
         const val PRIMARY_ZONE_TYPE = "REGULAR_CUSTOM_ZONE"
         const val MASTER_RECORD_TYPE = "CPLMaster"

@@ -31,6 +31,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 class AppleAuthenticationService private constructor(
@@ -664,8 +665,7 @@ class AppleAuthenticationService private constructor(
 
     private fun setupUrl(path: String, clientId: String, dsid: String? = null): String =
         "$SETUP_ENDPOINT/$path".toHttpUrl().newBuilder()
-            .addQueryParameter("clientBuildNumber", CLIENT_BUILD)
-            .addQueryParameter("clientMasteringNumber", CLIENT_MASTERING)
+            .addWebClientBuild()
             .addQueryParameter("clientId", clientId)
             .apply { dsid?.let { addQueryParameter("dsid", it) } }
             .build()
@@ -763,8 +763,6 @@ class AppleAuthenticationService private constructor(
         const val ICLOUD_HOME = "https://www.icloud.com"
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         const val WIDGET_KEY = "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d"
-        const val CLIENT_BUILD = "2534Project66"
-        const val CLIENT_MASTERING = "2534B22"
         val JSON_HEADERS = mapOf("Content-Type" to "application/json")
         val AUTH_HEADERS = mapOf(
             "Accept" to "application/json, text/javascript",
