@@ -2,7 +2,7 @@ package me.lvca.alba.app.demo
 
 import android.content.Context
 import android.net.Uri
-import android.provider.OpenableColumns
+import me.lvca.alba.app.platform.displayName
 import me.lvca.alba.protocol.account.ICloudAccountManager
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.fixture.FixtureICloudCatalogSource
@@ -19,8 +19,7 @@ class DemoMediaImporter(
     suspend fun import(uri: Uri?) {
         check(accountManager.state.value == ICloudAccountState.Demo)
         val resolver = appContext.contentResolver
-        val name = if (uri == null) SAMPLE_NAME else resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null } ?: SELECTED_NAME
+        val name = if (uri == null) SAMPLE_NAME else resolver.displayName(uri) ?: SELECTED_NAME
         val input = if (uri == null) appContext.assets.open(SAMPLE_ASSET) else requireNotNull(resolver.openInputStream(uri))
         demoCatalog.importMedia(name, input)
     }
