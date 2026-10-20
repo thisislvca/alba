@@ -1,15 +1,15 @@
 package me.lvca.alba.engine.repository
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.source.UploadMediaFormat
 import me.lvca.alba.engine.source.UploadMediaValidator
 import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
 
 internal data class PreparedSharedUpload(val format: UploadMediaFormat, val source: OneShotUploadSource)
 

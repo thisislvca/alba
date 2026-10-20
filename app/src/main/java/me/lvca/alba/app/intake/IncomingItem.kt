@@ -3,12 +3,12 @@ package me.lvca.alba.app.intake
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
 import me.lvca.alba.app.platform.displayName
 import java.io.FileNotFoundException
-import kotlinx.coroutines.CancellationException
 
 internal data class IncomingItem(val uri: Uri, val name: String, val mime: String?, val failure: Int? = null)
 internal suspend fun inspectIncoming(context: Context, value: String): IncomingItem = withContext(Dispatchers.IO) {

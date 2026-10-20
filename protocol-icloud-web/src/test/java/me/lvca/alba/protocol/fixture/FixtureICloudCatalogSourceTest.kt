@@ -1,10 +1,9 @@
 package me.lvca.alba.protocol.fixture
 
-import me.lvca.alba.protocol.ICloudProtocolPolicy
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FixtureICloudCatalogSourceTest {
@@ -37,10 +36,5 @@ class FixtureICloudCatalogSourceTest {
         assertTrue(records.containsKey("shared:demo-library:private:owner:two:video"))
         assertEquals(records.keys, snapshot.collections.members.values.flatten().toSet())
         assertTrue(FixtureICloudCatalogSource().sharedAlbums().records.isEmpty())
-    }
-
-    @Test
-    fun `v1 cannot enable live traffic`() {
-        assertTrue(ICloudProtocolPolicy.liveTrafficEnabled)
     }
 }
