@@ -68,7 +68,8 @@ class DefaultGalleryRepository(
 
     // Serialize edits with refresh so a snapshot obtained before an edit cannot overwrite it.
     private suspend fun <T> edit(block: suspend (String) -> T): T = refreshLock.withLock {
-        exclusiveCatalog { editLock.withLock { block(cloudSource.accountLabel) } }
+        // Wait for shared-album reads before taking the catalog permits, so a slow read never stalls downloads.
+        editLock.withLock { exclusiveCatalog { block(cloudSource.accountLabel) } }
     }
 
     // Shared-album reads publish nothing locally, so they skip the refresh lock and catalog permits that made
