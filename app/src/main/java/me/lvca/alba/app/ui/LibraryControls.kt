@@ -16,7 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.Alignment
 import me.lvca.alba.app.R
-import me.lvca.alba.app.GalleryUiState
+import me.lvca.alba.app.GalleryState
+import me.lvca.alba.app.SessionState
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -33,92 +34,96 @@ import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.app.ui.theme.AlbaTheme
 
 @Composable
-internal fun SelectionActions(state: GalleryUiState, selectAll: () -> Unit, clear: () -> Unit,
-    batch: (BatchAction) -> Unit, actions: LibraryActions) {
+internal fun SelectionActions(gallery: GalleryState, session: SessionState, mediaBusy: Boolean, actions: GalleryScreenActions) {
     var addingToAlbum by rememberSaveable { mutableStateOf(false) }
-    val editable = state.canEditLibrary()
+    val editable = session.canEditLibrary(mediaBusy)
+    val query = gallery.query
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        if (state.selection.isNotEmpty()) {
-            val selectedItems = state.items.filter { it.id in state.selection }
+        if (gallery.selection.isNotEmpty()) {
+            val selectedItems = gallery.items.filter { it.id in gallery.selection }
             val hasCloud = selectedItems.any { it.origin == MediaOrigin.ICLOUD }
             val hasShared = selectedItems.any { it.isShared }
             val hasPhone = selectedItems.any { it.origin == MediaOrigin.DEVICE }
+            val withinLimit = selectedItems.size <= MAX_SELECTION_ACTION_ITEMS
             var more by remember { mutableStateOf(false) }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(pluralStringResource(R.plurals.selected_count, state.selection.size, state.selection.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = selectAll) { Text(stringResource(R.string.select_all_shown)) }
-                IconButton(onClick = clear) { Icon(Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }
+                Text(pluralStringResource(R.plurals.selected_count, gallery.selection.size, gallery.selection.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = actions::selectAllShown) { Text(stringResource(R.string.select_all_shown)) }
+                IconButton(onClick = actions::clearSelection) { Icon(Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(enabled = state.activeDownloadId == null && selectedItems.size <= 50,
+                FilledTonalButton(enabled = !mediaBusy && withinLimit,
                     onClick = { actions.share(selectedItems) }) { Text(stringResource(R.string.share)) }
-                if (hasCloud) FilledTonalButton(onClick = { batch(BatchAction.KEEP_OFFLINE) }) { Text(stringResource(R.string.keep_offline)) }
-                if (hasCloud && !state.query.trashOnly && Build.VERSION.SDK_INT >= 29)
-                    FilledTonalButton(onClick = { batch(BatchAction.SAVE_TO_PHONE) }, modifier = Modifier.testTag("save-selection-to-phone")) {
+                if (hasCloud) FilledTonalButton(onClick = { actions.runBatch(BatchAction.KEEP_OFFLINE) }) { Text(stringResource(R.string.keep_offline)) }
+                if (hasCloud && !query.trashOnly && Build.VERSION.SDK_INT >= 29)
+                    FilledTonalButton(onClick = { actions.runBatch(BatchAction.SAVE_TO_PHONE) }, modifier = Modifier.testTag("save-selection-to-phone")) {
                         Text(stringResource(R.string.save_to_phone_gallery))
                     }
-                if (hasPhone && !state.query.trashOnly && selectedItems.any { it.origin == MediaOrigin.DEVICE && UploadMediaFormat.isCandidate(it.mimeType) }) FilledTonalButton(enabled = state.accountState == ICloudAccountState.Demo || (state.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED,
-                    onClick = { batch(BatchAction.UPLOAD) }) { Text(stringResource(if (state.accountState == ICloudAccountState.Demo) R.string.demo_upload_title else R.string.upload_phone_jpegs)) }
+                if (hasPhone && !query.trashOnly && selectedItems.any { it.origin == MediaOrigin.DEVICE && UploadMediaFormat.isCandidate(it.mimeType) }) FilledTonalButton(enabled = session.accountState == ICloudAccountState.Demo || (session.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED,
+                    onClick = { actions.runBatch(BatchAction.UPLOAD) }) { Text(stringResource(if (session.accountState == ICloudAccountState.Demo) R.string.demo_upload_title else R.string.upload_phone_jpegs)) }
                 Box {
                     OutlinedButton(onClick = { more = true }) { Text(stringResource(R.string.more)) }
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
-                        if (!state.query.trashOnly && !hasShared) {
-                            val canFavorite = !state.accountBusy && state.activeDownloadId == null && (!hasCloud || editable) && selectedItems.size <= 50
+                        if (!query.trashOnly && !hasShared) {
+                            val canFavorite = !session.accountBusy && !mediaBusy && (!hasCloud || editable) && withinLimit
                             DropdownMenuItem(text = { Text(stringResource(R.string.favorite)) }, enabled = canFavorite,
-                                onClick = { more = false; actions.favorites(selectedItems.map { it.id }, true) })
+                                onClick = { more = false; actions.setFavorites(selectedItems.map { it.id }, true) })
                             DropdownMenuItem(text = { Text(stringResource(R.string.unfavorite)) }, enabled = canFavorite,
-                                onClick = { more = false; actions.favorites(selectedItems.map { it.id }, false) })
+                                onClick = { more = false; actions.setFavorites(selectedItems.map { it.id }, false) })
                         }
                         if (Build.VERSION.SDK_INT >= 30 && hasPhone && !hasCloud) DropdownMenuItem(
-                            text = { Text(stringResource(if (state.query.trashOnly) R.string.restore_photo else R.string.trash_phone_copy)) },
-                            onClick = { more = false; actions.trash(selectedItems, state.query.trashOnly) })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.add_to_album)) }, enabled = editable && !hasShared && !state.query.trashOnly && hasCloud && !hasPhone && selectedItems.size <= 50,
+                            text = { Text(stringResource(if (query.trashOnly) R.string.restore_photo else R.string.trash_phone_copy)) },
+                            onClick = { more = false; actions.trashOnPhone(selectedItems, query.trashOnly) })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.add_to_album)) }, enabled = editable && !hasShared && !query.trashOnly && hasCloud && !hasPhone && withinLimit,
                             onClick = { more = false; addingToAlbum = true })
-                        val album = state.collections.firstOrNull { it.id == state.query.collectionId && it.isUserAlbum }
-                        if (album != null && !state.query.trashOnly) DropdownMenuItem(text = { Text(stringResource(R.string.remove_from_album)) },
-                            enabled = editable && hasCloud && !hasPhone && selectedItems.size <= 50,
-                            onClick = { more = false; actions.removeFromAlbum(album.id, selectedItems.map { it.id }) })
-                        if (hasCloud && !hasPhone && !hasShared) DropdownMenuItem(text = { Text(stringResource(if (state.query.trashOnly) R.string.restore_from_icloud else R.string.trash_in_icloud)) },
-                            enabled = editable && selectedItems.size <= 50,
-                            onClick = { more = false; actions.cloudTrash(selectedItems.map { it.id }, !state.query.trashOnly) })
+                        val album = gallery.collections.firstOrNull { it.id == query.collectionId && it.isUserAlbum }
+                        if (album != null && !query.trashOnly) DropdownMenuItem(text = { Text(stringResource(R.string.remove_from_album)) },
+                            enabled = editable && hasCloud && !hasPhone && withinLimit,
+                            onClick = { more = false; actions.confirmRemoveFromAlbum(album.id, selectedItems.map { it.id }) })
+                        if (hasCloud && !hasPhone && !hasShared) DropdownMenuItem(text = { Text(stringResource(if (query.trashOnly) R.string.restore_from_icloud else R.string.trash_in_icloud)) },
+                            enabled = editable && withinLimit,
+                            onClick = { more = false; actions.confirmCloudTrash(selectedItems.map { it.id }, !query.trashOnly) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.remove_offline_copies)) }, enabled = hasCloud,
-                            onClick = { more = false; batch(BatchAction.REMOVE_CACHE) })
+                            onClick = { more = false; actions.runBatch(BatchAction.REMOVE_CACHE) })
                     }
                 }
             }
-            if (selectedItems.size > 50) Text(stringResource(R.string.selection_action_limit), style = MaterialTheme.typography.bodySmall)
+            if (!withinLimit) Text(stringResource(R.string.selection_action_limit), style = MaterialTheme.typography.bodySmall)
         }
     }
-    if (addingToAlbum) AlbumChooser(state.collections, dismiss = { addingToAlbum = false }, create = { name ->
-        actions.createAlbumWithPhotos(name, state.selection.toList()); addingToAlbum = false
+    if (addingToAlbum) AlbumChooser(gallery.collections, dismiss = { addingToAlbum = false }, create = { name ->
+        actions.createAlbumWithPhotos(name, gallery.selection.toList()); addingToAlbum = false
     }) { id ->
-        actions.addToAlbum(id, state.selection.toList()); addingToAlbum = false
+        actions.addToAlbum(id, gallery.selection.toList()); addingToAlbum = false
     }
 }
 
+/** The most selected items one share, favorite or album action takes. */
+private const val MAX_SELECTION_ACTION_ITEMS = 50
+
 @Composable
-internal fun BatchProgress(state: GalleryUiState, retry: (String) -> Unit, cancel: (String) -> Unit = {}) {
+internal fun BatchProgress(batches: List<BatchItem>, items: List<GalleryMedia>, retry: (String) -> Unit, cancel: (String) -> Unit = {}) {
     var expandedBatch by rememberSaveable { mutableStateOf<String?>(null) }
     var visibleBatchItems by rememberSaveable(expandedBatch) { mutableIntStateOf(50) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        state.batches.groupBy { it.batchId }.entries.toList().takeLast(3).forEach { (id, items) ->
-            val done = items.count { it.status == BatchItemState.DONE }
-            val failed = items.count { it.status in AttentionStates }
-            val action = stringResource(when (items.first().action) {
+        batches.groupBy { it.batchId }.entries.toList().takeLast(3).forEach { (id, rows) ->
+            val done = rows.count { it.status == BatchItemState.DONE }
+            val failed = rows.count { it.status in AttentionStates }
+            val action = stringResource(when (rows.first().action) {
                 "KEEP_OFFLINE" -> R.string.keep_offline
                 "REMOVE_CACHE" -> R.string.remove_offline_copies
                 "SAVE_TO_PHONE" -> R.string.save_to_phone_gallery
                 else -> R.string.upload_photos
             })
-            Text(stringResource(if (items.first().action in setOf("UPLOAD", "PICKER_UPLOAD")) R.string.batch_queued else R.string.batch_done, action, done, items.size))
+            Text(stringResource(if (rows.first().action in setOf("UPLOAD", "PICKER_UPLOAD")) R.string.batch_queued else R.string.batch_done, action, done, rows.size))
             if (failed > 0) Text(pluralStringResource(R.plurals.attention_count, failed, failed))
-            items.filter { it.status in AttentionStates }.take(3).forEach { Text(stringResource(R.string.batch_item_progress, it.mediaId.substringAfterLast('/'), localizedStoredMessage(it.message).localized()), style = MaterialTheme.typography.bodySmall) }
+            rows.filter { it.status in AttentionStates }.take(3).forEach { Text(stringResource(R.string.batch_item_progress, it.mediaId.substringAfterLast('/'), localizedStoredMessage(it.message).localized()), style = MaterialTheme.typography.bodySmall) }
             TextButton(onClick = { expandedBatch = if (expandedBatch == id) null else id }) {
                 Text(if (expandedBatch == id) stringResource(R.string.hide_item_progress) else stringResource(R.string.show_item_progress))
             }
             if (expandedBatch == id) {
-                items.take(visibleBatchItems).forEach { item ->
-                    val name = state.items.firstOrNull { it.id == item.mediaId }?.fileName
+                rows.take(visibleBatchItems).forEach { item ->
+                    val name = items.firstOrNull { it.id == item.mediaId }?.fileName
                         ?: item.mediaId.substringAfterLast('/').substringAfterLast(':')
                     val progress = when (item.status) {
                         BatchItemState.CANCELED -> stringResource(R.string.download_canceled)
@@ -130,11 +135,11 @@ internal fun BatchProgress(state: GalleryUiState, retry: (String) -> Unit, cance
                     }
                     Text(stringResource(R.string.batch_item_progress, name, progress), style = MaterialTheme.typography.bodySmall)
                 }
-                if (items.size > visibleBatchItems) TextButton(onClick = { visibleBatchItems += 50 }) { Text(stringResource(R.string.show_more_items)) }
+                if (rows.size > visibleBatchItems) TextButton(onClick = { visibleBatchItems += 50 }) { Text(stringResource(R.string.show_more_items)) }
             }
-            if (items.any { it.status == BatchItemState.FAILED }) TextButton(onClick = { retry(id) }) { Text(stringResource(R.string.retry_failed_items)) }
-            if (items.any { it.status == BatchItemState.CANCELED }) Text(stringResource(R.string.download_canceled_completed_kept), style = MaterialTheme.typography.bodySmall)
-            if (items.first().action in setOf("KEEP_OFFLINE", "SAVE_TO_PHONE") && items.any { it.status.isPending })
+            if (rows.any { it.status == BatchItemState.FAILED }) TextButton(onClick = { retry(id) }) { Text(stringResource(R.string.retry_failed_items)) }
+            if (rows.any { it.status == BatchItemState.CANCELED }) Text(stringResource(R.string.download_canceled_completed_kept), style = MaterialTheme.typography.bodySmall)
+            if (rows.first().action in setOf("KEEP_OFFLINE", "SAVE_TO_PHONE") && rows.any { it.status.isPending })
                 TextButton(onClick = { cancel(id) }, modifier = Modifier.testTag("cancel-batch-$id")) { Text(stringResource(R.string.cancel_download)) }
         }
     }
@@ -150,9 +155,11 @@ internal val GalleryCollection.isPersonal: Boolean
 /** A personal album that holds photos, as opposed to a folder of albums. */
 internal val GalleryCollection.isUserAlbum: Boolean get() = isPersonal && !isFolder
 
-internal fun GalleryUiState.canEditLibrary() = (accountState == ICloudAccountState.Demo ||
+/** Library edits need a usable account, and wait for running media actions and account changes. */
+internal fun SessionState.canEditLibrary(mediaBusy: Boolean) = (accountState == ICloudAccountState.Demo ||
     (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED) &&
-    activeDownloadId == null && !accountBusy
+    !mediaBusy && !accountBusy
+
 
 @Composable
 internal fun ICloudIcon(@DrawableRes resource: Int) {

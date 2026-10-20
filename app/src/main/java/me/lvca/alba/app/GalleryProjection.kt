@@ -1,11 +1,14 @@
 package me.lvca.alba.app
 
-import me.lvca.alba.engine.model.isShared
+import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.GalleryDate
-import me.lvca.alba.engine.model.dateMillis
 import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.engine.model.GalleryQuery
+import me.lvca.alba.engine.model.GalleryQueryProjection
 import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.engine.model.TransferView
+import me.lvca.alba.engine.model.dateMillis
+import me.lvca.alba.engine.model.isShared
 import me.lvca.alba.protocol.account.ICloudAccountState
 import java.time.Instant
 import java.time.YearMonth
@@ -16,17 +19,22 @@ data class GallerySection(
     val items: List<GalleryMedia>,
 )
 
-internal data class GalleryContent(
+/** Everything the current account and phone access allow Alba to show, before the user's query narrows it. */
+internal data class GalleryCatalog(
     val items: List<GalleryMedia>,
-    val catalogItems: List<GalleryMedia>,
-    val sections: List<GallerySection>,
-    val selectedMedia: GalleryMedia?,
+    val byId: Map<String, GalleryMedia>,
     val cloudCount: Int,
     val deviceCount: Int,
-    val selectedFilter: GalleryFilter,
-    val deviceMediaAccess: Boolean,
+    /** Phone folders that hold at least one photo outside the trash, as browsable collections. */
+    val deviceFolders: List<GalleryCollection>,
+)
+
+/** The catalog narrowed by a query, with its month sections. */
+internal data class ProjectedGallery(
+    val catalog: GalleryCatalog,
+    val items: List<GalleryMedia>,
+    val sections: List<GallerySection>,
     val accountState: ICloudAccountState,
-    val cloudSourceLabel: String,
 )
 
 internal data class TransferContent(
@@ -34,19 +42,14 @@ internal data class TransferContent(
     val queue: List<TransferView>,
 )
 
-internal fun projectGalleryContent(
+internal fun projectGalleryCatalog(
     allItems: List<GalleryMedia>,
-    filter: GalleryFilter,
-    selectedId: String?,
     hasDeviceAccess: Boolean,
     accountState: ICloudAccountState,
-    zoneId: ZoneId = ZoneId.systemDefault(),
-    includeSections: Boolean = true,
-): GalleryContent {
-    val visibleItems = ArrayList<GalleryMedia>(allItems.size)
+): GalleryCatalog {
     val catalogItems = ArrayList<GalleryMedia>(allItems.size)
-    val groupedItems = linkedMapOf<YearMonth, MutableList<GalleryMedia>>()
-    var selectedMedia: GalleryMedia? = null
+    val byId = HashMap<String, GalleryMedia>(allItems.size)
+    val deviceFolders = LinkedHashMap<String, GalleryCollection>()
     var cloudCount = 0
     var deviceCount = 0
 
@@ -58,35 +61,52 @@ internal fun projectGalleryContent(
             MediaOrigin.ICLOUD -> if (!media.isShared) cloudCount += 1
             MediaOrigin.DEVICE -> deviceCount += 1
         }
-        if (media.id == selectedId) selectedMedia = if (hasDeviceAccess) media else media.copy(linkedDeviceId = null, linkedDeviceReference = null)
         val visibleMedia = if (hasDeviceAccess) media else media.copy(linkedDeviceId = null, linkedDeviceReference = null)
         catalogItems += visibleMedia
-        if (!filter.includes(media.origin)) return@forEach
-
-        visibleItems += visibleMedia
-        if (includeSections) {
-            val month = YearMonth.from(Instant.ofEpochMilli(media.capturedAtEpochMillis).atZone(zoneId))
-            groupedItems.getOrPut(month, ::mutableListOf) += media
+        byId[visibleMedia.id] = visibleMedia
+        val folder = visibleMedia.deviceFolderId
+        if (folder != null && !visibleMedia.isTrashed && folder !in deviceFolders) {
+            deviceFolders[folder] = GalleryCollection(folder, visibleMedia.deviceFolderName ?: "")
         }
     }
 
-    return GalleryContent(
-        items = visibleItems,
-        catalogItems = catalogItems,
-        sections = groupedItems.map { (month, items) -> GallerySection(month, items) },
-        selectedMedia = selectedMedia,
-        cloudCount = cloudCount,
-        deviceCount = deviceCount,
-        selectedFilter = filter,
-        deviceMediaAccess = hasDeviceAccess,
-        accountState = accountState,
-        cloudSourceLabel = if (accountState != ICloudAccountState.Demo) {
-            "iCloud Personal Library"
-        } else {
-            "Demo iCloud library"
-        },
-    )
+    return GalleryCatalog(catalogItems, byId, cloudCount, deviceCount, deviceFolders.values.toList())
 }
+
+/** Projects the library for a query. Incremental, so keep one instance per observer and call it from one thread. */
+internal class GalleryProjection {
+    private val queryProjection = GalleryQueryProjection()
+    private val sectionProjection = GallerySectionProjection()
+
+    fun apply(
+        allItems: List<GalleryMedia>,
+        query: GalleryQuery,
+        hasDeviceAccess: Boolean,
+        accountState: ICloudAccountState,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): ProjectedGallery {
+        val catalog = projectGalleryCatalog(allItems, hasDeviceAccess, accountState)
+        val matching = queryProjection.apply(catalog.items, query)
+        // The unfiltered library shows a backed-up phone photo once, as its iCloud copy.
+        val linked = if (query.origin == null && query.collectionId == null && hasDeviceAccess)
+            matching.mapNotNull { it.linkedDeviceId }.toSet() else emptySet()
+        val visible = if (linked.isEmpty()) matching else matching.filterNot { it.id in linked }
+        return ProjectedGallery(catalog, visible, sectionProjection.apply(visible, query.date, zone), accountState)
+    }
+}
+
+/** Albums this account may show: demo albums only in the demo, and never another account's albums. */
+internal fun visibleCollections(
+    collections: List<GalleryCollection>,
+    accountState: ICloudAccountState,
+    deviceFolders: List<GalleryCollection>,
+): List<GalleryCollection> = collections.filter { collection ->
+    when (accountState) {
+        ICloudAccountState.Demo -> true
+        is ICloudAccountState.SignedIn -> !collection.id.startsWith("shared:demo-library:")
+        else -> false
+    }
+} + deviceFolders
 
 internal fun projectTransfers(transfers: List<TransferView>): TransferContent {
     val byMediaId = LinkedHashMap<String, TransferView>()
@@ -116,12 +136,6 @@ private fun GalleryMedia.isVisibleFor(accountState: ICloudAccountState): Boolean
     is ICloudAccountState.SignedIn -> !id.startsWith("fixture:") && !id.startsWith("shared:demo-library:")
     ICloudAccountState.Demo -> !id.startsWith("icloud:") && (!isShared || id.startsWith("shared:demo-library:"))
     else -> origin == MediaOrigin.DEVICE
-}
-
-private fun GalleryFilter.includes(origin: MediaOrigin): Boolean = when (this) {
-    GalleryFilter.ALL -> true
-    GalleryFilter.ICLOUD -> origin == MediaOrigin.ICLOUD
-    GalleryFilter.DEVICE -> origin == MediaOrigin.DEVICE
 }
 
 internal class GallerySectionProjection {

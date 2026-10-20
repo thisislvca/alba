@@ -125,6 +125,11 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
                 ?: error(StoredMessage.THE_PHOTO_IS_NO_LONGER_AVAILABLE.code)
             GalleryExporter(appContext, galleryRepository).saveToGallery(media)
         }) { cloudCatalog.accountLabel }
+    val exporter = GalleryExporter(appContext, galleryRepository)
+    val photoEdits = PhotoEditStore(appContext, galleryRepository)
+    val demoImporter = DemoMediaImporter(appContext, accountManager, demoCatalog)
+    val transferScheduler = TransferScheduler { UserTransferScheduler(appContext).enqueue() }
+    val network = networkStatus(appContext)
 }
 
 class AndroidAutomaticBackupPolicy(context: Context) : AutomaticBackupPolicy {

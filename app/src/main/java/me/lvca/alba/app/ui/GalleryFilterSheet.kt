@@ -23,7 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.GalleryUiState
+import me.lvca.alba.app.GalleryState
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import java.time.Instant
@@ -32,7 +32,7 @@ import me.lvca.alba.app.ui.theme.AlbaSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun GalleryFilterSheet(state: GalleryUiState, change: (GalleryQuery) -> Unit, requestPhotos: () -> Unit,
+internal fun GalleryFilterSheet(state: GalleryState, change: (GalleryQuery) -> Unit, requestPhotos: () -> Unit,
     refresh: () -> Unit, density: Int, changeDensity: (Int) -> Unit, dismiss: () -> Unit) {
     var dates by rememberSaveable { mutableStateOf(false) }
     AlbaBottomSheet(onDismissRequest = dismiss, maxHeightFraction = .82f) {

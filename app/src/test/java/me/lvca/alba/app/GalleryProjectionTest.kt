@@ -1,6 +1,7 @@
 package me.lvca.alba.app
 
 import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.engine.model.TransferId
@@ -21,9 +22,9 @@ class GalleryProjectionTest {
         val device = media("device:1", MediaOrigin.DEVICE, "2026-01-03T00:00:00Z")
         listOf(ICloudAccountState.SignedOut, ICloudAccountState.SigningIn("test@example.test"),
             ICloudAccountState.AwaitingTwoFactor("test@example.test", me.lvca.alba.protocol.account.TwoFactorDelivery.TRUSTED_DEVICE)).forEach { state ->
-            val projected = projectGalleryContent(listOf(fixture, device), GalleryFilter.ALL, fixture.id, true, state)
+            val projected = projectGalleryCatalog(listOf(fixture, device), true, state)
             assertEquals(listOf(device), projected.items)
-            assertNull(projected.selectedMedia)
+            assertNull(projected.byId[fixture.id])
             assertEquals(0, projected.cloudCount)
         }
     }
@@ -44,42 +45,55 @@ class GalleryProjectionTest {
     }
 
     @Test
-    fun `projection preserves account access filter and selection semantics`() {
+    fun `projection preserves account access, origin query and open photo semantics`() {
         val fixture = media("fixture:1", MediaOrigin.ICLOUD, "2026-01-03T00:00:00Z")
         val live = media("icloud:account:1", MediaOrigin.ICLOUD, "2026-02-03T00:00:00Z")
         val device = media("device:external:1", MediaOrigin.DEVICE, "2026-01-04T00:00:00Z")
 
-        val signedIn = projectGalleryContent(
+        val signedIn = GalleryProjection().apply(
             allItems = listOf(live, device, fixture),
-            filter = GalleryFilter.ALL,
-            selectedId = device.id,
+            query = GalleryQuery(),
             hasDeviceAccess = false,
             accountState = ICloudAccountState.SignedIn("person@example.com"),
-            zoneId = utc,
+            zone = utc,
         )
 
         assertEquals(listOf(live), signedIn.items)
-        assertEquals(listOf(live), signedIn.catalogItems)
-        assertEquals(1, signedIn.cloudCount)
-        assertEquals(0, signedIn.deviceCount)
-        assertNull(signedIn.selectedMedia)
+        assertEquals(listOf(live), signedIn.catalog.items)
+        assertEquals(1, signedIn.catalog.cloudCount)
+        assertEquals(0, signedIn.catalog.deviceCount)
+        assertNull(signedIn.catalog.byId[device.id])
 
-        val demo = projectGalleryContent(
+        val demo = GalleryProjection().apply(
             allItems = listOf(live, device, fixture),
-            filter = GalleryFilter.DEVICE,
-            selectedId = fixture.id,
+            query = GalleryQuery(origin = MediaOrigin.DEVICE),
             hasDeviceAccess = true,
             accountState = ICloudAccountState.Demo,
-            zoneId = utc,
+            zone = utc,
         )
 
         assertEquals(listOf(device), demo.items)
-        assertEquals(listOf(device, fixture), demo.catalogItems)
-        assertEquals(fixture, demo.selectedMedia)
-        assertEquals(1, demo.cloudCount)
-        assertEquals(1, demo.deviceCount)
+        assertEquals(listOf(device, fixture), demo.catalog.items)
+        assertEquals(fixture, demo.catalog.byId[fixture.id])
+        assertEquals(1, demo.catalog.cloudCount)
+        assertEquals(1, demo.catalog.deviceCount)
         assertEquals(1, demo.sections.size)
         assertEquals(device, demo.sections.single().items.single())
+    }
+
+    @Test
+    fun `phone folders become collections once, without trashed photos`() {
+        val camera = media("device:1", MediaOrigin.DEVICE, "2026-01-04T00:00:00Z").copy(deviceFolderId = "device-folder:1", deviceFolderName = "Camera")
+        val again = media("device:2", MediaOrigin.DEVICE, "2026-01-05T00:00:00Z").copy(deviceFolderId = "device-folder:1", deviceFolderName = "Camera")
+        val trashed = media("device:3", MediaOrigin.DEVICE, "2026-01-06T00:00:00Z").copy(deviceFolderId = "device-folder:2", isTrashed = true)
+        val catalog = projectGalleryCatalog(listOf(camera, again, trashed), true, ICloudAccountState.Demo)
+        assertEquals(listOf(me.lvca.alba.engine.model.GalleryCollection("device-folder:1", "Camera")), catalog.deviceFolders)
+
+        val album = me.lvca.alba.engine.model.GalleryCollection("album", "Trip")
+        val demoAlbum = me.lvca.alba.engine.model.GalleryCollection("shared:demo-library:1", "Demo")
+        assertEquals(listOf(album) + catalog.deviceFolders,
+            visibleCollections(listOf(album, demoAlbum), ICloudAccountState.SignedIn("person@example.com"), catalog.deviceFolders))
+        assertEquals(catalog.deviceFolders, visibleCollections(listOf(album), ICloudAccountState.SignedOut, catalog.deviceFolders))
     }
 
     @Test

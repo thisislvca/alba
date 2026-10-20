@@ -48,11 +48,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.GalleryUiState
+import me.lvca.alba.app.DemoTransferMode
+import me.lvca.alba.app.DiagnosticsConsent
+import me.lvca.alba.app.PhoneStorageState
+import me.lvca.alba.app.SessionState
+import me.lvca.alba.app.TransferState
 import me.lvca.alba.app.R
 import me.lvca.alba.app.localizedStoredMessage
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.TransferId
+import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
@@ -60,23 +65,15 @@ import me.lvca.alba.protocol.account.TwoFactorDelivery
 
 @Composable
 fun ICloudAccountScreen(
-    state: ICloudAccountState,
-    busy: Boolean = false,
-    diagnostics: GalleryUiState? = null,
-    libraryActions: LibraryActions,
-    onCheckConnection: () -> Unit = {},
-    restoreFailed: Boolean = false,
-    onRetryRestore: () -> Unit = {},
-    onBack: () -> Unit,
-    onSignIn: (appleId: String, password: String) -> Unit,
-    onSubmitTwoFactor: (code: String) -> Unit,
-    onResendTwoFactor: () -> Unit,
-    onSignOut: () -> Unit,
-    backup: BackupView,
-    onEnableAutomaticBackup: () -> Unit,
-    onDisableAutomaticBackup: () -> Unit,
-    onDemoAction: (TransferId) -> Unit = {},
+    session: SessionState,
+    transfers: TransferState,
+    phoneStorage: PhoneStorageState,
+    mediaBusy: Boolean,
+    diagnostics: DiagnosticsConsent,
+    actions: AccountScreenActions,
 ) {
+    val state = session.accountState
+    val busy = session.accountBusy
     var page by rememberSaveable { mutableStateOf(ProfilePage.OVERVIEW) }
     var appleId by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -87,11 +84,11 @@ fun ICloudAccountScreen(
     LaunchedEffect(state) {
         if (signedIn?.status == SessionStatus.VERIFIED && page == ProfilePage.SIGN_IN) page = ProfilePage.OVERVIEW
     }
-    LaunchedEffect(page, diagnostics != null) {
-        if (page == ProfilePage.OVERVIEW && diagnostics != null) libraryActions.checkPhoneStorage()
+    LaunchedEffect(page) {
+        if (page == ProfilePage.OVERVIEW) actions.checkPhoneStorage()
     }
     val back = {
-        if (page == ProfilePage.OVERVIEW) onBack() else {
+        if (page == ProfilePage.OVERVIEW) actions.closeAccount() else {
             page = ProfilePage.OVERVIEW
             password = ""
             verificationCode = ""
@@ -99,7 +96,7 @@ fun ICloudAccountScreen(
     }
     BackHandler(enabled = page != ProfilePage.OVERVIEW) { back() }
     if (page == ProfilePage.ABOUT) {
-        AboutScreen { page = ProfilePage.OVERVIEW }
+        AboutScreen(diagnostics, actions::setDiagnosticsEnabled) { page = ProfilePage.OVERVIEW }
         return
     }
     AlbaPageScaffold(
@@ -111,10 +108,10 @@ fun ICloudAccountScreen(
         onBack = back,
     ) {
         when {
-            state == ICloudAccountState.Restoring -> if (restoreFailed) {
+            state == ICloudAccountState.Restoring -> if (session.restoreFailed) {
                 Text(stringResource(R.string.the_saved_account_could_not_be_opened_your_library_has_not_been_replaced))
-                Button(onClick = onRetryRestore) { Text(stringResource(R.string.retry_saved_account)) }
-                OutlinedButton(onClick = onSignOut) { Text(stringResource(R.string.remove_saved_account_and_use_demo)) }
+                Button(onClick = actions::retryRestore) { Text(stringResource(R.string.retry_saved_account)) }
+                OutlinedButton(onClick = actions::signOut) { Text(stringResource(R.string.remove_saved_account_and_use_demo)) }
             } else ProgressState(
                 stringResource(R.string.restoring_your_session),
                 stringResource(R.string.checking_the_encrypted_icloud_session_stored_on_this_phone),
@@ -125,8 +122,8 @@ fun ICloudAccountScreen(
             state is ICloudAccountState.AwaitingTwoFactor -> VerificationForm(
                 busy, state, verificationCode,
                 { verificationCode = it.filter(Char::isDigit).take(6) },
-                { onSubmitTwoFactor(verificationCode); verificationCode = "" },
-                onResendTwoFactor, onSignOut,
+                { actions.submitTwoFactor(verificationCode); verificationCode = "" },
+                actions::resendTwoFactor, actions::signOut,
             )
             page == ProfilePage.SIGN_IN || state == ICloudAccountState.SignedOut -> {
                 if (signedIn?.status == SessionStatus.EXPIRED) {
@@ -136,24 +133,22 @@ fun ICloudAccountScreen(
                 SignInForm(
                     appleId.ifBlank { signedIn?.appleId.orEmpty() }, password,
                     { appleId = it }, { password = it },
-                    { onSignIn(appleId.ifBlank { signedIn?.appleId.orEmpty() }, password); password = "" },
+                    { actions.signIn(appleId.ifBlank { signedIn?.appleId.orEmpty() }, password); password = "" },
                 )
             }
             page == ProfilePage.BACKUP -> BackupSettings(
                 connected = signedIn?.status == SessionStatus.VERIFIED,
                 demo = state == ICloudAccountState.Demo,
-                appleId = signedIn?.appleId.orEmpty(), backup = backup,
-                diagnostics = diagnostics, onCheckConnection = onCheckConnection,
-                onEnableAutomaticBackup = onEnableAutomaticBackup,
-                onDisableAutomaticBackup = onDisableAutomaticBackup, onDemoAction = onDemoAction,
+                appleId = signedIn?.appleId.orEmpty(), backup = transfers.backup,
+                session = session, transferQueue = transfers.queue, actions = actions,
             )
-            page == ProfilePage.PHONE -> diagnostics?.let { PhoneStorageDetails(it, libraryActions) }
+            page == ProfilePage.PHONE -> PhoneStorageDetails(phoneStorage, busy = mediaBusy || busy, actions)
             page == ProfilePage.ACTIVATION && signedIn != null -> PhotosNotEnabledAccount(
-                signedIn.appleId, diagnostics?.accountInfo?.checking == true || busy, onCheckConnection, onSignOut,
+                signedIn.appleId, session.accountInfo.checking || busy, actions::checkConnection, actions::signOut,
             )
             else -> ProfileOverview(
-                state, diagnostics, backup, busy,
-                onNavigate = { page = it }, onCheckConnection = onCheckConnection, onSignOut = onSignOut,
+                session, phoneStorage, transfers.backup,
+                onNavigate = { page = it }, onCheckConnection = actions::checkConnection, onSignOut = actions::signOut,
             )
         }
     }
@@ -359,11 +354,9 @@ private fun BackupSettings(
     demo: Boolean,
     appleId: String,
     backup: BackupView,
-    diagnostics: GalleryUiState?,
-    onCheckConnection: () -> Unit,
-    onEnableAutomaticBackup: () -> Unit,
-    onDisableAutomaticBackup: () -> Unit,
-    onDemoAction: (TransferId) -> Unit = {},
+    session: SessionState,
+    transferQueue: List<TransferView>,
+    actions: AccountActions,
 ) {
     if (demo) {
         Text(stringResource(R.string.demo_backup_title), style = MaterialTheme.typography.titleLarge)
@@ -372,8 +365,8 @@ private fun BackupSettings(
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(18.dp))
     }
-    ProfileStorage(diagnostics, demo = demo, hasAccount = connected,
-        check = onCheckConnection, labelRes = R.string.cloud_storage)
+    ProfileStorage(session, demo = demo, hasAccount = connected,
+        check = actions::checkConnection, labelRes = R.string.cloud_storage)
     Spacer(Modifier.height(22.dp))
     AlbaCard {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -395,13 +388,13 @@ private fun BackupSettings(
             Spacer(Modifier.height(14.dp))
             if (backup.enabled) {
                 OutlinedButton(
-                    onClick = onDisableAutomaticBackup,
+                    onClick = actions::disableAutomaticBackup,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(R.string.turn_off_automatic_backup)) }
             } else {
                 Button(
                     enabled = (connected || demo) && Build.VERSION.SDK_INT >= 30,
-                    onClick = onEnableAutomaticBackup,
+                    onClick = actions::enableAutomaticBackup,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(if (demo) R.string.demo_backup_start else R.string.set_up_automatic_backup)) }
             }
@@ -410,33 +403,33 @@ private fun BackupSettings(
     if (demo) {
         Spacer(Modifier.height(18.dp))
         Text(stringResource(R.string.demo_sync_description), style = MaterialTheme.typography.bodyMedium)
-        diagnostics?.lastRefreshedAt?.let {
+        session.lastRefreshedAt?.let {
             Text(stringResource(R.string.library_refreshed_at, timestampLabel(it)),
                 style = MaterialTheme.typography.bodySmall)
         }
-        OutlinedButton(onClick = onCheckConnection, enabled = diagnostics?.isRefreshing != true,
+        OutlinedButton(onClick = actions::checkConnection, enabled = !session.isRefreshing,
             modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.demo_sync_refresh)) }
     }
     if (demo && backup.enabled) {
         var confirmCleanup by remember { mutableStateOf(false) }
-        OutlinedButton(onClick = { onDemoAction(TransferId("demo-control:interrupt")) }, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_INTERRUPT)) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.demo_backup_interrupt))
         }
-        OutlinedButton(onClick = { onDemoAction(TransferId("demo-control:wifi")) }, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_WIFI)) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.demo_backup_pause_wifi))
         }
         OutlinedButton(onClick = { confirmCleanup = true }, modifier = Modifier.fillMaxWidth(),
-            enabled = diagnostics?.transferQueue?.let { it.isNotEmpty() && it.all { row -> row.state == TransferViewState.VERIFIED } } == true) {
+            enabled = transferQueue.isNotEmpty() && transferQueue.all { row -> row.state == TransferViewState.VERIFIED }) {
             Text(stringResource(R.string.demo_cleanup_preview))
         }
         if (confirmCleanup) AlertDialog(onDismissRequest = { confirmCleanup = false },
             title = { Text(stringResource(R.string.demo_cleanup_preview)) },
             text = { Text(stringResource(R.string.demo_cleanup_disclosure)) },
-            confirmButton = { TextButton(onClick = { confirmCleanup = false; onDemoAction(TransferId("demo-control:cleanup")) }) { Text(stringResource(R.string.welcome_continue)) } },
+            confirmButton = { TextButton(onClick = { confirmCleanup = false; actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_CLEANUP)) }) { Text(stringResource(R.string.welcome_continue)) } },
             dismissButton = { TextButton(onClick = { confirmCleanup = false }) { Text(stringResource(R.string.not_now)) } })
     }
-    if (demo && diagnostics != null && diagnostics.transferQueue.isNotEmpty()) {
+    if (demo && transferQueue.isNotEmpty()) {
         Spacer(Modifier.height(18.dp))
-        TransferQueueCard(diagnostics.transferQueue, onDemoAction, demo = true)
+        TransferQueueCard(transferQueue, actions::demoBackupAction, demo = true)
     }
 }

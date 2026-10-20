@@ -11,7 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.GalleryUiState
+import me.lvca.alba.app.PhoneStorageState
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.engine.model.LocalMediaCategory
@@ -19,16 +19,15 @@ import me.lvca.alba.engine.model.LocalMediaStorage
 
 /** Alba's storage on this phone, with per-category cleanup. Shown as the profile's phone storage page. */
 @Composable
-internal fun PhoneStorageDetails(state: GalleryUiState, actions: StorageActions) {
+internal fun PhoneStorageDetails(state: PhoneStorageState, busy: Boolean, actions: StorageActions) {
     var confirming by rememberSaveable { mutableStateOf<LocalMediaCategory?>(null) }
     LaunchedEffect(Unit) { actions.checkPhoneStorage() }
     val context = LocalContext.current
     fun bytes(size: Long) = Formatter.formatShortFileSize(context, size)
-    val busy = state.activeDownloadId != null || state.accountBusy
     AlbaCard(Modifier.testTag("phone-storage")) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
             Text(stringResource(R.string.phone_storage_title), style = MaterialTheme.typography.titleMedium)
-            state.phoneStorage?.let { usage ->
+            state.usage?.let { usage ->
                 Text(phoneStorageSummary(usage))
                 usage.byCategory().forEach { (category, size) ->
                     HorizontalDivider()
@@ -42,10 +41,10 @@ internal fun PhoneStorageDetails(state: GalleryUiState, actions: StorageActions)
                 }
                 Text(stringResource(R.string.thumbnails_retained_by_default), style = MaterialTheme.typography.bodySmall)
             }
-            state.phoneStorageError?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
-            OutlinedButton(onClick = actions.checkPhoneStorage, enabled = !state.phoneStorageChecking && !busy,
+            state.error?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
+            OutlinedButton(onClick = actions::checkPhoneStorage, enabled = !state.checking && !busy,
                 modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(if (state.phoneStorageChecking) R.string.checking else R.string.refresh_phone_storage))
+                Text(stringResource(if (state.checking) R.string.checking else R.string.refresh_phone_storage))
             }
         }
     }

@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
-import me.lvca.alba.app.GalleryUiState
+import me.lvca.alba.app.GalleryState
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.*
 import androidx.compose.ui.unit.Dp
@@ -33,12 +33,12 @@ internal enum class CollectionsPage(val title: Int) {
 }
 
 @Composable
-internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: CollectionsPage?,
+internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewRetryVersion: Int, folder: String?, page: CollectionsPage?,
     summaries: Map<String, CollectionPreview>, scroll: LazyGridState, preview: (String) -> Unit,
     openPage: (CollectionsPage) -> Unit, openFolder: (String) -> Unit, openCollection: (String) -> Unit, openOffline: () -> Unit,
     openSharedInvitations: () -> Unit = {}, createSharedAlbum: () -> Unit = {}, openTrash: () -> Unit = {}, openCloudTrash: () -> Unit = {},
     createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: Dp = 16.dp) {
-    val albums = remember(state.collections, folder, page) { state.collections.filter {
+    val albums = remember(gallery.collections, folder, page) { gallery.collections.filter {
         when (page) {
             CollectionsPage.SHARED -> it.shared != null
             CollectionsPage.DEVICE -> it.id.startsWith("device-folder:")
@@ -62,16 +62,16 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
                 }
             }
             item {
-                MosaicCard(stringResource(R.string.albums), summaries["hub:albums"]?.media.orEmpty(), state, preview, "collection-albums", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.ALBUMS) }
+                MosaicCard(stringResource(R.string.albums), summaries["hub:albums"]?.media.orEmpty(), previewRetryVersion, preview, "collection-albums", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.ALBUMS) }
             }
             item {
-                MosaicCard(stringResource(R.string.shared_albums), summaries["hub:shared"]?.media.orEmpty(), state, preview, "collection-shared", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.SHARED) }
+                MosaicCard(stringResource(R.string.shared_albums), summaries["hub:shared"]?.media.orEmpty(), previewRetryVersion, preview, "collection-shared", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.SHARED) }
             }
             item {
-                MosaicCard(stringResource(R.string.on_this_phone), summaries["hub:device"]?.media.orEmpty(), state, preview, "collection-device", rememberVectorPainter(AlbaIcons.PhoneAndroid)) { openPage(CollectionsPage.DEVICE) }
+                MosaicCard(stringResource(R.string.on_this_phone), summaries["hub:device"]?.media.orEmpty(), previewRetryVersion, preview, "collection-device", rememberVectorPainter(AlbaIcons.PhoneAndroid)) { openPage(CollectionsPage.DEVICE) }
             }
             item {
-                MosaicCard(stringResource(R.string.videos), summaries[SmartCollection.VIDEOS.id]?.media.orEmpty(), state, preview, "collection-videos", painterResource(R.drawable.icloud_videos)) { openCollection(SmartCollection.VIDEOS.id) }
+                MosaicCard(stringResource(R.string.videos), summaries[SmartCollection.VIDEOS.id]?.media.orEmpty(), previewRetryVersion, preview, "collection-videos", painterResource(R.drawable.icloud_videos)) { openCollection(SmartCollection.VIDEOS.id) }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(Modifier.padding(top = AlbaSpacing.sm), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -93,10 +93,10 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
                     Text(pluralStringResource(R.plurals.album_count, albums.size, albums.size),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     if (page == CollectionsPage.SHARED) {
-                        IconButton(onClick = openSharedInvitations, enabled = state.canEditLibrary()) { Icon(Icons.Outlined.Email, stringResource(R.string.shared_invitations)) }
-                        IconButton(onClick = createSharedAlbum, enabled = state.canEditLibrary(), modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_create)) }
+                        IconButton(onClick = openSharedInvitations, enabled = canEdit) { Icon(Icons.Outlined.Email, stringResource(R.string.shared_invitations)) }
+                        IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_create)) }
                     } else if (page != CollectionsPage.DEVICE) {
-                        TextButton(onClick = createAlbum, enabled = state.canEditLibrary()) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(R.string.new_album)) }
+                        TextButton(onClick = createAlbum, enabled = canEdit) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(R.string.new_album)) }
                     }
                 }
             }
@@ -109,28 +109,28 @@ internal fun CollectionsScreen(state: GalleryUiState, folder: String?, page: Col
             }
             items(albums, key = { it.id }) { album ->
                 val summary = if (album.isFolder) {
-                    val children = state.collections.filter { it.parentId == album.id }
+                    val children = gallery.collections.filter { it.parentId == album.id }
                     CollectionPreview(children.size, children.flatMap { summaries[it.id]?.media.orEmpty() }.take(6))
                 } else summaries[album.id]
-                AlbumCard(album, summary, state.previewRetryVersion, preview) { if (album.isFolder) openFolder(album.id) else openCollection(album.id) }
+                AlbumCard(album, summary, previewRetryVersion, preview) { if (album.isFolder) openFolder(album.id) else openCollection(album.id) }
             }
         }
         if (page == null || page == CollectionsPage.DEVICE) item(span = { GridItemSpan(maxLineSpan) }) {
-            CollectionRow(stringResource(R.string.this_phone), if (state.limitedPhotoAccess) stringResource(R.string.change_selected_phone_photos) else if (state.deviceMediaAccess) stringResource(R.string.manage_photo_access) else stringResource(R.string.choose_photos_to_include),
+            CollectionRow(stringResource(R.string.this_phone), if (gallery.limitedPhotoAccess) stringResource(R.string.change_selected_phone_photos) else if (gallery.deviceMediaAccess) stringResource(R.string.manage_photo_access) else stringResource(R.string.choose_photos_to_include),
                 icon = { Icon(AlbaIcons.PhoneAndroid, null) }, onClick = requestPhotos)
         }
     }
 }
 
 @Composable
-private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: GalleryUiState, preview: (String) -> Unit, tag: String,
+private fun MosaicCard(title: String, covers: List<GalleryMedia>, previewRetryVersion: Int, preview: (String) -> Unit, tag: String,
     emptyIcon: Painter, click: () -> Unit) {
     Column(Modifier.clickable(role = Role.Button, onClick = click).testTag(tag)) {
         AlbaCard(shape = MaterialTheme.shapes.medium) {
             if (covers.isEmpty()) Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
                 Icon(emptyIcon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            else if (covers.size == 1) CoverImage(covers.first(), state.previewRetryVersion, preview, Modifier.fillMaxWidth().aspectRatio(1f))
+            else if (covers.size == 1) CoverImage(covers.first(), previewRetryVersion, preview, Modifier.fillMaxWidth().aspectRatio(1f))
             else Column(Modifier.fillMaxWidth().aspectRatio(1f).padding(AlbaSpacing.xs).clip(MaterialTheme.shapes.small), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 repeat(2) { row ->
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -138,7 +138,7 @@ private fun MosaicCard(title: String, covers: List<GalleryMedia>, state: Gallery
                             val cell = Modifier.weight(1f).fillMaxHeight().clip(MaterialTheme.shapes.mosaicCell)
                             val cover = covers.getOrNull(row * 2 + col)
                             if (cover == null) Box(cell.background(MaterialTheme.colorScheme.surfaceContainerHigh))
-                            else CoverImage(cover, state.previewRetryVersion, preview, cell)
+                            else CoverImage(cover, previewRetryVersion, preview, cell)
                         }
                     }
                 }

@@ -8,13 +8,10 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -27,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalDensity
@@ -40,10 +36,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
-import me.lvca.alba.app.GalleryUiState
+import me.lvca.alba.app.GallerySection
+import me.lvca.alba.app.GalleryState
 import me.lvca.alba.app.R
+import me.lvca.alba.app.SessionState
+import me.lvca.alba.app.TransferState
 import me.lvca.alba.app.ui.theme.galleryOverlay
-import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
@@ -106,15 +104,17 @@ private val QuerySaver = listSaver<GalleryQuery, String>(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun GalleryHome(
-    state: GalleryUiState, actions: LibraryActions, change: (GalleryQuery) -> Unit,
-    toggle: (String) -> Unit, selectAll: () -> Unit, clear: () -> Unit,
-    batch: (BatchAction) -> Unit, retry: (String) -> Unit, refresh: () -> Unit,
-    open: (String) -> Unit, preview: (String) -> Unit, requestPhotos: () -> Unit,
-    upload: () -> Unit, continueUpload: (TransferId) -> Unit, account: () -> Unit,
+    gallery: GalleryState,
+    session: SessionState,
+    transfers: TransferState,
+    mediaBusy: Boolean,
+    previewRetryVersion: Int,
+    actions: GalleryScreenActions,
     onBottomSpaceChanged: (Dp) -> Unit,
 ) {
-    val identity = if (state.accountState == ICloudAccountState.Restoring) null else
-        (state.accountState as? ICloudAccountState.SignedIn)?.appleId ?: state.cloudSourceLabel
+    val canEdit = session.canEditLibrary(mediaBusy)
+    val identity = if (session.accountState == ICloudAccountState.Restoring) null else
+        (session.accountState as? ICloudAccountState.SignedIn)?.appleId ?: session.cloudSourceLabel
     var tab by rememberSaveable { mutableStateOf(GalleryTab.LIBRARY) }
     var libraryQuery by rememberSaveable(stateSaver = QuerySaver) { mutableStateOf(GalleryQuery()) }
     var collectionQuery by rememberSaveable(stateSaver = QuerySaver) { mutableStateOf(GalleryQuery()) }
@@ -143,7 +143,7 @@ internal fun GalleryHome(
                 tab = GalleryTab.LIBRARY
                 libraryQuery = GalleryQuery(); collectionQuery = GalleryQuery(); searchQuery = GalleryQuery()
                 folder = null; collectionsPage = null; editAlbum = null; sharedInfo = false; sharedInvitations = false; sharedManage = false; sharedActivity = false; sharedPicker = false; deleteAlbum = null; jump = false; filters = false; activity = false
-                change(GalleryQuery())
+                actions.changeQuery(GalleryQuery())
             }
             owner = identity
         }
@@ -156,74 +156,77 @@ internal fun GalleryHome(
     val searchAnchor = rememberSaveable(saver = GridAnchor.Saver) { GridAnchor() }
     val collectionScroll = rememberLazyGridState()
     val collectionPageScroll = rememberLazyGridState()
-    val summaries = key(identity) { rememberCollectionPreviews(state.catalogItems, state.collections) }
-    val sharedAlbums = remember(state.collections) { state.collections.filter { it.shared != null } }
+    val summaries = key(identity) { rememberCollectionPreviews(gallery.catalogItems, gallery.collections) }
+    val sharedAlbums = remember(gallery.collections) { gallery.collections.filter { it.shared != null } }
     fun navigate(next: GalleryTab) {
         if (next == tab) return
         when (tab) {
-            GalleryTab.LIBRARY -> libraryQuery = state.query
-            GalleryTab.COLLECTIONS -> collectionQuery = state.query
-            GalleryTab.SEARCH -> searchQuery = state.query
+            GalleryTab.LIBRARY -> libraryQuery = gallery.query
+            GalleryTab.COLLECTIONS -> collectionQuery = gallery.query
+            GalleryTab.SEARCH -> searchQuery = gallery.query
         }
         tab = next
-        clear()
-        change(when (next) {
+        actions.clearSelection()
+        actions.changeQuery(when (next) {
             GalleryTab.LIBRARY -> libraryQuery
             GalleryTab.COLLECTIONS -> collectionQuery
             GalleryTab.SEARCH -> searchQuery
         })
     }
-    val inCollection = tab == GalleryTab.COLLECTIONS && (state.query.collectionId != null || state.query.offlineOnly || state.query.trashOnly)
-    val collection = state.collections.firstOrNull { it.id == state.query.collectionId }
+    val query = gallery.query
+    val inCollection = tab == GalleryTab.COLLECTIONS && (query.collectionId != null || query.offlineOnly || query.trashOnly)
+    val collection = gallery.collections.firstOrNull { it.id == query.collectionId }
     val collectionTitle = when {
-        state.query.trashOnly -> stringResource(if (state.query.origin == MediaOrigin.ICLOUD) R.string.icloud_recently_deleted else R.string.phone_trash)
-        state.query.offlineOnly -> stringResource(R.string.offline)
-        state.query.collectionId == GalleryQuery.FAVORITES -> stringResource(R.string.favorites)
-        else -> collection?.localizedName() ?: SmartCollection.entries.firstOrNull { it.id == state.query.collectionId }?.localizedTitle() ?: stringResource(R.string.collection)
+        query.trashOnly -> stringResource(if (query.origin == MediaOrigin.ICLOUD) R.string.icloud_recently_deleted else R.string.phone_trash)
+        query.offlineOnly -> stringResource(R.string.offline)
+        query.collectionId == GalleryQuery.FAVORITES -> stringResource(R.string.favorites)
+        else -> collection?.localizedName() ?: SmartCollection.entries.firstOrNull { it.id == query.collectionId }?.localizedTitle() ?: stringResource(R.string.collection)
     }
     fun backInCollections() {
-        if (inCollection) change(GalleryQuery())
-        else if (folder != null) folder = state.collections.firstOrNull { it.id == folder }?.parentId
+        if (inCollection) actions.changeQuery(GalleryQuery())
+        else if (folder != null) folder = gallery.collections.firstOrNull { it.id == folder }?.parentId
         else if (collectionsPage != null) collectionsPage = null
         else navigate(GalleryTab.LIBRARY)
     }
-    BackHandler(enabled = LocalPhotoTransition.current?.active != false && state.selection.isEmpty() && (tab != GalleryTab.LIBRARY)) {
+    BackHandler(enabled = LocalPhotoTransition.current?.active != false && gallery.selection.isEmpty() && (tab != GalleryTab.LIBRARY)) {
         if (tab == GalleryTab.COLLECTIONS) backInCollections() else navigate(GalleryTab.LIBRARY)
     }
     val title = if (inCollection) collectionTitle else if (tab == GalleryTab.COLLECTIONS && folder != null)
-        state.collections.firstOrNull { it.id == folder }?.name ?: stringResource(R.string.albums) else stringResource(if (tab == GalleryTab.COLLECTIONS) collectionsPage?.title ?: tab.title else tab.title)
+        gallery.collections.firstOrNull { it.id == folder }?.name ?: stringResource(R.string.albums) else stringResource(if (tab == GalleryTab.COLLECTIONS) collectionsPage?.title ?: tab.title else tab.title)
     val contextAccountLabel = stringResource(R.string.open_icloud_account)
-    val signedIn = state.accountState as? ICloudAccountState.SignedIn
+    val signedIn = session.accountState as? ICloudAccountState.SignedIn
     val status = when {
-        state.accountState == ICloudAccountState.Demo -> stringResource(R.string.library)
-        state.accountState == ICloudAccountState.Restoring -> stringResource(R.string.restoring_icloud)
+        session.accountState == ICloudAccountState.Demo -> stringResource(R.string.library)
+        session.accountState == ICloudAccountState.Restoring -> stringResource(R.string.restoring_icloud)
         signedIn?.status == SessionStatus.EXPIRED -> stringResource(R.string.sign_in_again_saved_photos_available)
         signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED -> stringResource(R.string.icloud_photos_is_not_active)
-        state.network?.online == false || signedIn?.status == SessionStatus.OFFLINE -> stringResource(R.string.offline_saved_photos_available)
-        state.isRefreshing -> stringResource(R.string.updating_library)
+        session.network?.online == false || signedIn?.status == SessionStatus.OFFLINE -> stringResource(R.string.offline_saved_photos_available)
+        session.isRefreshing -> stringResource(R.string.updating_library)
         signedIn?.status == SessionStatus.VERIFIED -> stringResource(R.string.icloud_photos)
         else -> stringResource(R.string.connect_to_icloud)
     }
+    val canUpload = signedIn?.status == SessionStatus.VERIFIED || session.accountState == ICloudAccountState.Demo
     val hero = inCollection && collection != null && !collection.isFolder && !collection.id.startsWith("smart:") && !collection.id.startsWith("device-folder:")
     val visibleDensity = if (hero) albumDensity else density
     val changeDensity: (Int) -> Unit = { if (hero) albumDensity = it else density = it }
     // Reserve the leading grid item before the catalog arrives, so lazy-key anchoring cannot hide it.
-    val showSharedStrip = tab == GalleryTab.LIBRARY && state.query.collectionId == null &&
-        state.query.fromDate == null && state.query.throughDate == null && !state.query.offlineOnly && !state.query.trashOnly
+    val showSharedStrip = tab == GalleryTab.LIBRARY && query.collectionId == null &&
+        query.fromDate == null && query.throughDate == null && !query.offlineOnly && !query.trashOnly
     val leadingItems = if (hero || showSharedStrip) 1 else 0
+    val permissionPrompt = tab == GalleryTab.LIBRARY && !gallery.deviceMediaAccess && !permissionDismissed
     fun openShared(id: String) {
-        libraryQuery = state.query
+        libraryQuery = gallery.query
         tab = GalleryTab.COLLECTIONS
         collectionsPage = CollectionsPage.SHARED
-        clear()
+        actions.clearSelection()
         collectionGrid.requestScrollToItem(0)
-        change(GalleryQuery(collectionId = id))
+        actions.changeQuery(GalleryQuery(collectionId = id))
     }
     BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
         val wide = maxWidth >= 600.dp
         val uiDensity = LocalDensity.current
         val phonePhotos = !wide && tab == GalleryTab.LIBRARY
-        val collapseHeader = phonePhotos && state.selection.isEmpty()
+        val collapseHeader = phonePhotos && gallery.selection.isEmpty()
         val headerState = rememberTopAppBarState()
         // A short grid can fit after collapse; it must still allow a reverse drag to restore the header.
         val collapseAllowed by rememberUpdatedState(collapseHeader)
@@ -242,17 +245,18 @@ internal fun GalleryHome(
                 if (galleryScrolled) MaterialTheme.colorScheme.galleryOverlay else MaterialTheme.colorScheme.surface
             } else MaterialTheme.colorScheme.background,
             animationSpec = if (reducedMotion) snap() else tween(250, easing = galleryColorEase), label = "gallery-header-surface")
-        val monthOffsets = remember(state.sections, state.deviceMediaAccess, permissionDismissed, leadingItems, visibleDensity, state.query.date) {
-            galleryMonthOffsets(state.sections, !state.deviceMediaAccess && !permissionDismissed, visibleDensity >= 160, state.query.date, leadingItems)
+        val sections = gallery.sections
+        val monthOffsets = remember(sections, gallery.deviceMediaAccess, permissionDismissed, leadingItems, visibleDensity, query.date) {
+            galleryMonthOffsets(sections, !gallery.deviceMediaAccess && !permissionDismissed, visibleDensity >= 160, query.date, leadingItems)
         }
-        val visibleMonth by remember(libraryGrid, state.sections, monthOffsets) {
+        val visibleMonth by remember(libraryGrid, sections, monthOffsets) {
             derivedStateOf {
                 val first = libraryGrid.layoutInfo.visibleItemsInfo.firstOrNull {
                     it.offset.y + it.size.height > 0
                 }
                 // A month farther down the viewport must not label the opening featured section.
                 if (!galleryScrolled || first == null || first.index < (monthOffsets.firstOrNull() ?: Int.MAX_VALUE)) null
-                else state.sections.getOrNull(monthOffsets.indexOfLast { it <= first.index })?.month
+                else sections.getOrNull(monthOffsets.indexOfLast { it <= first.index })?.month
             }
         }
         LaunchedEffect(collapseHeader) {
@@ -286,74 +290,74 @@ internal fun GalleryHome(
                                 if (!wide && tab == GalleryTab.LIBRARY) Spacer(Modifier.weight(1f))
                                 else Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(stringResource(R.string.brand_name), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                    if (state.accountState == ICloudAccountState.Demo) DemoBadge()
+                                    if (session.accountState == ICloudAccountState.Demo) DemoBadge()
                                 }
                             }
                             if (hero) {
-                                if (collection?.shared != null) IconButton(onClick = { sharedManage = true }, enabled = state.canEditLibrary()) {
+                                if (collection?.shared != null) IconButton(onClick = { sharedManage = true }, enabled = canEdit) {
                                     Icon(Icons.Outlined.AccountCircle, stringResource(R.string.shared_manage))
                                 }
                                 IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                                 Box {
                                     IconButton(onClick = { albumMenu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.album_options)) }
                                     DropdownMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
-                                        DropdownMenuItem(text = { Text(stringResource(R.string.browse_by_date)) }, onClick = { albumMenu = false; jump = true }, enabled = state.sections.isNotEmpty())
+                                        DropdownMenuItem(text = { Text(stringResource(R.string.browse_by_date)) }, onClick = { albumMenu = false; jump = true }, enabled = sections.isNotEmpty())
                                         if (collection?.shared != null) {
                                             DropdownMenuItem(text = { Text(stringResource(R.string.shared_details)) }, onClick = { albumMenu = false; sharedInfo = true })
-                                            if (collection.shared?.canContribute == true) DropdownMenuItem(text = { Text(stringResource(R.string.shared_add_photos)) }, onClick = { albumMenu = false; sharedPicker = true }, enabled = state.canEditLibrary())
+                                            if (collection.shared?.canContribute == true) DropdownMenuItem(text = { Text(stringResource(R.string.shared_add_photos)) }, onClick = { albumMenu = false; sharedPicker = true }, enabled = canEdit)
                                         } else {
-                                            DropdownMenuItem(text = { Text(stringResource(R.string.rename_album)) }, onClick = { albumMenu = false; editAlbum = collection?.id }, enabled = state.canEditLibrary())
-                                            DropdownMenuItem(text = { Text(stringResource(R.string.delete_album)) }, onClick = { albumMenu = false; deleteAlbum = collection?.id }, enabled = state.canEditLibrary())
+                                            DropdownMenuItem(text = { Text(stringResource(R.string.rename_album)) }, onClick = { albumMenu = false; editAlbum = collection?.id }, enabled = canEdit)
+                                            DropdownMenuItem(text = { Text(stringResource(R.string.delete_album)) }, onClick = { albumMenu = false; deleteAlbum = collection?.id }, enabled = canEdit)
                                         }
                                     }
                                 }
-                                TextButton(onClick = { if (state.selection.isEmpty()) state.items.firstOrNull()?.let { toggle(it.id) } else clear() }, enabled = state.items.isNotEmpty()) {
-                                    Text(stringResource(if (state.selection.isEmpty()) R.string.select_items else R.string.cancel))
+                                TextButton(onClick = { if (gallery.selection.isEmpty()) gallery.items.firstOrNull()?.let { actions.toggleSelection(it.id) } else actions.clearSelection() }, enabled = gallery.items.isNotEmpty()) {
+                                    Text(stringResource(if (gallery.selection.isEmpty()) R.string.select_items else R.string.cancel))
                                 }
                             } else if (!(tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null))) {
-                                if (phonePhotos && state.selection.isEmpty()) IconButton(onClick = { filters = true },
+                                if (phonePhotos && gallery.selection.isEmpty()) IconButton(onClick = { filters = true },
                                     modifier = Modifier.testTag("gallery-menu-button")) {
                                     Icon(Icons.Outlined.MoreVert, stringResource(R.string.filter_and_sort))
                                 }
-                                IconButton(onClick = if (signedIn?.status == SessionStatus.VERIFIED || state.accountState == ICloudAccountState.Demo) upload else account) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
+                                IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
                                 IconButton(onClick = { activity = true }, modifier = Modifier.testTag("activity-button")) {
-                                    BadgedBox(badge = { if (state.transferQueue.any { it.state != TransferViewState.VERIFIED } || state.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
+                                    BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
                                         Icon(Icons.Outlined.Notifications, stringResource(R.string.uploads_and_activity))
                                     }
                                 }
-                                IconButton(onClick = account, modifier = Modifier.testTag("account-button").semantics { contentDescription = contextAccountLabel }) {
+                                IconButton(onClick = actions::openAccount, modifier = Modifier.testTag("account-button").semantics { contentDescription = contextAccountLabel }) {
                                     InitialAvatar(signedIn?.appleId, 36.dp, color = MaterialTheme.colorScheme.primaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer, textStyle = MaterialTheme.typography.titleMedium)
                                 }
                             }
                         }
-                        if (!hero && state.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || state.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
+                        if (!hero && session.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = account))
+                                modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = actions::openAccount))
                         }
-                        if (state.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
-                        if (wide && state.selection.isNotEmpty()) SelectionActions(state, selectAll, clear, batch, actions)
-                        else if (!hero && state.selection.isEmpty() && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || inCollection)) {
+                        if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
+                        if (wide && gallery.selection.isNotEmpty()) SelectionActions(gallery, session, mediaBusy, actions)
+                        else if (!hero && gallery.selection.isEmpty() && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || inCollection)) {
                             if (tab == GalleryTab.SEARCH) {
-                                OutlinedTextField(state.query.filename, { change(state.query.copy(filename = it)) },
+                                OutlinedTextField(query.filename, { actions.changeQuery(query.copy(filename = it)) },
                                     label = { Text(stringResource(R.string.search_filenames)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                                    trailingIcon = { if (state.query.filename.isNotEmpty()) IconButton(onClick = { change(state.query.copy(filename = "")) }) { Icon(Icons.Outlined.Close, stringResource(R.string.clear_search)) } },
+                                    trailingIcon = { if (query.filename.isNotEmpty()) IconButton(onClick = { actions.changeQuery(query.copy(filename = "")) }) { Icon(Icons.Outlined.Close, stringResource(R.string.clear_search)) } },
                                     singleLine = true, shape = MaterialTheme.shapes.extraLarge,
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("search-field"))
                             }
                             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                val filterName = state.query.collectionId?.let { id -> if (id == GalleryQuery.FAVORITES) stringResource(R.string.favorites) else SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle() }
-                                Text(listOfNotNull(state.query.origin?.let { if (it == MediaOrigin.DEVICE) stringResource(R.string.this_phone) else stringResource(R.string.icloud) } ?: stringResource(R.string.all_photos), filterName,
-                                    if (state.query.fromDate != null || state.query.throughDate != null) stringResource(R.string.date_range) else null,
-                                    if (state.query.date == GalleryDate.ADDED) stringResource(R.string.date_added) else null).joinToString(" · "),
+                                val filterName = query.collectionId?.let { id -> if (id == GalleryQuery.FAVORITES) stringResource(R.string.favorites) else SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle() }
+                                Text(listOfNotNull(query.origin?.let { if (it == MediaOrigin.DEVICE) stringResource(R.string.this_phone) else stringResource(R.string.icloud) } ?: stringResource(R.string.all_photos), filterName,
+                                    if (query.fromDate != null || query.throughDate != null) stringResource(R.string.date_range) else null,
+                                    if (query.date == GalleryDate.ADDED) stringResource(R.string.date_added) else null).joinToString(" · "),
                                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
 
                                 if (inCollection && collection != null && collection.isPersonal) {
-                                    IconButton(enabled = state.canEditLibrary(), onClick = { editAlbum = collection.id }) { Icon(Icons.Outlined.Edit, stringResource(R.string.rename_album)) }
-                                    IconButton(enabled = state.canEditLibrary(), onClick = { deleteAlbum = collection.id }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
+                                    IconButton(enabled = canEdit, onClick = { editAlbum = collection.id }) { Icon(Icons.Outlined.Edit, stringResource(R.string.rename_album)) }
+                                    IconButton(enabled = canEdit, onClick = { deleteAlbum = collection.id }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                                 }
-                                IconButton(enabled = state.sections.isNotEmpty(), onClick = { jump = true }) { Icon(Icons.Outlined.DateRange, stringResource(R.string.browse_by_date)) }
+                                IconButton(enabled = sections.isNotEmpty(), onClick = { jump = true }) { Icon(Icons.Outlined.DateRange, stringResource(R.string.browse_by_date)) }
                                 IconButton(onClick = { filters = true }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                             }
                         }
@@ -362,35 +366,53 @@ internal fun GalleryHome(
                 val statusOverlap = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() -
                     padding.calculateTopPadding()).coerceAtLeast(0.dp)
                 Box(Modifier.fillMaxSize().padding(padding)) {
-                    if (tab == GalleryTab.COLLECTIONS && !inCollection) PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = refresh) { CollectionsScreen(state, folder, collectionsPage, summaries, if (collectionsPage == null) collectionScroll else collectionPageScroll, preview,
-                        openPage = { collectionsPage = it; scope.launch { collectionPageScroll.scrollToItem(0) } },
-                        openFolder = { folder = it }, openCollection = { collectionGrid.requestScrollToItem(0); change(GalleryQuery(collectionId = it)) },
-                        openOffline = { change(GalleryQuery(offlineOnly = true)) }, openTrash = { change(GalleryQuery(origin = MediaOrigin.DEVICE, trashOnly = true)) },
-                        openCloudTrash = { change(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)) }, createAlbum = { editAlbum = "new" }, createSharedAlbum = { editAlbum = "new-shared" }, openSharedInvitations = { sharedInvitations = true }, requestPhotos = requestPhotos, bottomSpace = bottomSpace) }
-                    else if (tab == GalleryTab.SEARCH && state.query.filename.isBlank() && state.query.fromDate == null && state.query.throughDate == null && state.query.collectionId == null) {
-                        SearchLanding(bottomSpace = bottomSpace, onDates = { filters = true }, choose = { change(state.query.copy(collectionId = it)) })
-                    } else PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = refresh) {
-                        PhotoGrid(state, when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid },
-                            when (tab) { GalleryTab.LIBRARY -> libraryAnchor; GalleryTab.COLLECTIONS -> collectionAnchor; GalleryTab.SEARCH -> searchAnchor },
-                            visibleDensity, changeDensity, actions, open, toggle, preview, bottomSpace = bottomSpace, permission = tab == GalleryTab.LIBRARY && !state.deviceMediaAccess && !permissionDismissed,
-                            dismissPermission = { permissionDismissed = true }, requestPhotos = requestPhotos, clearFilters = { change(GalleryQuery()) },
+                    if (tab == GalleryTab.COLLECTIONS && !inCollection) PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
+                        CollectionsScreen(gallery, canEdit, previewRetryVersion, folder, collectionsPage, summaries,
+                            if (collectionsPage == null) collectionScroll else collectionPageScroll, actions::requestPreview,
+                            openPage = { collectionsPage = it; scope.launch { collectionPageScroll.scrollToItem(0) } },
+                            openFolder = { folder = it }, openCollection = { collectionGrid.requestScrollToItem(0); actions.changeQuery(GalleryQuery(collectionId = it)) },
+                            openOffline = { actions.changeQuery(GalleryQuery(offlineOnly = true)) }, openTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.DEVICE, trashOnly = true)) },
+                            openCloudTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)) }, createAlbum = { editAlbum = NEW_ALBUM },
+                            createSharedAlbum = { editAlbum = NEW_SHARED_ALBUM }, openSharedInvitations = { sharedInvitations = true },
+                            requestPhotos = actions::requestDevicePhotos, bottomSpace = bottomSpace)
+                    }
+                    else if (tab == GalleryTab.SEARCH && query.filename.isBlank() && query.fromDate == null && query.throughDate == null && query.collectionId == null) {
+                        SearchLanding(bottomSpace = bottomSpace, onDates = { filters = true }, choose = { actions.changeQuery(query.copy(collectionId = it)) })
+                    } else PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
+                        PhotoGrid(
+                            items = gallery.items,
+                            sections = sections,
+                            selection = gallery.selection,
+                            query = query,
+                            isRefreshing = session.isRefreshing,
+                            counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount),
+                            previewRetryVersion = previewRetryVersion,
+                            grid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid },
+                            anchor = when (tab) { GalleryTab.LIBRARY -> libraryAnchor; GalleryTab.COLLECTIONS -> collectionAnchor; GalleryTab.SEARCH -> searchAnchor },
+                            density = visibleDensity,
+                            onDensityChange = changeDensity,
+                            bottomSpace = bottomSpace,
+                            showPermissionPrompt = permissionPrompt,
+                            onDismissPermissionPrompt = { permissionDismissed = true },
+                            actions = actions,
                             flat = hero,
-                            addMedia = if (hero && collection?.shared?.canContribute == true && state.canEditLibrary()) ({ sharedPicker = true }) else null,
+                            onAddMedia = if (hero && collection?.shared?.canContribute == true && canEdit) ({ sharedPicker = true }) else null,
                             leading = if (hero) ({
-                                AlbumHero(requireNotNull(collection), summaries[collection.id], state.previewRetryVersion, preview,
+                                AlbumHero(requireNotNull(collection), summaries[collection.id], previewRetryVersion, actions::requestPreview,
                                     activity = if (collection.shared?.generation == SharedAlbumGeneration.MODERN) ({ sharedActivity = true }) else null,
-                                    view = state.items.firstOrNull()?.let { first -> { open(first.id) } },
+                                    view = gallery.items.firstOrNull()?.let { first -> { actions.openMedia(first.id) } },
                                     info = if (collection.shared != null) ({ sharedInfo = true }) else null)
                             }) else if (showSharedStrip) ({
-                                SharedAlbumsStrip(sharedAlbums, summaries, state.previewRetryVersion, preview, ::openShared,
-                                    seeAll = { libraryQuery = state.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED; clear(); change(GalleryQuery()) })
-                            }) else null)
+                                SharedAlbumsStrip(sharedAlbums, summaries, previewRetryVersion, actions::requestPreview, ::openShared,
+                                    seeAll = { libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED; actions.clearSelection(); actions.changeQuery(GalleryQuery()) })
+                            }) else null,
+                        )
                     }
                     if (collapseHeader) FloatingGridDate(visibleMonth,
                         dates = { jump = true }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
-                    if (!wide && state.selection.isNotEmpty()) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(12.dp)
+                    if (!wide && gallery.selection.isNotEmpty()) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(12.dp)
                         .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = MaterialTheme.shapes.extraLarge, tonalElevation = 8.dp, shadowElevation = 8.dp) {
-                        SelectionActions(state, selectAll, clear, batch, actions)
+                        SelectionActions(gallery, session, mediaBusy, actions)
                     }
                     else if (!wide) FloatingGalleryNavigation(tab, { navigate(it) },
                         Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 16.dp)
@@ -403,54 +425,92 @@ internal fun GalleryHome(
     val currentGrid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid }
     if (jump) {
         val initialIndex = remember { currentGrid.firstVisibleItemIndex }
-        GalleryDateSheet(state.sections, initialIndex, days = visibleDensity >= 160, date = state.query.date,
-            permissionHeader = tab == GalleryTab.LIBRARY && !state.deviceMediaAccess && !permissionDismissed, leadingItems = leadingItems, showDateHeaders = !hero,
+        GalleryDateSheet(gallery.sections, initialIndex, days = visibleDensity >= 160, date = query.date,
+            permissionHeader = permissionPrompt, leadingItems = leadingItems, showDateHeaders = !hero,
             dismiss = { jump = false }, jump = { index -> scope.launch { currentGrid.scrollToItem(index) } })
     }
-    if (filters) GalleryFilterSheet(state, change, requestPhotos, refresh, visibleDensity, changeDensity, dismiss = { filters = false })
+    if (filters) GalleryFilterSheet(gallery, actions::changeQuery, actions::requestDevicePhotos, actions::refresh, visibleDensity, changeDensity, dismiss = { filters = false })
     deleteAlbum?.let { id ->
         AlertDialog(onDismissRequest = { deleteAlbum = null }, title = { Text(stringResource(R.string.delete_album_title)) },
-            text = { Text(stringResource(R.string.delete_album_body, state.collections.firstOrNull { it.id == id }?.name ?: stringResource(R.string.this_album))) },
-            confirmButton = { TextButton(enabled = state.canEditLibrary(), onClick = { actions.deleteAlbum(id); deleteAlbum = null }) { Text(stringResource(R.string.delete_album)) } },
+            text = { Text(stringResource(R.string.delete_album_body, gallery.collections.firstOrNull { it.id == id }?.name ?: stringResource(R.string.this_album))) },
+            confirmButton = { TextButton(enabled = canEdit, onClick = { actions.deleteAlbum(id); deleteAlbum = null }) { Text(stringResource(R.string.delete_album)) } },
             dismissButton = { TextButton(onClick = { deleteAlbum = null }) { Text(stringResource(R.string.cancel)) } })
     }
     if (activity) AlbaBottomSheet(onDismissRequest = { activity = false }) {
         AlbaSheetBody(stringResource(R.string.activity), dismiss = { activity = false }, subtitle = stringResource(R.string.uploads_downloads_and_backup)) {
-            Button(onClick = if (signedIn?.status == SessionStatus.VERIFIED || state.accountState == ICloudAccountState.Demo) upload else { { activity = false; account() } },
+            Button(onClick = if (canUpload) actions::pickUpload else { { activity = false; actions.openAccount() } },
                 modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) { Icon(AlbaIcons.CloudUpload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.upload_photos)) }
-            OutlinedButton(onClick = { activity = false; account() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
-            if (state.transferQueue.isEmpty() && state.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
-            if (state.transferQueue.isNotEmpty()) TransferQueueCard(state.transferQueue, continueUpload, demo = state.accountState == ICloudAccountState.Demo)
-            BatchProgress(state, retry, actions.cancelDownloadBatch)
+            OutlinedButton(onClick = { activity = false; actions.openAccount() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
+            if (transfers.queue.isEmpty() && transfers.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
+            if (transfers.queue.isNotEmpty()) TransferQueueCard(transfers.queue, actions::continuePastUnresolved, demo = session.accountState == ICloudAccountState.Demo)
+            BatchProgress(transfers.batches, gallery.items, actions::retryBatch, actions::cancelDownloadBatch)
         }
     }
-    if (sharedPicker && collection?.shared != null) SharedContributionPicker(state.catalogItems.filter {
+    if (sharedPicker && collection?.shared != null) SharedContributionPicker(gallery.catalogItems.filter {
         !it.isShared && !it.isTrashed &&
             (if (collection.shared?.generation == SharedAlbumGeneration.LEGACY || it.origin == MediaOrigin.DEVICE) supportsLegacySharedUpload(it.kind, it.mimeType) else true) },
-        preview = preview, dismiss = { sharedPicker = false }, contribute = { ids -> actions.contributeToSharedAlbum(collection.id, ids); sharedPicker = false },
-        legacy = collection.shared?.generation == SharedAlbumGeneration.LEGACY, requestPhotos = requestPhotos)
-    if (sharedInvitations) SharedInvitations(actions, dismiss = { sharedInvitations = false }, demo = state.accountState == ICloudAccountState.Demo)
-    if (sharedActivity && collection?.shared?.generation == SharedAlbumGeneration.MODERN) SharedAlbumActivity(collection, state.catalogItems, actions, preview, open = { sharedActivity = false; open(it) }, dismiss = { sharedActivity = false })
+        preview = actions::requestPreview, dismiss = { sharedPicker = false }, contribute = { ids -> actions.contributeToSharedAlbum(collection.id, ids); sharedPicker = false },
+        legacy = collection.shared?.generation == SharedAlbumGeneration.LEGACY, requestPhotos = actions::requestDevicePhotos)
+    if (sharedInvitations) SharedInvitations(actions, dismiss = { sharedInvitations = false }, demo = session.accountState == ICloudAccountState.Demo)
+    if (sharedActivity && collection?.shared?.generation == SharedAlbumGeneration.MODERN) SharedAlbumActivity(collection, gallery.catalogItems, actions, actions::requestPreview, open = { sharedActivity = false; actions.openMedia(it) }, dismiss = { sharedActivity = false })
     if (sharedManage && collection?.shared != null) SharedAlbumControls(collection, actions) { sharedManage = false }
     if (sharedInfo && collection?.shared != null) SharedAlbumDetails(collection) { sharedInfo = false }
-    if (editAlbum == "new-shared") CreateSharedAlbumDialog(dismiss = { editAlbum = null }) { name, generation ->
+    if (editAlbum == NEW_SHARED_ALBUM) CreateSharedAlbumDialog(dismiss = { editAlbum = null }) { name, generation ->
         actions.createSharedAlbum(name, generation); editAlbum = null
     }
-    editAlbum?.takeUnless { it == "new-shared" }?.let { id -> AlbumNameDialog(if (id == "new-shared") stringResource(R.string.shared_create) else if (id == "new") stringResource(R.string.new_album) else stringResource(R.string.rename_album),
-        state.collections.firstOrNull { it.id == id }?.name.orEmpty(), { editAlbum = null }) { name ->
-        if (id == "new") actions.createAlbum(name) else actions.renameAlbum(id, name)
+    editAlbum?.takeUnless { it == NEW_SHARED_ALBUM }?.let { id -> AlbumNameDialog(if (id == NEW_ALBUM) stringResource(R.string.new_album) else stringResource(R.string.rename_album),
+        gallery.collections.firstOrNull { it.id == id }?.name.orEmpty(), { editAlbum = null }) { name ->
+        if (id == NEW_ALBUM) actions.createAlbum(name) else actions.renameAlbum(id, name)
         editAlbum = null
     } }
 }
 
+private const val NEW_ALBUM = "new"
+private const val NEW_SHARED_ALBUM = "new-shared"
+
+/** The library's totals, shown under the grid. */
+internal data class PhotoCounts(val cloud: Int, val device: Int)
+
+/**
+ * A grid of photos grouped by month, and by day at large tile sizes. Takes the lists it shows rather than the whole
+ * gallery state, and remembers everything derived from them, so a message or progress change does not redo that work.
+ */
 @Composable
-private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAnchor, density: Int, changeDensity: (Int) -> Unit, actions: LibraryActions, open: (String) -> Unit, toggle: (String) -> Unit,
-    preview: (String) -> Unit, bottomSpace: Dp, permission: Boolean, dismissPermission: () -> Unit, requestPhotos: () -> Unit, clearFilters: () -> Unit, leading: (@Composable () -> Unit)? = null, flat: Boolean = false, addMedia: (() -> Unit)? = null) {
+private fun PhotoGrid(
+    items: List<GalleryMedia>,
+    sections: List<GallerySection>,
+    selection: Set<String>,
+    query: GalleryQuery,
+    isRefreshing: Boolean,
+    counts: PhotoCounts,
+    previewRetryVersion: Int,
+    grid: LazyGridState,
+    anchor: GridAnchor,
+    density: Int,
+    onDensityChange: (Int) -> Unit,
+    bottomSpace: Dp,
+    showPermissionPrompt: Boolean,
+    onDismissPermissionPrompt: () -> Unit,
+    actions: BrowseActions,
+    leading: (@Composable () -> Unit)? = null,
+    flat: Boolean = false,
+    onAddMedia: (() -> Unit)? = null,
+) {
     val leadingItems = if (leading != null) 1 else 0
-    val mediaIds = state.items.map { it.id }
+    val dayHeaders = density >= 160
+    val date = query.date
+    val mediaIds = remember(items) { items.map { it.id } }
     val positions = remember(mediaIds) { mediaIds.withIndex().associate { it.value to it.index } }
-    val prefetch by rememberUpdatedState(actions.prefetchPreviews)
-    LaunchedEffect(grid, positions, state.previewRetryVersion) {
+    val groupedSections = remember(sections, flat, dayHeaders, date) {
+        sections.map { section ->
+            section to if (!flat && dayHeaders) section.items.groupBy { galleryDay(it, date) } else mapOf(null to section.items)
+        }
+    }
+    val gridIndexOf: (String, Int) -> Int = remember(sections, showPermissionPrompt, date, leadingItems, flat) {
+        { id, tileSize -> galleryPosition(sections, showPermissionPrompt, tileSize >= 160, date, id, leadingItems, showDateHeaders = !flat) }
+    }
+    val prefetch by rememberUpdatedState(actions::prefetchPreviews)
+    LaunchedEffect(grid, positions, previewRetryVersion) {
         snapshotFlow { grid.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }.filter { it in positions } }
             .distinctUntilChanged().collect { visible ->
                 val first = visible.firstOrNull()?.let(positions::get)
@@ -463,20 +523,29 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
             }
     }
     DisposableEffect(Unit) { onDispose { prefetch(emptyList()) } }
-    KeepGridAnchor(grid, anchor, positions) { id -> galleryPosition(state.sections, permission, density >= 160, state.query.date, id, leadingItems, showDateHeaders = !flat) }
+    KeepGridAnchor(grid, anchor, positions) { id -> gridIndexOf(id, density) }
     val returningId = LocalPhotoTransition.current?.returningMediaId
     var visibleWhenOpened by rememberSaveable { mutableStateOf(emptyList<String>()) }
     LaunchedEffect(returningId) {
         if (returningId != null && returningId !in visibleWhenOpened) {
-            grid.requestScrollToItem(galleryPosition(state.sections, permission, density >= 160, state.query.date, returningId, leadingItems, showDateHeaders = !flat))
+            grid.requestScrollToItem(gridIndexOf(returningId, density))
+        }
+    }
+    val selecting = selection.isNotEmpty()
+    val openOrToggle: (String) -> Unit = remember(grid, actions, selecting) {
+        { id ->
+            if (!selecting) {
+                visibleWhenOpened = grid.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }
+                actions.openMedia(id)
+            } else actions.toggleSelection(id)
         }
     }
     Box(Modifier.fillMaxSize()) {
     LookaheadScope {
     LazyVerticalGrid(columns = GridCells.Adaptive(density.dp), state = grid, modifier = Modifier.fillMaxSize()
-        .galleryGestures(grid, state.items, state.selection, density, changeDensity, { id, size -> galleryPosition(state.sections, permission, size >= 160, state.query.date, id, leadingItems, showDateHeaders = !flat) }, actions.selectItems).testTag("gallery-grid"),
+        .galleryGestures(grid, mediaIds, selection, density, onDensityChange, gridIndexOf, actions::selectItems).testTag("gallery-grid"),
         horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = PaddingValues(bottom = bottomSpace)) {
-        if (permission) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
+        if (showPermissionPrompt) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
             AlbaCard(Modifier.padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
                 color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -485,38 +554,38 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
                         Text(stringResource(R.string.include_photos_from_this_phone), style = MaterialTheme.typography.titleMedium)
                         Text(stringResource(R.string.phone_photo_prompt_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                            TextButton(onClick = dismissPermission) { Text(stringResource(R.string.not_now)) }
-                            Button(onClick = requestPhotos) { Text(stringResource(R.string.phone_photo_prompt_action)) }
+                            TextButton(onClick = onDismissPermissionPrompt) { Text(stringResource(R.string.not_now)) }
+                            Button(onClick = actions::requestDevicePhotos) { Text(stringResource(R.string.phone_photo_prompt_action)) }
                         }
                     }
                 }
             }
         }
         if (leading != null) item(key = "gallery-leading", span = { GridItemSpan(maxLineSpan) }) { Column { leading() } }
-        if (state.items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+        if (items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (state.isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
-                else if (state.query.collectionId?.startsWith("shared:") == true) Text(stringResource(R.string.shared_album_empty))
-                else if (state.query.trashOnly) Text(stringResource(R.string.trash_empty))
-                else { EmptyLibrary(); TextButton(onClick = clearFilters) { Text(stringResource(R.string.clear_filters)) } }
+                if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
+                else if (query.collectionId?.startsWith("shared:") == true) Text(stringResource(R.string.shared_album_empty))
+                else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
+                else { EmptyLibrary(); TextButton(onClick = { actions.changeQuery(GalleryQuery()) }) { Text(stringResource(R.string.clear_filters)) } }
             }
         }
-        state.sections.forEach { (month, items) ->
+        groupedSections.forEach { (section, groups) ->
+            val month = section.month
             if (!flat) item(key = "month-$month", span = { GridItemSpan(maxLineSpan) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) { MonthHeader(month, items.size) }
+                    Box(Modifier.weight(1f)) { MonthHeader(month, section.items.size) }
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), monthLabel(month))
-                    if (state.selection.isNotEmpty()) Checkbox(checked = items.all { it.id in state.selection },
-                        onCheckedChange = { actions.selectItems(items.map { it.id }.toSet(), it) }, modifier = Modifier.padding(end = 12.dp).semantics { contentDescription = selectionLabel })
+                    if (selecting) Checkbox(checked = section.items.all { it.id in selection },
+                        onCheckedChange = { actions.selectItems(section.items.map { it.id }.toSet(), it) }, modifier = Modifier.padding(end = 12.dp).semantics { contentDescription = selectionLabel })
                 }
             }
-            val groups = if (!flat && density >= 160) items.groupBy { galleryDay(it, state.query.date) } else mapOf(null to items)
             groups.forEach { (day, photos) ->
             if (day != null) item(key = "day-$day", span = { GridItemSpan(maxLineSpan) }) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(dateLabel(day), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), dateLabel(day))
-                    if (state.selection.isNotEmpty()) Checkbox(photos.all { it.id in state.selection }, { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) },
+                    if (selecting) Checkbox(photos.all { it.id in selection }, { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) },
                         modifier = Modifier.semantics { contentDescription = selectionLabel })
                 }
             }
@@ -527,54 +596,60 @@ private fun PhotoGrid(state: GalleryUiState, grid: LazyGridState, anchor: GridAn
                     placementSpec = spring(dampingRatio = 1f, stiffness = 450f))
                     .animateBounds(this@LookaheadScope,
                         boundsTransform = { _, _ -> spring(dampingRatio = 1f, stiffness = 450f) })) {
-                    MediaTile(state.previewRetryVersion, media.id in state.selection,
-                    null, media, {
-                        if (state.selection.isEmpty()) {
-                            visibleWhenOpened = grid.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }
-                            open(media.id)
-                        } else toggle(media.id)
-                    }, { preview(media.id) }, selectionAction = { toggle(media.id) })
+                    val id = media.id
+                    MediaTile(
+                        retryVersion = previewRetryVersion,
+                        selected = id in selection,
+                        media = media,
+                        onClick = { openOrToggle(id) },
+                        onVisible = { actions.requestPreview(id) },
+                        selectionAction = { actions.toggleSelection(id) },
+                    )
                 }
             }
             }
         }
-        if (addMedia != null) item(key = "add-media") {
-            Surface(onClick = addMedia, modifier = Modifier.aspectRatio(1f).testTag("album-add-media"),
+        if (onAddMedia != null) item(key = "add-media") {
+            Surface(onClick = onAddMedia, modifier = Modifier.aspectRatio(1f).testTag("album-add-media"),
                 shape = MaterialTheme.shapes.tile, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }
             }
         }
         item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(itemCount(state.items.size), style = MaterialTheme.typography.bodyMedium)
-                if (state.query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, state.cloudCount, state.cloudCount), stringResource(R.string.phone_photo_count, state.deviceCount)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
+                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
     }
-    val offsets = galleryMonthOffsets(state.sections, permission, density >= 160, state.query.date, leadingItems, showDateHeaders = !flat)
+    val offsets = remember(sections, showPermissionPrompt, dayHeaders, date, leadingItems, flat) {
+        galleryMonthOffsets(sections, showPermissionPrompt, dayHeaders, date, leadingItems, showDateHeaders = !flat)
+    }
+    val locale = currentLocale()
+    val scrollLabels = remember(sections, offsets, locale) {
+        sections.mapIndexed { i, s -> GalleryScrollLabel(offsets[i], monthLabel(s.month, abbreviated = true, locale = locale), s.month.year) }
+    }
     val pixelDensity = LocalDensity.current
-    val fullSpans = remember(state.sections, permission, leadingItems, density, state.query.date, flat, addMedia != null, pixelDensity) {
+    val fullSpans = remember(groupedSections, showPermissionPrompt, leadingItems, flat, onAddMedia != null, pixelDensity) {
         with(pixelDensity) {
             buildMap<Int, Float> {
                 var index = 0
-                if (permission) put(index++, 190.dp.toPx())
+                if (showPermissionPrompt) put(index++, 190.dp.toPx())
                 if (leadingItems > 0) put(index++, (if (flat) 420.dp else 280.dp).toPx())
-                state.sections.forEach { section ->
+                groupedSections.forEach { (_, groups) ->
                     if (!flat) put(index++, 56.dp.toPx())
-                    val groups = if (!flat && density >= 160) section.items.groupBy { galleryDay(it, state.query.date) } else mapOf(null to section.items)
                     groups.forEach { (day, photos) ->
                         if (day != null) put(index++, 32.dp.toPx())
                         index += photos.size
                     }
                 }
-                if (addMedia != null) index++
+                if (onAddMedia != null) index++
                 put(index, 80.dp.toPx())
             }
         }
     }
-    GalleryFastScroll(grid, state.sections.mapIndexed { i, s -> GalleryScrollLabel(offsets[i], monthLabel(s.month, abbreviated = true), s.month.year) },
-        fullSpans, density, Modifier.align(Alignment.CenterEnd).fillMaxHeight(), bottomSpace)
+    GalleryFastScroll(grid, scrollLabels, fullSpans, density, Modifier.align(Alignment.CenterEnd).fillMaxHeight(), bottomSpace)
     }
 }
 

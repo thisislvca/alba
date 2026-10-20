@@ -41,7 +41,7 @@ class UserTransferExecutionTest {
             graph.batches.observe().first().map { it.batchId }.toSet()
         }
         compose.runOnIdle {
-            ViewModelProvider(compose.activity)[AlbaViewModel::class.java].keepOriginalOffline(id)
+            ViewModelProvider(compose.activity)[AlbaViewModel::class.java].transfers.keepOriginalOffline(id)
         }
         compose.waitUntil(30_000) {
             runBlocking { graph.batches.observe().first().any {
@@ -76,7 +76,7 @@ class UserTransferExecutionTest {
             graph.galleryRepository.removeCachedOriginal(id)
             graph.batches.enqueue(BatchAction.KEEP_OFFLINE, listOf(id))
         }
-        compose.runOnIdle { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].refresh() }
+        compose.runOnIdle { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].sync.refresh() }
         compose.waitUntil(30_000) {
             runBlocking { graph.batches.observe().first().any { it.batchId == batch && it.status == BatchItemState.DONE } }
         }

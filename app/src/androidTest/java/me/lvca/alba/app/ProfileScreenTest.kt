@@ -114,16 +114,17 @@ class ProfileScreenTest {
                     }
                 }
                 AlbaTheme(darkTheme = darkTheme) {
-                    ICloudAccountScreen(libraryActions = testLibraryActions(), state = state,
-                        diagnostics = GalleryUiState(accountState = state, network = NetworkStatus(true, false),
+                    ICloudAccountScreen(
+                        session = SessionState(accountState = state, network = NetworkStatus(true, false),
                             lastRefreshedAt = java.time.Instant.ofEpochMilli(1_790_000_000_000),
-                            phoneStorage = me.lvca.alba.engine.model.LocalMediaStorage(120_000_000, 480_000_000, 2_400_000_000, 42_000_000_000),
                             accountInfo = AccountInfo(storage = usage.copy(isDemo = demoStorage), photosAvailable = true,
                                 profile = if (demoStorage) null else CloudAccountProfile("Alex Example", avatar,
                                     CloudStoragePlan(setOf(CloudPlanSource.ICLOUD_PLUS), 200L shl 30)))),
-                        onCheckConnection = { checks++ },
-                        onBack = {}, onSignIn = { _, _ -> }, onSubmitTwoFactor = {}, onResendTwoFactor = {}, onSignOut = {},
-                        backup = BackupView(false), onEnableAutomaticBackup = {}, onDisableAutomaticBackup = {})
+                        transfers = TransferState(backup = BackupView(false)),
+                        phoneStorage = PhoneStorageState(usage = me.lvca.alba.engine.model.LocalMediaStorage(120_000_000, 480_000_000, 2_400_000_000, 42_000_000_000)),
+                        mediaBusy = false,
+                        diagnostics = DiagnosticsConsent(),
+                        actions = testAlbaActions(checkConnection = { checks++ }))
                 }
             }
         }

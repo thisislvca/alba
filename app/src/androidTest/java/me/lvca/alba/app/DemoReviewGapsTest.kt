@@ -63,7 +63,7 @@ class DemoReviewGapsTest {
             compose.runOnUiThread {
                 val selected = androidx.core.content.FileProvider.getUriForFile(compose.activity, "${compose.activity.packageName}.shares", file)
                 val missing = androidx.core.content.FileProvider.getUriForFile(compose.activity, "${compose.activity.packageName}.shares", File(file.parentFile, "missing-review.png"))
-                androidx.lifecycle.ViewModelProvider(compose.activity)[AlbaViewModel::class.java].uploadSelected(listOf(selected, missing))
+                androidx.lifecycle.ViewModelProvider(compose.activity)[AlbaViewModel::class.java].transfers.uploadPicked(listOf(selected, missing))
             }
             var id: String? = null
             compose.waitUntil(15_000) {

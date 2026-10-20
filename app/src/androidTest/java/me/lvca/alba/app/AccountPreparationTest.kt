@@ -16,6 +16,8 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class AccountPreparationTest {
+    private fun session(vm: AlbaViewModel) = combine(vm.account.state, vm.message) { state, message -> state to message }
+
     @Test fun failedPreparationIsReportedAndDoesNotLeaveSignInBusy() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<AlbaApplication>()
         val graph = app.graph
@@ -30,21 +32,21 @@ class AccountPreparationTest {
         }
         val store = ViewModelStore()
         val vm = withContext(Dispatchers.Main) {
-            AlbaViewModel(graph.galleryRepository, graph.accountManager, photos, graph.maintenance,
-                savedState = SavedStateHandle()).also { store.put("account-preparation", it) }
+            AlbaViewModel(testDependencies(graph).copy(photos = photos),
+                SavedStateHandle()).also { store.put("account-preparation", it) }
         }
-        val collector = launch { vm.uiState.collect() }
+        val collector = launch { vm.account.state.collect() }
         try {
-            withTimeout(20_000) { vm.uiState.first { it.accountState == ICloudAccountState.Demo && !it.isRefreshing } }
+            withTimeout(20_000) { vm.account.state.first { it.accountState == ICloudAccountState.Demo && !it.isRefreshing } }
             repeat(2) { attempt ->
                 withContext(Dispatchers.Main) { vm.dismissMessage() }
-                withTimeout(5_000) { vm.uiState.first { it.message == null && !it.accountBusy } }
-                withContext(Dispatchers.Main) { vm.signIn("unused@example.test", "unused") }
+                withTimeout(5_000) { session(vm).first { (state, message) -> message == null && !state.accountBusy } }
+                withContext(Dispatchers.Main) { vm.account.signIn("unused@example.test", "unused") }
                 withTimeout(5_000) { attempts.first { it == attempt + 1 } }
                 val state = withTimeout(5_000) {
-                    vm.uiState.first { !it.accountBusy && it.message != null }
+                    session(vm).first { (state, message) -> !state.accountBusy && message != null }
                 }
-                assertEquals(app.getString(R.string.message_could_not_sign_in_to_icloud), state.message!!.resolve(app))
+                assertEquals(app.getString(R.string.message_could_not_sign_in_to_icloud), state.second!!.resolve(app))
             }
             assertEquals(2, attempts.value)
             assertNull(graph.accountManager.session.value)

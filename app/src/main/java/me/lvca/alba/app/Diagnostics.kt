@@ -65,6 +65,8 @@ interface DiagnosticSpan {
 }
 
 interface AlbaDiagnostics {
+    /** Whether this build can send diagnostics at all. */
+    val available: Boolean
     val enabled: StateFlow<Boolean>
     fun setEnabled(enabled: Boolean)
     fun start(
@@ -74,6 +76,7 @@ interface AlbaDiagnostics {
 
     data object None : AlbaDiagnostics {
         private val state = MutableStateFlow(false)
+        override val available = false
         override val enabled: StateFlow<Boolean> = state
         override fun setEnabled(enabled: Boolean) = Unit
         override fun start(operation: DiagnosticOperation, attributes: Map<DiagnosticAttribute, Any>) =
@@ -88,7 +91,7 @@ interface AlbaDiagnostics {
 }
 
 class SentryAlbaDiagnostics(context: Context) : AlbaDiagnostics, AccountTelemetry {
-    val available = BuildConfig.SENTRY_DSN.isNotBlank()
+    override val available = BuildConfig.SENTRY_DSN.isNotBlank()
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     private val sessionStore = SessionLifetimeStore(preferences)

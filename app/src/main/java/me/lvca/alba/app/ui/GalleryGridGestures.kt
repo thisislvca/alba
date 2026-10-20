@@ -8,7 +8,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.engine.model.GalleryMedia
 import kotlinx.coroutines.delay
 
 /** Selection uses a fixed starting snapshot so dragging back never leaves stray selected items. */
@@ -18,9 +17,9 @@ internal fun selectionRange(ids: List<String>, anchor: String, end: String): Set
 }
 
 @Composable
-internal fun Modifier.galleryGestures(grid: LazyGridState, items: List<GalleryMedia>, selection: Set<String>,
+internal fun Modifier.galleryGestures(grid: LazyGridState, mediaIds: List<String>, selection: Set<String>,
     tileSize: Int, resize: (Int) -> Unit, indexForKey: (String, Int) -> Int, select: (Set<String>, Boolean) -> Unit): Modifier {
-    val ids by rememberUpdatedState(items.map { it.id })
+    val ids by rememberUpdatedState(mediaIds)
     val selected by rememberUpdatedState(selection)
     val selectNow by rememberUpdatedState(select)
     val resizeNow by rememberUpdatedState(resize)

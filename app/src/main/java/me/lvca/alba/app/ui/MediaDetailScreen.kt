@@ -65,31 +65,25 @@ import me.lvca.alba.app.ui.theme.viewerTitle
 
 @Composable
 internal fun MediaDetailScreen(
-    gallerySnapshot: androidx.compose.ui.graphics.layer.GraphicsLayer? = null,
-    playback: PlaybackReader? = null,
-    libraryActions: LibraryActions,
-    collections: List<GalleryCollection>,
     media: GalleryMedia,
-    items: List<GalleryMedia>, select: (String) -> Unit, preview: (String) -> Unit,
-    isWorking: Boolean,
-    isDownloadingOriginal: Boolean = false,
-    onBack: () -> Unit,
-    onKeepOriginalOffline: () -> Unit,
-    onRemoveCachedOriginal: () -> Unit,
-    onRequestUpload: () -> Unit,
-    onContinuePastUnresolved: () -> Unit,
-    onMoveVerifiedPhotoToTrash: () -> Unit,
-    onOpenAccount: () -> Unit,
+    items: List<GalleryMedia>,
+    collections: List<GalleryCollection>,
+    currentAlbumId: String?,
     accountState: ICloudAccountState,
     uploadTransfer: TransferView?,
-    currentAlbumId: String? = null,
+    isWorking: Boolean,
+    isDownloadingOriginal: Boolean,
+    actions: MediaScreenActions,
+    onPageSettled: (String) -> Unit,
+    gallerySnapshot: androidx.compose.ui.graphics.layer.GraphicsLayer? = null,
     onViewerLightBars: (Boolean) -> Unit = {},
 ) {
-    // MainActivity owns system-bar contrast for the active destination. Restoring an
+    // AlbaRoot owns system-bar contrast for the active destination. Restoring an
     // outgoing viewer's captured values here races the gallery after its exit animation.
     val latestItems by rememberUpdatedState(items)
     val pager = remember { PagerState(currentPage = items.indexOfFirst { it.id == media.id }.coerceAtLeast(0), pageCount = { latestItems.size }) }
-    val latestSelect by rememberUpdatedState(select)
+    val latestSelect by rememberUpdatedState(onPageSettled)
+    val playback: PlaybackReader = remember(actions) { actions::openPlayback }
     var controls by rememberSaveable { mutableStateOf(true) }
     var videoPlaying by remember(media.id) { mutableStateOf(false) }
     var videoOptions by remember(media.id) { mutableStateOf(false) }
@@ -107,16 +101,16 @@ internal fun MediaDetailScreen(
     var details by rememberSaveable(media.id) { mutableStateOf(false) }
     var playingLive by rememberSaveable(media.id) { mutableStateOf(false) }
     var sharedControls by rememberSaveable(media.id) { mutableStateOf(false) }
-    if (sharedControls && media.isShared) SharedPhotoControls(media, libraryActions) { sharedControls = false }
+    if (sharedControls && media.isShared) SharedPhotoControls(media, actions) { sharedControls = false }
     var choosingAlbum by rememberSaveable(media.id) { mutableStateOf(false) }
     val activeScreen = LocalPhotoTransition.current?.active != false
     val canEdit = !isWorking && (media.origin == MediaOrigin.DEVICE || accountState == ICloudAccountState.Demo ||
         (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED)
     val scope = rememberCoroutineScope()
     if (choosingAlbum) AlbumChooser(collections, dismiss = { choosingAlbum = false }, create = { name ->
-        libraryActions.createAlbumWithPhotos(name, listOf(media.id)); choosingAlbum = false
+        actions.createAlbumWithPhotos(name, listOf(media.id)); choosingAlbum = false
     }) { id ->
-        libraryActions.addToAlbum(id, listOf(media.id)); choosingAlbum = false
+        actions.addToAlbum(id, listOf(media.id)); choosingAlbum = false
     }
     val darkViewer = AlbaTheme.colors.isDark
     val colors = viewerColors()
@@ -148,7 +142,7 @@ internal fun MediaDetailScreen(
                     showDetails(!(velocity > speed || motion.offset > -detailsHeightPx * .8f))
                 } else if (motion.offset > heightPx * .18f || (motion.offset > with(density) { 32.dp.toPx() } && velocity > speed)) {
                     motion.dragging = false
-                    onBack()
+                    actions.closeMedia()
                 } else {
                     showDetails(motion.offset < -detailsHeightPx * .22f || (motion.offset < -with(density) { 24.dp.toPx() } && velocity < -speed))
                 }
@@ -159,7 +153,7 @@ internal fun MediaDetailScreen(
             motion.begin()
             try {
                 progress.collect { event -> motion.moveTo(if (wasExpanded) -detailsHeightPx * (1f - event.progress) else heightPx * .4f * event.progress) }
-                if (wasExpanded) showDetails(false) else onBack()
+                if (wasExpanded) showDetails(false) else actions.closeMedia()
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 motion.settle(scope, if (wasExpanded) -detailsHeightPx else 0f)
             }
@@ -193,28 +187,28 @@ internal fun MediaDetailScreen(
                         .graphicsLayer { val scale = 1f - .12f * (motion.offset.coerceAtLeast(0f) / (heightPx * .65f)); scaleX = scale; scaleY = scale }
                         .then(gesture).semantics { customActions = listOf(
                             CustomAccessibilityAction(detailsLabel) { showDetails(true); true },
-                            CustomAccessibilityAction(backLabel) { onBack(); true },
+                            CustomAccessibilityAction(backLabel) { actions.closeMedia(); true },
                         ) }.testTag("media-pager")) { page ->
                     val item = latestItems.getOrNull(page) ?: return@HorizontalPager
                     val active = page == pager.settledPage
                     var loading by remember(item.id) { mutableStateOf(false) }
                     var failed by remember(item.id) { mutableStateOf(false) }
                     var retry by remember(item.id) { mutableIntStateOf(0) }
-                    LaunchedEffect(item.id) { preview(item.id) }
+                    LaunchedEffect(item.id) { actions.requestPreview(item.id) }
                     LaunchedEffect(item.id, active, retry) {
                         if (active && item.origin == MediaOrigin.ICLOUD && item.kind != MediaKind.VIDEO) {
                             loading = true; failed = false
-                            try { libraryActions.loadViewer(item.id) }
+                            try { actions.loadViewer(item.id) }
                             catch (e: kotlinx.coroutines.CancellationException) { throw e }
                             catch (_: Exception) { failed = true }
                             finally { loading = false }
                         }
                     }
                     LaunchedEffect(active) { if (active) {
-                        items.getOrNull(page - 1)?.let { preview(it.id) }; items.getOrNull(page + 1)?.let { preview(it.id) }
+                        items.getOrNull(page - 1)?.let { actions.requestPreview(it.id) }; items.getOrNull(page + 1)?.let { actions.requestPreview(it.id) }
                     } }
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        if (active && (item.kind == MediaKind.VIDEO || (item.id == media.id && playingLive)) && playback != null) {
+                        if (active && (item.kind == MediaKind.VIDEO || (item.id == media.id && playingLive))) {
                             VideoPlayer(item.id, playback, Modifier.fillMaxSize(), autoPlay = true,
                                 localReference = item.originalReference?.takeIf { item.origin == MediaOrigin.DEVICE },
                                 onPlayingChanged = { videoPlaying = it }, optionsOpen = videoSpeedSheet,
@@ -226,7 +220,7 @@ internal fun MediaDetailScreen(
                             contentScale = ContentScale.Fit, zoomable = active && !expanded, onTap = { if (!expanded) controls = !controls },
                             onZoomChanged = { if (active) zoomed = it }, modifier = Modifier.fillMaxSize().testTag("viewer-image-${item.id}"))
                         if (active && loading) CircularProgressIndicator(Modifier.align(Alignment.TopCenter).padding(top = 76.dp).size(22.dp), strokeWidth = 2.dp)
-                        if (active && failed) FilledTonalButton(onClick = { retry++; preview(item.id) }, modifier = Modifier.align(Alignment.Center).testTag("retry-viewer")) {
+                        if (active && failed) FilledTonalButton(onClick = { retry++; actions.requestPreview(item.id) }, modifier = Modifier.align(Alignment.Center).testTag("retry-viewer")) {
                             Text(stringResource(R.string.retry_photo))
                         }
                     }
@@ -235,9 +229,9 @@ internal fun MediaDetailScreen(
                     modifier = Modifier.align(Alignment.TopCenter).photoChrome(),
                     enter = fadeIn(tween(140)), exit = fadeOut(tween(100))) {
                     if (expanded) ViewerDetailsBackButton(backLabel, { showDetails(false) })
-                    else ViewerTopBar(media, backLabel, onBack,
+                    else ViewerTopBar(media, backLabel, actions::closeMedia,
                         favoriteEnabled = canEdit && !media.isTrashed && !media.isShared && !pager.isScrollInProgress,
-                        onFavorite = { libraryActions.favorite(media.id, !media.isFavorite) },
+                        onFavorite = { actions.setFavorite(media.id, !media.isFavorite) },
                         onMore = { if (media.kind == MediaKind.VIDEO) videoOptions = true else showDetails(true) },
                         videoOptionsOpen = videoOptions, onDismissVideoOptions = { videoOptions = false },
                         videoLoop = videoLoop, onToggleLoop = { videoLoop = !videoLoop; videoOptions = false },
@@ -249,12 +243,12 @@ internal fun MediaDetailScreen(
                     ViewerActionBar(
                         media = media, enabled = !isWorking && !pager.isScrollInProgress,
                         canEdit = canEdit,
-                        onShare = { libraryActions.share(listOf(media)) },
-                        onEdit = { libraryActions.edit(media) },
+                        onShare = { actions.share(listOf(media)) },
+                        onEdit = { actions.edit(media) },
                         onDetails = { showDetails(true) },
                         onTrash = {
-                            if (media.origin == MediaOrigin.DEVICE) libraryActions.trash(listOf(media), media.isTrashed)
-                            else libraryActions.cloudTrash(listOf(media.id), !media.isTrashed)
+                            if (media.origin == MediaOrigin.DEVICE) actions.trashOnPhone(listOf(media), media.isTrashed)
+                            else actions.confirmCloudTrash(listOf(media.id), !media.isTrashed)
                         },
                         onLive = { playingLive = !playingLive }, playingLive = playingLive,
                     )
@@ -279,7 +273,7 @@ internal fun MediaDetailScreen(
                         if (Build.VERSION.SDK_INT >= 30 && (media.origin == MediaOrigin.DEVICE || media.linkedDeviceReference != null)) {
                             Spacer(Modifier.height(16.dp))
                             DetailAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.trash_phone_copy), !isWorking,
-                                { libraryActions.trash(listOf(media), media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) })
+                                { actions.trashOnPhone(listOf(media), media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) })
                             Text(stringResource(if (media.isTrashed) R.string.trash_restore_explanation else R.string.trash_phone_explanation), style = MaterialTheme.typography.bodySmall)
                         }
                         Spacer(Modifier.height(24.dp))
@@ -288,30 +282,30 @@ internal fun MediaDetailScreen(
                                 Column {
                                     if (!media.isShared) {
                                     DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,
-                                        { libraryActions.favorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = AlbaTheme.colors.accent) })
+                                        { actions.setFavorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = AlbaTheme.colors.accent) })
                                     DetailAction(stringResource(R.string.add_to_album), canEdit && !media.isTrashed, { choosingAlbum = true }, { ICloudIcon(R.drawable.icloud_albums) })
                                     collections.firstOrNull { it.id == currentAlbumId && it.isUserAlbum }?.let { album ->
                                         if (!media.isTrashed) DetailAction(stringResource(R.string.remove_from_album), canEdit,
-                                            { libraryActions.removeFromAlbum(album.id, listOf(media.id)) }, { ICloudIcon(R.drawable.icloud_albums) })
+                                            { actions.confirmRemoveFromAlbum(album.id, listOf(media.id)) }, { ICloudIcon(R.drawable.icloud_albums) })
                                     }
                                     DetailAction(stringResource(if (media.isTrashed) R.string.restore_from_icloud else R.string.trash_in_icloud), canEdit,
-                                        { libraryActions.cloudTrash(listOf(media.id), !media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) })
+                                        { actions.confirmCloudTrash(listOf(media.id), !media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) })
                                     }
                                     if (media.isShared) {
                                         DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true }, { Icon(Icons.Outlined.Info, null) })
                                         Text(stringResource(R.string.shared_copy_notice), Modifier.padding(18.dp))
                                     }
                                     if (Build.VERSION.SDK_INT >= 29) DetailAction(stringResource(if (media.kind == MediaKind.LIVE_PHOTO) R.string.save_photo_and_video_to_gallery else R.string.save_to_phone_gallery),
-                                        !isWorking, { libraryActions.saveToGallery(media) }, { Icon(AlbaIcons.PhoneAndroid, null) })
-                                    DetailAction(stringResource(R.string.export_original), !isWorking, { libraryActions.exportOriginal(media) }, { Icon(Icons.Outlined.Share, null) })
+                                        !isWorking, { actions.saveToGallery(media) }, { Icon(AlbaIcons.PhoneAndroid, null) })
+                                    DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) }, { Icon(Icons.Outlined.Share, null) })
                                     if (media.kind == MediaKind.LIVE_PHOTO) DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,
-                                        { libraryActions.exportLivePhoto(media) }, { ICloudIcon(R.drawable.icloud_live_photos) })
+                                        { actions.exportLivePhoto(media) }, { ICloudIcon(R.drawable.icloud_live_photos) })
                                     HorizontalDivider(color = colors.canvas, thickness = 2.dp)
                                     if (media.availability == MediaAvailability.ORIGINAL_CACHED) {
-                                        DetailAction(stringResource(R.string.remove_offline_copy), !isWorking, onRemoveCachedOriginal, { Icon(AlbaIcons.DeleteOutline, null) })
+                                        DetailAction(stringResource(R.string.remove_offline_copy), !isWorking, { actions.removeCachedOriginal(media.id) }, { Icon(AlbaIcons.DeleteOutline, null) })
                                     } else {
                                         DetailAction(stringResource(if (isWorking) R.string.downloading_original else R.string.keep_original_offline), !isWorking,
-                                            onKeepOriginalOffline, {
+                                            { actions.keepOriginalOffline(media.id) }, {
                                                 if (isWorking) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                                                 else Icon(AlbaIcons.DownloadForOffline, null)
                                             })
@@ -319,7 +313,7 @@ internal fun MediaDetailScreen(
                                 }
                             }
                             Spacer(Modifier.height(16.dp))
-                            if (isDownloadingOriginal) TextButton(onClick = libraryActions.cancelOfflineDownload) { Text(stringResource(R.string.cancel_download)) }
+                            if (isDownloadingOriginal) TextButton(onClick = actions::cancelOfflineDownload) { Text(stringResource(R.string.cancel_download)) }
                             Text(stringResource(R.string.offline_copies_live_only_in_alba_s_private_storage_this_action_never_removes_a_photo_),
                                 style = MaterialTheme.typography.bodySmall, color = colors.secondary)
                             if (media.kind == MediaKind.LIVE_PHOTO) {
@@ -333,10 +327,10 @@ internal fun MediaDetailScreen(
                                 demo = accountState == ICloudAccountState.Demo,
                                 isSignedIn = (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED,
                                 isWorking = isWorking,
-                                onRequestUpload = onRequestUpload,
-                                onContinuePastUnresolved = onContinuePastUnresolved,
-                                onMoveVerifiedPhotoToTrash = onMoveVerifiedPhotoToTrash,
-                                onOpenAccount = onOpenAccount,
+                                onRequestUpload = { actions.requestUpload(media.id) },
+                                onContinuePastUnresolved = { uploadTransfer?.let { actions.continuePastUnresolved(it.id) } },
+                                onMoveVerifiedPhotoToTrash = { actions.moveVerifiedPhotoToTrash(media.id) },
+                                onOpenAccount = actions::openAccount,
                             )
                         }
                         Spacer(Modifier.height(24.dp))

@@ -112,11 +112,9 @@ class StoreScreenshotTest {
             }
             compose.activity.setContent {
                 AlbaTheme(darkTheme = false) {
-                    ICloudAccountScreen(libraryActions = testLibraryActions(),
-                        state = ICloudAccountState.SignedIn("demo@example.com"),
-                        diagnostics = GalleryUiState(
+                    ICloudAccountScreen(
+                        session = SessionState(
                             accountState = ICloudAccountState.SignedIn("demo@example.com"),
-                            phoneStorage = me.lvca.alba.engine.model.LocalMediaStorage(120_000_000, 480_000_000, 2_400_000_000, 42_000_000_000),
                             accountInfo = AccountInfo(storage = CloudStorageUsage(
                                 72_000_000_000, 200_000_000_000,
                                 listOf(StorageCategory("Photos", 64_000_000_000),
@@ -126,9 +124,11 @@ class StoreScreenshotTest {
                                 1_790_000_000_000,
                             )),
                         ),
-                        onBack = {}, onSignIn = { _, _ -> }, onSubmitTwoFactor = {},
-                        onResendTwoFactor = {}, onSignOut = {}, backup = BackupView(false),
-                        onEnableAutomaticBackup = {}, onDisableAutomaticBackup = {},
+                        transfers = TransferState(backup = BackupView(false)),
+                        phoneStorage = PhoneStorageState(usage = me.lvca.alba.engine.model.LocalMediaStorage(120_000_000, 480_000_000, 2_400_000_000, 42_000_000_000)),
+                        mediaBusy = false,
+                        diagnostics = DiagnosticsConsent(),
+                        actions = testAlbaActions(),
                     )
                 }
             }

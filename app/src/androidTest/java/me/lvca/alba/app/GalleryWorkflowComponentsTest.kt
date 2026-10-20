@@ -61,22 +61,22 @@ class GalleryWorkflowComponentsTest {
             }
         }
         val store = ViewModelStore()
-        val vm = withContext(Dispatchers.Main) { AlbaViewModel(repository, graph.accountManager, graph.photos, graph.maintenance,
-            savedState = SavedStateHandle(), network = network).also { store.put("reconnect", it) } }
+        val vm = withContext(Dispatchers.Main) { AlbaViewModel(testDependencies(graph).copy(repository = repository, network = network),
+            SavedStateHandle()).also { store.put("reconnect", it) } }
         try {
-            compose.setContent { val state by vm.uiState.collectAsState(); AlbaTheme(darkTheme = false) {
-                state.items.firstOrNull()?.let { media -> MediaTile(media = media, retryVersion = state.previewRetryVersion,
-                    onClick = {}, onVisible = { vm.requestPreview(media.id) }) }
+            compose.setContent { val gallery by vm.gallery.state.collectAsState(); val retryVersion by vm.previews.retryVersion.collectAsState(); AlbaTheme(darkTheme = false) {
+                gallery.items.firstOrNull()?.let { media -> MediaTile(media = media, retryVersion = retryVersion,
+                    onClick = {}, onVisible = { vm.previews.request(media.id) }) }
             } }
             compose.waitUntil(CI_WAIT_MS) { attempts.get() >= 1 }
             network.value = NetworkStatus(true, false)
             compose.waitUntil(CI_WAIT_MS) { gallery.value.single().previewReference != null }
             val completedAttempts = attempts.get()
             network.value = NetworkStatus(false, false)
-            withTimeout(5_000) { vm.uiState.first { it.network?.online == false } }
-            val version = vm.uiState.value.previewRetryVersion
+            withTimeout(5_000) { vm.account.state.first { it.network?.online == false } }
+            val version = vm.previews.retryVersion.value
             network.value = NetworkStatus(true, false)
-            withTimeout(5_000) { vm.uiState.first { it.previewRetryVersion > version } }
+            withTimeout(5_000) { vm.previews.retryVersion.first { it > version } }
             compose.waitForIdle()
             assertEquals(completedAttempts, attempts.get())
             compose.onNodeWithTag("media-fixture:reconnect").assertIsDisplayed()
@@ -85,11 +85,11 @@ class GalleryWorkflowComponentsTest {
 
     @Test fun phoneStorageCleanupRequiresConfirmationAndKeepsCategoriesSeparate() {
         var removed: LocalMediaCategory? = null
-        val state = GalleryUiState(phoneStorage = LocalMediaStorage(1024, 2048, 4096, 128L * 1024 * 1024))
+        val state = PhoneStorageState(usage = LocalMediaStorage(1024, 2048, 4096, 128L * 1024 * 1024))
         compose.setContent { AlbaTheme(darkTheme = false) {
             // The profile's phone storage page: the production scaffold around the production card.
             AlbaPageScaffold(text(R.string.phone_storage_title), onBack = {}) {
-                PhoneStorageDetails(state, testLibraryActions(clearLocalMedia = { removed = it }))
+                PhoneStorageDetails(state, busy = false, testAlbaActions(clearLocalMedia = { removed = it }))
             }
         } }
         compose.onNodeWithTag("clear-storage-VIEWERS").performScrollTo().performClick()
@@ -139,14 +139,14 @@ class GalleryWorkflowComponentsTest {
             }
         }
         val store = ViewModelStore()
-        val vm = withContext(Dispatchers.Main) { AlbaViewModel(repository, graph.accountManager, graph.photos, graph.maintenance,
-            savedState = SavedStateHandle()).also { store.put("album", it) } }
-        val observing = launch { vm.uiState.collect() }
+        val vm = withContext(Dispatchers.Main) { AlbaViewModel(testDependencies(graph).copy(repository = repository),
+            SavedStateHandle()).also { store.put("album", it) } }
+        val observing = launch { vm.account.state.collect() }
         try {
-            withTimeout(5_000) { vm.uiState.first { !it.isRefreshing } }
-            withContext(Dispatchers.Main) { vm.createAlbumWithPhotos("Weekend", listOf("fixture:photo")) }
-            val state = withTimeout(5_000) { vm.uiState.first { it.message?.resolve(app)?.contains("Weekend") == true } }
-            assertEquals(app.getString(R.string.album_created_membership_uncertain, "Weekend"), state.message!!.resolve(app))
+            withTimeout(5_000) { vm.account.state.first { !it.isRefreshing } }
+            withContext(Dispatchers.Main) { vm.edits.createAlbumWithPhotos("Weekend", listOf("fixture:photo")) }
+            val message = withTimeout(5_000) { vm.message.first { it?.resolve(app)?.contains("Weekend") == true } }
+            assertEquals(app.getString(R.string.album_created_membership_uncertain, "Weekend"), message!!.resolve(app))
             assertEquals(1, creates.get()); assertEquals(1, additions.get())
         } finally { observing.cancelAndJoin(); withContext(Dispatchers.Main) { store.clear() } }
     }

@@ -38,15 +38,16 @@ class PreviewQueueTest {
         var collect: Job? = null
         try {
             val vm = withContext(Dispatchers.Main) {
-                AlbaViewModel(repository, graph.accountManager, graph.photos, graph.maintenance,
-                    savedState = SavedStateHandle()).also { store.put("preview-test", it) }
+                AlbaViewModel(testDependencies(graph).copy(repository = repository),
+                    SavedStateHandle()).also { store.put("preview-test", it) }
             }
-            collect = launch { vm.uiState.collect() }
-            withTimeout(10_000) { vm.uiState.first { it.catalogItems.size == 120 && it.accountState == ICloudAccountState.Demo } }
-            withContext(Dispatchers.Main) { vm.prefetchPreviews(items.take(48).map { it.id }) }
+            collect = launch { vm.gallery.state.collect() }
+            withTimeout(10_000) { vm.gallery.state.first { it.catalogItems.size == 120 } }
+            assertEquals(ICloudAccountState.Demo, graph.accountManager.state.value)
+            withContext(Dispatchers.Main) { vm.previews.prefetch(items.take(48).map { it.id }) }
             withTimeout(5_000) { started.first { it.size == 4 } }
             withContext(Dispatchers.Main) {
-                vm.prefetchPreviews(items.takeLast(48).map { it.id })
+                vm.previews.prefetch(items.takeLast(48).map { it.id })
                 release.complete(Unit)
             }
             withTimeout(10_000) { gallery.first { rows -> rows.takeLast(48).take(44).all { it.previewReference != null } } }
@@ -54,8 +55,8 @@ class PreviewQueueTest {
             assertEquals(items.take(4).map { it.id } + items.takeLast(48).take(44).map { it.id }, started.value)
             assertTrue(gallery.value.take(4).all { it.previewReference != null })
             // Scrolling back over retained thumbnails must not schedule new downloads.
-            withTimeout(5_000) { vm.uiState.first { it.catalogItems.count { row -> row.previewReference != null } == 48 } }
-            withContext(Dispatchers.Main) { vm.prefetchPreviews(items.takeLast(48).map { it.id }) }
+            withTimeout(5_000) { vm.gallery.state.first { it.catalogItems.count { row -> row.previewReference != null } == 48 } }
+            withContext(Dispatchers.Main) { vm.previews.prefetch(items.takeLast(48).map { it.id }) }
             withTimeout(10_000) { gallery.first { rows -> rows.takeLast(48).all { it.previewReference != null } } }
             assertEquals(52, started.value.size)
         } finally {

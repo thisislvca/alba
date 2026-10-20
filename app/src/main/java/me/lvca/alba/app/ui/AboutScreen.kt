@@ -21,18 +21,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
-import me.lvca.alba.app.AlbaApplication
+import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.ui.theme.AlbaSpacing
 import android.content.ActivityNotFoundException
 import android.widget.Toast
 
 @Composable
-internal fun AboutScreen(onBack: () -> Unit) {
+internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledChange: (Boolean) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val uriHandler = LocalUriHandler.current
-    val diagnostics = (context.applicationContext as AlbaApplication).diagnostics
-    val diagnosticsEnabled by diagnostics.enabled.collectAsState()
     val version = remember(context) {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         "${info.versionName} (${info.longVersionCode})"
@@ -103,8 +101,8 @@ internal fun AboutScreen(onBack: () -> Unit) {
                     },
                     trailingContent = {
                         Switch(
-                            checked = diagnosticsEnabled,
-                            onCheckedChange = diagnostics::setEnabled,
+                            checked = diagnostics.enabled,
+                            onCheckedChange = onDiagnosticsEnabledChange,
                             enabled = diagnostics.available,
                             modifier = Modifier.testTag("diagnostics-switch"),
                         )

@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.GalleryUiState
+import me.lvca.alba.app.SessionState
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.theme.AlbaSpacing
 import me.lvca.alba.app.ui.theme.AlbaTheme
@@ -19,7 +19,7 @@ import me.lvca.alba.protocol.account.SessionStatus
 
 /** Useful connection facts live on the overview rather than behind another destination. */
 @Composable
-internal fun AccountDiagnostics(state: GalleryUiState, check: () -> Unit) {
+internal fun AccountDiagnostics(state: SessionState, check: () -> Unit) {
     val info = state.accountInfo
     val signedIn = state.accountState as? ICloudAccountState.SignedIn
     val status = when {

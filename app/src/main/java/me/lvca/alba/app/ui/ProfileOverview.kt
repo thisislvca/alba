@@ -27,7 +27,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.GalleryUiState
+import me.lvca.alba.app.PhoneStorageState
+import me.lvca.alba.app.SessionState
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -66,9 +67,11 @@ private fun ProfileDivider() = AlbaDivider(Modifier.padding(start = 60.dp))
 
 @Composable
 internal fun ProfileOverview(
-    state: ICloudAccountState, diagnostics: GalleryUiState?, backup: BackupView, busy: Boolean,
+    session: SessionState, phoneStorage: PhoneStorageState, backup: BackupView,
     onNavigate: (ProfilePage) -> Unit, onCheckConnection: () -> Unit, onSignOut: () -> Unit,
 ) {
+    val state = session.accountState
+    val busy = session.accountBusy
     val signedIn = state as? ICloudAccountState.SignedIn
     val demo = state == ICloudAccountState.Demo
     val status = when (signedIn?.status) {
@@ -79,8 +82,8 @@ internal fun ProfileOverview(
         else -> null
     }
     val context = LocalContext.current
-    val profile = diagnostics?.accountInfo?.profile?.takeIf { signedIn != null }
-    val allowance = diagnostics?.accountInfo?.storage?.takeIf { it.isDemo == demo }
+    val profile = session.accountInfo.profile?.takeIf { signedIn != null }
+    val allowance = session.accountInfo.storage?.takeIf { it.isDemo == demo }
     val profileColors = AlbaTheme.colors.profile
     Surface(shape = MaterialTheme.shapes.extraLarge, color = profileColors.card, contentColor = profileColors.onCard,
         modifier = Modifier.fillMaxWidth().testTag("profile-identity")) {
@@ -124,11 +127,9 @@ internal fun ProfileOverview(
         }
     }
     Spacer(Modifier.height(AlbaSpacing.xl))
-    ProfileStorage(diagnostics, demo, signedIn != null, onCheckConnection)
-    diagnostics?.let {
-        Spacer(Modifier.height(AlbaSpacing.xl))
-        AccountDiagnostics(it, onCheckConnection)
-    }
+    ProfileStorage(session, demo, signedIn != null, onCheckConnection)
+    Spacer(Modifier.height(AlbaSpacing.xl))
+    AccountDiagnostics(session, onCheckConnection)
     Spacer(Modifier.height(AlbaSpacing.xxl))
     Text(stringResource(R.string.profile_library_section), Modifier.padding(start = AlbaSpacing.lg, bottom = AlbaSpacing.sm),
         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -137,18 +138,16 @@ internal fun ProfileOverview(
             stringResource(if (demo) R.string.demo_backup_preview else if (backup.enabled) R.string.profile_backup_on else R.string.profile_backup_off),
             AlbaIcons.CloudUpload, profileColors.backupTile, "profile-backup",
             onClick = { onNavigate(ProfilePage.BACKUP) })
-        if (diagnostics != null) {
-            ProfileDivider()
-            val phoneSummary = diagnostics.phoneStorage?.let { phoneStorageSummary(it) } ?: stringResource(R.string.profile_device_detail)
-            ProfileRow(stringResource(R.string.phone_storage_title), phoneSummary,
-                AlbaIcons.DownloadForOffline, profileColors.phoneTile, "profile-phone", onClick = { onNavigate(ProfilePage.PHONE) })
-            diagnostics.phoneStorage?.let { usage ->
-                Column(Modifier.padding(start = 60.dp, end = AlbaSpacing.lg, bottom = AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
-                    usage.byCategory().forEach { (category, bytes) ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
-                            Text(stringResource(category.title()), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(Formatter.formatShortFileSize(context, bytes), style = MaterialTheme.typography.bodySmall)
-                        }
+        ProfileDivider()
+        val phoneSummary = phoneStorage.usage?.let { phoneStorageSummary(it) } ?: stringResource(R.string.profile_device_detail)
+        ProfileRow(stringResource(R.string.phone_storage_title), phoneSummary,
+            AlbaIcons.DownloadForOffline, profileColors.phoneTile, "profile-phone", onClick = { onNavigate(ProfilePage.PHONE) })
+        phoneStorage.usage?.let { usage ->
+            Column(Modifier.padding(start = 60.dp, end = AlbaSpacing.lg, bottom = AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
+                usage.byCategory().forEach { (category, bytes) ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+                        Text(stringResource(category.title()), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(Formatter.formatShortFileSize(context, bytes), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -186,11 +185,11 @@ private fun PlanLink(hero: Boolean = false) {
 }
 
 @Composable
-internal fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: Boolean, check: () -> Unit,
+internal fun ProfileStorage(session: SessionState, demo: Boolean, hasAccount: Boolean, check: () -> Unit,
     labelRes: Int = R.string.icloud_storage) {
     val context = LocalContext.current
-    val info = state?.accountInfo
-    val storage = info?.storage?.takeIf { it.isDemo == demo }
+    val info = session.accountInfo
+    val storage = info.storage?.takeIf { it.isDemo == demo }
     fun bytes(value: Long) = Formatter.formatShortFileSize(context, value)
     val categoryColors = AlbaTheme.colors.profile.storage
     AlbaCard {
@@ -227,12 +226,12 @@ internal fun ProfileStorage(state: GalleryUiState?, demo: Boolean, hasAccount: B
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (!demo) Text(stringResource(R.string.last_checked_at, timestampLabel(Instant.ofEpochMilli(storage.checkedAtEpochMillis))),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else Text(stringResource(if (info?.checking == true) R.string.checking_storage else if (demo)
+            } else Text(stringResource(if (info.checking) R.string.checking_storage else if (demo)
                 R.string.profile_demo_storage else R.string.storage_usage_is_not_available_yet), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            info?.error?.let { Text(it.localized(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-            if (storage == null && hasAccount) TextButton(onClick = check, enabled = info?.checking != true && state?.accountBusy != true) {
-                Text(stringResource(if (info?.checking == true) R.string.checking else R.string.check_again))
+            info.error?.let { Text(it.localized(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+            if (storage == null && hasAccount) TextButton(onClick = check, enabled = !info.checking && !session.accountBusy) {
+                Text(stringResource(if (info.checking) R.string.checking else R.string.check_again))
             }
         }
     }

@@ -26,7 +26,7 @@ class SharedCompletionTest {
         val person = SharedAccessRequest("guest", "Test requester")
         var state = SharedAlbumManagement(album, emptyList(), requests = listOf(person))
         val changes = mutableListOf<SharedCommand>()
-        compose.setContent { MaterialTheme { SharedAlbumControls(album, testLibraryActions(sharedManagement = { state }, changeSharedAlbum = { _, c ->
+        compose.setContent { MaterialTheme { SharedAlbumControls(album, testAlbaActions(sharedManagement = { state }, changeSharedAlbum = { _, c ->
             changes += c
             state = when (c.action) {
                 SharedAction.DENY_REQUEST -> state.copy(requests = emptyList(), blocked = listOf(person))
@@ -50,7 +50,7 @@ class SharedCompletionTest {
     @Test fun sharedLinkIsPrefilledWithoutResolvingOrJoiningUntilRequested() {
         val link = "https://photos.icloud.com/shared/album/fixture"
         var resolves = 0; var joins = 0
-        compose.setContent { MaterialTheme { SharedInvitations(testLibraryActions(resolveSharedInvitation = {
+        compose.setContent { MaterialTheme { SharedInvitations(testAlbaActions(resolveSharedInvitation = {
             resolves++; SharedInvitation("invitation", "Private family", SharedAlbumGeneration.MODERN)
         }, respondSharedInvitation = { _, _ -> joins++ }), dismiss = {}, initialUrl = link) } }
         compose.onNodeWithTag("shared-invitation-link").assertTextContains(link)
@@ -66,7 +66,7 @@ class SharedCompletionTest {
         val one = SharedPost("post:${album.id}:one", "Owner", true, 1790205441441, "First post")
         val two = one.copy(id = "post:${album.id}:two", caption = "Earlier post")
         val requests = mutableListOf<Int>(); val writes = mutableListOf<SharedCommand>(); val comments = mutableListOf<SharedComment>()
-        val actions = testLibraryActions(sharedActivity = { _, rank -> requests += rank; if(rank == 0) SharedActivityPage(listOf(one), 1) else SharedActivityPage(listOf(two), null) },
+        val actions = testAlbaActions(sharedActivity = { _, rank -> requests += rank; if(rank == 0) SharedActivityPage(listOf(one), 1) else SharedActivityPage(listOf(two), null) },
             sharedPostPhotos = { listOf("${album.id}:photo1", "${album.id}:photo2") },
             sharedManagement = { SharedAlbumManagement(album, emptyList()) }, sharedPostDiscussion = { SharedDiscussion(comments.toList(), true, SharedAlbumGeneration.MODERN) },
             changeSharedAlbum = { _, c -> writes += c; comments += SharedComment("comment", "Owner", c.value, 1790205441441, true, true) })

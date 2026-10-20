@@ -448,6 +448,7 @@
     <string name="rotation_on_save">Rotation: %1$d°</string>
     <string name="edit_failed_retry">Could not prepare or save this edit · Retry</string>
     <string name="local_action_failed">Android could not complete this action. Check photo access and try again.</string>
+    <string name="action_still_running">That action is still running. Try again when it finishes.</string>
     <string name="restore_photo">Restore</string>
     <string name="trash_phone_copy">Move phone copy to trash</string>
     <string name="trash_restore_explanation">Android manages trash expiry. Restore keeps the photo on this phone.</string>

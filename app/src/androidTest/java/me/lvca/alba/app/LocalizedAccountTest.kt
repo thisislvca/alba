@@ -38,9 +38,8 @@ class LocalizedAccountTest {
                 LocalDensity provides Density(context.resources.displayMetrics.density, config.fontScale)) {
                 AlbaTheme(darkTheme = true) {
                     androidx.compose.material3.Surface {
-                        ICloudAccountScreen(libraryActions = testLibraryActions(), state = state, onBack = {}, onSignIn = { _, _ -> }, onSubmitTwoFactor = { submitted = it },
-                            onResendTwoFactor = {}, onSignOut = {}, backup = BackupView(false, message = "Automatic backup is off."),
-                            onEnableAutomaticBackup = {}, onDisableAutomaticBackup = {})
+                        ICloudAccountScreen(SessionState(accountState = state), TransferState(backup = BackupView(false, message = "Automatic backup is off.")),
+                            PhoneStorageState(), mediaBusy = false, DiagnosticsConsent(), testAlbaActions(submitTwoFactor = { submitted = it }))
                     }
                 }
             }
@@ -69,12 +68,10 @@ class LocalizedAccountTest {
             CompositionLocalProvider(LocalContext provides context, LocalConfiguration provides config) {
                 AlbaTheme(darkTheme = false) {
                     androidx.compose.material3.Surface {
-                        ICloudAccountScreen(libraryActions = testLibraryActions(),
-                            state = ICloudAccountState.SignedIn("family@example.com", SessionStatus.PHOTOS_NOT_ENABLED),
-                            onCheckConnection = { checks++ },
-                            onBack = {}, onSignIn = { _, _ -> }, onSubmitTwoFactor = {}, onResendTwoFactor = {},
-                            onSignOut = {}, backup = BackupView(false), onEnableAutomaticBackup = {},
-                            onDisableAutomaticBackup = {},
+                        ICloudAccountScreen(
+                            SessionState(accountState = ICloudAccountState.SignedIn("family@example.com", SessionStatus.PHOTOS_NOT_ENABLED)),
+                            TransferState(), PhoneStorageState(), mediaBusy = false, DiagnosticsConsent(),
+                            testAlbaActions(checkConnection = { checks++ }),
                         )
                     }
                 }

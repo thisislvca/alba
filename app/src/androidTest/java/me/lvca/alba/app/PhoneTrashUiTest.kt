@@ -50,7 +50,7 @@ class PhoneTrashUiTest {
             val id = runBlocking { source.scanImages().single { it.contentUri == uri.toString() }.id }
             compose.activityRule.scenario.recreate()
             val model = androidx.lifecycle.ViewModelProvider(compose.activity)[AlbaViewModel::class.java]
-            compose.waitUntil(15_000) { model.uiState.value.items.any { it.id == id } }
+            compose.waitUntil(15_000) { model.gallery.state.value.items.any { it.id == id } }
             compose.scrollToGalleryMedia(id)
             compose.onNodeWithTag("media-$id").performClick()
             compose.waitForVideoPlaying()

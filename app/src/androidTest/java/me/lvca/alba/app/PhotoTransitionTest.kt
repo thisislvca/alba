@@ -51,7 +51,7 @@ class PhotoTransitionTest {
         val model = androidx.lifecycle.ViewModelProvider(compose.activity)[AlbaViewModel::class.java]
         // Selection is projected off the UI thread; do not spend animation frames
         // while waiting for that work to publish the viewer destination.
-        compose.waitUntil(5_000) { model.uiState.value.selectedMedia?.id == id }
+        compose.waitUntil(5_000) { model.gallery.state.value.selectedMedia?.id == id }
         // Projection, decoding and layout are asynchronous. Find an actual intermediate
         // frame instead of advancing another fixed 128 ms after the image node appears.
         val image = compose.onNodeWithTag("photo-viewer-$id", useUnmergedTree = true)

@@ -444,6 +444,7 @@
     <string name="rotation_on_save">Rotazione: %1$d°</string>
     <string name="edit_failed_retry">Impossibile preparare o salvare la modifica · Riprova</string>
     <string name="local_action_failed">Android non ha completato l’operazione. Controlla l’accesso alle foto e riprova.</string>
+    <string name="action_still_running">Questa azione è ancora in corso. Riprova quando sarà terminata.</string>
     <string name="restore_photo">Ripristina</string>
     <string name="trash_phone_copy">Sposta la copia del telefono nel cestino</string>
     <string name="trash_restore_explanation">Android gestisce la scadenza del cestino. Il ripristino conserva la foto sul telefono.</string>

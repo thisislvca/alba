@@ -31,15 +31,9 @@ class AlbaWriteUiTest {
         val transfer = transfer(media.id, TransferViewState.VERIFIED)
 
         setAlbaContent(
-            GalleryUiState(
-                items = listOf(media),
-                selectedMedia = media,
-                isRefreshing = false,
-                deviceMediaAccess = true,
-                accountState = ICloudAccountState.SignedIn("owner@example.com"),
-                uploadTransfersByMediaId = mapOf(media.id to transfer),
-                transferQueue = listOf(transfer),
-            ),
+            GalleryState(items = listOf(media), selectedMedia = media, deviceMediaAccess = true),
+            SessionState(accountState = ICloudAccountState.SignedIn("owner@example.com"), isRefreshing = false),
+            TransferState(queue = listOf(transfer), uploadsByMediaId = mapOf(media.id to transfer)),
             onTrash = { trashRequested = true },
         )
 
@@ -56,12 +50,9 @@ class AlbaWriteUiTest {
         val unresolved = transfer(mediaId = null, state = TransferViewState.UNRESOLVED)
 
         setAlbaContent(
-            GalleryUiState(
-                isRefreshing = false,
-                deviceMediaAccess = true,
-                accountState = ICloudAccountState.SignedIn("owner@example.com"),
-                transferQueue = listOf(unresolved),
-            ),
+            GalleryState(deviceMediaAccess = true),
+            SessionState(accountState = ICloudAccountState.SignedIn("owner@example.com"), isRefreshing = false),
+            TransferState(queue = listOf(unresolved)),
             onPick = { pickerRequested = true },
             onContinue = { continued = it },
         )
@@ -80,7 +71,7 @@ class AlbaWriteUiTest {
     @Test
     fun optionalPhoneSuggestionCanBeDismissedWithoutLosingPermissionEntry() {
         var requests = 0
-        setAlbaContent(GalleryUiState(isRefreshing = false, accountState = ICloudAccountState.Demo), onPhotos = { requests++ })
+        setAlbaContent(GalleryState(), SessionState(accountState = ICloudAccountState.Demo, isRefreshing = false), onPhotos = { requests++ })
         compose.onNodeWithText("Not now").performClick()
         compose.onNodeWithText("Include photos from this phone").assertDoesNotExist()
         compose.onNodeWithTag("gallery-menu-button").performClick()
@@ -91,8 +82,9 @@ class AlbaWriteUiTest {
     @Test
     fun offlineStatusAndLimitedPhotoReselectionStayAccessible() {
         var requests = 0
-        setAlbaContent(GalleryUiState(isRefreshing = false, deviceMediaAccess = true, limitedPhotoAccess = true,
-            accountState = ICloudAccountState.SignedIn("owner@example.com", me.lvca.alba.protocol.account.SessionStatus.OFFLINE)), onPhotos = { requests++ })
+        setAlbaContent(GalleryState(deviceMediaAccess = true, limitedPhotoAccess = true),
+            SessionState(accountState = ICloudAccountState.SignedIn("owner@example.com", me.lvca.alba.protocol.account.SessionStatus.OFFLINE), isRefreshing = false),
+            onPhotos = { requests++ })
         compose.onNodeWithText("Offline · saved photos available").assertIsDisplayed()
         compose.onNodeWithTag("gallery-menu-button").performClick()
         compose.onNodeWithText("Change selected phone photos").performScrollTo().performClick()
@@ -100,7 +92,9 @@ class AlbaWriteUiTest {
     }
 
     private fun setAlbaContent(
-        state: GalleryUiState,
+        gallery: GalleryState,
+        session: SessionState,
+        transfers: TransferState = TransferState(),
         onPhotos: () -> Unit = {},
         onPick: () -> Unit = {},
         onTrash: (String) -> Unit = {},
@@ -108,29 +102,17 @@ class AlbaWriteUiTest {
     ) {
         compose.setContent {
             AlbaTheme(darkTheme = false) {
-                AlbaApp(libraryActions = testLibraryActions(),
-                    state = state,
-                    onRefresh = {},
-                    onSelectFilter = {},
-                    onSelectMedia = {},
-                    onCloseDetail = {},
-                    onRequestPreview = {},
-                    onRequestDevicePhotos = onPhotos,
-                    onPickUpload = onPick,
-                    onKeepOriginalOffline = {},
-                    onRemoveCachedOriginal = {},
-                    onRequestUpload = {},
-                    onContinuePastUnresolved = onContinue,
-                    onMoveVerifiedPhotoToTrash = onTrash,
-                    onDismissMessage = {},
-                    onOpenAccount = {},
-                    onCloseAccount = {},
-                    onSignIn = { _, _ -> },
-                    onSubmitTwoFactor = {},
-                    onResendTwoFactor = {},
-                    onSignOut = {},
-                    onEnableAutomaticBackup = {},
-                    onDisableAutomaticBackup = {},
+                AlbaApp(
+                    gallery = gallery,
+                    session = session,
+                    transfers = transfers,
+                    phoneStorage = PhoneStorageState(),
+                    mediaWork = MediaWork(),
+                    previewRetryVersion = 0,
+                    message = null,
+                    diagnostics = DiagnosticsConsent(),
+                    actions = testAlbaActions(requestDevicePhotos = onPhotos, pickUpload = onPick,
+                        continuePastUnresolved = onContinue, moveVerifiedPhotoToTrash = onTrash),
                 )
             }
         }

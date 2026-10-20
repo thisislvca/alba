@@ -62,7 +62,7 @@ class GalleryCompletionTest {
         val previous = runBlocking { repository.observeGallery().first().filter { it.id in ids }.associate { it.id to it.isFavorite } }
         val album = runBlocking { repository.createAlbum("Completion test").also { repository.addToAlbum(it.id, ids) } }
         try {
-            compose.runOnUiThread { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].apply { selectItems(ids.toSet(), true); setFavorites(ids, true) } }
+            compose.runOnUiThread { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].apply { gallery.selectItems(ids.toSet(), true); edits.setFavorites(ids, true) } }
             compose.waitUntil(CI_WAIT_MS) { runBlocking { repository.observeGallery().first().filter { it.id in ids }.all { it.isFavorite } } }
             runBlocking { repository.removeFromAlbum(album.id, ids); repository.setCloudTrashed(ids, true); repository.refresh(false) }
             var items = runBlocking { repository.observeGallery().first().filter { it.id in ids } }

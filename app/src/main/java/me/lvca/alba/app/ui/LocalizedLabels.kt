@@ -35,13 +35,16 @@ private fun formatSkeleton(skeleton: String, locale: Locale, epochMillis: Long):
     skeletonFormats.getOrPut(skeleton to locale) { DateFormat.getInstanceForSkeleton(skeleton, locale) }.format(Date(epochMillis))
 }
 
-@Composable private fun currentLocale(): Locale = LocalConfiguration.current.locales[0]
+@Composable internal fun currentLocale(): Locale = LocalConfiguration.current.locales[0]
 @Composable private fun uses24HourClock(): Boolean = android.text.format.DateFormat.is24HourFormat(LocalContext.current)
 private fun YearMonth.epochMillis(): Long = atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
 /** "October 2026", or "Oct 2026" when [abbreviated], in the locale's order. */
 @Composable internal fun monthLabel(month: YearMonth, abbreviated: Boolean = false): String =
-    formatSkeleton(if (abbreviated) "MMMy" else "MMMMy", currentLocale(), month.epochMillis())
+    monthLabel(month, abbreviated, currentLocale())
+/** [monthLabel] for an explicit [locale], so a list of labels can be remembered outside composition. */
+internal fun monthLabel(month: YearMonth, abbreviated: Boolean, locale: Locale): String =
+    formatSkeleton(if (abbreviated) "MMMy" else "MMMMy", locale, month.epochMillis())
 /** The stand-alone month name, for layouts that show the year separately. */
 @Composable internal fun monthNameLabel(month: YearMonth): String = formatSkeleton("LLLL", currentLocale(), month.epochMillis())
 /** Day and abbreviated month without the year: "Oct 20" in English, "20 ott" in Italian. */
