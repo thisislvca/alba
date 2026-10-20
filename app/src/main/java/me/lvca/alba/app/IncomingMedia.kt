@@ -36,23 +36,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.shape.CornerSize
 
-internal data class IncomingMediaRequest(val uris: List<String>, val external: Boolean = true, val savedCopy: Boolean = false)
-
-@Suppress("DEPRECATION")
-internal fun incomingMedia(intent: Intent): IncomingMediaRequest? {
-    if (intent.action !in setOf(Intent.ACTION_VIEW, Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) return null
-    val candidates: List<Uri> = when (intent.action) {
-        Intent.ACTION_VIEW -> listOfNotNull(intent.data)
-        Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
-        else -> listOfNotNull(intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))
-    }.ifEmpty { intent.clipData?.let { clip -> (0 until minOf(clip.itemCount, 51)).mapNotNull { clip.getItemAt(it).uri } }.orEmpty() }
-    val values = candidates.distinct().map(Uri::toString)
-    // Never turn a file path, network URL, or an unbounded incoming payload into a read.
-    val safe = values.size in 1..50 && values.sumOf { it.length } <= 32_000 &&
-        candidates.all { it.scheme == "content" && !it.authority.isNullOrBlank() }
-    return IncomingMediaRequest(if (safe) values else emptyList())
-}
-
 private data class IncomingItem(val uri: Uri, val name: String, val mime: String?, val failure: Int? = null)
 private suspend fun inspectIncoming(context: Context, value: String): IncomingItem = withContext(Dispatchers.IO) {
     val uri = value.toUri()
@@ -70,11 +53,11 @@ private suspend fun inspectIncoming(context: Context, value: String): IncomingIt
 }
 
 @Composable
-internal fun IncomingMediaScreen(request: IncomingMediaRequest, state: GalleryUiState, close: () -> Unit,
-    connect: () -> Unit, upload: (List<Uri>) -> Unit) {
+internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: ICloudAccountState, message: UiMessage?,
+    close: () -> Unit, connect: () -> Unit, upload: (List<Uri>) -> Unit) {
     val context = LocalContext.current
     val shareLabel = stringResource(R.string.share)
-    val demo = state.accountState == ICloudAccountState.Demo
+    val demo = accountState == ICloudAccountState.Demo
     val items by produceState<List<IncomingItem>?>(null, request) {
         value = request.uris.map { inspectIncoming(context, it) }
     }
@@ -132,12 +115,12 @@ internal fun IncomingMediaScreen(request: IncomingMediaRequest, state: GalleryUi
                             val eligible = loaded.filter { UploadMediaFormat.isCandidate(it.mime) }
                             if (!request.savedCopy && loaded.any { it.failure == null && it.mime != null }) {
                                 Text(stringResource(if (demo) R.string.demo_upload_disclosure else R.string.incoming_upload_explanation), style = MaterialTheme.typography.bodySmall)
-                                val signedIn = (state.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED
+                                val signedIn = (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED
                                 if (eligible.isNotEmpty()) Button(modifier = Modifier.testTag("queue-incoming-upload"), enabled = !sent, onClick = { if (signedIn || demo) confirm = true else connect() }) {
                                     Text(stringResource(if (sent && demo) R.string.demo_import_requested else if (sent) R.string.incoming_upload_queued else if (demo) R.string.demo_upload_title else if (signedIn) R.string.upload_phone_jpegs else R.string.incoming_connect))
                                 }
                                 if (sent) TextButton(onClick = close) { Text(stringResource(R.string.incoming_view_library)) }
-                                state.message?.let { Text(it.localized(), style = MaterialTheme.typography.bodySmall) }
+                                message?.let { Text(it.localized(), style = MaterialTheme.typography.bodySmall) }
                             }
                         }
                     }

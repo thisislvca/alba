@@ -1102,16 +1102,7 @@ class AlbaViewModel(
                 exporter = GalleryExporter(appContext, graph.galleryRepository),
                 network = networkStatus(appContext),
                 diagnostics = graph.diagnostics,
-                importDemo = { uri ->
-                    check(graph.accountManager.state.value == ICloudAccountState.Demo)
-                    val name = if (uri == null) "Sample upload.webp" else appContext.contentResolver.query(uri,
-                        arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                        if (cursor.moveToFirst()) cursor.getString(0) else null
-                    } ?: "Selected media"
-                    val input = if (uri == null) appContext.assets.open("demo/01.webp") else
-                        requireNotNull(appContext.contentResolver.openInputStream(uri))
-                    graph.demoCatalog.importMedia(name, input)
-                },
+                importDemo = DemoMediaImporter(appContext, graph.accountManager, graph.demoCatalog)::import,
                 accountManager = graph.accountManager,
                 photos = graph.photos,
                 maintenance = graph.maintenance,

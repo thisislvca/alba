@@ -70,8 +70,8 @@ class UploadIntakeTest {
             val localized = context.createConfigurationContext(configuration)
             var queued: List<Uri>? = null
             compose.setContent {
-                IncomingMediaScreen(IncomingMediaRequest(uris.map(Uri::toString)),
-                    GalleryUiState(accountState = ICloudAccountState.SignedIn("test@example.invalid")),
+                IncomingMediaScreen(IncomingRequest.Media(uris.map(Uri::toString)),
+                    ICloudAccountState.SignedIn("test@example.invalid"), message = null,
                     close = {}, connect = { error("Must use supplied screen state only") }, upload = { queued = it })
             }
             compose.waitUntil(CI_WAIT_MS) { compose.onAllNodesWithTag("queue-incoming-upload").fetchSemanticsNodes().isNotEmpty() }

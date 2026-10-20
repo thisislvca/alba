@@ -41,34 +41,35 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<AlbaViewModel> { AlbaViewModel.Factory(this) }
-    private var incoming by mutableStateOf<IncomingMediaRequest?>(null)
-    private var invitation by mutableStateOf<String?>(null)
-    private var returnToCaller = false
+    private var session by mutableStateOf(IncomingSession.None)
+    private val incoming get() = session.request as? IncomingRequest.Media
+    private val invitation get() = (session.request as? IncomingRequest.Invitation)?.link
+    private var returnToCaller
+        get() = session.returnToCaller
+        set(value) { session = session.copy(returnToCaller = value) }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        invitation = incomingSharedInvitation(intent)
-        incoming = if (invitation == null) incomingMedia(intent) else null
-        returnToCaller = incoming != null || invitation != null
+        session = IncomingSession.from(intent)
+    }
+
+    /** Closes the incoming request, returning to the app that sent it when it is still owed a return. */
+    private fun finishIncoming() {
+        val back = session.returnToCaller
+        session = session.copy(request = null)
+        if (back) finish()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putBoolean("incomingHandled", true)
-        invitation?.let { outState.putString("incomingInvitation", it) }
-        incoming?.let { outState.putStringArrayList("incomingUris", ArrayList(it.uris)); outState.putBoolean("savedCopy", it.savedCopy) }
-        outState.putBoolean("returnToCaller", returnToCaller)
+        session.save(outState)
         super.onSaveInstanceState(outState)
     }
 
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        invitation = if (savedInstanceState?.getBoolean("incomingHandled") == true) savedInstanceState.getString("incomingInvitation") else incomingSharedInvitation(intent)
-        incoming = if (savedInstanceState?.getBoolean("incomingHandled") == true) savedInstanceState.getStringArrayList("incomingUris")?.let {
-            IncomingMediaRequest(it, savedInstanceState.getBoolean("returnToCaller"), savedInstanceState.getBoolean("savedCopy"))
-        } else if (invitation == null) incomingMedia(intent) else null
-        returnToCaller = savedInstanceState?.getBoolean("returnToCaller") ?: (incoming != null || invitation != null)
+        session = IncomingSession.restore(savedInstanceState) ?: IncomingSession.from(intent)
         enableEdgeToEdge()
         val onboarding = OnboardingPreferences(this)
         if (BuildConfig.BENCHMARK_MODE) { onboarding.complete(); onboarding.enabled = true }
@@ -90,8 +91,8 @@ class MainActivity : ComponentActivity() {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             var incomingSuspended by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(uiState.isAccountOpen) { if (!uiState.isAccountOpen) incomingSuspended = false }
-            incoming?.takeUnless { incomingSuspended }?.let { request -> IncomingMediaScreen(request, uiState,
-                close = { incoming = null; if (returnToCaller) finish() },
+            incoming?.takeUnless { incomingSuspended }?.let { request -> IncomingMediaScreen(request, uiState.accountState, uiState.message,
+                close = ::finishIncoming,
                 connect = { incomingSuspended = true; viewModel.openAccount() },
                 upload = { uris ->
                     returnToCaller = false
@@ -102,23 +103,23 @@ class MainActivity : ComponentActivity() {
                 AlbaTheme(darkTheme = isSystemInDarkTheme()) {
                     val account = uiState.accountState as? me.lvca.alba.protocol.account.ICloudAccountState.SignedIn
                     if (link.isBlank()) androidx.compose.material3.AlertDialog(
-                        onDismissRequest = { invitation = null; if (returnToCaller) finish() },
+                        onDismissRequest = { finishIncoming() },
                         title = { androidx.compose.material3.Text(getString(R.string.shared_invitations)) },
                         text = { androidx.compose.material3.Text(getString(R.string.shared_invalid_link)) },
-                        confirmButton = { androidx.compose.material3.TextButton(onClick = { invitation = null; if (returnToCaller) finish() }) { androidx.compose.material3.Text(getString(R.string.cancel)) } })
+                        confirmButton = { androidx.compose.material3.TextButton(onClick = { finishIncoming() }) { androidx.compose.material3.Text(getString(R.string.cancel)) } })
                     else if (account?.status == me.lvca.alba.protocol.account.SessionStatus.VERIFIED) {
                         key(account.appleId, link) {
                             me.lvca.alba.app.ui.SharedInvitations(me.lvca.alba.app.ui.InvitationCallbacks(
                                 pendingSharedInvitations = viewModel::pendingSharedInvitations,
                                 resolveSharedInvitation = viewModel::resolveSharedInvitation,
                                 respondSharedInvitation = viewModel::respondSharedInvitation,
-                            ), dismiss = { invitation = null; if (returnToCaller) finish() }, initialUrl = link, invalidLink = link.isBlank())
+                            ), dismiss = { finishIncoming() }, initialUrl = link, invalidLink = link.isBlank())
                         }
-                    } else androidx.compose.material3.AlertDialog(onDismissRequest = { invitation = null; if (returnToCaller) finish() },
+                    } else androidx.compose.material3.AlertDialog(onDismissRequest = { finishIncoming() },
                         title = { androidx.compose.material3.Text(getString(R.string.shared_invitations)) },
                         text = { androidx.compose.material3.Text(getString(R.string.shared_invitation_sign_in)) },
                         confirmButton = { androidx.compose.material3.TextButton(onClick = { incomingSuspended = true; viewModel.openAccount() }) { androidx.compose.material3.Text(getString(R.string.incoming_connect)) } },
-                        dismissButton = { androidx.compose.material3.TextButton(onClick = { invitation = null; if (returnToCaller) finish() }) { androidx.compose.material3.Text(getString(R.string.cancel)) } })
+                        dismissButton = { androidx.compose.material3.TextButton(onClick = { finishIncoming() }) { androidx.compose.material3.Text(getString(R.string.cancel)) } })
                 }
             }
             var editingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -133,17 +134,14 @@ class MainActivity : ComponentActivity() {
             }
             fun requestPhoneTrash(items: List<me.lvca.alba.engine.model.GalleryMedia>, restore: Boolean) {
                 if (Build.VERSION.SDK_INT < 30 || items.isEmpty()) return
-                val uris = items.mapNotNull { item ->
-                    (if (item.origin == me.lvca.alba.engine.model.MediaOrigin.DEVICE) item.originalReference else item.linkedDeviceReference)?.let(android.net.Uri::parse)
-                }.distinct()
-                if (uris.size != items.size || uris.size > 2000) { viewModel.localOperationFailed(); return }
+                val uris = phoneTrashUris(items)?.map(android.net.Uri::parse) ?: run { viewModel.localOperationFailed(); return }
                 runCatching { phoneTrash.launch(IntentSenderRequest.Builder(android.provider.MediaStore.createTrashRequest(contentResolver, uris, !restore).intentSender).build()) }
                     .onFailure { viewModel.localOperationFailed() }
             }
             editingId?.let { id -> uiState.catalogItems.firstOrNull { it.id == id }?.let { media ->
                 me.lvca.alba.app.ui.PhotoEditorScreen(media, edits::source, close = { editingId = null }, saved = { uri ->
-                    viewModel.refresh(); returnToCaller = false
-                    incoming = IncomingMediaRequest(listOf(uri.toString()), external = false, savedCopy = true)
+                    viewModel.refresh()
+                    session = IncomingSession(IncomingRequest.Media(listOf(uri.toString()), savedCopy = true), returnToCaller = false)
                 })
             } }
 
@@ -177,10 +175,11 @@ class MainActivity : ComponentActivity() {
             fun chooseExport(media: me.lvca.alba.engine.model.GalleryMedia, livePair: Boolean) {
                 exportId = media.id
                 exportingLive = livePair
+                val document = ExportDocument.forMedia(media, livePair)
                 documentExporter.launch(android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT).apply {
                     addCategory(android.content.Intent.CATEGORY_OPENABLE)
-                    type = if (livePair) "application/zip" else media.mimeType
-                    putExtra(android.content.Intent.EXTRA_TITLE, if (livePair) exportName(media).substringBeforeLast('.') + "-LivePhoto.zip" else exportName(media))
+                    type = document.mimeType
+                    putExtra(android.content.Intent.EXTRA_TITLE, document.title)
                 })
             }
             val scope = rememberCoroutineScope()
@@ -225,7 +224,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             fun requestGalleryUpload(id: String) {
-                if (uiState.accountState != ICloudAccountState.Demo && Build.VERSION.SDK_INT >= 29 && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_MEDIA_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                if (uploadNeedsMediaLocationPermission(uiState.accountState, Build.VERSION.SDK_INT, granted(Manifest.permission.ACCESS_MEDIA_LOCATION))) {
                     pendingUpload = id
                     locationPermissionLauncher.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
                 } else if (id == "batch") viewModel.runBatch(BatchAction.UPLOAD) else viewModel.requestUpload(id)
@@ -381,32 +380,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun hasLimitedPhotoAccess(): Boolean = Build.VERSION.SDK_INT >= 34 &&
-        ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED &&
-        ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
+    private fun granted(permission: String) =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
-    private fun hasDevicePhotoAccess(): Boolean {
-        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
-        } else {
-            if (Build.VERSION.SDK_INT >= 33) listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO) else listOf(devicePhotoPermission())
-        }
-        return permissions.any { permission ->
-            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-        }
-    }
+    private fun hasLimitedPhotoAccess(): Boolean = hasLimitedPhotoAccess(Build.VERSION.SDK_INT, ::granted)
 
-    private fun requestedDevicePhotoPermissions(): List<String> = buildList {
-        add(devicePhotoPermission())
-        if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.READ_MEDIA_VIDEO)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
-        }
-    }
+    private fun hasDevicePhotoAccess(): Boolean = hasDevicePhotoAccess(Build.VERSION.SDK_INT, ::granted)
 
-    private fun devicePhotoPermission(): String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_IMAGES
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
-    }
+    private fun requestedDevicePhotoPermissions(): List<String> = requestedDevicePhotoPermissions(Build.VERSION.SDK_INT)
 }
