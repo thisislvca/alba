@@ -49,6 +49,8 @@ internal fun Project.configureDeviceTests(android: CommonExtension) {
     }
     android.testOptions.execution = "ANDROIDX_TEST_ORCHESTRATOR"
     android.defaultConfig.testInstrumentationRunnerArguments["clearPackageData"] = "true"
+    // Files tests write through androidx.test's TestStorage are copied into the build's additional test output.
+    android.defaultConfig.testInstrumentationRunnerArguments["useTestStorageService"] = "true"
     dependencies {
         add("androidTestUtil", libs.findLibrary("androidx-test-orchestrator").get())
         add("androidTestUtil", libs.findLibrary("androidx-test-services").get())
