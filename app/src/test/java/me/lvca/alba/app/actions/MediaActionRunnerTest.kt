@@ -1,8 +1,10 @@
 package me.lvca.alba.app.actions
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import me.lvca.alba.app.R
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
@@ -43,6 +45,37 @@ class MediaActionRunnerTest {
         yield()
 
         assertNull(messages.message.value)
+        release.complete(Unit)
+    }
+
+    @Test fun aSuccessMessageShownOffTheMainThreadIsClearedWhenTheSameActionStartsAgain() = runBlocking<Unit> {
+        val runner = MediaActionRunner(this, AlbaDiagnostics.None, messages)
+        runner.start(save, R.string.message_could_not_save_to_the_gallery) {
+            withContext(Dispatchers.IO) { messages.show(R.string.message_saved_to_your_phone_gallery) }
+        }
+        runner.idle()
+        assertNotNull(messages.message.value)
+
+        val release = CompletableDeferred<Unit>()
+        runner.start(save, R.string.message_could_not_save_to_the_gallery) { release.await() }
+        yield()
+
+        assertNull(messages.message.value)
+        release.complete(Unit)
+    }
+
+    @Test fun anotherActionsSuccessMessageIsKept() = runBlocking<Unit> {
+        val runner = MediaActionRunner(this, AlbaDiagnostics.None, messages)
+        runner.start(save, R.string.message_could_not_save_to_the_gallery) { messages.show(R.string.message_saved_to_your_phone_gallery) }
+        runner.idle()
+        val saved = messages.message.value
+        assertNotNull(saved)
+
+        val release = CompletableDeferred<Unit>()
+        runner.start(export, R.string.message_could_not_export_this_photo) { release.await() }
+        yield()
+
+        assertEquals(saved, messages.message.value)
         release.complete(Unit)
     }
 
