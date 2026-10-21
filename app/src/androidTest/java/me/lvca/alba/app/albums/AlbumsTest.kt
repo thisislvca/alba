@@ -86,7 +86,8 @@ class AlbumsTest {
     @Test fun albumDeleteRequiresConfirmationAndKeepsLibraryPhotos() {
         compose.waitForGalleryMedia()
         val repository = (compose.activity.application as AlbaApplication).graph.galleryRepository
-        val originalCount = runBlocking { repository.observeGallery().first().size }
+        // The demo catalog may still be loading, so the library can grow during the test; it must only never shrink.
+        val before = runBlocking { repository.observeGallery().first().map { it.id } }
         val album = runBlocking {
             repository.createAlbum("Delete test").also { repository.addToAlbum(it.id, listOf("fixture:icloud:0001")) }
         }
@@ -101,7 +102,8 @@ class AlbumsTest {
         compose.onNodeWithText("Delete album").performClick()
         compose.onNodeWithText("Delete album", useUnmergedTree = true).performClick()
         compose.waitUntil(SHORT_WAIT) { runBlocking { repository.observeCollections().first().none { it.id == album.id } } }
-        assertEquals(originalCount, runBlocking { repository.observeGallery().first().size })
-        assertTrue(runBlocking { repository.observeGallery().first().any { it.id == "fixture:icloud:0001" } })
+        val after = runBlocking { repository.observeGallery().first().map { it.id }.toSet() }
+        assertEquals("Deleting an album must keep its photos in the library", emptyList<String>(), before.filterNot(after::contains))
+        assertTrue("fixture:icloud:0001" in after)
     }
 }
