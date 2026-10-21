@@ -8,6 +8,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import org.junit.Assert.assertEquals
@@ -27,8 +28,8 @@ class AppSurfacesTest {
         val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
         assertEquals("Scrolling must continue to the window edge, not stop above the gesture bar", root.bottom, viewport.bottom, 1f)
         compose.onNodeWithTag("profile-about").performScrollTo().performClick()
-        androidx.test.espresso.Espresso.pressBack()
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
+        compose.pressBack()
         compose.onNodeWithTag("activity-button").performClick()
         // Earlier tests in this process may leave transfer history, so check the sheet rather than its empty state.
         compose.onNodeWithText(label(R.string.uploads_downloads_and_backup)).assertIsDisplayed()

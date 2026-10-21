@@ -12,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
@@ -59,12 +60,12 @@ class ProfileScreenTest {
         compose.onNodeWithText("Cloud storage").assertIsDisplayed()
         compose.onNodeWithText("72 GB of 200 GB used").assertIsDisplayed()
         compose.onNodeWithText("Set up automatic backup").performScrollTo().assertIsDisplayed()
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.runOnIdle { dark = true }
         compose.onNodeWithText("alex@example.com").performScrollTo()
         compose.onNodeWithTag("profile-phone").performScrollTo().performClick()
         compose.onNodeWithTag("phone-storage").assertIsDisplayed()
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.onNodeWithText("Apple session verified").performScrollTo()
         compose.onNodeWithText("Apple session verified").assertIsDisplayed()
         compose.onNodeWithTag("profile-check-connection").performScrollTo()

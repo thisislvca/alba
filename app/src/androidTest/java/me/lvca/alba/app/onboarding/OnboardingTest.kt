@@ -13,6 +13,7 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.pressBack
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -30,7 +31,7 @@ class OnboardingTest {
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("You’re in control.").assertIsDisplayed()
         assertFalse(OnboardingPreferences(compose.activity).completed)
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.onNodeWithText("Continue").assertIsDisplayed()
         compose.onNodeWithText("Continue").performClick()
         compose.onNodeWithText("Connect iCloud").performClick()
@@ -46,7 +47,7 @@ class OnboardingTest {
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("Sign in to iCloud").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("welcome").assertDoesNotExist()
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.onNodeWithText("Demo", substring = true).assertDoesNotExist()
         compose.waitUntil(LONG_WAIT) { kotlinx.coroutines.runBlocking { graph.galleryRepository.observeGallery().first().none { it.id.startsWith("fixture:") } } }
     }

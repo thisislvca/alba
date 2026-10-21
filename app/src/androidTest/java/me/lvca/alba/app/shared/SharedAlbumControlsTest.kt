@@ -5,6 +5,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.R
+import me.lvca.alba.app.testing.hideKeyboard
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.shared.SharedAlbumActivity
@@ -45,7 +46,7 @@ class SharedAlbumControlsTest {
         }), {}) } }
         compose.waitUntil { compose.onAllNodesWithTag("shared-invite-email").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("shared-invite-email").performScrollTo().performTextInput("family@example.com")
-        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.hideKeyboard()
         compose.onNodeWithText(label(R.string.shared_invite)).performScrollTo().performClick()
         assertTrue(commands.isEmpty())
         compose.onNodeWithText(label(R.string.shared_confirm_access)).assertIsDisplayed()
@@ -79,7 +80,7 @@ class SharedAlbumControlsTest {
             }), {}) } }
         compose.waitUntil { compose.onAllNodesWithTag("shared-comment-input").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("shared-comment-input").performScrollTo().performTextInput("Hello from Android")
-        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.hideKeyboard()
         compose.onNodeWithTag("shared-post-comment").performScrollTo().performClick()
         compose.waitUntil { compose.onAllNodesWithText(label(R.string.shared_action_failed)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("shared-comment-input").assertTextContains("Hello from Android")
@@ -148,7 +149,7 @@ class SharedAlbumControlsTest {
         compose.onAllNodesWithText(label(R.string.shared_post_discussion))[0].performScrollTo().performClick()
         compose.waitUntil { compose.onAllNodesWithTag("shared-comment-input").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("shared-comment-input").performScrollTo().performTextInput("Whole post discussion")
-        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.hideKeyboard()
         compose.onNodeWithTag("shared-post-comment").performScrollTo().performClick()
         compose.waitUntil { writes.size == 1 }
         assertEquals(SharedAction.POST_COMMENT, writes.single().action)

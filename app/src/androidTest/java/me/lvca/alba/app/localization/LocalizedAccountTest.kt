@@ -13,6 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.testing.hideKeyboard
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
@@ -49,7 +50,7 @@ class LocalizedAccountTest {
         }
         compose.onNodeWithText("Apple ha inviato un codice a sei cifre al tuo numero di telefono autorizzato (+39 ••• 1234).").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Codice a sei cifre").performScrollTo().performTextInput("123456")
-        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.hideKeyboard()
         compose.onNodeWithText("Verifica e continua").performScrollTo().performClick()
         assertEquals("123456", submitted)
         compose.runOnIdle { state = ICloudAccountState.SignedIn("family@example.com") }

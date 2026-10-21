@@ -7,7 +7,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
-import androidx.test.espresso.Espresso
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
@@ -16,6 +15,7 @@ import me.lvca.alba.app.testing.Screenshots
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitForVideoPlaying
@@ -82,7 +82,7 @@ class ViewerTest {
         }
         compose.onNodeWithText("Keep original offline").performScrollTo().performClick()
         compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Remove offline copy") }
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.waitUntil(timeoutMillis = SHORT_WAIT) {
             compose.onAllNodes(hasTestTag("video-player")).fetchSemanticsNodes().isEmpty()
