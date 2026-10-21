@@ -161,7 +161,10 @@ class AlbaViewModel(
     fun dismissMessage() = messages.clear()
 
     /** The UI performed [effect], so it is not delivered again. */
-    fun effectHandled(effect: PendingEffect) = effectQueue.handled(effect)
+    fun effectHandled(effect: PendingEffect) {
+        effectQueue.handled(effect)
+        if (effect.effect is AlbaEffect.RequestBackupPermissions) transfers.backupPermissionsLaunched()
+    }
 
     fun localOperationFailed() = messages.show(R.string.local_action_failed)
 
