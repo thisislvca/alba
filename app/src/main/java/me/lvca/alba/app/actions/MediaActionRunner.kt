@@ -48,7 +48,9 @@ data class MediaWork(
 /**
  * Runs user-started media actions, each in its own job with a diagnostics span and a fallback error message. Tracks
  * them per [MediaActionKey], so an unrelated action is never dropped because another one is running. Starting an
- * action whose key is already running shows a busy message instead of silently doing nothing.
+ * action whose key is already running shows a busy message instead of silently doing nothing. Every message an action
+ * shows, success or failure, belongs to its key: starting that action again clears it, and starting a different action
+ * leaves it alone.
  *
  * Main-thread confined, like the scope it launches in.
  */
@@ -68,12 +70,13 @@ internal class MediaActionRunner(
             return false
         }
         lateinit var job: Job
-        job = scope.launch(start = CoroutineStart.LAZY) {
+        job = scope.launch(messages.ownedBy(key), start = CoroutineStart.LAZY) {
             val span = diagnostics.start(
                 DiagnosticOperation.MEDIA_ACTION,
                 mapOf(DiagnosticAttribute.ACTION to key.action.diagnosticTag),
             )
-            messages.clear()
+            // Only this action's own earlier message: another action's stays until it is replaced or dismissed.
+            messages.clear(key)
             try {
                 block()
                 span.finish(DiagnosticOutcome.SUCCESS)

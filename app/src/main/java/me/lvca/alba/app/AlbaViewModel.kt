@@ -8,12 +8,10 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
 import me.lvca.alba.app.account.AccountController
@@ -53,7 +51,7 @@ class AlbaViewModel(
     savedState: SavedStateHandle,
 ) : ViewModel() {
     private val messages = UserMessages()
-    private val effectChannel = Channel<AlbaEffect>(Channel.BUFFERED)
+    private val effectQueue = EffectQueue()
     private val network = dependencies.network.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val runner = MediaActionRunner(viewModelScope, dependencies.diagnostics, messages)
     private val diagnostics = dependencies.diagnostics
@@ -90,7 +88,7 @@ class AlbaViewModel(
         diagnostics = dependencies.diagnostics,
         messages = messages,
         runner = runner,
-        effects = effectChannel,
+        effects = effectQueue,
         gallery = gallery,
         live = LiveTransferMode(dependencies.photos, dependencies.batches, dependencies.transferScheduler, messages),
         demo = DemoTransferMode(viewModelScope, dependencies.accountManager, dependencies.repository,
@@ -109,7 +107,7 @@ class AlbaViewModel(
         transfers = transfers,
     )
 
-    internal val exports: ExportController = ExportController(dependencies.repository, dependencies.exporter, runner, messages, effectChannel)
+    internal val exports: ExportController = ExportController(dependencies.repository, dependencies.exporter, runner, messages, effectQueue)
 
     internal val edits: LibraryEditsController = LibraryEditsController(dependencies.repository, runner, messages, gallery)
 
@@ -139,8 +137,11 @@ class AlbaViewModel(
     /** The transient message to show, until [dismissMessage] or a newer message replaces it. */
     val message: StateFlow<UiMessage?> = messages.message
 
-    /** One-shot platform requests (share sheet, trash consent, permissions) for the UI to perform once each. */
-    val effects: Flow<AlbaEffect> = effectChannel.receiveAsFlow()
+    /**
+     * One-shot platform requests (share sheet, trash consent, permissions) for the UI to perform once each. The oldest
+     * request is delivered again to every new collector until the UI reports it through [effectHandled].
+     */
+    val effects: Flow<PendingEffect> = effectQueue.next
 
     val mediaWork: StateFlow<MediaWork> = runner.running
         .map { running -> MediaWork(busy = running.isNotEmpty(), sharing = running.any { it.action == MediaAction.SHARE }) }
@@ -158,6 +159,12 @@ class AlbaViewModel(
     }
 
     fun dismissMessage() = messages.clear()
+
+    /** The UI performed [effect], so it is not delivered again. */
+    fun effectHandled(effect: PendingEffect) {
+        effectQueue.handled(effect)
+        if (effect.effect is AlbaEffect.RequestBackupPermissions) transfers.backupPermissionsLaunched()
+    }
 
     fun localOperationFailed() = messages.show(R.string.local_action_failed)
 

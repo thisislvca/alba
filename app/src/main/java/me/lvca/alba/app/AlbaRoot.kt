@@ -266,13 +266,19 @@ private fun AlbaMain(
 
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.effects.collect { effect ->
-                when (effect) {
-                    is AlbaEffect.Share -> runCatching {
-                        context.startActivity(Intent.createChooser(effect.intent, shareTitle))
-                    }.onFailure { viewModel.exports.shareFailed() }
-                    is AlbaEffect.ConfirmVerifiedTrash -> verifiedTrash.launch(IntentSenderRequest.Builder(effect.request).build())
-                    is AlbaEffect.RequestBackupPermissions -> backupPermissions.launch(effect.permissions.toTypedArray())
+            // Performing and acknowledging do not suspend, so a cancelled collector either handled the request or
+            // leaves it queued for the next one.
+            viewModel.effects.collect { pending ->
+                try {
+                    when (val effect = pending.effect) {
+                        is AlbaEffect.Share -> runCatching {
+                            context.startActivity(Intent.createChooser(effect.intent, shareTitle))
+                        }.onFailure { viewModel.exports.shareFailed() }
+                        is AlbaEffect.ConfirmVerifiedTrash -> verifiedTrash.launch(IntentSenderRequest.Builder(effect.request).build())
+                        is AlbaEffect.RequestBackupPermissions -> backupPermissions.launch(effect.permissions.toTypedArray())
+                    }
+                } finally {
+                    viewModel.effectHandled(pending)
                 }
             }
         }

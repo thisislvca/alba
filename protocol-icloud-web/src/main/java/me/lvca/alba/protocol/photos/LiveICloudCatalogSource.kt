@@ -29,6 +29,7 @@ import me.lvca.alba.protocol.network.AppleHttpRequest
 import me.lvca.alba.protocol.network.AppleHttpResponse
 import me.lvca.alba.protocol.network.AppleHttpTransport
 import me.lvca.alba.protocol.network.AppleMediaHttpException
+import me.lvca.alba.protocol.photos.CloudKitErrors.serverErrorCode
 import me.lvca.alba.protocol.recordName
 import me.lvca.alba.protocol.recordType
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -105,7 +106,7 @@ class LiveICloudCatalogSource(
     override suspend fun changes(token: String, known: List<RemoteMediaRecord>): CloudChanges {
         val root = database.call("changes/zone", PrimarySyncZone.changesBody(token, 200))
         val result = root["zones"]!!.jsonArray.single().jsonObject
-        if (result["serverErrorCode"] != null) throw CatalogResetRequired()
+        result.serverErrorCode()?.let { throw CloudKitErrors.zoneChangesFailure(it) }
         val deleted = mutableSetOf<String>()
         val changedAssets = mutableSetOf<String>()
         for (element in result["records"]!!.jsonArray) {

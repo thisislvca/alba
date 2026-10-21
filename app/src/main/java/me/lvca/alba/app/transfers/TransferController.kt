@@ -6,8 +6,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.SendChannel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import me.lvca.alba.app.AlbaEffect
+import me.lvca.alba.app.EffectQueue
 import me.lvca.alba.app.R
 import me.lvca.alba.app.actions.MediaAction
 import me.lvca.alba.app.actions.MediaActionKey
@@ -85,7 +84,7 @@ internal class TransferController(
     private val diagnostics: AlbaDiagnostics,
     private val messages: UserMessages,
     private val runner: MediaActionRunner,
-    private val effects: SendChannel<AlbaEffect>,
+    private val effects: EffectQueue,
     private val gallery: GalleryBrowser,
     private val live: LiveTransferMode,
     private val demo: DemoTransferMode,
@@ -94,16 +93,14 @@ internal class TransferController(
     private val mode: TransferMode get() = if (accountManager.state.value == ICloudAccountState.Demo) demo else live
     private fun modeFor(draftId: BackupDraftId): TransferMode = if (DemoTransferMode.owns(draftId)) demo else live
 
-    private val setup = MutableStateFlow(savedState.get<String>(BACKUP_DRAFT)?.let {
-        BackupSetup(BackupDraftId(it), savedState[BACKUP_DESTINATION] ?: "", savedState[BACKUP_AWAITING_PERMISSIONS] ?: false)
-    })
+    private val backupSetup = BackupSetupStore(savedState)
 
     val state: StateFlow<TransferState> = combine(
         batches.observe(),
         accountManager.state,
         isDemo.flatMapLatest { if (it) demo.transfers else live.transfers }.map(::projectTransfers).flowOn(Dispatchers.Default),
         isDemo.flatMapLatest { if (it) demo.backup else live.backup },
-        setup,
+        backupSetup.setup,
     ) { batchRows, _, transfers, backup, setup ->
         TransferState(
             batches = batchRows.filter { it.account == batches.activeAccount },
@@ -115,6 +112,8 @@ internal class TransferController(
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), TransferState())
 
     init {
+        // The process died after the user accepted the disclosure but before the UI asked Android for permissions.
+        backupSetup.unlaunchedPermissions?.let { effects.send(AlbaEffect.RequestBackupPermissions(it)) }
         scope.launch {
             accountManager.state.collect { if (it != ICloudAccountState.Demo) demo.reset() }
         }
@@ -191,7 +190,7 @@ internal class TransferController(
         scope.launch {
             try {
                 val draft = mode.beginBackup()
-                saveSetup(BackupSetup(draft.id, draft.destinationLabel))
+                backupSetup.save(BackupSetup(draft.id, draft.destinationLabel))
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 messages.show(error.toUserMessage(R.string.message_could_not_start_backup_setup))
@@ -221,13 +220,16 @@ internal class TransferController(
                     finishBackup(current.draftId)
                 } else if (currentSetup()?.draftId == current.draftId) {
                     // Only when the user has not dismissed the disclosure while acceptance was in flight.
-                    saveSetup(current.copy(awaitingPermissions = true))
+                    backupSetup.awaitPermissions(current, effect.permissions)
                     effects.send(AlbaEffect.RequestBackupPermissions(effect.permissions))
                 }
                 is BackupSetupEffect.Refused -> clearSetup()
             }
         }
     }
+
+    /** The UI asked Android for the backup permissions, so a recreated ViewModel must not ask again. */
+    fun backupPermissionsLaunched() = backupSetup.permissionsLaunched()
 
     /** Android answered the backup permission request; backup is enabled for whatever access it granted. */
     fun backupPermissionsAnswered() {
@@ -336,27 +338,11 @@ internal class TransferController(
         }
     }
 
-    private fun currentSetup(): BackupSetup? = setup.value
+    private fun currentSetup(): BackupSetup? = backupSetup.setup.value
 
-    /** Kept in saved state, so the disclosure and a pending permission answer survive process death. */
-    private fun saveSetup(value: BackupSetup) {
-        savedState[BACKUP_DRAFT] = value.draftId.value
-        savedState[BACKUP_DESTINATION] = value.destinationLabel
-        savedState[BACKUP_AWAITING_PERMISSIONS] = value.awaitingPermissions
-        setup.value = value
-    }
-
-    private fun clearSetup() {
-        savedState.remove<String>(BACKUP_DRAFT)
-        savedState.remove<String>(BACKUP_DESTINATION)
-        savedState.remove<Boolean>(BACKUP_AWAITING_PERMISSIONS)
-        setup.value = null
-    }
+    private fun clearSetup() = backupSetup.clear()
 
     private companion object {
         const val TRASH_ATTEMPT = "verifiedTrashAttempt"
-        const val BACKUP_DRAFT = "backupDraft"
-        const val BACKUP_DESTINATION = "backupDestination"
-        const val BACKUP_AWAITING_PERMISSIONS = "backupAwaitingPermissions"
     }
 }

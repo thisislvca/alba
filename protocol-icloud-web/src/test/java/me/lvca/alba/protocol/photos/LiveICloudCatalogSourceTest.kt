@@ -76,6 +76,16 @@ class LiveICloudCatalogSourceTest {
         }
     }
 
+    @Test fun transientZoneErrorsKeepTheCatalogAndAskForARetry() = runBlocking {
+        for (code in listOf("THROTTLED", "ZONE_BUSY", "TRY_AGAIN_LATER", "INTERNAL_ERROR")) {
+            val body = """{"zones":[{"zoneID":{"zoneName":"PrimarySync"},"serverErrorCode":"$code","reason":"busy"}]}"""
+            val source = LiveICloudCatalogSource(ChangesTransport(200, body), { SESSION })
+            val error = runCatching { source.changes("saved-token", emptyList()) }.exceptionOrNull()
+            assertTrue("$code: $error", error is AppleProtocolException)
+            assertEquals(code, AppleProtocolError.NETWORK, (error as AppleProtocolException).error)
+        }
+    }
+
     private class ChangesTransport(private val code: Int, private val body: String) : AppleHttpTransport {
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             assertTrue(request.url.contains("/changes/zone"))
