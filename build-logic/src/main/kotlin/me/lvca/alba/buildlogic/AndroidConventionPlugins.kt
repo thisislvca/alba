@@ -13,7 +13,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
         configureStaticAnalysis()
         extensions.configure<ApplicationExtension> {
             configureAndroidCommon(this)
-            configureManagedDevices()
+            configureDeviceTests(this)
             defaultConfig.targetSdk = TARGET_SDK
             lint.abortOnError = true
         }
@@ -26,7 +26,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
         configureStaticAnalysis()
         extensions.configure<LibraryExtension> {
             configureAndroidCommon(this)
-            configureManagedDevices()
+            configureDeviceTests(this)
             lint.abortOnError = true
         }
     }

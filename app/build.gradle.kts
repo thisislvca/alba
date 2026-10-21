@@ -32,6 +32,8 @@ android {
     defaultConfig {
         buildConfigField("boolean", "BENCHMARK_MODE", "false")
         applicationId = "me.lvca.alba"
+        // Prepares the emulator before each test; see AlbaTestRunner.
+        testInstrumentationRunner = "me.lvca.alba.app.testing.AlbaTestRunner"
         versionCode = appVersionCode
         versionName = appVersionName
         resourceConfigurations += listOf("en", "it")
@@ -132,6 +134,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    // Compose's test rules inject input through Espresso; pin a release that supports current Android versions.
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.compose.ui.test.junit4)
 }

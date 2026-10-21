@@ -54,7 +54,8 @@ jobs:
     name: Android ${{ matrix.api }} device tests
     if: github.repository != 'thisislvca/mela-archive'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # The test orchestrator starts a fresh instrumentation for each test, which adds a few minutes per API level.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

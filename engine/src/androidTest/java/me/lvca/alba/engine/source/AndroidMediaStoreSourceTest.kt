@@ -56,10 +56,9 @@ class AndroidMediaStoreSourceTest {
     @Test
     fun discoveryOnlyIncludesCameraJpegsAddedAfterEnrollment() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        automation.grantRuntimePermission(context.packageName, if (Build.VERSION.SDK_INT >= 33)
-            Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE)
-        automation.grantRuntimePermission(context.packageName, Manifest.permission.ACCESS_MEDIA_LOCATION)
+        grantImageAccess(context)
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .grantRuntimePermission(context.packageName, Manifest.permission.ACCESS_MEDIA_LOCATION)
         val resolver = context.contentResolver
         val inserted = mutableListOf<android.net.Uri>()
         fun insert(name: String, directory: String): android.net.Uri {
@@ -99,6 +98,7 @@ class AndroidMediaStoreSourceTest {
     fun galleryRevisionCanStageTheSameRealMediaStoreJpeg() = runBlocking {
         assumeTrue(Build.VERSION.SDK_INT >= 30)
         val context = ApplicationProvider.getApplicationContext<Context>()
+        grantImageAccess(context)
         val resolver = context.contentResolver
         val bytes = ByteArrayOutputStream().also {
             Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 90, it)
@@ -126,5 +126,11 @@ class AndroidMediaStoreSourceTest {
         } finally {
             resolver.delete(uri, null, null)
         }
+    }
+
+    /** Each test grants what it reads: the orchestrator clears the app's data, and with it runtime grants, between tests. */
+    private fun grantImageAccess(context: Context) {
+        InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(context.packageName,
+            if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 }
