@@ -297,7 +297,8 @@ internal fun GalleryHome(
             if (!collapseHeader) { headerState.heightOffset = 0f; headerState.contentOffset = 0f }
         }
         var floatingBarHeight by remember { mutableStateOf(80.dp) }
-        val bottomSpace = if (wide) 24.dp else floatingBarHeight + 28.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        // The floating bar sits up to 16dp above the navigation bar; keep the grid's last row a clear 24dp above it.
+        val bottomSpace = if (wide) 24.dp else floatingBarHeight + 40.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         LaunchedEffect(bottomSpace) { onBottomSpaceChanged(bottomSpace) }
         Row(Modifier.fillMaxSize()) {
             if (wide) NavigationRail(Modifier.statusBarsPadding().testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
