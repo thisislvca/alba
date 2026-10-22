@@ -22,7 +22,7 @@ These sit next to unthemed Material dialogs and square checkboxes. The seams are
 | Keep from Apple Photos | Do the Android way |
 |---|---|
 | Three destinations: Library, Collections, Search | A floating navigation pill as in current Google Photos, built on the Material 3 Expressive floating toolbar; system back with predictive back everywhere |
-| Library grouped by day and month | Material top app bar that collapses on scroll; scrim behind the status bar |
+| Library grouped by day and month, newest at the top (decided 2026-10-22, as in Google Photos and Alba today) | Material top app bar that collapses on scroll; scrim behind the status bar |
 | Collections sections: Pinned, Albums, Shared Albums, Media Types | Material list items and cards, `titleMedium` section headers, "See all" text buttons |
 | Apple's names for the user's data: Recently Deleted, Shared Albums, Live Photos | Material dialogs, bottom sheets and menus, always in Alba's theme |
 | Album pages with a cover-photo header, and shared album activity | Long-press to select; contextual top bar ("2 selected") with icon actions; check circles and inset selected tiles |
@@ -134,7 +134,3 @@ Store screenshots are regenerated at the end.
 5. **Collections and album pages.**
 6. **Search, account and settings.**
 7. **Store screenshots and README screenshots.**
-
-## Open questions
-
-- **Library order:** keep newest at the top (Google Photos, and Alba today), or newest at the bottom (Apple Photos)?
