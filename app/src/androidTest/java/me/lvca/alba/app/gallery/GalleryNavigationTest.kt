@@ -12,6 +12,7 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.backGesture
 import me.lvca.alba.app.testing.hideKeyboard
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
@@ -68,6 +69,24 @@ class GalleryNavigationTest {
         compose.pressBack()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.waitUntilDisplayed(hasTestTag("media-fixture:icloud:0001"))
+    }
+    @Test fun backGestureCancelKeepsTheScreenAndCommitPopsIt() {
+        compose.waitForGalleryMedia()
+        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+        compose.onNodeWithTag("collection-albums").performClick()
+        compose.onNodeWithText("Journeys").assertIsDisplayed()
+        compose.backGesture(commit = false)
+        compose.onNodeWithText("Journeys").assertIsDisplayed()
+        compose.onNodeWithTag("collection-albums").assertDoesNotExist()
+        compose.backGesture(commit = true)
+        compose.onNodeWithTag("collection-albums").assertIsDisplayed()
+        compose.onNodeWithTag("account-button").performClick()
+        compose.onNodeWithTag("alba-page-scroll").assertIsDisplayed()
+        compose.backGesture(commit = false)
+        compose.onNodeWithTag("alba-page-scroll").assertIsDisplayed()
+        compose.backGesture(commit = true)
+        compose.onNodeWithTag("alba-page-scroll").assertDoesNotExist()
+        compose.onNodeWithTag("collection-albums").assertIsDisplayed()
     }
     @Test fun filtersRestoreAndDoNotLeakIntoCollections() {
         compose.waitForGalleryMedia()
