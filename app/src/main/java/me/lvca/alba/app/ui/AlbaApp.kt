@@ -2,7 +2,6 @@ package me.lvca.alba.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionLayout
@@ -39,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -52,10 +52,19 @@ import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
 import me.lvca.alba.app.ui.gallery.GalleryHome
+import me.lvca.alba.app.ui.navigation.BackPhase
+import me.lvca.alba.app.ui.navigation.NavigationDirection
+import me.lvca.alba.app.ui.navigation.NavigationMotion
+import me.lvca.alba.app.ui.navigation.PredictiveBackNavigation
+import me.lvca.alba.app.ui.navigation.PredictiveBackState
+import me.lvca.alba.app.ui.navigation.navigationTransform
+import me.lvca.alba.app.ui.navigation.predictiveBackPose
+import me.lvca.alba.app.ui.navigation.rememberNavigationTransition
 import me.lvca.alba.app.ui.viewer.LocalPhotoTransition
 import me.lvca.alba.app.ui.viewer.MediaDetailScreen
 import me.lvca.alba.app.ui.viewer.PHOTO_TRANSITION_MILLIS
 import me.lvca.alba.app.ui.viewer.PhotoTransitionScope
+import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
 
@@ -127,12 +136,11 @@ fun AlbaApp(
 
     val destination = Destination.of(session, gallery)
     val back = rootBack(destination, gallery.selection.isNotEmpty())
-    BackHandler(enabled = back != null) {
+    BackHandler(enabled = back == RootBack.CLEAR_SELECTION || back == RootBack.CLOSE_MEDIA) {
         when (back) {
             RootBack.CLEAR_SELECTION -> actions.clearSelection()
-            RootBack.CLOSE_ACCOUNT -> actions.closeAccount()
             RootBack.CLOSE_MEDIA -> actions.closeMedia()
-            null -> Unit
+            RootBack.CLOSE_ACCOUNT, null -> Unit
         }
     }
 
@@ -145,8 +153,17 @@ fun AlbaApp(
             viewerWasOpen = false
         }
     }
-    val navigation = updateTransition(destination, label = "photo-navigation")
+    // Account sits on top of the gallery or viewer, which is where closing it returns to.
+    val beneath = if (destination !is Destination.Account) destination
+        else gallery.selectedMedia?.let { Destination.Media(it, gallery.items) } ?: Destination.Gallery
+    val reduceMotion = reduceGalleryMotion()
+    val accountBack = remember { PredictiveBackState() }
+    val (accountState, accountTransition) = rememberNavigationTransition(destination is Destination.Account, accountBack,
+        reduceMotion, label = "account-navigation")
+    PredictiveBackNavigation(accountState, accountBack, previous = false.takeIf { back == RootBack.CLOSE_ACCOUNT },
+        key = { it }, reduceMotion = reduceMotion, onBack = actions::closeAccount)
     var galleryBottomSpace by remember { mutableStateOf(100.dp) }
+    val slide = with(LocalDensity.current) { NavigationMotion.SHARED_AXIS_DP.dp.roundToPx() }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -159,86 +176,98 @@ fun AlbaApp(
             }
         },
     ) { padding ->
-        SharedTransitionLayout {
-            navigation.AnimatedContent(
-                contentKey = { it.key },
-                transitionSpec = {
-                    if (initialState !is Destination.Account && targetState !is Destination.Account) {
-                        // Keep the gallery opaque underneath the viewer. Fading both screens exposes
-                        // the scaffold between them and produces a pale flash.
-                        if (targetState is Destination.Media) {
-                            fadeIn(tween(PHOTO_TRANSITION_MILLIS)).togetherWith(ExitTransition.None)
-                                .apply { targetContentZIndex = 1f }
-                        } else {
-                            EnterTransition.None.togetherWith(fadeOut(tween(PHOTO_TRANSITION_MILLIS)))
-                                .apply { targetContentZIndex = 0f }
-                        }
-                    } else {
-                        val direction = if (targetState is Destination.Gallery) AnimatedContentTransitionScope.SlideDirection.Right
-                            else AnimatedContentTransitionScope.SlideDirection.Left
-                        (slideIntoContainer(direction, tween(260)) + fadeIn(tween(180)))
-                            .togetherWith(slideOutOfContainer(direction, tween(260)) + fadeOut(tween(140)))
+        accountTransition.AnimatedContent(
+            transitionSpec = {
+                navigationTransform(if (targetState) NavigationDirection.FORWARD else NavigationDirection.BACK, slide,
+                    gesture = accountBack.phase != BackPhase.IDLE, reduceMotion = reduceMotion)
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) { accountOpen ->
+            Box(Modifier.fillMaxSize().predictiveBackPose(accountBack, accountOpen)) {
+                if (accountOpen) {
+                    screenState.SaveableStateProvider(Destination.Account.key) {
+                        ICloudAccountScreen(
+                            session = session,
+                            transfers = transfers,
+                            phoneStorage = phoneStorage,
+                            mediaBusy = mediaWork.busy,
+                            diagnostics = diagnostics,
+                            actions = actions,
+                        )
                     }
-                },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-            ) { target ->
-                CompositionLocalProvider(LocalPhotoTransition provides PhotoTransitionScope(
-                    this@SharedTransitionLayout, this@AnimatedContent, target.key == destination.key,
-                    returningMediaId = (navigation.currentState as? Destination.Media)?.media?.id
-                        .takeIf { destination is Destination.Gallery },
-                )) {
-                    screenState.SaveableStateProvider(target.key) {
-                        when (target) {
-                            Destination.Gallery -> Box(Modifier.fillMaxSize().drawWithContent {
-                                // Keep the settled gallery for interactive dismissal, but let shared
-                                // elements draw directly during navigation so their return bounds survive.
-                                if (!navigation.isRunning && destination is Destination.Gallery) {
-                                    galleryLayer.record { this@drawWithContent.drawContent() }
+                } else {
+                    // The photo layer: the gallery, and the viewer opening from and closing into it.
+                    val navigation = updateTransition(beneath, label = "photo-navigation")
+                    val shown = destination !is Destination.Account
+                    SharedTransitionLayout {
+                        navigation.AnimatedContent(
+                            contentKey = { it.key },
+                            transitionSpec = {
+                                // Keep the gallery opaque underneath the viewer. Fading both screens exposes
+                                // the scaffold between them and produces a pale flash.
+                                if (targetState is Destination.Media) {
+                                    fadeIn(tween(PHOTO_TRANSITION_MILLIS)).togetherWith(ExitTransition.None)
+                                        .apply { targetContentZIndex = 1f }
+                                } else {
+                                    EnterTransition.None.togetherWith(fadeOut(tween(PHOTO_TRANSITION_MILLIS)))
+                                        .apply { targetContentZIndex = 0f }
                                 }
-                                drawContent()
-                            }) {
-                                GalleryHome(
-                                    gallery = gallery,
-                                    session = session,
-                                    transfers = transfers,
-                                    mediaBusy = mediaWork.busy,
-                                    previewRetryVersion = previewRetryVersion,
-                                    actions = actions,
-                                    onBottomSpaceChanged = { galleryBottomSpace = it },
-                                )
-                            }
-                            Destination.Account -> ICloudAccountScreen(
-                                session = session,
-                                transfers = transfers,
-                                phoneStorage = phoneStorage,
-                                mediaBusy = mediaWork.busy,
-                                diagnostics = diagnostics,
-                                actions = actions,
-                            )
-                            is Destination.Media -> {
-                                // AnimatedContent retains the outgoing snapshot until the image reaches its tile.
-                                val media = target.media
-                                val viewerItems = if (target.items.any { it.id == media.id }) target.items else listOf(media) + target.items
-                                val downloadingOriginal = transfers.batches.any { it.mediaId == media.id &&
-                                    it.action == BatchAction.KEEP_OFFLINE.name && it.status.isPending }
-                                val stagingUpload = transfers.batches.any { it.mediaId == media.id &&
-                                    it.action == BatchAction.UPLOAD.name && it.status.isPending }
-                                MediaDetailScreen(
-                                    media = media,
-                                    items = viewerItems,
-                                    collections = gallery.collections,
-                                    currentAlbumId = gallery.query.collectionId,
-                                    accountState = session.accountState,
-                                    uploadTransfer = transfers.uploadsByMediaId[media.id],
-                                    isWorking = mediaWork.busy || session.accountBusy || downloadingOriginal || stagingUpload,
-                                    isDownloadingOriginal = downloadingOriginal,
-                                    actions = actions,
-                                    onPageSettled = { if (destination is Destination.Media) actions.openMedia(it) },
-                                    gallerySnapshot = galleryLayer,
-                                    onViewerLightBars = onViewerLightBars,
-                                )
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        ) photo@{ target ->
+                            CompositionLocalProvider(LocalPhotoTransition provides PhotoTransitionScope(
+                                this@SharedTransitionLayout, this@photo, shown && target.key == beneath.key,
+                                returningMediaId = (navigation.currentState as? Destination.Media)?.media?.id
+                                    .takeIf { beneath is Destination.Gallery },
+                            )) {
+                                screenState.SaveableStateProvider(target.key) {
+                                    when (target) {
+                                        Destination.Gallery -> Box(Modifier.fillMaxSize().drawWithContent {
+                                            // Keep the settled gallery for interactive dismissal, but let shared
+                                            // elements draw directly during navigation so their return bounds survive.
+                                            if (!navigation.isRunning && destination is Destination.Gallery) {
+                                                galleryLayer.record { this@drawWithContent.drawContent() }
+                                            }
+                                            drawContent()
+                                        }) {
+                                            GalleryHome(
+                                                gallery = gallery,
+                                                session = session,
+                                                transfers = transfers,
+                                                mediaBusy = mediaWork.busy,
+                                                previewRetryVersion = previewRetryVersion,
+                                                actions = actions,
+                                                onBottomSpaceChanged = { galleryBottomSpace = it },
+                                            )
+                                        }
+                                        Destination.Account -> Unit
+                                        is Destination.Media -> {
+                                            // AnimatedContent retains the outgoing snapshot until the image reaches its tile.
+                                            val media = target.media
+                                            val viewerItems = if (target.items.any { it.id == media.id }) target.items else listOf(media) + target.items
+                                            val downloadingOriginal = transfers.batches.any { it.mediaId == media.id &&
+                                                it.action == BatchAction.KEEP_OFFLINE.name && it.status.isPending }
+                                            val stagingUpload = transfers.batches.any { it.mediaId == media.id &&
+                                                it.action == BatchAction.UPLOAD.name && it.status.isPending }
+                                            MediaDetailScreen(
+                                                media = media,
+                                                items = viewerItems,
+                                                collections = gallery.collections,
+                                                currentAlbumId = gallery.query.collectionId,
+                                                accountState = session.accountState,
+                                                uploadTransfer = transfers.uploadsByMediaId[media.id],
+                                                isWorking = mediaWork.busy || session.accountBusy || downloadingOriginal || stagingUpload,
+                                                isDownloadingOriginal = downloadingOriginal,
+                                                actions = actions,
+                                                onPageSettled = { if (destination is Destination.Media) actions.openMedia(it) },
+                                                gallerySnapshot = galleryLayer,
+                                                onViewerLightBars = onViewerLightBars,
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

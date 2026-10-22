@@ -1,6 +1,5 @@
 package me.lvca.alba.app.ui.gallery
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateBounds
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.snap
@@ -25,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.onSizeChanged
@@ -182,7 +182,6 @@ internal fun GalleryHome(
     val collectionAnchor = rememberSaveable(saver = GridAnchor.Saver) { GridAnchor() }
     val searchAnchor = rememberSaveable(saver = GridAnchor.Saver) { GridAnchor() }
     val collectionScroll = rememberLazyGridState()
-    val collectionPageScroll = rememberLazyGridState()
     val summaries = key(identity) { rememberCollectionPreviews(gallery.catalogItems, gallery.collections) }
     val sharedAlbums = remember(gallery.collections) { gallery.collections.filter { it.shared != null } }
     fun navigate(next: GalleryTab) {
@@ -215,9 +214,11 @@ internal fun GalleryHome(
         else if (collectionsPage != null) collectionsPage = null
         else navigate(GalleryTab.LIBRARY)
     }
-    BackHandler(enabled = LocalPhotoTransition.current?.active != false && gallery.selection.isEmpty() && (tab != GalleryTab.LIBRARY)) {
-        if (tab == GalleryTab.COLLECTIONS) backInCollections() else navigate(GalleryTab.LIBRARY)
-    }
+    val backEnabled = LocalPhotoTransition.current?.active != false && gallery.selection.isEmpty()
+    val parentOf: (String) -> String? = { id -> gallery.collections.firstOrNull { it.id == id }?.parentId }
+    val screen = if (tab == GalleryTab.COLLECTIONS) GalleryScreen(tab, collectionsPage, folder, GalleryScreen.albumOf(query))
+        else GalleryScreen(tab)
+    val libraryFrame = rememberGraphicsLayer()
     val title = if (inCollection) collectionTitle else if (tab == GalleryTab.COLLECTIONS && folder != null)
         gallery.collections.firstOrNull { it.id == folder }?.name ?: stringResource(R.string.albums) else stringResource(if (tab == GalleryTab.COLLECTIONS) collectionsPage?.title ?: tab.title else tab.title)
     val contextAccountLabel = stringResource(R.string.open_icloud_account)
@@ -373,13 +374,8 @@ internal fun GalleryHome(
                         if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && gallery.selection.isNotEmpty()) SelectionActions(gallery, session, mediaBusy, actions)
                         else if (!hero && gallery.selection.isEmpty() && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || inCollection)) {
-                            if (tab == GalleryTab.SEARCH) {
-                                OutlinedTextField(query.filename, { actions.changeQuery(query.copy(filename = it)) },
-                                    label = { Text(stringResource(R.string.search_filenames)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                                    trailingIcon = { if (query.filename.isNotEmpty()) IconButton(onClick = { actions.changeQuery(query.copy(filename = "")) }) { Icon(Icons.Outlined.Close, stringResource(R.string.clear_search)) } },
-                                    singleLine = true, shape = MaterialTheme.shapes.extraLarge,
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("search-field"))
-                            }
+                            if (tab == GalleryTab.SEARCH) GallerySearchBar(query.filename, { actions.changeQuery(query.copy(filename = it)) },
+                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 val filterName = query.collectionId?.let { id -> if (id == GalleryQuery.FAVORITES) stringResource(R.string.favorites) else SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle() }
                                 Text(listOfNotNull(query.origin?.let { if (it == MediaOrigin.DEVICE) stringResource(R.string.this_phone) else stringResource(R.string.icloud) } ?: stringResource(R.string.all_photos), filterName,
@@ -401,17 +397,20 @@ internal fun GalleryHome(
                 val statusOverlap = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() -
                     padding.calculateTopPadding()).coerceAtLeast(0.dp)
                 Box(Modifier.fillMaxSize().padding(padding)) {
-                    if (tab == GalleryTab.COLLECTIONS && !inCollection) PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
-                        CollectionsScreen(gallery, canEdit, previewRetryVersion, folder, collectionsPage, summaries,
-                            if (collectionsPage == null) collectionScroll else collectionPageScroll, actions::requestPreview,
-                            openPage = { collectionsPage = it; scope.launch { collectionPageScroll.scrollToItem(0) } },
+                    GalleryScreenHost(screen, parentOf, backEnabled, onBack = {
+                        if (tab == GalleryTab.COLLECTIONS) backInCollections() else navigate(GalleryTab.LIBRARY)
+                    }, libraryFrame = libraryFrame, modifier = Modifier.fillMaxSize()) { shown ->
+                    if (shown.tab == GalleryTab.COLLECTIONS && shown.album == null) PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
+                        CollectionsScreen(gallery, canEdit, previewRetryVersion, shown.folder, shown.page, summaries,
+                            if (shown.page == null && shown.folder == null) collectionScroll else rememberLazyGridState(), actions::requestPreview,
+                            openPage = { collectionsPage = it },
                             openFolder = { folder = it }, openCollection = { collectionGrid.requestScrollToItem(0); actions.changeQuery(GalleryQuery(collectionId = it)) },
                             openOffline = { actions.changeQuery(GalleryQuery(offlineOnly = true)) }, openTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.DEVICE, trashOnly = true)) },
                             openCloudTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)) }, createAlbum = { sheet = GallerySheet.CreateAlbum },
                             createSharedAlbum = { sheet = GallerySheet.CreateSharedAlbum }, openSharedInvitations = { sheet = GallerySheet.SharedInvitations },
                             requestPhotos = actions::requestDevicePhotos, bottomSpace = bottomSpace)
                     }
-                    else if (tab == GalleryTab.SEARCH && query.filename.isBlank() && query.fromDate == null && query.throughDate == null && query.collectionId == null) {
+                    else if (shown.tab == GalleryTab.SEARCH && query.isBlankSearch) {
                         SearchLanding(bottomSpace = bottomSpace, onDates = { sheet = GallerySheet.Filters }, choose = { actions.changeQuery(query.copy(collectionId = it)) })
                     } else PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
                         PhotoGrid(
@@ -424,8 +423,12 @@ internal fun GalleryHome(
                             isRefreshing = session.isRefreshing,
                             counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount),
                             previewRetryVersion = previewRetryVersion,
-                            grid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid },
-                            anchor = when (tab) { GalleryTab.LIBRARY -> libraryAnchor; GalleryTab.COLLECTIONS -> collectionAnchor; GalleryTab.SEARCH -> searchAnchor },
+                            grid = when (shown.tab) {
+                                GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid
+                            },
+                            anchor = when (shown.tab) {
+                                GalleryTab.LIBRARY -> libraryAnchor; GalleryTab.COLLECTIONS -> collectionAnchor; GalleryTab.SEARCH -> searchAnchor
+                            },
                             density = visibleDensity,
                             onDensityChange = changeDensity,
                             bottomSpace = bottomSpace,
@@ -445,6 +448,7 @@ internal fun GalleryHome(
                             }) else null,
                         )
                     }
+                    }
                     if (collapseHeader) FloatingGridDate(visibleMonth,
                         dates = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
                     if (!wide && gallery.selection.isNotEmpty()) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(12.dp)
@@ -452,8 +456,9 @@ internal fun GalleryHome(
                         SelectionActions(gallery, session, mediaBusy, actions)
                     }
                     else if (!wide) FloatingGalleryNavigation(tab, { navigate(it) },
-                        Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 16.dp)
-                            .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } })
+                        // It hides behind an open keyboard; keep the grid's bottom space at its last real height.
+                        Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
+                            .onSizeChanged { if (it.height > 0) floatingBarHeight = with(uiDensity) { it.height.toDp() } })
                 }
             }
         }

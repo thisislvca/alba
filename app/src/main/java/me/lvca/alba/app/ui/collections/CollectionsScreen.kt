@@ -134,7 +134,8 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
 @Composable
 private fun MosaicCard(title: String, covers: List<GalleryMedia>, previewRetryVersion: Int, preview: (String) -> Unit, tag: String,
     emptyIcon: Painter, click: () -> Unit) {
-    Column(Modifier.clickable(role = Role.Button, onClick = click).testTag(tag)) {
+    // Clip the press ripple to the card corners rather than a hard rectangle over cover and title.
+    Column(Modifier.clip(MaterialTheme.shapes.medium).clickable(role = Role.Button, onClick = click).testTag(tag)) {
         AlbaCard(shape = MaterialTheme.shapes.medium) {
             if (covers.isEmpty()) Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
                 Icon(emptyIcon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
