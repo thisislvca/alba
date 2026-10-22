@@ -1,6 +1,5 @@
 package me.lvca.alba.app.ui.designsystem
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,8 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
@@ -24,27 +23,37 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.sheet
 
+/**
+ * A utility page: a centred top app bar over a scrolling column. The bar takes the surface-container tint once
+ * content scrolls under it, as Material settings pages do.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val background = MaterialTheme.colorScheme.background
-    Surface(color = background, modifier = Modifier.fillMaxSize()) {
-        // Inset controls, not the scrolling viewport: cards can pass behind the gesture bar.
-        Column(Modifier.statusBarsPadding().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).imePadding()) {
-            Box(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back_action))
-                }
-                Text(title, Modifier.align(Alignment.Center).padding(horizontal = 56.dp, vertical = 14.dp),
-                    style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-            }
-            key(title) {
-                val scroll = rememberScrollState()
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    Column(Modifier.fillMaxSize().verticalScroll(scroll).testTag("alba-page-scroll"), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.xl)
-                            .padding(top = AlbaSpacing.md, bottom = AlbaSpacing.xxl).navigationBarsPadding(), content = content)
-                    }
-                    if (scroll.canScrollBackward) Spacer(Modifier.fillMaxWidth().height(12.dp).background(Brush.verticalGradient(listOf(background, background.copy(alpha = 0f)))))
+    key(title) {
+        val scroll = rememberScrollState()
+        val barState = rememberTopAppBarState()
+        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(barState)
+        Surface(color = background, modifier = Modifier.fillMaxSize()) {
+            // Inset controls, not the scrolling viewport: cards can pass behind the gesture bar.
+            Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).imePadding()) {
+                CenterAlignedTopAppBar(
+                    title = { Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back_action)) }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = background,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                    windowInsets = WindowInsets.statusBars,
+                    scrollBehavior = scrollBehavior,
+                )
+                Column(Modifier.weight(1f).fillMaxWidth().nestedScroll(scrollBehavior.nestedScrollConnection)
+                    .verticalScroll(scroll).testTag("alba-page-scroll"), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.xl)
+                        .padding(top = AlbaSpacing.md, bottom = AlbaSpacing.xxl).navigationBarsPadding(), content = content)
                 }
             }
         }
