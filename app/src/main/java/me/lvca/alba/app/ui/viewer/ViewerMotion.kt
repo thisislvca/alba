@@ -67,13 +67,10 @@ internal object ViewerSpec {
     /** GP `photos_pager_page_margin`. */
     val PageSpacing = 24.dp
 
-    /** GP ViewPager minimum fling velocity, used when a zoomed pan hands off to the pager. */
-    val PageFlingVelocity = 400.dp
-
-    /** Without a fling, a handed-off pan pages past half a page, like the rest of Alba's pager. */
-    const val PAGE_SWITCH_POSITION = .5f
-
-    /** GP double tap toggles between fit and 2.5×. */
+    /**
+     * GP double tap toggles between fit and 2.5×. A zoomed photo clamps hard at its edges and
+     * never hands off to the pager, so paging only happens at fit scale.
+     */
     const val DOUBLE_TAP_ZOOM = 2.5f
 
     /** GP animates double-tap zoom over 250 ms, FastOutSlowIn on both scale and centre. */
@@ -93,13 +90,6 @@ internal object ViewerSpec {
     val DetentAbove = 16.dp
     val DetentBelow = 28.dp
     val DetentRelease = 8.dp
-
-    /**
-     * Alba only: GP clamps pinch hard to [1, max]. A short rubber band (at most a quarter beyond
-     * each limit, at half the finger speed) springs back on release instead.
-     */
-    const val OVERZOOM_LIMIT = .25f
-    const val OVERZOOM_RESISTANCE = .5f
 
     /** GP fades chrome in and out over 200 ms, linear, starting from its current alpha. */
     const val CHROME_FADE_MILLIS = 200
@@ -167,18 +157,6 @@ internal fun predictiveBackPose(progress: Float, edgeSign: Float, touchDy: Float
         scale = 1f - (1f - ViewerSpec.BACK_MIN_SCALE) * p,
         backdrop = max(ViewerSpec.BACK_MIN_ALPHA, 1f - 2f * p),
     )
-}
-
-/** The page a zoomed pan that spilled into the pager should settle on. */
-internal fun handoffTargetPage(startPage: Int, position: Float, velocityX: Float, flingVelocityPx: Float, pageCount: Int): Int {
-    val moved = position - startPage
-    val target = when {
-        velocityX <= -flingVelocityPx && moved > 0f -> startPage + 1
-        velocityX >= flingVelocityPx && moved < 0f -> startPage - 1
-        abs(moved) > ViewerSpec.PAGE_SWITCH_POSITION -> startPage + sign(moved).toInt()
-        else -> startPage
-    }
-    return target.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
 }
 
 /**

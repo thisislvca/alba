@@ -40,15 +40,6 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-/** Lets a zoomed photo that is panned past its edge drag the pager instead, as one gesture. */
-interface ZoomPanHandoff {
-    /** Scrolls the pager by a finger delta in px and returns how much of it the pager used. */
-    fun scrollBy(fingerDeltaX: Float): Float
-
-    /** The finger lifted after some of the pan went to the pager. */
-    fun release(velocityX: Float)
-}
-
 /** Half the travel available to a photo's pan offset at [zoom] (the photo may not leave the screen). */
 internal fun photoPanExtent(viewport: IntSize, image: IntSize, zoom: Float): Offset {
     if (image.width <= 0 || image.height <= 0) return Offset.Zero
@@ -94,19 +85,6 @@ internal fun zoomDetentSnapped(rawZoom: Float, wasSnapped: Boolean, fittedLongPx
     val above = 1f + (ViewerSpec.DetentAbove.value * density + release) / fittedLongPx
     val below = 1f - (ViewerSpec.DetentBelow.value * density + release) / fittedLongPx
     return rawZoom in below..above
-}
-
-/** Follows the fingers 1:1 inside [1, max] and with growing resistance beyond either limit. */
-internal fun rubberBandZoom(rawZoom: Float, maxZoom: Float): Float {
-    fun resist(excess: Float): Float {
-        val stretched = excess * ViewerSpec.OVERZOOM_RESISTANCE
-        return ViewerSpec.OVERZOOM_LIMIT * stretched / (stretched + ViewerSpec.OVERZOOM_LIMIT)
-    }
-    return when {
-        rawZoom > maxZoom -> maxZoom * (1f + resist(rawZoom / maxZoom - 1f))
-        rawZoom < 1f -> 1f - resist(1f - rawZoom)
-        else -> rawZoom
-    }
 }
 
 /**
@@ -175,12 +153,9 @@ internal class PhotoZoomState {
         zoom = next
     }
 
-    /** Pans by [delta] and returns the part the photo could not absorb because it reached an edge. */
-    fun panBy(delta: Offset): Offset {
-        val wanted = offset + delta
-        val clamped = constrain(wanted)
-        offset = clamped
-        return wanted - clamped
+    /** Pans by [delta], stopping at the photo's edges. */
+    fun panBy(delta: Offset) {
+        offset = constrain(offset + delta)
     }
 
     suspend fun animateTo(targetZoom: Float, targetOffset: Offset, reduceMotion: Boolean) {
@@ -201,14 +176,6 @@ internal class PhotoZoomState {
     suspend fun toggle(tap: Offset, reduceMotion: Boolean) {
         val (targetZoom, targetOffset) = doubleTapZoomTarget(tap, viewport, image, zoom, offset, maxZoom)
         animateTo(targetZoom, targetOffset, reduceMotion)
-    }
-
-    /** Springs a rubber-banded zoom back inside [1, max], keeping [focus] (viewport coordinates) put. */
-    suspend fun settle(focus: Offset, reduceMotion: Boolean) {
-        val target = zoom.coerceIn(1f, maxZoom)
-        val targetOffset = if (target == 1f) Offset.Zero
-        else constrain(zoomAroundOffset(offset, zoom, target, focus - center()), target)
-        animateTo(target, targetOffset, reduceMotion)
     }
 
     /** Keeps a zoomed pan moving after the finger lifts, stopping at the photo's edges. */
@@ -234,16 +201,11 @@ internal class PhotoZoomState {
 /** One pinch/pan gesture on a photo, from first finger down to last finger up. */
 private class ZoomGesture(
     private val state: PhotoZoomState,
-    private val handoff: ZoomPanHandoff?,
     private val density: Float,
     private val tick: () -> Unit,
 ) {
     val tracker = VelocityTracker()
     var transforming = false
-        private set
-    var focus = Offset.Zero
-        private set
-    var handedOff = 0f
         private set
     private var pinchMotion = 1f
     private var panMotion = Offset.Zero
@@ -268,13 +230,13 @@ private class ZoomGesture(
     }
 
     fun zoom(zoomChange: Float, centroid: Offset) {
-        focus = centroid
         if (zoomChange == 1f) return
         val before = state.zoom
         val max = state.maxZoom
-        rawZoom *= zoomChange
+        // GP clamps pinch hard to [1, max]; there is no overscale.
+        rawZoom = (rawZoom * zoomChange).coerceIn(1f, max)
         val nowSnapped = zoomDetentSnapped(rawZoom, snapped, state.fittedLongPx, density)
-        val next = if (nowSnapped) 1f else rubberBandZoom(rawZoom, max)
+        val next = if (nowSnapped) 1f else rawZoom
         // GP ticks (VIRTUAL_KEY) when the pinch lands on 1× or reaches the maximum.
         val landedOnFit = nowSnapped && !snapped
         val reachedMax = before < max && next >= max
@@ -283,31 +245,20 @@ private class ZoomGesture(
         state.zoomAround(next, centroid)
     }
 
-    fun pan(pan: Offset, pressed: Int) {
-        val pager = handoff?.takeIf { pressed == 1 }
-        var dx = pan.x
-        if (pager != null && handedOff != 0f) {
-            // Give the pager back what it took before the photo pans again.
-            val toPager = if (dx * handedOff < 0f) dx.coerceIn(-abs(handedOff), abs(handedOff)) else dx
-            val used = pager.scrollBy(toPager)
-            handedOff += used
-            dx -= used
-        }
-        val excess = state.panBy(Offset(dx, pan.y))
-        if (pager != null && state.zoom > 1f && excess.x != 0f) handedOff += pager.scrollBy(excess.x)
+    fun pan(pan: Offset) {
+        // GP clamps the pan at the photo's edges; the pager only pages at fit scale.
+        state.panBy(pan)
     }
 }
 
 /**
- * Pinch (anchored to the fingers' centroid, with GP's 1× detent and a short rubber band) and
- * pan with fling for a zoomed photo. A single finger on a photo at fit is left alone, so the
- * pager, swipe-down and the details sheet keep working. Panning past the photo's edge drags
- * the pager through [handoff].
+ * Pinch (anchored to the fingers' centroid, clamped to [1, max] with GP's 1× detent) and pan
+ * with fling for a zoomed photo. A single finger on a photo at fit is left alone, so the pager,
+ * swipe-down and the details sheet keep working.
  */
 @Composable
-internal fun Modifier.photoZoomGestures(state: PhotoZoomState, handoff: ZoomPanHandoff?, reduceMotion: Boolean): Modifier {
+internal fun Modifier.photoZoomGestures(state: PhotoZoomState, reduceMotion: Boolean): Modifier {
     val haptics = LocalHapticFeedback.current
-    val latestHandoff by rememberUpdatedState(handoff)
     val reduce by rememberUpdatedState(reduceMotion)
     return pointerInput(state) {
         val decay = splineBasedDecay<Float>(this)
@@ -315,7 +266,7 @@ internal fun Modifier.photoZoomGestures(state: PhotoZoomState, handoff: ZoomPanH
             awaitEachGesture {
                 awaitFirstDown(requireUnconsumed = false)
                 state.stop()
-                val gesture = ZoomGesture(state, latestHandoff, density) {
+                val gesture = ZoomGesture(state, density) {
                     haptics.performHapticFeedback(HapticFeedbackType.VirtualKey)
                 }
                 do {
@@ -330,20 +281,14 @@ internal fun Modifier.photoZoomGestures(state: PhotoZoomState, handoff: ZoomPanH
                         event.calculateCentroidSize(useCurrent = true), viewConfiguration.touchSlop)
                     if (active && pressed > 0 && centroid.isSpecified) {
                         gesture.zoom(zoomChange, centroid)
-                        gesture.pan(pan, pressed)
+                        gesture.pan(pan)
                         gesture.tracker.addPosition(event.changes.first().uptimeMillis, centroid)
                         event.changes.forEach { if (it.positionChanged()) it.consume() }
                     }
                 } while (event.changes.any { it.pressed })
-                if (gesture.transforming) {
+                if (gesture.transforming && state.zoom > 1f && !reduce) {
                     val velocity = gesture.tracker.calculateVelocity()
-                    if (gesture.handedOff != 0f) latestHandoff?.release(velocity.x)
-                    val outOfRange = state.zoom !in 1f..state.maxZoom
-                    if (outOfRange) {
-                        state.launch(this@coroutineScope) { state.settle(gesture.focus, reduce) }
-                    } else if (gesture.handedOff == 0f && state.zoom > 1f && !reduce) {
-                        state.launch(this@coroutineScope) { state.fling(velocity, decay) }
-                    }
+                    state.launch(this@coroutineScope) { state.fling(velocity, decay) }
                 }
             }
         }

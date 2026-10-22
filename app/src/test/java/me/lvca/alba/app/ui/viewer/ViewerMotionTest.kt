@@ -59,13 +59,4 @@ class ViewerMotionTest {
         assertEquals("A right-edge swipe moves the photo left", -1000f * .35f * .35f, end.translation.x, 1e-3f)
         assertEquals(-16f, end.translation.y, 1e-3f)
     }
-
-    @Test fun handedOffPansSettleOnTheNearestPageOrFollowAFling() {
-        assertEquals(3, handoffTargetPage(3, 3.3f, 0f, 1000f, 10))
-        assertEquals(4, handoffTargetPage(3, 3.6f, 0f, 1000f, 10))
-        assertEquals(4, handoffTargetPage(3, 3.1f, -1200f, 1000f, 10))
-        assertEquals("A fling against the drag stays", 3, handoffTargetPage(3, 3.1f, 1200f, 1000f, 10))
-        assertEquals(2, handoffTargetPage(3, 2.4f, 0f, 1000f, 10))
-        assertEquals(9, handoffTargetPage(9, 9.7f, 0f, 1000f, 10))
-    }
 }

@@ -37,15 +37,6 @@ class PhotoZoomTest {
         assertFalse(zoomDetentSnapped(.96f, wasSnapped = true, fittedLongPx = fittedLong, density = density))
     }
 
-    @Test fun rubberBandResistsBeyondTheLimitsOnly() {
-        assertEquals(2f, rubberBandZoom(2f, 4f), 1e-5f)
-        val over = rubberBandZoom(8f, 4f)
-        assertTrue(over > 4f && over < 4f * (1f + ViewerSpec.OVERZOOM_LIMIT))
-        val under = rubberBandZoom(.2f, 4f)
-        assertTrue(under < 1f && under > 1f - ViewerSpec.OVERZOOM_LIMIT)
-        assertTrue("Monotonic", rubberBandZoom(.5f, 4f) > under)
-    }
-
     @Test fun zoomingAroundAPointKeepsItStill() {
         val focus = Offset(120f, -40f)
         val offset = zoomAroundOffset(Offset.Zero, 1f, 2.5f, focus)

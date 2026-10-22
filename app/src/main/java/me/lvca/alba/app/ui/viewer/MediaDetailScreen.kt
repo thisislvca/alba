@@ -221,20 +221,6 @@ internal fun MediaDetailScreen(
                 return Velocity.Zero
             }
         } }
-        val handoff = remember(pager, scope, reduceMotion) { object : ZoomPanHandoff {
-            private var startPage = -1
-            override fun scrollBy(fingerDeltaX: Float): Float {
-                if (startPage < 0) startPage = pager.currentPage
-                return -pager.dispatchRawDelta(-fingerDeltaX)
-            }
-            override fun release(velocityX: Float) {
-                val from = startPage.takeIf { it >= 0 } ?: pager.currentPage
-                startPage = -1
-                val target = handoffTargetPage(from, pager.currentPage + pager.currentPageOffsetFraction, velocityX,
-                    with(density) { ViewerSpec.PageFlingVelocity.toPx() }, pager.pageCount)
-                scope.launch { if (reduceMotion) pager.scrollToPage(target) else pager.animateScrollToPage(target) }
-            }
-        } }
         val detailsLabel = stringResource(R.string.details)
         val backLabel = stringResource(R.string.back_to_gallery)
         Column(Modifier.fillMaxSize()) {
@@ -289,7 +275,7 @@ internal fun MediaDetailScreen(
                             accentStartArgb = item.accentStartArgb, accentEndArgb = item.accentEndArgb, contentDescription = item.fileName,
                             contentScale = ContentScale.Fit, zoomable = active && !expanded, onTap = { if (!expanded) controls = !controls },
                             onZoomChanged = { if (active) zoomed = it }, sourceSize = IntSize(item.width, item.height),
-                            zoomHandoff = handoff, presentationScale = if (active) { { pose().scale } } else { { 1f } },
+                            presentationScale = if (active) { { pose().scale } } else { { 1f } },
                             modifier = Modifier.fillMaxSize().testTag("viewer-image-${item.id}"))
                         if (active && loading) CircularProgressIndicator(Modifier.align(Alignment.TopCenter).padding(top = 76.dp).size(22.dp), strokeWidth = 2.dp)
                         if (active && failed) FilledTonalButton(onClick = { retry++; actions.requestPreview(item.id) }, modifier = Modifier.align(Alignment.Center).testTag("retry-viewer")) {
