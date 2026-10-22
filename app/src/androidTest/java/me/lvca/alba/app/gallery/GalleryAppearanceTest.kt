@@ -17,6 +17,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import kotlin.math.abs
 
 /** Exercises the new entry points against the real demo repository and video previews. */
 class GalleryAppearanceTest {
@@ -25,14 +26,19 @@ class GalleryAppearanceTest {
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val context get() = compose.activity
 
-    @Test fun statusBarAreaStaysOpaqueOverScrolledPhotos() {
+    @Test fun statusBarAreaIsStronglyTintedOverScrolledPhotos() {
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("gallery-grid").performTouchInput { swipeUp() }
         compose.waitForIdle()
-        // Photos under a translucent scrim would show through as many colours; an opaque bar is one.
+        // Like Google Photos, photos stay faintly visible under the clock, but the tint keeps every pixel close to
+        // the header colour so the status icons stay readable over any photo.
         val scrim = compose.onNodeWithTag("gallery-status-scrim").captureToImage().toPixelMap()
-        val colors = (0 until scrim.width step 6).flatMap { x -> (0 until scrim.height step 3).map { y -> scrim[x, y] } }.toSet()
-        assertEquals(setOf(colors.first()), colors)
+        val colors = (0 until scrim.width step 6).flatMap { x -> (0 until scrim.height step 3).map { y -> scrim[x, y] } }
+        val base = colors.first()
+        colors.forEach { color ->
+            val spread = maxOf(abs(color.red - base.red), abs(color.green - base.green), abs(color.blue - base.blue))
+            assertTrue("$color strays from the tint $base", spread <= .16f)
+        }
     }
 
     @Test fun libraryFooterEndsClearOfTheFloatingNavigation() {
@@ -59,7 +65,9 @@ class GalleryAppearanceTest {
         val handle = compose.onNodeWithTag("fast-scroll-handle").fetchSemanticsNode().boundsInRoot
         val track = rail.fetchSemanticsNode().boundsInRoot
         rail.performTouchInput { down(handle.center - track.topLeft) }
-        compose.onNodeWithTag("fast-scroll-date").assertIsDisplayed()
+        compose.onAllNodes(SemanticsMatcher("fast-scroll year label") { node ->
+            node.config.getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.TestTag) { null }?.startsWith("fast-scroll-year-") == true
+        }).onFirst().assertIsDisplayed()
         rail.performTouchInput { up() }
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collection-albums").assertIsDisplayed()

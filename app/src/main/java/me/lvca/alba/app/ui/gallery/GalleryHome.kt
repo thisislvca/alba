@@ -1,11 +1,19 @@
 package me.lvca.alba.app.ui.gallery
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.animateBounds
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,9 +33,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -40,9 +50,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
@@ -158,8 +170,8 @@ internal fun GalleryHome(
     var collectionsPage by rememberSaveable { mutableStateOf<CollectionsPage?>(null) }
     var albumMenu by remember { mutableStateOf(false) }
     var folder by rememberSaveable { mutableStateOf<String?>(null) }
-    var density by rememberSaveable { mutableIntStateOf(100) }
-    var albumDensity by rememberSaveable { mutableIntStateOf(80) }
+    var level by rememberSaveable { mutableStateOf(GridLevel.DAY) }
+    var albumLevel by rememberSaveable { mutableStateOf(GridLevel.COMPACT) }
     var sheet by rememberSaveable(stateSaver = GallerySheet.Saver) { mutableStateOf(null) }
     val scope = rememberCoroutineScope()
     var permissionDismissed by rememberSaveable { mutableStateOf(false) }
@@ -241,8 +253,8 @@ internal fun GalleryHome(
     val connectPrompt = session.accountState == ICloudAccountState.SignedOut && tab == GalleryTab.LIBRARY &&
         query == unfiltered && gallery.items.isEmpty() && !session.isRefreshing
     val hero = inCollection && collection != null && !collection.isFolder && !collection.id.startsWith("smart:") && !collection.id.startsWith("device-folder:")
-    val visibleDensity = if (hero) albumDensity else density
-    val changeDensity: (Int) -> Unit = { if (hero) albumDensity = it else density = it }
+    val visibleLevel = if (hero) albumLevel else level
+    val changeLevel: (GridLevel) -> Unit = { if (hero) albumLevel = it else level = it }
     // Reserve the leading grid item before the catalog arrives, so lazy-key anchoring cannot hide it.
     val showSharedStrip = tab == GalleryTab.LIBRARY && query.collectionId == null &&
         query.fromDate == null && query.throughDate == null && !query.offlineOnly && !query.trashOnly
@@ -256,32 +268,39 @@ internal fun GalleryHome(
         collectionGrid.requestScrollToItem(0)
         actions.changeQuery(GalleryQuery(collectionId = id))
     }
+    val uiDensity = LocalDensity.current
     BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
         val wide = maxWidth >= 600.dp
-        val uiDensity = LocalDensity.current
         val phonePhotos = !wide && tab == GalleryTab.LIBRARY
-        val collapseHeader = phonePhotos && gallery.selection.isEmpty()
+        // Selecting keeps the header where it is: resetting it would shift the grid under a drag-selecting finger.
+        val collapseHeader = phonePhotos
+        val selecting = gallery.selection.isNotEmpty()
+        // Kept while selecting: the selection bar covers it, and removing it would shift the grid.
+        val filterRow = !hero && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || inCollection)
         val headerState = rememberTopAppBarState()
         // A short grid can fit after collapse; it must still allow a reverse drag to restore the header.
         val collapseAllowed by rememberUpdatedState(collapseHeader)
-        val headerScroll = TopAppBarDefaults.enterAlwaysScrollBehavior(headerState, canScroll = {
-            collapseAllowed && (headerState.heightOffset < 0f || libraryGrid.canScrollForward || libraryGrid.canScrollBackward)
-        },
-            snapAnimationSpec = spring(dampingRatio = 1f, stiffness = 400f))
+        val reducedMotion = reduceGalleryMotion()
+        val reducedMotionNow by rememberUpdatedState(reducedMotion)
+        val headerScroll = remember(headerState, libraryGrid, uiDensity) {
+            GalleryHeaderScroll(headerState, HeaderScrollGate(GalleryFeel.HEADER_REVEAL_DP_PER_SECOND * uiDensity.density,
+                GalleryFeel.HEADER_HIDE_DP_PER_SECOND * uiDensity.density),
+                enabled = { collapseAllowed && (headerState.heightOffset < 0f || libraryGrid.canScrollForward || libraryGrid.canScrollBackward) },
+                reducedMotion = { reducedMotionNow })
+        }
         val headerHidden by remember { derivedStateOf { headerState.collapsedFraction >= .99f } }
         // Returning the header is independent of reaching the beginning of the grid.
         val galleryScrolled by remember(libraryGrid, headerState) {
             derivedStateOf { libraryGrid.canScrollBackward || headerState.heightOffset < -.5f }
         }
-        val reducedMotion = reduceGalleryMotion()
         val headerColor = animateColorAsState(
             if (phonePhotos) {
                 if (galleryScrolled) MaterialTheme.colorScheme.galleryOverlay else MaterialTheme.colorScheme.surface
             } else MaterialTheme.colorScheme.background,
             animationSpec = if (reducedMotion) snap() else tween(250, easing = galleryColorEase), label = "gallery-header-surface")
         val sections = gallery.sections
-        val monthOffsets = remember(sections, gallery.deviceMediaAccess, permissionDismissed, leadingItems, visibleDensity, query.date) {
-            galleryMonthOffsets(sections, !gallery.deviceMediaAccess && !permissionDismissed, visibleDensity >= 160, query.date, leadingItems)
+        val monthOffsets = remember(sections, gallery.deviceMediaAccess, permissionDismissed, leadingItems, visibleLevel, query.date) {
+            galleryMonthOffsets(sections, !gallery.deviceMediaAccess && !permissionDismissed, visibleLevel.dayHeaders, query.date, leadingItems)
         }
         val visibleMonth by remember(libraryGrid, sections, monthOffsets) {
             derivedStateOf {
@@ -297,6 +316,7 @@ internal fun GalleryHome(
             if (!collapseHeader) { headerState.heightOffset = 0f; headerState.contentOffset = 0f }
         }
         var floatingBarHeight by remember { mutableStateOf(80.dp) }
+        var headerHeight by remember { mutableStateOf(0.dp) }
         // The floating bar sits up to 16dp above the navigation bar; keep the grid's last row a clear 24dp above it.
         val bottomSpace = if (wide) 24.dp else floatingBarHeight + 40.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         LaunchedEffect(bottomSpace) { onBottomSpaceChanged(bottomSpace) }
@@ -307,10 +327,11 @@ internal fun GalleryHome(
                     onClick = { navigate(destination) }, icon = { Icon(destination.icon(), null, Modifier.size(24.dp)) }, label = { Text(stringResource(destination.title)) },
                     modifier = Modifier.testTag("tab-${destination.name}")) }
             }
-            Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll.nestedScrollConnection), contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll), contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 containerColor = if (phonePhotos) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
                 topBar = {
-                    Column(Modifier.scrollingGalleryHeader(headerState, collapseHeader).statusBarsPadding()
+                    Column(Modifier.scrollingGalleryHeader(headerState, collapseHeader)
+                        .onSizeChanged { headerHeight = with(uiDensity) { it.height.toDp() } }.statusBarsPadding()
                         .drawBehind { drawRect(headerColor.value) }.testTag("gallery-header")
                         .then(if (collapseHeader && headerHidden) Modifier.clearAndSetSemantics {} else Modifier)) {
                         Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp).heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -371,8 +392,8 @@ internal fun GalleryHome(
                                 modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = actions::openAccount))
                         }
                         if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
-                        if (wide && gallery.selection.isNotEmpty()) SelectionActions(gallery, session, mediaBusy, actions)
-                        else if (!hero && gallery.selection.isEmpty() && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || inCollection)) {
+                        if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions)
+                        else if (filterRow) {
                             if (tab == GalleryTab.SEARCH) {
                                 OutlinedTextField(query.filename, { actions.changeQuery(query.copy(filename = it)) },
                                     label = { Text(stringResource(R.string.search_filenames)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
@@ -413,7 +434,9 @@ internal fun GalleryHome(
                     }
                     else if (tab == GalleryTab.SEARCH && query.filename.isBlank() && query.fromDate == null && query.throughDate == null && query.collectionId == null) {
                         SearchLanding(bottomSpace = bottomSpace, onDates = { sheet = GallerySheet.Filters }, choose = { actions.changeQuery(query.copy(collectionId = it)) })
-                    } else PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
+                    } else {
+                        // Like Google Photos, the photo grid stretches at its edges instead of pulling to refresh:
+                        // the library refreshes on resume and from Filter and sort.
                         PhotoGrid(
                             items = gallery.items,
                             sections = sections,
@@ -426,8 +449,8 @@ internal fun GalleryHome(
                             previewRetryVersion = previewRetryVersion,
                             grid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid },
                             anchor = when (tab) { GalleryTab.LIBRARY -> libraryAnchor; GalleryTab.COLLECTIONS -> collectionAnchor; GalleryTab.SEARCH -> searchAnchor },
-                            density = visibleDensity,
-                            onDensityChange = changeDensity,
+                            level = visibleLevel,
+                            onLevelChange = changeLevel,
                             bottomSpace = bottomSpace,
                             showPermissionPrompt = permissionPrompt,
                             onDismissPermissionPrompt = { permissionDismissed = true },
@@ -445,28 +468,41 @@ internal fun GalleryHome(
                             }) else null,
                         )
                     }
-                    if (collapseHeader) FloatingGridDate(visibleMonth,
+                    if (collapseHeader) FloatingGridDate(visibleMonth.takeUnless { selecting },
                         dates = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
-                    if (!wide && gallery.selection.isNotEmpty()) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(12.dp)
-                        .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = MaterialTheme.shapes.extraLarge, tonalElevation = 8.dp, shadowElevation = 8.dp) {
-                        SelectionActions(gallery, session, mediaBusy, actions)
+                    // Selection swaps the navigation for the actions, each sliding along the bottom edge.
+                    val barSlide = if (reducedMotion) snap<IntOffset>() else tween(GalleryFeel.CONTEXT_BAR_SLIDE_MILLIS)
+                    if (!wide) androidx.compose.animation.AnimatedVisibility(selecting, Modifier.align(Alignment.BottomCenter),
+                        enter = slideInVertically(barSlide) { it }, exit = slideOutVertically(barSlide) { it }) {
+                        Surface(Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp)
+                            .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = MaterialTheme.shapes.extraLarge, tonalElevation = 8.dp, shadowElevation = 8.dp) {
+                            SelectionActions(gallery, session, mediaBusy, actions)
+                        }
                     }
-                    else if (!wide) FloatingGalleryNavigation(tab, { navigate(it) },
-                        Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 16.dp)
-                            .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } })
+                    if (!wide) androidx.compose.animation.AnimatedVisibility(!selecting, Modifier.align(Alignment.BottomCenter),
+                        enter = slideInVertically(barSlide) { it }, exit = slideOutVertically(barSlide) { it }) {
+                        FloatingGalleryNavigation(tab, { navigate(it) },
+                            Modifier.imePadding().navigationBarsPadding().padding(bottom = 16.dp)
+                                .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } })
+                    }
                 }
             }
         }
         if (phonePhotos) GalleryStatusBarScrim({ headerColor.value }, Modifier.align(Alignment.TopCenter).zIndex(2f))
+        // The contextual bar replaces the header in place, over it, so the grid never moves when selection starts.
+        SelectionTopBar(gallery.selection.size, minHeight = if (wide) 0.dp else headerHeight, reducedMotion = reducedMotion,
+            selectAll = actions::selectAllShown, clear = actions::clearSelection,
+            modifier = Modifier.align(Alignment.TopCenter).padding(start = if (wide) 80.dp else 0.dp).zIndex(3f))
     }
     val currentGrid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid }
     if (sheet == GallerySheet.JumpToDate) {
         val initialIndex = remember { currentGrid.firstVisibleItemIndex }
-        GalleryDateSheet(gallery.sections, initialIndex, days = visibleDensity >= 160, date = query.date,
+        GalleryDateSheet(gallery.sections, initialIndex, days = visibleLevel.dayHeaders, date = query.date,
             permissionHeader = permissionPrompt, leadingItems = leadingItems, showDateHeaders = !hero,
             dismiss = { sheet = null }, jump = { index -> scope.launch { currentGrid.scrollToItem(index) } })
     }
-    if (sheet == GallerySheet.Filters) GalleryFilterSheet(gallery, actions::changeQuery, actions::requestDevicePhotos, actions::refresh, visibleDensity, changeDensity, dismiss = { sheet = null })
+    if (sheet == GallerySheet.Filters) GalleryFilterSheet(gallery, actions::changeQuery, actions::requestDevicePhotos, actions::refresh,
+        visibleLevel, changeLevel, dismiss = { sheet = null })
     (sheet as? GallerySheet.DeleteAlbum)?.albumId?.let { id ->
         AlertDialog(onDismissRequest = { sheet = null }, title = { Text(stringResource(R.string.delete_album_title)) },
             text = { Text(stringResource(R.string.delete_album_body, gallery.collections.firstOrNull { it.id == id }?.name ?: stringResource(R.string.this_album))) },
@@ -555,8 +591,9 @@ internal sealed interface GallerySheet {
 internal data class PhotoCounts(val cloud: Int, val device: Int)
 
 /**
- * A grid of photos grouped by month, and by day at large tile sizes. Takes the lists it shows rather than the whole
- * gallery state, and remembers everything derived from them, so a message or progress change does not redo that work.
+ * A grid of photos grouped by month, and by day from the [GridLevel.DAY] level up. Takes the lists it shows rather
+ * than the whole gallery state, and remembers everything derived from them, so a message or progress change does not
+ * redo that work. Pinching morphs live into the neighbouring level (see [GridPinch]).
  */
 @Composable
 private fun PhotoGrid(
@@ -571,8 +608,8 @@ private fun PhotoGrid(
     previewRetryVersion: Int,
     grid: LazyGridState,
     anchor: GridAnchor,
-    density: Int,
-    onDensityChange: (Int) -> Unit,
+    level: GridLevel,
+    onLevelChange: (GridLevel) -> Unit,
     bottomSpace: Dp,
     showPermissionPrompt: Boolean,
     onDismissPermissionPrompt: () -> Unit,
@@ -582,17 +619,20 @@ private fun PhotoGrid(
     onAddMedia: (() -> Unit)? = null,
 ) {
     val leadingItems = if (leading != null) 1 else 0
-    val dayHeaders = density >= 160
     val date = query.date
     val mediaIds = remember(items) { items.map { it.id } }
     val positions = remember(mediaIds) { mediaIds.withIndex().associate { it.value to it.index } }
-    val groupedSections = remember(sections, flat, dayHeaders, date) {
-        sections.map { section ->
-            section to if (!flat && dayHeaders) section.items.groupBy { galleryDay(it, date) } else mapOf(null to section.items)
+    // Grouped once per header style; a pinch lays out the neighbouring level from the same cache.
+    val groupings = remember(sections, flat, date) { mutableMapOf<Boolean, List<Pair<GallerySection, Map<LocalDate?, List<GalleryMedia>>>>>() }
+    fun groupsFor(shown: GridLevel) = (!flat && shown.dayHeaders).let { days ->
+        groupings.getOrPut(days) {
+            sections.map { section -> section to if (days) section.items.groupBy { galleryDay(it, date) } else mapOf(null to section.items) }
         }
     }
-    val gridIndexOf: (String, Int) -> Int = remember(sections, showPermissionPrompt, date, leadingItems, flat) {
-        { id, tileSize -> galleryPosition(sections, showPermissionPrompt, tileSize >= 160, date, id, leadingItems, showDateHeaders = !flat) }
+    val groupedSections = groupsFor(level)
+    val dayHeaders = level.dayHeaders
+    val gridIndexOf: (String, GridLevel) -> Int = remember(sections, showPermissionPrompt, date, leadingItems, flat) {
+        { id, shown -> galleryPosition(sections, showPermissionPrompt, shown.dayHeaders, date, id, leadingItems, showDateHeaders = !flat) }
     }
     val prefetch by rememberUpdatedState(actions::prefetchPreviews)
     LaunchedEffect(grid, positions, previewRetryVersion) {
@@ -608,12 +648,12 @@ private fun PhotoGrid(
             }
     }
     DisposableEffect(Unit) { onDispose { prefetch(emptyList()) } }
-    KeepGridAnchor(grid, anchor, positions) { id -> gridIndexOf(id, density) }
+    KeepGridAnchor(grid, anchor, positions) { id -> gridIndexOf(id, level) }
     val returningId = LocalPhotoTransition.current?.returningMediaId
     var visibleWhenOpened by rememberSaveable { mutableStateOf(emptyList<String>()) }
     LaunchedEffect(returningId) {
         if (returningId != null && returningId !in visibleWhenOpened) {
-            grid.requestScrollToItem(gridIndexOf(returningId, density))
+            grid.requestScrollToItem(gridIndexOf(returningId, level))
         }
     }
     val selecting = selection.isNotEmpty()
@@ -625,13 +665,26 @@ private fun PhotoGrid(
             } else actions.toggleSelection(id)
         }
     }
-    Box(Modifier.fillMaxSize()) {
-    LookaheadScope {
-    LazyVerticalGrid(columns = GridCells.Adaptive(density.dp), state = grid, modifier = Modifier.fillMaxSize()
-        .galleryGestures(grid, mediaIds, selection, density, onDensityChange, gridIndexOf, actions::selectItems).testTag("gallery-grid"),
-        horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = PaddingValues(bottom = bottomSpace)) {
+    val scope = rememberCoroutineScope()
+    val reducedMotion = reduceGalleryMotion()
+    val pinch = remember(grid) { GridPinch(scope) }
+    SideEffect {
+        pinch.level = level; pinch.grid = grid; pinch.reducedMotion = reducedMotion
+        pinch.mediaKeys = positions.keys; pinch.indexIn = gridIndexOf; pinch.commit = onLevelChange
+    }
+    // A level change lays the grid out afresh at its anchor; animating every tile's placement would fight that.
+    var placementAnimates by remember(level) { mutableStateOf(false) }
+    LaunchedEffect(level) { withFrameNanos {}; withFrameNanos {}; placementAnimates = true }
+    val checkboxEnter = if (reducedMotion) EnterTransition.None else
+        scaleIn(tween(GalleryFeel.SELECTION_MODE_MILLIS, easing = FastOutSlowInEasing)) +
+            fadeIn(tween(GalleryFeel.CHECK_FADE_IN_MILLIS, delayMillis = GalleryFeel.CHECK_FADE_IN_DELAY_MILLIS))
+    val checkboxExit = if (reducedMotion) ExitTransition.None else fadeOut(tween(GalleryFeel.CHECK_FADE_OUT_MILLIS))
+
+    /** The grid's items at [shown]; [incoming] marks the next level laid out underneath during a pinch. */
+    fun LazyGridScope.photoItems(shown: GridLevel, incoming: Boolean) {
+        val posed = { key: Any -> Modifier.pinchPose(pinch, key, incoming) }
         if (showPermissionPrompt) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
-            AlbaCard(Modifier.padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
+            AlbaCard(posed("permission").padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
                 color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Icon(AlbaIcons.PhoneAndroid, null, Modifier.padding(top = 2.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
@@ -646,7 +699,7 @@ private fun PhotoGrid(
                 }
             }
         }
-        if (leading != null) item(key = "gallery-leading", span = { GridItemSpan(maxLineSpan) }) { Column { leading() } }
+        if (leading != null) item(key = "gallery-leading", span = { GridItemSpan(maxLineSpan) }) { Column(posed("gallery-leading")) { leading() } }
         if (items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
@@ -659,40 +712,42 @@ private fun PhotoGrid(
                 }
             }
         }
-        groupedSections.forEach { (section, groups) ->
+        groupsFor(shown).forEach { (section, groups) ->
             val month = section.month
             if (!flat) item(key = "month-$month", span = { GridItemSpan(maxLineSpan) }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(posed("month-$month"), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { MonthHeader(month, section.items.size) }
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), monthLabel(month))
-                    if (selecting) Checkbox(checked = section.items.all { it.id in selection },
-                        onCheckedChange = { actions.selectItems(section.items.map { it.id }.toSet(), it) }, modifier = Modifier.padding(end = 12.dp).semantics { contentDescription = selectionLabel })
+                    AnimatedVisibility(selecting, enter = checkboxEnter, exit = checkboxExit) {
+                        Checkbox(checked = section.items.all { it.id in selection },
+                            onCheckedChange = { actions.selectItems(section.items.map { it.id }.toSet(), it) }, modifier = Modifier.padding(end = 12.dp).semantics { contentDescription = selectionLabel })
+                    }
                 }
             }
             groups.forEach { (day, photos) ->
             if (day != null) item(key = "day-$day", span = { GridItemSpan(maxLineSpan) }) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(posed("day-$day").fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(dateLabel(day), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), dateLabel(day))
-                    if (selecting) Checkbox(photos.all { it.id in selection }, { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) },
-                        modifier = Modifier.semantics { contentDescription = selectionLabel })
+                    AnimatedVisibility(selecting, enter = checkboxEnter, exit = checkboxExit) {
+                        Checkbox(photos.all { it.id in selection }, { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) },
+                            modifier = Modifier.semantics { contentDescription = selectionLabel })
+                    }
                 }
             }
             items(photos, key = GalleryMedia::id) { media ->
-                // Lazy placement animates reflow; bounds animate the actual thumbnail size.
-                // Excluding the scrolling frame keeps ordinary swipes attached to the finger.
-                Box(Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null,
-                    placementSpec = spring(dampingRatio = 1f, stiffness = 450f))
-                    .animateBounds(this@LookaheadScope,
-                        boundsTransform = { _, _ -> spring(dampingRatio = 1f, stiffness = 450f) })) {
-                    val id = media.id
+                val id = media.id
+                // Placement animates reflow when photos arrive or leave; the pinch morph draws level changes itself.
+                Box((if (incoming) Modifier else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null,
+                    placementSpec = if (placementAnimates && !reducedMotion) spring(dampingRatio = 1f, stiffness = 450f) else null))
+                    .then(posed(id))) {
                     MediaTile(
                         retryVersion = previewRetryVersion,
                         selected = id in selection,
                         selecting = selecting,
                         media = media,
                         onClick = { openOrToggle(id) },
-                        onVisible = { actions.requestPreview(id) },
+                        onVisible = if (incoming) ({}) else ({ actions.requestPreview(id) }),
                         selectionAction = { actions.toggleSelection(id) },
                     )
                 }
@@ -700,18 +755,48 @@ private fun PhotoGrid(
             }
         }
         if (onAddMedia != null) item(key = "add-media") {
-            Surface(onClick = onAddMedia, modifier = Modifier.aspectRatio(1f).testTag("album-add-media"),
+            Surface(onClick = onAddMedia, modifier = posed("add-media").aspectRatio(1f).testTag("album-add-media"),
                 shape = MaterialTheme.shapes.tile, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }
             }
         }
         if (items.isNotEmpty()) item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
-            Column(Modifier.fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(posed("summary").fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
                 if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val smallestWidth = LocalConfiguration.current.smallestScreenWidthDp.toFloat()
+    val gridWidth = maxWidth.value
+    val columns = level.columns(smallestWidth, gridWidth)
+    val spacing = Arrangement.spacedBy(GalleryFeel.GRID_SPACING)
+    pinch.target?.let { target ->
+        // The next level, laid out with the anchor's row at the same top. It draws only what the current grid cannot.
+        val incomingGrid = remember(target) { LazyGridState().apply { requestScrollToItem(pinch.incomingIndex, pinch.incomingOffset) } }
+        SideEffect { pinch.incomingGrid = incomingGrid }
+        LaunchedEffect(incomingGrid) {
+            pinch.measured(snapshotFlow { incomingGrid.layoutInfo.visibleItemsInfo }.first { it.isNotEmpty() })
+        }
+        CompositionLocalProvider(LocalPhotoTransition provides null) {
+            LazyVerticalGrid(GridCells.Fixed(target.columns(smallestWidth, gridWidth)), state = incomingGrid, userScrollEnabled = false,
+                modifier = Modifier.fillMaxSize().clearAndSetSemantics {}, horizontalArrangement = spacing, verticalArrangement = spacing,
+                contentPadding = PaddingValues(bottom = bottomSpace)) { photoItems(target, incoming = true) }
+        }
+    }
+    LazyVerticalGrid(columns = GridCells.Fixed(columns), state = grid, modifier = Modifier.fillMaxSize()
+        .graphicsLayer {
+            val rubber = pinch.rubber
+            if (rubber != 1f && size.width > 0f && size.height > 0f) {
+                scaleX = rubber; scaleY = rubber
+                transformOrigin = TransformOrigin(pinch.pivot.x / size.width, pinch.pivot.y / size.height)
+            }
+        }
+        .galleryGestures(grid, mediaIds, selection, pinch, actions::selectItems).testTag("gallery-grid"),
+        horizontalArrangement = spacing, verticalArrangement = spacing, contentPadding = PaddingValues(bottom = bottomSpace)) {
+        photoItems(level, incoming = false)
     }
     val offsets = remember(sections, showPermissionPrompt, dayHeaders, date, leadingItems, flat) {
         galleryMonthOffsets(sections, showPermissionPrompt, dayHeaders, date, leadingItems, showDateHeaders = !flat)
@@ -739,7 +824,7 @@ private fun PhotoGrid(
             }
         }
     }
-    GalleryFastScroll(grid, scrollLabels, fullSpans, density, Modifier.align(Alignment.CenterEnd).fillMaxHeight(), bottomSpace)
+    GalleryFastScroll(grid, scrollLabels, fullSpans, columns, Modifier.align(Alignment.CenterEnd).fillMaxHeight(), bottomSpace)
     }
 }
 

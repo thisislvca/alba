@@ -42,7 +42,7 @@ import java.time.ZoneOffset
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun GalleryFilterSheet(state: GalleryState, change: (GalleryQuery) -> Unit, requestPhotos: () -> Unit,
-    refresh: () -> Unit, density: Int, changeDensity: (Int) -> Unit, dismiss: () -> Unit) {
+    refresh: () -> Unit, level: GridLevel, changeLevel: (GridLevel) -> Unit, dismiss: () -> Unit) {
     var dates by rememberSaveable { mutableStateOf(false) }
     AlbaBottomSheet(onDismissRequest = dismiss, maxHeightFraction = .82f) {
         Column(Modifier.fillMaxWidth().padding(horizontal = AlbaSpacing.xl).testTag("gallery-filter-sheet")) {
@@ -50,11 +50,13 @@ internal fun GalleryFilterSheet(state: GalleryState, change: (GalleryQuery) -> U
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("filter-options")) {
                 FilterSectionLabel(stringResource(R.string.photo_size))
                 Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
-                    listOf(80 to R.string.small, 100 to R.string.medium, 160 to R.string.large).forEachIndexed { index, (size, label) ->
-                        val selected = density == size
+                    // One photo per row is reached by pinching, as in Google Photos.
+                    val sizes = listOf(GridLevel.COMPACT to R.string.small, GridLevel.DAY to R.string.medium, GridLevel.COZY to R.string.large)
+                    sizes.forEachIndexed { index, (size, label) ->
+                        val selected = level == size
                         Surface(Modifier.weight(1f), color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .09f) else Color.Transparent,
                             shape = MaterialTheme.shapes.small) {
-                            Column(Modifier.clip(MaterialTheme.shapes.small).selectable(selected, role = Role.RadioButton, onClick = { changeDensity(size) })
+                            Column(Modifier.clip(MaterialTheme.shapes.small).selectable(selected, role = Role.RadioButton, onClick = { changeLevel(size) })
                                 .padding(horizontal = AlbaSpacing.xs, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
