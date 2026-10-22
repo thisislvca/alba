@@ -54,8 +54,8 @@ internal fun Modifier.galleryGestures(grid: LazyGridState, mediaIds: List<String
         selectNow(restored.intersect(baseline), true)
         selectNow(restored - baseline, false)
         // A long press only ever adds: starting on a selected photo keeps it, like Google Photos.
+        // Google Photos ticks only when selection starts, never per photo swept.
         selectNow(range, true)
-        if (previous.isNotEmpty()) haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
         previous = range
     }
     val dragging = anchor != null
