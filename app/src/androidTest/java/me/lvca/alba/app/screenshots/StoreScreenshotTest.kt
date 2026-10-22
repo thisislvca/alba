@@ -20,6 +20,7 @@ import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.Screenshots
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.testing.waitForGalleryMedia
@@ -148,10 +149,10 @@ class StoreScreenshotTest {
         capture("07-profile")
         compose.onNodeWithTag("profile-phone").performScrollTo().performClick()
         capture("08-phone-settings")
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.onNodeWithTag("profile-about").performScrollTo().performClick()
         capture("09-about")
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.onNodeWithTag("profile-backup").performScrollTo().performClick()
         compose.onNodeWithText("Set up automatic backup").assertIsDisplayed()
         compose.onNodeWithText("Cloud storage").assertIsDisplayed()

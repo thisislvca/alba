@@ -5,7 +5,6 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
-import java.io.File
 
 /**
  * Saves a screenshot and the semantics tree when a test fails, so CI-only failures can be diagnosed.
@@ -13,11 +12,11 @@ import java.io.File
  */
 class FailureCapture(private val compose: () -> ComposeTestRule) : TestWatcher() {
     override fun failed(e: Throwable, description: Description) {
-        val directory = Screenshots.testOutput("failures")
         val name = "failure-${description.testClass.simpleName}-${description.methodName}"
-        runCatching { Screenshots.capture(name, directory) }
+        runCatching { Screenshots.capture(name) }
         runCatching {
-            File(directory, "$name-semantics.txt").writeText(compose().onRoot(useUnmergedTree = true).printToString())
+            val semantics = compose().onRoot(useUnmergedTree = true).printToString()
+            Screenshots.testOutput("$name-semantics.txt").use { it.write(semantics.toByteArray()) }
         }
     }
 }

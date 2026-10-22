@@ -54,7 +54,8 @@ jobs:
     name: Android ${{ matrix.api }} device tests
     if: github.repository != 'thisislvca/mela-archive'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # The test orchestrator starts a fresh instrumentation for each test, which adds a few minutes per API level.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -110,6 +111,11 @@ jobs:
           -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
           -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1
           --max-workers=2 --no-parallel --no-daemon --console=plain
+      - name: Summarize device tests
+        if: always()
+        run: >-
+          find . -path '*/build/outputs/androidTest-results/managedDevice/*' -name 'TEST-*.xml' -print0
+          | xargs -0 node scripts/device_test_summary.mjs "Android ${{ matrix.api }} device tests" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload device test reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -118,7 +124,7 @@ jobs:
           path: |
             **/build/reports/androidTests/
             **/build/outputs/androidTest-results/
-            **/build/outputs/managed_device_android_test_additional_output/
+            **/build/intermediates/managed_device_android_test_additional_output/
           retention-days: 7
 
   checks:

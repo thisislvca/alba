@@ -3,7 +3,10 @@ package me.lvca.alba.buildlogic
 import com.android.build.api.dsl.CommonExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
+import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.dependencies
+import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
@@ -26,10 +29,15 @@ internal fun Project.configureAndroidCommon(android: CommonExtension) {
     }
 }
 
-/** Gradle-managed Pixel 2 emulators named `pixel2Api<api>`, using AOSP images for the host architecture. */
-internal fun CommonExtension.configureManagedDevices() {
+/**
+ * Device tests: Gradle-managed Pixel 2 emulators named `pixel2Api<api>`, using AOSP images for the host architecture,
+ * run through the test orchestrator. The orchestrator gives every test its own instrumentation process and clears
+ * the app's data first, so a crash, a stuck screen or leftover state fails one test rather than the rest of the run.
+ */
+internal fun Project.configureDeviceTests(android: CommonExtension) {
+    val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
     val abi = if (System.getProperty("os.arch") in setOf("aarch64", "arm64")) "arm64-v8a" else "x86_64"
-    testOptions.managedDevices.localDevices.apply {
+    android.testOptions.managedDevices.localDevices.apply {
         for (api in MANAGED_DEVICE_API_LEVELS) {
             create("pixel2Api$api") {
                 device = "Pixel 2"
@@ -38,5 +46,13 @@ internal fun CommonExtension.configureManagedDevices() {
                 systemImageSource = "aosp"
             }
         }
+    }
+    android.testOptions.execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    android.defaultConfig.testInstrumentationRunnerArguments["clearPackageData"] = "true"
+    // Files tests write through androidx.test's TestStorage are copied into the build's additional test output.
+    android.defaultConfig.testInstrumentationRunnerArguments["useTestStorageService"] = "true"
+    dependencies {
+        add("androidTestUtil", libs.findLibrary("androidx-test-orchestrator").get())
+        add("androidTestUtil", libs.findLibrary("androidx-test-services").get())
     }
 }

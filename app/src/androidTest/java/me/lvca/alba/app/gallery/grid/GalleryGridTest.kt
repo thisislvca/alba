@@ -10,6 +10,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilDisplayed
@@ -59,7 +60,7 @@ class GalleryGridTest {
         compose.scrollToGalleryMedia("fixture:icloud:0019")
         compose.onNodeWithTag(media).performTouchInput { longClick() }
         compose.onNodeWithTag(media).assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.onNodeWithTag(media).assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, false))
         compose.onNodeWithTag(media).performClick()
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isNotEmpty() }

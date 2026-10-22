@@ -49,7 +49,7 @@ class LocalizationTest {
             label(text)?.let { return it }
             SystemClock.sleep(50)
         } while (SystemClock.uptimeMillis() < end)
-        Screenshots.capture("failure-LocalizationTest", Screenshots.testOutput("failures"))
+        Screenshots.capture("failure-LocalizationTest")
         val labels = mutableListOf<String>()
         find(instrumentation.uiAutomation.rootInActiveWindow) {
             it.text?.let { value -> labels.add(value.toString()) }

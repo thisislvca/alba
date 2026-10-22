@@ -12,8 +12,10 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.hideKeyboard
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilDisplayed
@@ -46,7 +48,7 @@ class GalleryNavigationTest {
         compose.scrollToGalleryMedia("fixture:icloud:0001")
         compose.onNodeWithTag("tab-SEARCH").performClick()
         compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
-        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.hideKeyboard()
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithText("Favorites").assertIsDisplayed()
         compose.onNodeWithTag("tab-LIBRARY").performClick()
@@ -63,7 +65,7 @@ class GalleryNavigationTest {
         compose.openGalleryMedia("fixture:icloud:0001")
         compose.waitUntilDisplayed(hasTestTag("viewer-more"))
         compose.openViewerDetails()
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.waitUntilDisplayed(hasTestTag("media-fixture:icloud:0001"))
     }

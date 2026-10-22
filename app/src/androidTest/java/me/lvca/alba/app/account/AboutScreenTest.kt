@@ -10,6 +10,7 @@ import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.pressBack
 import org.junit.Rule
 import org.junit.Test
 
@@ -39,7 +40,7 @@ class AboutScreenTest {
         compose.onNodeWithText(label(R.string.about_missing_support)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("about-notices").performScrollTo().performClick()
         compose.onNodeWithText("The MIT License", substring = true).performScrollTo().assertExists()
-        androidx.test.espresso.Espresso.pressBack()
+        compose.pressBack()
         compose.onNodeWithTag("about-screen").assertDoesNotExist()
         compose.onNodeWithTag("profile-about").performScrollTo().assertIsDisplayed()
     }

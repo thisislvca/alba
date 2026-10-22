@@ -12,7 +12,9 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.hideKeyboard
 import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForVideoPlaying
 import me.lvca.alba.engine.model.*
@@ -81,7 +83,7 @@ class SharedAlbumsFlowTest {
             compose.onNodeWithTag("create-shared-album").performClick()
             val name = "Android ${generation.name} test"
             compose.onNodeWithTag("shared-album-name").performTextInput(name)
-            androidx.test.espresso.Espresso.closeSoftKeyboard()
+            compose.hideKeyboard()
             compose.onNodeWithTag("shared-generation-$generation").performScrollTo().performClick()
             compose.onNodeWithText(label(R.string.save)).performClick()
             compose.waitUntil(UI_WAIT) { compose.onAllNodesWithContentDescription(label(R.string.shared_add_photos)).fetchSemanticsNodes().isNotEmpty() }
@@ -106,7 +108,7 @@ class SharedAlbumsFlowTest {
             compose.openViewerDetails()
             compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
             compose.onNodeWithText(label(R.string.shared_copy_notice), useUnmergedTree = true).performScrollTo().assertIsDisplayed()
-            androidx.test.espresso.Espresso.pressBack()
+            compose.pressBack()
             compose.onNodeWithContentDescription(label(R.string.back_to_gallery)).performClick()
             compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithTag("shared-version-badge").fetchSemanticsNodes().size == 1 }
             compose.onNodeWithTag("shared-version-badge").performClick()
