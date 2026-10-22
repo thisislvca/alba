@@ -263,6 +263,8 @@
     <string name="newest_first">Più recenti prima</string>
     <string name="no_internet_connection">Nessuna connessione a Internet</string>
     <string name="no_photos_in_this_view">Nessuna foto in questa vista</string>
+    <string name="empty_connect_title">Collega iCloud per vedere le tue foto</string>
+    <string name="empty_connect_body">Sfoglia la libreria di Foto di iCloud su questo telefono, oppure prova prima Alba con foto di esempio.</string>
     <string name="no_transfers_yet">Nessun trasferimento</string>
     <string name="not_now">Non ora</string>
     <string name="off_you_can_still_upload_one_photo_at_a_time_from_the_system_photo_picker">Disattivato. Puoi comunque caricare una foto alla volta dal selettore foto di sistema.</string>
@@ -306,6 +308,9 @@
     <string name="save">Salva</string>
     <string name="save_photo_and_video_to_gallery">Salva foto e video nella galleria</string>
     <string name="save_to_phone_gallery">Salva nella galleria del telefono</string>
+    <string name="selection_save_short">Salva</string>
+    <string name="selection_offline_short">Offline</string>
+    <string name="selection_upload_short">Carica</string>
     <string name="screenshots">Screenshot</string>
     <string name="search">Cerca</string>
     <string name="search_by_filename_or_narrow_your_library_by_date_and_media_type">Cerca per nome del file oppure filtra la libreria per data e tipo di file multimediale.</string>
@@ -464,6 +469,7 @@
     <string name="photo_file_missing">Questa foto potrebbe essere stata spostata o eliminata. Aggiorna la libreria per controllare.</string>
     <string name="photo_decode_failed">Impossibile mostrare questo file. Potrebbe essere danneggiato o in un formato non supportato.</string>
     <string name="photo_preview_unavailable">Anteprima non disponibile. Connettiti e aggiorna per riprovare.</string>
+    <string name="photo_preview_storage_low">Spazio insufficiente su questo telefono. Libera spazio per caricare le anteprime.</string>
     <string name="incoming_unsupported">Alba può aprire fino a 50 foto o video condivisi. Riaprili dall’app di origine se l’accesso è scaduto.</string>
     <string name="incoming_position">%1$d di %2$d</string>
     <string name="incoming_upload_explanation">La visualizzazione non carica nulla. Puoi caricare JPEG, PNG, HEIC, WebP statici e video MP4 o MOV H.264/HEVC con audio AAC. I file vengono controllati prima del caricamento.</string>

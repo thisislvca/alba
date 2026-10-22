@@ -4,7 +4,6 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
@@ -12,7 +11,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
@@ -42,12 +42,13 @@ internal fun Modifier.scrollingGalleryHeader(state: TopAppBarState, enabled: Boo
         }
     }
 
-/** Photos can pass under the system icons; a translucent surface keeps their contrast stable. */
+/**
+ * Photos pass under the system icons once the header scrolls away. An opaque bar in the header's [color] keeps the
+ * icons readable over any photo, in both themes, and joins the header seamlessly when it returns.
+ */
 @Composable
-internal fun GalleryStatusBarScrim(modifier: Modifier = Modifier) {
-    val surface = MaterialTheme.colorScheme.surface
-    Box(modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
-        .background(Brush.verticalGradient(listOf(surface.copy(alpha = .92f), surface.copy(alpha = .78f))))
+internal fun GalleryStatusBarScrim(color: () -> Color, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).drawBehind { drawRect(color()) }
         .testTag("gallery-status-scrim"))
 }
 

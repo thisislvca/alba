@@ -42,6 +42,8 @@ internal fun testAlbaActions(
     pickUpload: () -> Unit = {},
     continuePastUnresolved: (TransferId) -> Unit = {},
     moveVerifiedPhotoToTrash: (String) -> Unit = {},
+    openAccount: () -> Unit = {},
+    startDemo: () -> Unit = {},
 ): AlbaActions {
     // Renamed so the overrides below cannot resolve to themselves.
     val onSharedActivity = sharedActivity; val onSharedPostDiscussion = sharedPostDiscussion; val onSharedPostPhotos = sharedPostPhotos
@@ -49,7 +51,7 @@ internal fun testAlbaActions(
     val onSharedManagement = sharedManagement; val onSharedDiscussion = sharedDiscussion; val onChangeSharedAlbum = changeSharedAlbum
     val onClearLocalMedia = clearLocalMedia; val onCheckConnection = checkConnection; val onSubmitTwoFactor = submitTwoFactor
     val onRequestDevicePhotos = requestDevicePhotos; val onPickUpload = pickUpload; val onContinue = continuePastUnresolved
-    val onMoveVerifiedPhotoToTrash = moveVerifiedPhotoToTrash
+    val onMoveVerifiedPhotoToTrash = moveVerifiedPhotoToTrash; val onOpenAccount = openAccount; val onStartDemo = startDemo
     return object : AlbaActions {
         override suspend fun sharedActivity(albumId: String, rank: Int) = onSharedActivity(albumId, rank)
         override suspend fun sharedPostDiscussion(postId: String) = onSharedPostDiscussion(postId)
@@ -79,7 +81,8 @@ internal fun testAlbaActions(
         override fun requestPreview(mediaId: String) = Unit
         override fun prefetchPreviews(mediaIds: List<String>) = Unit
         override fun refresh() = Unit
-        override fun openAccount() = Unit
+        override fun openAccount() = onOpenAccount()
+        override fun startDemo() = onStartDemo()
         override fun setFavorite(mediaId: String, favorite: Boolean) = Unit
         override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = Unit
         override fun createAlbum(name: String) = Unit

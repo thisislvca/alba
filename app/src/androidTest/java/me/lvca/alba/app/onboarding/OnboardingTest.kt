@@ -47,9 +47,14 @@ class OnboardingTest {
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("Sign in to iCloud").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("welcome").assertDoesNotExist()
-        compose.pressBack()
-        compose.onNodeWithText("Demo", substring = true).assertDoesNotExist()
         compose.waitUntil(LONG_WAIT) { kotlinx.coroutines.runBlocking { graph.galleryRepository.observeGallery().first().none { it.id.startsWith("fixture:") } } }
+        // Backing out of sign-in returns to the introduction's choices, not to an empty, unconnected library.
+        compose.pressBack()
+        compose.onNodeWithTag("welcome").assertIsDisplayed()
+        compose.onNodeWithText("Connect iCloud").assertIsDisplayed()
+        compose.onNodeWithText("Try the demo").performClick()
+        compose.waitUntil(UI_WAIT) { graph.accountManager.state.value == me.lvca.alba.protocol.account.ICloudAccountState.Demo }
+        compose.onNodeWithTag("account-button").assertIsDisplayed()
     }
 
     @Test fun demoFromFirstPagePersistsAcrossANewActivity() {

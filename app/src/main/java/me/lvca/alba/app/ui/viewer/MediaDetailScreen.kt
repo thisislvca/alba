@@ -298,7 +298,7 @@ internal fun MediaDetailScreen(
                                 Column {
                                     if (!media.isShared) {
                                     DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,
-                                        { actions.setFavorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = AlbaTheme.colors.accent) })
+                                        { actions.setFavorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = if (media.isFavorite) AlbaTheme.colors.favorite else AlbaTheme.colors.accent) })
                                     DetailAction(stringResource(R.string.add_to_album), canEdit && !media.isTrashed, { choosingAlbum = true }, { ICloudIcon(R.drawable.icloud_albums) })
                                     collections.firstOrNull { it.id == currentAlbumId && it.isUserAlbum }?.let { album ->
                                         if (!media.isTrashed) DetailAction(stringResource(R.string.remove_from_album), canEdit,
@@ -400,7 +400,7 @@ private fun ViewerTopBar(
             if (!media.isShared && !media.isTrashed) IconButton(onClick = onFavorite, enabled = favoriteEnabled,
                 modifier = Modifier.size(48.dp).testTag("viewer-favorite")) {
                 FavoriteIcon(media.isFavorite, stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite),
-                    tint = if (media.isFavorite) MaterialTheme.colorScheme.primary else ink)
+                    tint = if (media.isFavorite) AlbaTheme.colors.favorite else ink)
             }
             Box {
                 IconButton(onClick = onMore, modifier = Modifier.size(48.dp).testTag("viewer-more")) {

@@ -1,6 +1,9 @@
 package me.lvca.alba.app.gallery
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
@@ -19,7 +22,13 @@ internal class PreviewQueue(
 ) {
     private val previewJobs = linkedMapOf<String, Job>()
     private val runningPreviews = mutableSetOf<String>()
-    var storageBlocked = false
+    private val blocked = MutableStateFlow(false)
+
+    /** Whether a preview write failed for lack of space; tiles explain that instead of a network failure. */
+    val storageBlockedState: StateFlow<Boolean> = blocked.asStateFlow()
+    var storageBlocked: Boolean
+        get() = blocked.value
+        set(value) { blocked.value = value }
     private val previewPermits = Semaphore(4)
 
     fun cancel(): List<Job> = previewJobs.values.toList().also { jobs ->

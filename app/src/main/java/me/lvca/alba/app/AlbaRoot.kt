@@ -20,6 +20,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -61,7 +62,9 @@ import me.lvca.alba.app.ui.AlbaApp
 import me.lvca.alba.app.ui.InvitationActions
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
+import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
+import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
 import me.lvca.alba.app.ui.onboarding.WelcomeScreen
 import me.lvca.alba.app.ui.shared.SharedInvitations
 import me.lvca.alba.engine.companion.BatchAction
@@ -131,15 +134,28 @@ internal fun AlbaRoot(
     onIncomingChange: (IncomingSession) -> Unit,
 ) {
     var showWelcome by rememberSaveable { mutableStateOf(!onboarding.completed) }
-    if (showWelcome && incoming.request == null) {
-        AlbaTheme(darkTheme = isSystemInDarkTheme()) {
+    // Sign-in opened from the introduction: leaving it without an account returns there, not to an empty library.
+    var connectingFromWelcome by rememberSaveable { mutableStateOf(false) }
+    // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
+    AlbaTheme(darkTheme = isSystemInDarkTheme()) {
+        if (showWelcome && incoming.request == null) {
             WelcomeScreen(
-                onConnect = { onboarding.complete(); viewModel.account.connectAccount(); showWelcome = false },
+                // Returning from sign-in lands on the page that offers it, next to the demo.
+                initialPage = if (onboarding.completed) WELCOME_CHOICES_PAGE else 0,
+                onConnect = {
+                    onboarding.complete(); viewModel.account.connectAccount()
+                    connectingFromWelcome = true; showWelcome = false
+                },
                 onDemo = { onboarding.complete(); viewModel.account.startDemo(); showWelcome = false },
             )
+        } else {
+            AlbaMain(viewModel, incoming, onIncomingChange, onAccountClosed = {
+                if (connectingFromWelcome) {
+                    connectingFromWelcome = false
+                    if (viewModel.account.state.value.accountState !is ICloudAccountState.SignedIn) showWelcome = true
+                }
+            })
         }
-    } else {
-        AlbaMain(viewModel, incoming, onIncomingChange)
     }
 }
 
@@ -149,6 +165,7 @@ private fun AlbaMain(
     viewModel: AlbaViewModel,
     incoming: IncomingSession,
     onIncomingChange: (IncomingSession) -> Unit,
+    onAccountClosed: () -> Unit,
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
@@ -159,6 +176,7 @@ private fun AlbaMain(
     val phoneStorage by viewModel.phoneStorage.state.collectAsStateWithLifecycle()
     val mediaWork by viewModel.mediaWork.collectAsStateWithLifecycle()
     val previewRetryVersion by viewModel.previews.retryVersion.collectAsStateWithLifecycle()
+    val previewStorageLow by viewModel.previews.storageLow.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnosticsConsent.collectAsStateWithLifecycle()
     val currentIncoming by rememberUpdatedState(incoming)
@@ -262,7 +280,8 @@ private fun AlbaMain(
             override fun confirm(next: RootDialog) { dialog = next }
         }
     }
-    val actions = remember(viewModel, platform) { AlbaRootActions(viewModel, platform) }
+    val accountClosed by rememberUpdatedState(onAccountClosed)
+    val actions = remember(viewModel, platform) { AlbaRootActions(viewModel, platform, onAccountClosed = { accountClosed() }) }
 
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -301,9 +320,7 @@ private fun AlbaMain(
             })
     }
     (incoming.request as? IncomingRequest.Invitation)?.takeUnless { incomingSuspended }?.let { request ->
-        AlbaTheme(darkTheme = isSystemInDarkTheme()) {
-            IncomingInvitation(request.link, session.accountState, actions, ::closeIncoming, ::connectForIncoming)
-        }
+        IncomingInvitation(request.link, session.accountState, actions, ::closeIncoming, ::connectForIncoming)
     }
 
     editingId?.let { id -> gallery.catalogItems.firstOrNull { it.id == id }?.let { media ->
@@ -337,7 +354,7 @@ private fun AlbaMain(
             }
         }
     }
-    AlbaTheme(darkTheme = darkTheme) {
+    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow) {
         AlbaApp(
             gallery = gallery,
             session = session,
@@ -350,26 +367,26 @@ private fun AlbaMain(
             actions = actions,
             onViewerLightBars = { viewerLightBars = it },
         )
-        when (val current = dialog) {
-            is RootDialog.ConfirmCloudTrash -> ConfirmRemoval(
-                title = if (current.trashed) R.string.trash_in_icloud else R.string.restore_from_icloud,
-                body = if (current.trashed) R.plurals.cloud_trash_confirmation else R.plurals.cloud_restore_confirmation,
-                count = current.mediaIds.size,
-                dismiss = { dialog = null },
-                confirm = { viewModel.edits.setCloudTrashed(current.mediaIds, current.trashed); dialog = null },
-            )
-            is RootDialog.ConfirmRemoveFromAlbum -> ConfirmRemoval(
-                title = R.string.remove_from_album,
-                body = R.plurals.remove_album_confirmation,
-                count = current.mediaIds.size,
-                dismiss = { dialog = null },
-                confirm = { viewModel.edits.removeFromAlbum(current.albumId, current.mediaIds); dialog = null },
-            )
-            RootDialog.DemoUpload, null -> Unit
-        }
-        transfers.backupSetup?.takeUnless { it.awaitingPermissions }?.let { setup ->
-            BackupDisclosure(setup, accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
-        }
+    }
+    when (val current = dialog) {
+        is RootDialog.ConfirmCloudTrash -> ConfirmRemoval(
+            title = if (current.trashed) R.string.trash_in_icloud else R.string.restore_from_icloud,
+            body = if (current.trashed) R.plurals.cloud_trash_confirmation else R.plurals.cloud_restore_confirmation,
+            count = current.mediaIds.size,
+            dismiss = { dialog = null },
+            confirm = { viewModel.edits.setCloudTrashed(current.mediaIds, current.trashed); dialog = null },
+        )
+        is RootDialog.ConfirmRemoveFromAlbum -> ConfirmRemoval(
+            title = R.string.remove_from_album,
+            body = R.plurals.remove_album_confirmation,
+            count = current.mediaIds.size,
+            dismiss = { dialog = null },
+            confirm = { viewModel.edits.removeFromAlbum(current.albumId, current.mediaIds); dialog = null },
+        )
+        RootDialog.DemoUpload, null -> Unit
+    }
+    transfers.backupSetup?.takeUnless { it.awaitingPermissions }?.let { setup ->
+        BackupDisclosure(setup, accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
     }
 }
 
@@ -450,6 +467,7 @@ internal interface PlatformRequests {
 private class AlbaRootActions(
     private val viewModel: AlbaViewModel,
     private val platform: PlatformRequests,
+    private val onAccountClosed: () -> Unit,
 ) : AlbaActions {
 
     private val gallery get() = viewModel.gallery
@@ -471,6 +489,7 @@ private class AlbaRootActions(
     override fun refresh() = viewModel.sync.refresh()
     override fun requestDevicePhotos() = platform.requestDevicePhotos()
     override fun openAccount() = account.openAccount()
+    override fun startDemo() = account.startDemo()
 
     override fun setFavorite(mediaId: String, favorite: Boolean) = edits.setFavorite(mediaId, favorite)
     override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = edits.setFavorites(mediaIds, favorite)
@@ -509,7 +528,7 @@ private class AlbaRootActions(
     override fun cancelOfflineDownload() = transfers.cancelOfflineDownload()
     override fun moveVerifiedPhotoToTrash(mediaId: String) = transfers.requestVerifiedTrash(mediaId)
 
-    override fun closeAccount() = account.closeAccount()
+    override fun closeAccount() { account.closeAccount(); onAccountClosed() }
     override fun signIn(appleId: String, password: String) = account.signIn(appleId, password)
     override fun submitTwoFactor(code: String) = account.submitTwoFactor(code)
     override fun resendTwoFactor() = account.resendTwoFactor()

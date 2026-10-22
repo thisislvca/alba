@@ -233,6 +233,13 @@ internal fun GalleryHome(
         else -> stringResource(R.string.connect_to_icloud)
     }
     val canUpload = signedIn?.status == SessionStatus.VERIFIED || session.accountState == ICloudAccountState.Demo
+    // Clearing filters keeps the place being browsed: an open collection, offline copies or a trash.
+    val unfiltered = if (inCollection) GalleryQuery(origin = query.origin.takeIf { query.trashOnly }, collectionId = query.collectionId,
+        offlineOnly = query.offlineOnly, trashOnly = query.trashOnly, sort = query.sort, date = query.date)
+        else GalleryQuery(sort = query.sort, date = query.date)
+    // Without an account or photos there is nothing to filter: offer connecting iCloud and the demo instead.
+    val connectPrompt = session.accountState == ICloudAccountState.SignedOut && tab == GalleryTab.LIBRARY &&
+        query == unfiltered && gallery.items.isEmpty() && !session.isRefreshing
     val hero = inCollection && collection != null && !collection.isFolder && !collection.id.startsWith("smart:") && !collection.id.startsWith("device-folder:")
     val visibleDensity = if (hero) albumDensity else density
     val changeDensity: (Int) -> Unit = { if (hero) albumDensity = it else density = it }
@@ -290,7 +297,8 @@ internal fun GalleryHome(
             if (!collapseHeader) { headerState.heightOffset = 0f; headerState.contentOffset = 0f }
         }
         var floatingBarHeight by remember { mutableStateOf(80.dp) }
-        val bottomSpace = if (wide) 24.dp else floatingBarHeight + 28.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        // The floating bar sits up to 16dp above the navigation bar; keep the grid's last row a clear 24dp above it.
+        val bottomSpace = if (wide) 24.dp else floatingBarHeight + 40.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         LaunchedEffect(bottomSpace) { onBottomSpaceChanged(bottomSpace) }
         Row(Modifier.fillMaxSize()) {
             if (wide) NavigationRail(Modifier.statusBarsPadding().testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
@@ -344,12 +352,12 @@ internal fun GalleryHome(
                             } else if (!(tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null))) {
                                 if (phonePhotos && gallery.selection.isEmpty()) IconButton(onClick = { sheet = GallerySheet.Filters },
                                     modifier = Modifier.testTag("gallery-menu-button")) {
-                                    Icon(Icons.Outlined.MoreVert, stringResource(R.string.filter_and_sort))
+                                    Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort))
                                 }
                                 IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
                                 IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
                                     BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
-                                        Icon(Icons.Outlined.Notifications, stringResource(R.string.uploads_and_activity))
+                                        Icon(AlbaIcons.SwapVert, stringResource(R.string.uploads_and_activity))
                                     }
                                 }
                                 IconButton(onClick = actions::openAccount, modifier = Modifier.testTag("account-button").semantics { contentDescription = contextAccountLabel }) {
@@ -358,7 +366,7 @@ internal fun GalleryHome(
                                 }
                             }
                         }
-                        if (!hero && session.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
+                        if (!hero && !connectPrompt && session.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = actions::openAccount))
                         }
@@ -411,6 +419,8 @@ internal fun GalleryHome(
                             sections = sections,
                             selection = gallery.selection,
                             query = query,
+                            unfiltered = unfiltered,
+                            connectPrompt = connectPrompt,
                             isRefreshing = session.isRefreshing,
                             counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount),
                             previewRetryVersion = previewRetryVersion,
@@ -447,7 +457,7 @@ internal fun GalleryHome(
                 }
             }
         }
-        if (phonePhotos) GalleryStatusBarScrim(Modifier.align(Alignment.TopCenter).zIndex(2f))
+        if (phonePhotos) GalleryStatusBarScrim({ headerColor.value }, Modifier.align(Alignment.TopCenter).zIndex(2f))
     }
     val currentGrid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid }
     if (sheet == GallerySheet.JumpToDate) {
@@ -554,6 +564,8 @@ private fun PhotoGrid(
     sections: List<GallerySection>,
     selection: Set<String>,
     query: GalleryQuery,
+    unfiltered: GalleryQuery,
+    connectPrompt: Boolean,
     isRefreshing: Boolean,
     counts: PhotoCounts,
     previewRetryVersion: Int,
@@ -640,7 +652,11 @@ private fun PhotoGrid(
                 if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
                 else if (query.collectionId?.startsWith("shared:") == true) Text(stringResource(R.string.shared_album_empty))
                 else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
-                else { EmptyLibrary(); TextButton(onClick = { actions.changeQuery(GalleryQuery()) }) { Text(stringResource(R.string.clear_filters)) } }
+                else if (connectPrompt) ConnectLibrary(connect = actions::openAccount, demo = actions::startDemo)
+                else {
+                    EmptyLibrary()
+                    if (query != unfiltered) TextButton(onClick = { actions.changeQuery(unfiltered) }) { Text(stringResource(R.string.clear_filters)) }
+                }
             }
         }
         groupedSections.forEach { (section, groups) ->
@@ -673,6 +689,7 @@ private fun PhotoGrid(
                     MediaTile(
                         retryVersion = previewRetryVersion,
                         selected = id in selection,
+                        selecting = selecting,
                         media = media,
                         onClick = { openOrToggle(id) },
                         onVisible = { actions.requestPreview(id) },
@@ -688,7 +705,7 @@ private fun PhotoGrid(
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }
             }
         }
-        item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
+        if (items.isNotEmpty()) item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
                 if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
