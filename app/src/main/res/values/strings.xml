@@ -20,7 +20,6 @@
     <string name="automatic_backup_requires_android_11_or_later_use_the_photo_picker_for_manual_uploads">Automatic backup requires Android 11 or later. Use the photo picker for manual uploads.</string>
     <string name="automatic_jpeg_backup">Automatic JPEG backup</string>
     <string name="available_offline">Available offline</string>
-    <string name="back_to_collections">Back to collections</string>
     <string name="back_to_gallery">Back to gallery</string>
     <string name="back_to_library">Back to library</string>
     <string name="back_up_new_photos">Back up new photos?</string>

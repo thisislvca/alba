@@ -20,7 +20,6 @@
     <string name="automatic_backup_requires_android_11_or_later_use_the_photo_picker_for_manual_uploads">Il backup automatico richiede Android 11 o successivo. Usa il selettore foto per i caricamenti manuali.</string>
     <string name="automatic_jpeg_backup">Backup automatico JPEG</string>
     <string name="available_offline">Disponibile offline</string>
-    <string name="back_to_collections">Torna alle raccolte</string>
     <string name="back_to_gallery">Torna alla galleria</string>
     <string name="back_to_library">Torna alla libreria</string>
     <string name="back_up_new_photos">Eseguire il backup delle nuove foto?</string>

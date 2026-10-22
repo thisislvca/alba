@@ -81,9 +81,9 @@ class GalleryAppearanceTest {
         compose.onNodeWithTag("gallery-grid").performScrollToKey(sharedVideo)
         val video = runBlocking { repository.observeGallery().first().first { it.id == sharedVideo } }
         compose.onNodeWithTag("media-$sharedVideo").assertTextContains(requireNotNull(mediaDuration(video.durationMillis)))
-        compose.onNodeWithContentDescription(context.getString(R.string.back_to_collections)).performClick()
+        compose.onNodeWithContentDescription(context.getString(R.string.back_action)).performClick()
         compose.onNodeWithText("Family moments").assertIsDisplayed()
-        compose.onNodeWithContentDescription(context.getString(R.string.back_to_collections)).performClick()
+        compose.onNodeWithContentDescription(context.getString(R.string.back_action)).performClick()
         compose.onNodeWithTag("collection-albums").performClick()
         compose.onNodeWithText("Journeys").performClick()
         compose.onNodeWithText("By the sea").performClick()
