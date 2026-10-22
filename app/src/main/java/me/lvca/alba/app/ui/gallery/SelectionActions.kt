@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package me.lvca.alba.app.ui.gallery
 
 import android.os.Build
@@ -122,7 +124,8 @@ internal fun SelectionTopBar(count: Int, minHeight: Dp, reducedMotion: Boolean, 
     val slide = if (reducedMotion) snap<IntOffset>() else tween(GalleryFeel.CONTEXT_BAR_SLIDE_MILLIS)
     AnimatedVisibility(count > 0, modifier, enter = slideInVertically(slide) { -it }, exit = slideOutVertically(slide) { -it }) {
         Surface(Modifier.fillMaxWidth().heightIn(min = minHeight).testTag("selection-top-bar"), color = MaterialTheme.colorScheme.galleryOverlay) {
-            Row(Modifier.statusBarsPadding().padding(start = 4.dp, end = 8.dp).heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).padding(start = 4.dp, end = 8.dp)
+                .heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = clear) { Icon(Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }
                 Text(pluralStringResource(R.plurals.selected_count, shown, shown), style = MaterialTheme.typography.titleLarge,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 4.dp))

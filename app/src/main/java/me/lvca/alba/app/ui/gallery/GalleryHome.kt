@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package me.lvca.alba.app.ui.gallery
 
 import androidx.compose.animation.AnimatedVisibility
@@ -328,7 +330,7 @@ internal fun GalleryHome(
         val bottomSpace = if (wide) 24.dp else floatingBarHeight + 40.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         LaunchedEffect(bottomSpace) { onBottomSpaceChanged(bottomSpace) }
         Row(Modifier.fillMaxSize()) {
-            if (wide) NavigationRail(Modifier.statusBarsPadding().testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
+            if (wide) NavigationRail(Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
                 Spacer(Modifier.height(24.dp))
                 GalleryTab.entries.forEach { destination -> NavigationRailItem(selected = tab == destination,
                     onClick = { navigate(destination) }, icon = { Icon(destination.icon(), null, Modifier.size(24.dp)) }, label = { Text(stringResource(destination.title)) },
@@ -338,7 +340,9 @@ internal fun GalleryHome(
                 containerColor = if (phonePhotos) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
                 topBar = {
                     Column(Modifier.scrollingGalleryHeader(headerState, collapseHeader)
-                        .onSizeChanged { headerHeight = with(uiDensity) { it.height.toDp() } }.statusBarsPadding()
+                        .onSizeChanged { headerHeight = with(uiDensity) { it.height.toDp() } }
+                        // Ignore visibility: the viewer hides the bars, and the header must not jump as they return.
+                        .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
                         .drawBehind { drawRect(headerColor.value) }.testTag("gallery-header")
                         .then(if (collapseHeader && headerHidden) Modifier.clearAndSetSemantics {} else Modifier)) {
                         Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp).heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -421,7 +425,7 @@ internal fun GalleryHome(
                         }
                     }
                 }) { padding ->
-                val statusOverlap = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() -
+                val statusOverlap = (WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding() -
                     padding.calculateTopPadding()).coerceAtLeast(0.dp)
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     GalleryScreenHost(screen, parentOf, backEnabled, onBack = {

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package me.lvca.alba.app.ui.gallery
 
 import androidx.compose.animation.Crossfade
@@ -138,7 +140,8 @@ internal class GalleryHeaderScroll(
  */
 @Composable
 internal fun GalleryStatusBarScrim(color: () -> Color, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).drawBehind { drawRect(color().copy(alpha = GalleryFeel.STATUS_SCRIM_ALPHA)) }
+    Box(modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBarsIgnoringVisibility)
+        .drawBehind { drawRect(color().copy(alpha = GalleryFeel.STATUS_SCRIM_ALPHA)) }
         .testTag("gallery-status-scrim"))
 }
 
