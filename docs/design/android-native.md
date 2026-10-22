@@ -13,7 +13,6 @@ A hands-on review on 2026-10-22 found the app mixes the two. It uses Apple's vis
 - iOS Settings-style coloured icon squares
 - uppercase section headers
 - a "Select" text button
-- a floating pill tab bar
 - blue text links
 
 These sit next to unthemed Material dialogs and square checkboxes. The seams are what make the app feel unfinished, and copying Apple's look also makes an unofficial iCloud app look official.
@@ -22,7 +21,7 @@ These sit next to unthemed Material dialogs and square checkboxes. The seams are
 
 | Keep from Apple Photos | Do the Android way |
 |---|---|
-| Three destinations: Library, Collections, Search | Material navigation bar; system back with predictive back everywhere |
+| Three destinations: Library, Collections, Search | A floating navigation pill as in current Google Photos, built on the Material 3 Expressive floating toolbar; system back with predictive back everywhere |
 | Library grouped by day and month | Material top app bar that collapses on scroll; scrim behind the status bar |
 | Collections sections: Pinned, Albums, Shared Albums, Media Types | Material list items and cards, `titleMedium` section headers, "See all" text buttons |
 | Apple's names for the user's data: Recently Deleted, Shared Albums, Live Photos | Material dialogs, bottom sheets and menus, always in Alba's theme |
@@ -49,8 +48,13 @@ These sit next to unthemed Material dialogs and square checkboxes. The seams are
   - Photo tiles are square-cornered in the grid and inset with rounded corners when selected.
   - Sheets and cards use the theme shapes.
 - **Components:** Material 3 1.4 (Compose BOM 2026.09).
-  - **Stable now:** `NavigationBar`, `TopAppBar` / `LargeTopAppBar`, `ModalBottomSheet`, `AlertDialog`, `ListItem`, `SearchBar`, `FilterChip`.
-  - **Expressive components** (`ShortNavigationBar`, `FloatingToolbar`, button groups) are still experimental, so use them only where they clearly help, for example the viewer and editor toolbars.
+  - **Stable now:** `TopAppBar` / `LargeTopAppBar`, `ModalBottomSheet`, `AlertDialog`, `ListItem`, `SearchBar`, `FilterChip`.
+  - **Expressive components** (`HorizontalFloatingToolbar`, button groups) are still experimental. Use the floating toolbar for the main navigation pill (decided 2026-10-22, matching current Google Photos), and for the viewer and editor toolbars.
+  - **The navigation pill:**
+    - holds Library and Collections, with Search as its trailing action
+    - hides on scroll down and returns on scroll up
+    - sits above the gesture area
+    - is covered by bottom content padding, so the last row and the grid footer are never behind it
   - The design-system wrappers (`AlbaCard`, `AlbaListRow`, `AlbaSheetBody`) become thin themed wrappers around these, or are removed.
 - **Icons:** Material Symbols (outlined, filled when active), one tint rule per surface. The favourite heart is white on photos and filled, in the surrounding icon colour, in the viewer and lists.
 - **Motion:** Material motion tokens, shared-element transitions from grid to viewer (kept), and predictive back animations.
@@ -124,7 +128,7 @@ Each step is its own PR. Every PR includes:
 Store screenshots are regenerated at the end.
 
 1. **Foundations:** the blue colour scheme, type, shapes, themed dialogs and sheets, and icon and heart rules. No layout changes.
-2. **Shell:** navigation bar, top app bars, status-bar scrim, selection mode, the upload floating action button and the upload-status entry point.
+2. **Shell:** the floating navigation pill, top app bars, status-bar scrim, selection mode, the upload floating action button and the upload-status entry point.
 3. **Onboarding, sign-in and empty states.**
 4. **Viewer and editor.**
 5. **Collections and album pages.**
@@ -133,5 +137,4 @@ Store screenshots are regenerated at the end.
 
 ## Open questions
 
-- **Navigation:** a standard navigation bar, or the experimental short navigation bar?
 - **Library order:** keep newest at the top (Google Photos, and Alba today), or newest at the bottom (Apple Photos)?
