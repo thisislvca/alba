@@ -109,13 +109,18 @@ import java.time.LocalDate
  * has not loaded yet), which silently resets the scroll to the top. A restored anchor is re-applied once its photo
  * is present; any scroll by the user cancels it.
  */
-internal class GridAnchor(var mediaId: String? = null, var offset: Int = 0, restoring: Boolean = false) {
+internal class GridAnchor(var mediaId: String? = null, var offset: Int = 0, restoring: Boolean = false,
+    /** Grid keys on screen when a photo was opened; the viewer returns into place without scrolling to them. */
+    var visibleWhenOpened: List<String> = emptyList()) {
     var restoring by mutableStateOf(restoring && mediaId != null)
 
     companion object {
         val Saver = listSaver<GridAnchor, Any?>(
-            save = { listOf(it.mediaId, it.offset) },
-            restore = { GridAnchor(it[0] as String?, it[1] as Int, restoring = true) })
+            save = { listOf(it.mediaId, it.offset, ArrayList(it.visibleWhenOpened)) },
+            restore = {
+                @Suppress("UNCHECKED_CAST")
+                GridAnchor(it[0] as String?, it[1] as Int, restoring = true, visibleWhenOpened = it[2] as List<String>)
+            })
     }
 }
 
@@ -137,7 +142,8 @@ internal fun KeepGridAnchor(grid: LazyGridState, anchor: GridAnchor, positions: 
         snapshotFlow {
             if (anchor.restoring) null
             else grid.layoutInfo.visibleItemsInfo.firstOrNull { (it.key as? String)?.let(positions::containsKey) == true }
-                ?.let { (it.key as String) to (-it.offset.y).coerceAtLeast(0) }
+                // Negative when items above the first photo (headers, prompts) are on screen, so they stay in view.
+                ?.let { (it.key as String) to -it.offset.y }
         }.collect { found -> if (found != null) { anchor.mediaId = found.first; anchor.offset = found.second } }
     }
 }
@@ -655,17 +661,17 @@ private fun PhotoGrid(
     DisposableEffect(Unit) { onDispose { prefetch(emptyList()) } }
     KeepGridAnchor(grid, anchor, positions) { id -> gridIndexOf(id, level) }
     val returningId = LocalPhotoTransition.current?.returningMediaId
-    var visibleWhenOpened by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    // Kept in the anchor, which GalleryHome saves: PhotoGrid's own saved state does not survive the viewer.
     LaunchedEffect(returningId) {
-        if (returningId != null && returningId !in visibleWhenOpened) {
+        if (returningId != null && returningId !in anchor.visibleWhenOpened) {
             grid.requestScrollToItem(gridIndexOf(returningId, level))
         }
     }
     val selecting = selection.isNotEmpty()
-    val openOrToggle: (String) -> Unit = remember(grid, actions, selecting) {
+    val openOrToggle: (String) -> Unit = remember(grid, anchor, actions, selecting) {
         { id ->
             if (!selecting) {
-                visibleWhenOpened = grid.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }
+                anchor.visibleWhenOpened = grid.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }
                 actions.openMedia(id)
             } else actions.toggleSelection(id)
         }
