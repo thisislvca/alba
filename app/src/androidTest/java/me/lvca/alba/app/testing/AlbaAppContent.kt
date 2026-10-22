@@ -20,6 +20,8 @@ internal fun ComposeContentTestRule.setAlbaContent(
     onPick: () -> Unit = {},
     onTrash: (String) -> Unit = {},
     onContinue: (TransferId) -> Unit = {},
+    onOpenAccount: () -> Unit = {},
+    onStartDemo: () -> Unit = {},
 ) {
     setContent {
         AlbaTheme(darkTheme = false) {
@@ -33,7 +35,8 @@ internal fun ComposeContentTestRule.setAlbaContent(
                 message = null,
                 diagnostics = DiagnosticsConsent(),
                 actions = testAlbaActions(requestDevicePhotos = onPhotos, pickUpload = onPick,
-                    continuePastUnresolved = onContinue, moveVerifiedPhotoToTrash = onTrash),
+                    continuePastUnresolved = onContinue, moveVerifiedPhotoToTrash = onTrash,
+                    openAccount = onOpenAccount, startDemo = onStartDemo),
             )
         }
     }

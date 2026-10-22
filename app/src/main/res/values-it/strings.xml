@@ -263,6 +263,8 @@
     <string name="newest_first">Più recenti prima</string>
     <string name="no_internet_connection">Nessuna connessione a Internet</string>
     <string name="no_photos_in_this_view">Nessuna foto in questa vista</string>
+    <string name="empty_connect_title">Collega iCloud per vedere le tue foto</string>
+    <string name="empty_connect_body">Sfoglia la libreria di Foto di iCloud su questo telefono, oppure prova prima Alba con foto di esempio.</string>
     <string name="no_transfers_yet">Nessun trasferimento</string>
     <string name="not_now">Non ora</string>
     <string name="off_you_can_still_upload_one_photo_at_a_time_from_the_system_photo_picker">Disattivato. Puoi comunque caricare una foto alla volta dal selettore foto di sistema.</string>

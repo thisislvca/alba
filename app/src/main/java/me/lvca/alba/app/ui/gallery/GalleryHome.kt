@@ -233,6 +233,13 @@ internal fun GalleryHome(
         else -> stringResource(R.string.connect_to_icloud)
     }
     val canUpload = signedIn?.status == SessionStatus.VERIFIED || session.accountState == ICloudAccountState.Demo
+    // Clearing filters keeps the place being browsed: an open collection, offline copies or a trash.
+    val unfiltered = if (inCollection) GalleryQuery(origin = query.origin.takeIf { query.trashOnly }, collectionId = query.collectionId,
+        offlineOnly = query.offlineOnly, trashOnly = query.trashOnly, sort = query.sort, date = query.date)
+        else GalleryQuery(sort = query.sort, date = query.date)
+    // Without an account or photos there is nothing to filter: offer connecting iCloud and the demo instead.
+    val connectPrompt = session.accountState == ICloudAccountState.SignedOut && tab == GalleryTab.LIBRARY &&
+        query == unfiltered && gallery.items.isEmpty() && !session.isRefreshing
     val hero = inCollection && collection != null && !collection.isFolder && !collection.id.startsWith("smart:") && !collection.id.startsWith("device-folder:")
     val visibleDensity = if (hero) albumDensity else density
     val changeDensity: (Int) -> Unit = { if (hero) albumDensity = it else density = it }
@@ -358,7 +365,7 @@ internal fun GalleryHome(
                                 }
                             }
                         }
-                        if (!hero && session.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
+                        if (!hero && !connectPrompt && session.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = actions::openAccount))
                         }
@@ -411,6 +418,8 @@ internal fun GalleryHome(
                             sections = sections,
                             selection = gallery.selection,
                             query = query,
+                            unfiltered = unfiltered,
+                            connectPrompt = connectPrompt,
                             isRefreshing = session.isRefreshing,
                             counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount),
                             previewRetryVersion = previewRetryVersion,
@@ -554,6 +563,8 @@ private fun PhotoGrid(
     sections: List<GallerySection>,
     selection: Set<String>,
     query: GalleryQuery,
+    unfiltered: GalleryQuery,
+    connectPrompt: Boolean,
     isRefreshing: Boolean,
     counts: PhotoCounts,
     previewRetryVersion: Int,
@@ -640,7 +651,11 @@ private fun PhotoGrid(
                 if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
                 else if (query.collectionId?.startsWith("shared:") == true) Text(stringResource(R.string.shared_album_empty))
                 else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
-                else { EmptyLibrary(); TextButton(onClick = { actions.changeQuery(GalleryQuery()) }) { Text(stringResource(R.string.clear_filters)) } }
+                else if (connectPrompt) ConnectLibrary(connect = actions::openAccount, demo = actions::startDemo)
+                else {
+                    EmptyLibrary()
+                    if (query != unfiltered) TextButton(onClick = { actions.changeQuery(unfiltered) }) { Text(stringResource(R.string.clear_filters)) }
+                }
             }
         }
         groupedSections.forEach { (section, groups) ->
@@ -688,7 +703,7 @@ private fun PhotoGrid(
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }
             }
         }
-        item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
+        if (items.isNotEmpty()) item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
                 if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

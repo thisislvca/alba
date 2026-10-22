@@ -484,6 +484,7 @@ private class AlbaRootActions(
     override fun refresh() = viewModel.sync.refresh()
     override fun requestDevicePhotos() = platform.requestDevicePhotos()
     override fun openAccount() = account.openAccount()
+    override fun startDemo() = account.startDemo()
 
     override fun setFavorite(mediaId: String, favorite: Boolean) = edits.setFavorite(mediaId, favorite)
     override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = edits.setFavorites(mediaIds, favorite)

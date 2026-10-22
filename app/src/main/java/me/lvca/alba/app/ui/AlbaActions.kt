@@ -49,6 +49,9 @@ interface BrowseActions {
     fun refresh()
     fun requestDevicePhotos()
     fun openAccount()
+
+    /** Switches an unconnected library to the sample library. */
+    fun startDemo()
 }
 
 /** Changes to the user's library. Removals ask the user to confirm first. */
