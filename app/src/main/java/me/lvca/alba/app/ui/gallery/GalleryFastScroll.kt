@@ -1,27 +1,31 @@
 package me.lvca.alba.app.ui.gallery
 
-import android.os.SystemClock
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
@@ -30,35 +34,36 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.MediaPill
+import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-// Use a single half-circle: corner shapes can shrink their radii to this tab's narrow width.
-private val ScrubberTabShape = GenericShape { size, _ ->
-    val radius = size.height / 2f
-    moveTo(radius, 0f)
-    lineTo(size.width, 0f)
-    lineTo(size.width, size.height)
-    lineTo(radius, size.height)
-    arcTo(Rect(0f, 0f, size.height, size.height), 90f, 180f, false)
-    close()
-}
+private val HandleWidth = 48.dp
 
 internal data class GalleryScrollLabel(val index: Int, val month: String, val year: Int)
 
+/**
+ * Google Photos' date scrubber: each month gets an equal share of the track and ticks as the thumb crosses it. It
+ * appears after a little scrolling, can be grabbed as soon as any of it shows, and hides again once things settle.
+ */
 @Composable
 internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLabel>, fullSpanEstimates: Map<Int, Float>,
-    minimumTileDp: Int, modifier: Modifier = Modifier, bottomSpace: Dp = 108.dp) {
+    columns: Int, modifier: Modifier = Modifier, bottomSpace: Dp = 108.dp) {
     if (labels.isEmpty()) return
     val density = LocalDensity.current
-    val spacing = with(density) { 2.dp.toPx() }
-    val handlePx = with(density) { 56.dp.toPx() }
-    val revealDistance = with(density) { 20.dp.toPx() }
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val reducedMotion = reduceGalleryMotion()
+    val spacing = with(density) { GalleryFeel.GRID_SPACING.toPx() }
+    // The touch box is a little wider than the 40dp thumb so it meets the 48dp minimum target.
+    val handleWidthPx = with(density) { HandleWidth.toPx() }
+    val thumbHeightPx = with(density) { GalleryFeel.SCRUBBER_THUMB_HEIGHT.toPx() }
+    val revealDistance = with(density) { GalleryFeel.SCRUBBER_REVEAL_DISTANCE.toPx() }
     val layout = grid.layoutInfo
-    val columns = ((layout.viewportSize.width + spacing) / (with(density) { minimumTileDp.dp.toPx() } + spacing)).toInt().coerceAtLeast(1)
-    val tileHeight = ((layout.viewportSize.width - spacing * (columns - 1)) / columns).coerceAtLeast(1f)
+    val tileHeight = ((layout.viewportSize.width - spacing * (columns - 1)) / columns.coerceAtLeast(1)).coerceAtLeast(1f)
     var measured by remember(fullSpanEstimates.keys, columns) { mutableStateOf(emptyMap<Int, Float>()) }
     LaunchedEffect(grid, fullSpanEstimates.keys, columns) {
         snapshotFlow { grid.layoutInfo.visibleItemsInfo.filter { it.index in fullSpanEstimates }.associate { it.index to it.size.height.toFloat() } }
@@ -68,105 +73,131 @@ internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLa
         GalleryScrollMetrics(layout.totalItemsCount, columns, tileHeight, spacing, fullSpanEstimates + measured, layout.viewportSize.height, layout.afterContentPadding)
     }
     val currentMetrics by rememberUpdatedState(metrics)
-    val fraction = if (metrics.maxScroll > 0) metrics.position(grid.firstVisibleItemIndex, grid.firstVisibleItemScrollOffset) / metrics.maxScroll else 0f
+    val buckets = remember(metrics, labels) { MonthBuckets(labels.map { metrics.topOf(it.index) }, metrics.maxScroll) }
+    val currentBuckets by rememberUpdatedState(buckets)
+    val position = metrics.position(grid.firstVisibleItemIndex, grid.firstVisibleItemScrollOffset)
+    val fraction = buckets.fractionAt(position)
     val currentFraction by rememberUpdatedState(fraction)
     var dragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
     var gripTop by remember { mutableFloatStateOf(0f) }
     var visible by remember { mutableStateOf(false) }
-    var lastMovement by remember { mutableLongStateOf(0L) }
+    // Hiding waits longer after scrolling than after letting go of the thumb.
+    var hideDelay by remember { mutableLongStateOf(GalleryFeel.SCRUBBER_IDLE_HIDE_MILLIS) }
+    var hideRequest by remember { mutableIntStateOf(0) }
     var height by remember { mutableIntStateOf(0) }
-    var dateHeight by remember(density) { mutableIntStateOf(with(density) { 28.dp.roundToPx() }) }
-    val travel = (height - handlePx).coerceAtLeast(1f)
+    val travel = (height - thumbHeightPx).coerceAtLeast(1f)
     val currentTravel by rememberUpdatedState(travel)
-    val targets = remember { Channel<Float>(Channel.CONFLATED) }
-    DisposableEffect(targets) { onDispose { targets.close() } }
-    LaunchedEffect(grid, targets) {
-        for (target in targets) {
-            val (index, offset) = currentMetrics.target(target)
-            if (grid.layoutInfo.totalItemsCount > index) grid.scrollToItem(index, offset)
+    val months = remember { Channel<Int>(Channel.CONFLATED) }
+    DisposableEffect(months) { onDispose { months.close() } }
+    LaunchedEffect(grid, months) {
+        for (month in months) {
+            val index = labels.getOrNull(month)?.index ?: continue
+            if (grid.layoutInfo.totalItemsCount > index) grid.scrollToItem(index)
         }
     }
     LaunchedEffect(grid) {
-        var previous = 0f
+        var previous = Float.NaN
         var accumulated = 0f
-        var lastTime = 0L
-        snapshotFlow { grid.firstVisibleItemIndex to grid.firstVisibleItemScrollOffset }.collect { (index, offset) ->
-            val now = SystemClock.uptimeMillis()
-            val position = currentMetrics.position(index, offset)
-            if (now - lastTime > 300) accumulated = 0f
-            if (grid.isScrollInProgress && !dragging) {
-                accumulated += abs(position - previous)
-                if (accumulated >= revealDistance) { visible = true; lastMovement = now }
+        snapshotFlow { Triple(grid.isScrollInProgress, grid.firstVisibleItemIndex, grid.firstVisibleItemScrollOffset) }.collect { (scrolling, index, offset) ->
+            val now = currentMetrics.position(index, offset)
+            if (!scrolling) {
+                // The distance counts from the start of each scroll.
+                accumulated = 0f
+                previous = now
+                if (visible && !dragging) { hideDelay = GalleryFeel.SCRUBBER_IDLE_HIDE_MILLIS; hideRequest++ }
+                return@collect
             }
-            previous = position
-            lastTime = now
+            if (!dragging) {
+                if (!previous.isNaN()) accumulated += abs(now - previous)
+                if (accumulated >= revealDistance) { visible = true; hideRequest++ }
+            }
+            previous = now
         }
     }
-    LaunchedEffect(lastMovement, dragging) {
-        if (!dragging) { delay(2400); visible = false }
+    LaunchedEffect(hideRequest, dragging) {
+        if (dragging || grid.isScrollInProgress) return@LaunchedEffect
+        delay(hideDelay)
+        if (!grid.isScrollInProgress) visible = false
     }
     val active = dragging || visible
-    val activeNow by rememberUpdatedState(active)
     val thumbFraction = if (dragging) dragFraction else fraction
     val thumbTop = thumbFraction * travel
     val thumbTopNow by rememberUpdatedState(thumbTop)
-    val hiddenOffset by animateFloatAsState(if (active) 0f else handlePx, tween(180), label = "scrubber-slide")
-    val currentIndex = if (dragging) metrics.target(dragFraction).first else grid.firstVisibleItemIndex
-    val label = labels.lastOrNull { it.index <= currentIndex } ?: labels.first()
+    val hiddenOffset by animateFloatAsState(if (active) 0f else handleWidthPx,
+        if (reducedMotion) snap() else tween(if (active) GalleryFeel.SCRUBBER_SHOW_MILLIS else GalleryFeel.SCRUBBER_HIDE_MILLIS), label = "scrubber-slide")
+    val hiddenNow by rememberUpdatedState(hiddenOffset)
+    val currentMonth = if (dragging) buckets.monthAt(dragFraction) else labels.indexOfLast { it.index <= grid.firstVisibleItemIndex }.coerceAtLeast(0)
+    val label = labels.getOrElse(currentMonth) { labels.first() }
     val span = stringResource(R.string.month_span, labels.first().month, labels.last().month)
     Box(modifier.width(180.dp).padding(bottom = bottomSpace, top = 12.dp).clipToBounds().onSizeChanged { height = it.height }
         .semantics {
             contentDescription = span
             stateDescription = label.month
-            progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
-            setProgress { visible = true; lastMovement = SystemClock.uptimeMillis(); targets.trySend(it.coerceIn(0f, 1f)); true }
+            progressBarRangeInfo = ProgressBarRangeInfo(thumbFraction, 0f..1f)
+            setProgress {
+                visible = true; hideDelay = GalleryFeel.SCRUBBER_IDLE_HIDE_MILLIS; hideRequest++
+                months.trySend(currentBuckets.monthAt(it)); true
+            }
         }.testTag("gallery-fast-scroll")) {
-        if (dragging) {
-            var lastY = -handlePx
-            labels.distinctBy { it.year }.forEach { year ->
-                val y = if (metrics.maxScroll > 0) (metrics.topOf(year.index) / metrics.maxScroll).coerceIn(0f, 1f) * travel else 0f
-                if (y - lastY >= handlePx * .65f) {
-                    lastY = y
-                    MediaPill(Modifier.align(Alignment.TopEnd).offset { IntOffset(0, y.roundToInt()) }.padding(end = 48.dp).testTag("fast-scroll-year-${year.year}"),
-                        strong = true, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp)) {
-                        Text(year.year.toString(), style = MaterialTheme.typography.labelMedium)
+        // Year labels mark the track only while dragging, at each year's first month.
+        AnimatedVisibility(dragging, Modifier.matchParentSize(),
+            enter = if (reducedMotion) fadeIn(snap()) else fadeIn(tween(GalleryFeel.SCRUBBER_LABEL_IN_MILLIS)),
+            exit = if (reducedMotion) fadeOut(snap()) else fadeOut(tween(GalleryFeel.SCRUBBER_LABEL_OUT_MILLIS))) {
+            Box(Modifier.fillMaxSize()) {
+                val minGap = with(density) { 28.dp.toPx() }
+                var lastY = -minGap
+                labels.withIndex().distinctBy { it.value.year }.forEach { (month, year) ->
+                    val y = buckets.fractionOf(month) * travel
+                    if (y - lastY >= minGap) {
+                        lastY = y
+                        MediaPill(Modifier.align(Alignment.TopEnd).offset { IntOffset(0, y.roundToInt()) }
+                            .padding(end = GalleryFeel.SCRUBBER_THUMB_WIDTH + 20.dp).testTag("fast-scroll-year-${year.year}"),
+                            strong = true, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 3.dp)) {
+                            Text(year.year.toString(), style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 }
             }
-            Surface(Modifier.align(Alignment.TopEnd).offset { IntOffset(0, (thumbTop + (handlePx - dateHeight) / 2f).roundToInt()) }
-                .padding(end = 48.dp).onSizeChanged { dateHeight = it.height }.testTag("fast-scroll-date"),
-                shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                Text(label.month, Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1)
-            }
         }
         val inputTop = if (dragging) gripTop else thumbTop
-        Box(Modifier.align(Alignment.TopEnd).offset { IntOffset(with(density) { 8.dp.roundToPx() }, inputTop.roundToInt()) }
-            .graphicsLayer { translationX = hiddenOffset }.size(56.dp).testTag("fast-scroll-handle")
+        Box(Modifier.align(Alignment.TopEnd).offset { IntOffset(0, inputTop.roundToInt()) }
+            .graphicsLayer { translationX = hiddenOffset }
+            .size(width = HandleWidth, height = GalleryFeel.SCRUBBER_THUMB_HEIGHT).testTag("fast-scroll-handle")
             .pointerInput(grid) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
-                    if (!activeNow) return@awaitEachGesture
+                    // Grabbable whenever any of it shows, including while it slides in during a fling.
+                    if (hiddenNow >= handleWidthPx - 1f) return@awaitEachGesture
                     down.consume()
+                    scope.launch { grid.stopScroll() }
                     gripTop = thumbTopNow
-                    dragging = true
                     dragFraction = currentFraction
+                    var month = currentBuckets.monthAt(dragFraction)
+                    dragging = true
                     // Keep the gesture's coordinate space fixed while its visible thumb follows the finger.
                     try {
                         verticalDrag(down.id) { change ->
                             dragFraction = (dragFraction + change.positionChange().y / currentTravel).coerceIn(0f, 1f)
-                            targets.trySend(dragFraction)
+                            val next = currentBuckets.monthAt(dragFraction)
+                            if (next != month) {
+                                month = next
+                                months.trySend(next)
+                                haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            }
                             change.consume()
                         }
                     } finally {
                         dragging = false
                         visible = true
-                        lastMovement = SystemClock.uptimeMillis()
+                        hideDelay = GalleryFeel.SCRUBBER_DRAG_HIDE_MILLIS
+                        hideRequest++
                     }
                 }
             }) {
-            Surface(Modifier.align(Alignment.CenterEnd).offset(x = (-8).dp).size(width = 32.dp, height = 40.dp).graphicsLayer { translationY = thumbTop - inputTop },
-                shape = ScrubberTabShape,
+            Surface(Modifier.align(Alignment.CenterEnd).size(GalleryFeel.SCRUBBER_THUMB_WIDTH, GalleryFeel.SCRUBBER_THUMB_HEIGHT)
+                .graphicsLayer { translationY = thumbTop - inputTop },
+                shape = RoundedCornerShape(topStart = GalleryFeel.SCRUBBER_THUMB_WIDTH / 2, bottomStart = GalleryFeel.SCRUBBER_THUMB_WIDTH / 2),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 0.5.dp) {
             val ink = MaterialTheme.colorScheme.onSurfaceVariant
             Box(contentAlignment = Alignment.Center) {
