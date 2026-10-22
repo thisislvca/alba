@@ -108,6 +108,12 @@ internal fun MediaDetailScreen(
     val latestSelect by rememberUpdatedState(onPageSettled)
     val playback: PlaybackReader = remember(actions) { actions::openPlayback }
     var controls by rememberSaveable { mutableStateOf(true) }
+    // A playing video hides the chrome by itself; that must not leave the next photo without its controls.
+    var leavingVideo by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(media.id) {
+        if (leavingVideo && media.kind != MediaKind.VIDEO) controls = true
+        leavingVideo = media.kind == MediaKind.VIDEO
+    }
     var videoPlaying by remember(media.id) { mutableStateOf(false) }
     var videoOptions by remember(media.id) { mutableStateOf(false) }
     var videoSpeedSheet by remember(media.id) { mutableStateOf(false) }
