@@ -374,13 +374,8 @@ internal fun GalleryHome(
                         if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && gallery.selection.isNotEmpty()) SelectionActions(gallery, session, mediaBusy, actions)
                         else if (!hero && gallery.selection.isEmpty() && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || inCollection)) {
-                            if (tab == GalleryTab.SEARCH) {
-                                OutlinedTextField(query.filename, { actions.changeQuery(query.copy(filename = it)) },
-                                    label = { Text(stringResource(R.string.search_filenames)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                                    trailingIcon = { if (query.filename.isNotEmpty()) IconButton(onClick = { actions.changeQuery(query.copy(filename = "")) }) { Icon(Icons.Outlined.Close, stringResource(R.string.clear_search)) } },
-                                    singleLine = true, shape = MaterialTheme.shapes.extraLarge,
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("search-field"))
-                            }
+                            if (tab == GalleryTab.SEARCH) GallerySearchBar(query.filename, { actions.changeQuery(query.copy(filename = it)) },
+                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 val filterName = query.collectionId?.let { id -> if (id == GalleryQuery.FAVORITES) stringResource(R.string.favorites) else SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle() }
                                 Text(listOfNotNull(query.origin?.let { if (it == MediaOrigin.DEVICE) stringResource(R.string.this_phone) else stringResource(R.string.icloud) } ?: stringResource(R.string.all_photos), filterName,
