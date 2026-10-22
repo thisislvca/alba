@@ -6,6 +6,7 @@ Alba is a free, open-source Android photo app for teens aged 13 and older and ad
 
 - Connect directly to Apple; keep credentials and photo data off Alba-operated servers.
 - Make browsing, playback and everyday photo tasks feel natural on Android.
+- Look and behave like a native Android app, organised the way iCloud users know from Apple Photos: Apple's structure and names for their data, Material 3 for every interaction and visual. See [the design direction](docs/design/android-native.md).
 - Make backup and deletion explicit, verifiable and under the user's control.
 - Be clear about unofficial Apple integration and about simulated demo behavior.
 
