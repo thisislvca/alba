@@ -92,6 +92,7 @@ import me.lvca.alba.app.ui.itemCount
 import me.lvca.alba.app.ui.localizedName
 import me.lvca.alba.app.ui.localizedTitle
 import me.lvca.alba.app.ui.monthLabel
+import me.lvca.alba.app.ui.navigation.FadeThrough
 import me.lvca.alba.app.ui.shared.CreateSharedAlbumDialog
 import me.lvca.alba.app.ui.shared.SharedAlbumActivity
 import me.lvca.alba.app.ui.shared.SharedAlbumControls
@@ -207,7 +208,7 @@ internal fun GalleryHome(
     val collectionScroll = rememberLazyGridState()
     val summaries = key(identity) { rememberCollectionPreviews(gallery.catalogItems, gallery.collections) }
     val sharedAlbums = remember(gallery.collections) { gallery.collections.filter { it.shared != null } }
-    fun navigate(next: GalleryTab) {
+    fun switchTab(next: GalleryTab) {
         if (next == tab) return
         when (tab) {
             GalleryTab.LIBRARY -> libraryQuery = gallery.query
@@ -222,6 +223,16 @@ internal fun GalleryHome(
             GalleryTab.SEARCH -> searchQuery
         })
     }
+    val tabFade = remember(scope) { FadeThrough<GalleryTab>(scope) }
+    val reduceTabMotion = reduceGalleryMotion()
+
+    // The navigation answers a tap at once; the screens switch once the current one has faded out. Only the navigation
+    // reads the pending tab, so the tap's first frame recomposes nothing else.
+    fun selectedTab() = tabFade.pending ?: tab
+    fun navigate(next: GalleryTab) {
+        if (next == selectedTab()) return
+        tabFade.start(tab, next, reduceTabMotion, ::switchTab)
+    }
     val query = gallery.query
     val inCollection = tab == GalleryTab.COLLECTIONS && (query.collectionId != null || query.offlineOnly || query.trashOnly)
     val collection = gallery.collections.firstOrNull { it.id == query.collectionId }
@@ -235,7 +246,7 @@ internal fun GalleryHome(
         if (inCollection) actions.changeQuery(GalleryQuery())
         else if (folder != null) folder = gallery.collections.firstOrNull { it.id == folder }?.parentId
         else if (collectionsPage != null) collectionsPage = null
-        else navigate(GalleryTab.LIBRARY)
+        else switchTab(GalleryTab.LIBRARY)
     }
     val backEnabled = LocalPhotoTransition.current?.active != false && gallery.selection.isEmpty()
     val parentOf: (String) -> String? = { id -> gallery.collections.firstOrNull { it.id == id }?.parentId }
@@ -339,7 +350,7 @@ internal fun GalleryHome(
         Row(Modifier.fillMaxSize()) {
             if (wide) NavigationRail(Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
                 Spacer(Modifier.height(24.dp))
-                GalleryTab.entries.forEach { destination -> NavigationRailItem(selected = tab == destination,
+                GalleryTab.entries.forEach { destination -> NavigationRailItem(selected = selectedTab() == destination,
                     onClick = { navigate(destination) }, icon = { Icon(destination.icon(), null, Modifier.size(24.dp)) }, label = { Text(stringResource(destination.title)) },
                     modifier = Modifier.testTag("tab-${destination.name}")) }
             }
@@ -436,8 +447,9 @@ internal fun GalleryHome(
                     padding.calculateTopPadding()).coerceAtLeast(0.dp)
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     GalleryScreenHost(screen, parentOf, backEnabled, onBack = {
-                        if (tab == GalleryTab.COLLECTIONS) backInCollections() else navigate(GalleryTab.LIBRARY)
-                    }, libraryFrame = libraryFrame, modifier = Modifier.fillMaxSize()) { shown ->
+                        if (tab == GalleryTab.COLLECTIONS) backInCollections() else switchTab(GalleryTab.LIBRARY)
+                    }, libraryFrame = libraryFrame, faded = { tabFade.switched },
+                        modifier = Modifier.fillMaxSize().graphicsLayer { alpha = tabFade.alpha }) { shown ->
                     if (shown.tab == GalleryTab.COLLECTIONS && shown.album == null) PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
                         CollectionsScreen(gallery, canEdit, previewRetryVersion, shown.folder, shown.page, summaries,
                             if (shown.page == null && shown.folder == null) collectionScroll else rememberLazyGridState(), actions::requestPreview,
@@ -503,7 +515,7 @@ internal fun GalleryHome(
                     if (!wide) androidx.compose.animation.AnimatedVisibility(!selecting, Modifier.align(Alignment.BottomCenter),
                         enter = slideInVertically(barSlide) { it }, exit = slideOutVertically(barSlide) { it }) {
                         // It hides behind an open keyboard; keep the grid's bottom space at its last real height.
-                        FloatingGalleryNavigation(tab, { navigate(it) },
+                        FloatingGalleryNavigation(selectedTab(), { navigate(it) },
                             Modifier.navigationBarsPadding().padding(bottom = 16.dp)
                                 .onSizeChanged { if (it.height > 0) floatingBarHeight = with(uiDensity) { it.height.toDp() } })
                     }

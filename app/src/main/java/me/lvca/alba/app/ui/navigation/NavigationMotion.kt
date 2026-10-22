@@ -1,6 +1,7 @@
 package me.lvca.alba.app.ui.navigation
 
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SpringSpec
@@ -11,7 +12,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /** Material 3 motion tokens used by screen-to-screen navigation. */
 internal object NavigationMotion {
@@ -23,6 +31,9 @@ internal object NavigationMotion {
     const val SHORT4 = 200
     const val MEDIUM1 = 250
     const val MEDIUM2 = 300
+
+    /** Fade through's outgoing share of the transition, as in Material's 300 ms pattern. */
+    const val FADE_THROUGH_OUT = 90
 
     /** Shared-axis travel for screens of the same hierarchy. */
     const val SHARED_AXIS_DP = 30
@@ -73,5 +84,52 @@ internal fun navigationTransform(
     }
 }
 
-/** Fade through's outgoing share of the transition, as in Material's 300 ms pattern. */
-private const val OUTGOING_FADE = 90
+private const val OUTGOING_FADE = NavigationMotion.FADE_THROUGH_OUT
+
+/**
+ * Fade through between destinations, run ahead of the switch itself: the current screen fades out, then the switch
+ * happens while nothing shows, then the new screen fades in. The destination [pending] shows as selected at once, so
+ * the first frame after a tap already answers it even when the new screen is costly to compose.
+ */
+@Stable
+internal class FadeThrough<T : Any>(private val scope: CoroutineScope) {
+    private val fade = Animatable(1f)
+    private var job: Job? = null
+
+    /** The content's opacity. */
+    val alpha: Float get() = fade.value
+
+    /** The destination being faded to, before the switch happens; null otherwise. */
+    var pending by mutableStateOf<T?>(null)
+        private set
+
+    /** True while a switch made here fades in; the screen host must not animate that switch itself. */
+    var switched by mutableStateOf(false)
+        private set
+
+    /** Fades from [current] to [next], calling [switch] once the current screen is gone. */
+    fun start(current: T, next: T, reduceMotion: Boolean, switch: (T) -> Unit) {
+        job?.cancel()
+        if (next == current || reduceMotion) {
+            // Back to where it was before switching, or switching without motion: no fade out.
+            pending = null
+            job = scope.launch { if (reduceMotion) fade.snapTo(1f) else fade.animateTo(1f, fadeIn()) }
+            if (next != current) switch(next)
+            return
+        }
+        pending = next
+        job = scope.launch {
+            try {
+                fade.animateTo(0f, tween(NavigationMotion.FADE_THROUGH_OUT, easing = LinearEasing))
+                switched = true
+                pending = null
+                switch(next)
+                fade.animateTo(1f, fadeIn())
+            } finally {
+                switched = false
+            }
+        }
+    }
+
+    private fun fadeIn() = tween<Float>(NavigationMotion.MEDIUM2 - NavigationMotion.FADE_THROUGH_OUT, easing = LinearEasing)
+}

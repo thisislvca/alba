@@ -1,6 +1,9 @@
 package me.lvca.alba.app.ui.gallery
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -113,6 +116,8 @@ internal fun GalleryScreenHost(
     onBack: () -> Unit,
     libraryFrame: GraphicsLayer,
     modifier: Modifier = Modifier,
+    /** True while the caller is fading a destination switch itself (see FadeThrough); the host then swaps at once. */
+    faded: () -> Boolean = { false },
     content: @Composable (GalleryScreen) -> Unit,
 ) {
     val reduceMotion = reduceGalleryMotion()
@@ -138,8 +143,10 @@ internal fun GalleryScreenHost(
         modifier = modifier,
         transitionSpec = {
             val depth = { folder: String -> folderDepth(folder, latestParentOf) }
-            navigationTransform(galleryDirection(initialState, targetState, depth), slide,
-                gesture = backState.phase != BackPhase.IDLE, reduceMotion = reduceMotion)
+            val direction = galleryDirection(initialState, targetState, depth)
+            val gesture = backState.phase != BackPhase.IDLE
+            if (direction == NavigationDirection.LATERAL && !gesture && faded()) EnterTransition.None togetherWith ExitTransition.None
+            else navigationTransform(direction, slide, gesture = gesture, reduceMotion = reduceMotion)
         },
     ) { shown ->
         val isLibrary = shown == GalleryScreen(GalleryTab.LIBRARY)
