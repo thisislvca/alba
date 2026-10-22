@@ -20,6 +20,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -61,6 +62,7 @@ import me.lvca.alba.app.ui.AlbaApp
 import me.lvca.alba.app.ui.InvitationActions
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
+import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
 import me.lvca.alba.app.ui.onboarding.WelcomeScreen
@@ -174,6 +176,7 @@ private fun AlbaMain(
     val phoneStorage by viewModel.phoneStorage.state.collectAsStateWithLifecycle()
     val mediaWork by viewModel.mediaWork.collectAsStateWithLifecycle()
     val previewRetryVersion by viewModel.previews.retryVersion.collectAsStateWithLifecycle()
+    val previewStorageLow by viewModel.previews.storageLow.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnosticsConsent.collectAsStateWithLifecycle()
     val currentIncoming by rememberUpdatedState(incoming)
@@ -351,18 +354,20 @@ private fun AlbaMain(
             }
         }
     }
-    AlbaApp(
-        gallery = gallery,
-        session = session,
-        transfers = transfers,
-        phoneStorage = phoneStorage,
-        mediaWork = mediaWork,
-        previewRetryVersion = previewRetryVersion,
-        message = message,
-        diagnostics = diagnostics,
-        actions = actions,
-        onViewerLightBars = { viewerLightBars = it },
-    )
+    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow) {
+        AlbaApp(
+            gallery = gallery,
+            session = session,
+            transfers = transfers,
+            phoneStorage = phoneStorage,
+            mediaWork = mediaWork,
+            previewRetryVersion = previewRetryVersion,
+            message = message,
+            diagnostics = diagnostics,
+            actions = actions,
+            onViewerLightBars = { viewerLightBars = it },
+        )
+    }
     when (val current = dialog) {
         is RootDialog.ConfirmCloudTrash -> ConfirmRemoval(
             title = if (current.trashed) R.string.trash_in_icloud else R.string.restore_from_icloud,

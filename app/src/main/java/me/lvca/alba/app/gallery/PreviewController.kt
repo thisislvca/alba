@@ -42,6 +42,9 @@ internal class PreviewController(
         onFailure = { error -> messages.show(error.toUserMessage(R.string.message_could_not_load_this_preview)) },
     )
 
+    /** Whether previews are paused because phone storage is low, so missing ones say so rather than blaming the network. */
+    val storageLow: StateFlow<Boolean> = queue.storageBlockedState
+
     /** Set after a write failed for lack of space; previews stay paused until storage is freed or the user refreshes. */
     var storageBlocked: Boolean
         get() = queue.storageBlocked

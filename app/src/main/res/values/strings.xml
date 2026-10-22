@@ -470,6 +470,7 @@
     <string name="photo_file_missing">This photo may have been moved or deleted. Refresh the library to check.</string>
     <string name="photo_decode_failed">This file could not be displayed. It may be damaged or use an unsupported format.</string>
     <string name="photo_preview_unavailable">Preview unavailable. Connect and refresh to try again.</string>
+    <string name="photo_preview_storage_low">Not enough space on this phone. Free up space to load previews.</string>
     <string name="incoming_unsupported">Alba can open up to 50 shared photos or videos. Reopen them from the original app if access has expired.</string>
     <string name="incoming_file_missing">This file is no longer available. Go back to the original app and check whether it was moved or deleted.</string>
     <string name="incoming_access_lost">Access to this file has expired. Go back to the original app and open or share it with Alba again.</string>

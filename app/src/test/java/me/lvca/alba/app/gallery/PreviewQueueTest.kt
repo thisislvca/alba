@@ -11,7 +11,9 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
+import me.lvca.alba.engine.cache.InsufficientStorageException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -61,6 +63,29 @@ class PreviewQueueTest {
             assertEquals(52, gallery.started.value.size)
         } finally {
             gallery.release.complete(Unit)
+            scope.cancel()
+        }
+    }
+
+    @Test fun lowStorageIsObservableAndPausesPreviewsUntilCleared() = runBlocking {
+        val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext.job))
+        val loads = MutableStateFlow(0)
+        val queue = PreviewQueue(
+            scope = scope,
+            selectedMediaId = { null },
+            needsPreview = { true },
+            load = { loads.update { it + 1 }; throw InsufficientStorageException() },
+            diagnostics = AlbaDiagnostics.None,
+            onFailure = {},
+        )
+        try {
+            queue.request("fixture:queue:full")
+            withTimeout(5_000) { queue.storageBlockedState.first { it } }
+            queue.request("fixture:queue:next")
+            assertEquals(1, loads.value)
+            queue.storageBlocked = false
+            assertFalse(queue.storageBlockedState.value)
+        } finally {
             scope.cancel()
         }
     }

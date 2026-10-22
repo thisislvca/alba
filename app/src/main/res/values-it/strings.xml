@@ -466,6 +466,7 @@
     <string name="photo_file_missing">Questa foto potrebbe essere stata spostata o eliminata. Aggiorna la libreria per controllare.</string>
     <string name="photo_decode_failed">Impossibile mostrare questo file. Potrebbe essere danneggiato o in un formato non supportato.</string>
     <string name="photo_preview_unavailable">Anteprima non disponibile. Connettiti e aggiorna per riprovare.</string>
+    <string name="photo_preview_storage_low">Spazio insufficiente su questo telefono. Libera spazio per caricare le anteprime.</string>
     <string name="incoming_unsupported">Alba può aprire fino a 50 foto o video condivisi. Riaprili dall’app di origine se l’accesso è scaduto.</string>
     <string name="incoming_position">%1$d di %2$d</string>
     <string name="incoming_upload_explanation">La visualizzazione non carica nulla. Puoi caricare JPEG, PNG, HEIC, WebP statici e video MP4 o MOV H.264/HEVC con audio AAC. I file vengono controllati prima del caricamento.</string>
