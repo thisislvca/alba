@@ -27,11 +27,13 @@ internal fun Modifier.viewerDrag(
     onDrag: (ViewerDrag, Offset) -> Unit,
     onStop: (ViewerDrag, Velocity) -> Unit,
 ): Modifier {
+    val isEnabled by rememberUpdatedState(enabled)
     val isDetailsOpen by rememberUpdatedState(detailsOpen)
     val start by rememberUpdatedState(onStart)
     val drag by rememberUpdatedState(onDrag)
     val stop by rememberUpdatedState(onStop)
-    if (!enabled) return this
+    // Stay in the modifier chain while disabled: removing this node mid-gesture (the pager starts scrolling, which
+    // disables it) would reset the pager's own drag below it and cancel the swipe.
     return pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
@@ -48,6 +50,7 @@ internal fun Modifier.viewerDrag(
                 tracker.addPointerInputChange(change)
                 val distance = travel.getDistance()
                 if (distance > slop) {
+                    if (!isEnabled) return@awaitEachGesture
                     val claimed = classifyViewerDrag(travel, isDetailsOpen()) ?: return@awaitEachGesture
                     change.consume()
                     mode = claimed
