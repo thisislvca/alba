@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -51,6 +52,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -737,9 +739,11 @@ private fun PhotoGrid(
                 Row(posed("month-$month"), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { MonthHeader(month, section.items.size) }
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), monthLabel(month))
-                    AnimatedVisibility(selecting, enter = checkboxEnter, exit = checkboxExit) {
-                        Checkbox(checked = section.items.all { it.id in selection },
-                            onCheckedChange = { actions.selectItems(section.items.map { it.id }.toSet(), it) }, modifier = Modifier.padding(end = 12.dp).semantics { contentDescription = selectionLabel })
+                    AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
+                        HeaderCheckbox {
+                            Checkbox(checked = section.items.all { it.id in selection },
+                                onCheckedChange = { actions.selectItems(section.items.map { it.id }.toSet(), it) }, modifier = Modifier.padding(end = 12.dp).semantics { contentDescription = selectionLabel })
+                        }
                     }
                 }
             }
@@ -748,9 +752,11 @@ private fun PhotoGrid(
                 Row(posed("day-$day").fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(dateLabel(day), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), dateLabel(day))
-                    AnimatedVisibility(selecting, enter = checkboxEnter, exit = checkboxExit) {
-                        Checkbox(photos.all { it.id in selection }, { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) },
-                            modifier = Modifier.semantics { contentDescription = selectionLabel })
+                    AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
+                        HeaderCheckbox {
+                            Checkbox(photos.all { it.id in selection }, { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) },
+                                modifier = Modifier.semantics { contentDescription = selectionLabel })
+                        }
                     }
                 }
             }
@@ -858,4 +864,23 @@ private fun SearchLanding(bottomSpace: Dp, onDates: () -> Unit, choose: (String)
         CollectionRow(stringResource(R.string.favorites), stringResource(R.string.photos_you_ve_marked_with_a_heart), icon = { ICloudIcon(R.drawable.icloud_favorites) }, onClick = { choose(GalleryQuery.FAVORITES) })
         SmartCollection.entries.take(3).forEach { smart -> CollectionRow(smart.localizedTitle(), null, icon = { ICloudIcon(smart.icon()) }, onClick = { choose(smart.id) }) }
     }
+}
+
+/**
+ * A date header's select-all checkbox at its visual size. Compose still extends its touch area to the minimum touch
+ * target.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HeaderCheckbox(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified, content = content)
+}
+
+/**
+ * Takes no height in its row, drawing centred on it: entering selection must never make a date header taller and move
+ * the photo under the finger.
+ */
+private fun Modifier.withoutHeight(): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+    layout(placeable.width, 0) { placeable.place(0, -placeable.height / 2) }
 }
