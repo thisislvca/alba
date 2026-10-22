@@ -1,5 +1,6 @@
 package me.lvca.alba.app.gallery
 
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import kotlinx.coroutines.flow.first
@@ -11,6 +12,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.ui.gallery.mediaDuration
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
@@ -20,6 +22,17 @@ class GalleryAppearanceTest {
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val context get() = compose.activity
+
+    @Test fun statusBarAreaStaysOpaqueOverScrolledPhotos() {
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("gallery-grid").performTouchInput { swipeUp() }
+        compose.waitForIdle()
+        // Photos under a translucent scrim would show through as many colours; an opaque bar is one.
+        val scrim = compose.onNodeWithTag("gallery-status-scrim").captureToImage().toPixelMap()
+        val colors = (0 until scrim.width step 6).flatMap { x -> (0 until scrim.height step 3).map { y -> scrim[x, y] } }.toSet()
+        assertEquals(setOf(colors.first()), colors)
+    }
+
     @Test fun photosCollectionsSharedAlbumsAndVideoCovers() {
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
         val repository = (context.application as AlbaApplication).graph.galleryRepository

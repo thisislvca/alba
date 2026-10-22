@@ -456,7 +456,7 @@ internal fun GalleryHome(
                 }
             }
         }
-        if (phonePhotos) GalleryStatusBarScrim(Modifier.align(Alignment.TopCenter).zIndex(2f))
+        if (phonePhotos) GalleryStatusBarScrim({ headerColor.value }, Modifier.align(Alignment.TopCenter).zIndex(2f))
     }
     val currentGrid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid }
     if (sheet == GallerySheet.JumpToDate) {
