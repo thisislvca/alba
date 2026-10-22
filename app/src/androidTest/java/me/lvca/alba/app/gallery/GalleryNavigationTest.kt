@@ -50,6 +50,8 @@ class GalleryNavigationTest {
         compose.onNodeWithTag("tab-SEARCH").performClick()
         compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
         compose.hideKeyboard()
+        // The navigation steps aside while the keyboard is open and returns once it has closed.
+        compose.waitUntilDisplayed(hasTestTag("tab-COLLECTIONS"))
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithText("Favorites").assertIsDisplayed()
         compose.onNodeWithTag("tab-LIBRARY").performClick()

@@ -29,11 +29,13 @@ class GalleryGridTest {
         compose.onNodeWithTag("media-fixture:icloud:0020").assertIsSelected()
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.cancel_selection)).performClick()
         val tile = compose.onNodeWithTag("media-fixture:icloud:0020").fetchSemanticsNode().boundsInRoot
+        // The default level groups photos by day, so the next photo is on the next row rather than beside this one.
+        val next = compose.onNodeWithTag("media-fixture:icloud:0019").fetchSemanticsNode().boundsInRoot
         val grid = compose.onNodeWithTag("gallery-grid").fetchSemanticsNode().boundsInRoot
         compose.onNodeWithTag("gallery-grid").performTouchInput {
             val start = tile.center - grid.topLeft
             down(start); advanceEventTime(650)
-            moveTo(start + Offset(tile.width * 1.9f, 0f), 300); up()
+            moveTo(Offset(start.x, next.center.y - grid.top), 300); up()
         }
         val count = compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true)).fetchSemanticsNodes().size
         assertTrue("Dragging should select a range, not just the first tile", count >= 2)
