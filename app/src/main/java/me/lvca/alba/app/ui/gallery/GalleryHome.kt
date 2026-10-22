@@ -688,6 +688,7 @@ private fun PhotoGrid(
                     MediaTile(
                         retryVersion = previewRetryVersion,
                         selected = id in selection,
+                        selecting = selecting,
                         media = media,
                         onClick = { openOrToggle(id) },
                         onVisible = { actions.requestPreview(id) },

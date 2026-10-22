@@ -44,7 +44,7 @@ class PhoneCopiesTest {
             compose.onNodeWithTag("media-fixture:icloud:0016").performTouchInput { longClick() }
             compose.scrollToGalleryMedia("fixture:icloud:0017")
             compose.onNodeWithTag("media-fixture:icloud:0017").performClick()
-            compose.onNodeWithTag("save-selection-to-phone").performScrollTo().performClick()
+            compose.onNodeWithTag("save-selection-to-phone").assertIsDisplayed().performClick()
             compose.waitUntil(LONG_WAIT) { runBlocking { graph.batches.observe().first().count {
                 it.batchId !in previousBatches && it.action == "SAVE_TO_PHONE" && it.status == BatchItemState.DONE
             } == 2 } }

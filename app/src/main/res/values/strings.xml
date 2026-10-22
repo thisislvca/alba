@@ -308,6 +308,9 @@
     <string name="save">Save</string>
     <string name="save_photo_and_video_to_gallery">Save photo and video to gallery</string>
     <string name="save_to_phone_gallery">Save to phone gallery</string>
+    <string name="selection_save_short">Save</string>
+    <string name="selection_offline_short">Offline</string>
+    <string name="selection_upload_short">Upload</string>
     <string name="screenshots">Screenshots</string>
     <string name="search">Search</string>
     <string name="search_by_filename_or_narrow_your_library_by_date_and_media_type">Search by filename, or narrow your library by date and media type.</string>

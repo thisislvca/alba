@@ -308,6 +308,17 @@ internal object AlbaIcons {
         }
     }
 
+    /** A tray with an arrow into it: saving a copy onto this phone. */
+    val SaveAlt: ImageVector by lazy {
+        icon("SaveAlt") {
+            moveTo(19f, 12f); verticalLineToRelative(7f); horizontalLineTo(5f); verticalLineToRelative(-7f); horizontalLineTo(3f)
+            verticalLineToRelative(7f); curveToRelative(0f, 1.1f, 0.9f, 2f, 2f, 2f); horizontalLineToRelative(14f)
+            curveToRelative(1.1f, 0f, 2f, -0.9f, 2f, -2f); verticalLineToRelative(-7f); horizontalLineToRelative(-2f); close()
+            moveTo(13f, 12.67f); lineToRelative(2.59f, -2.58f); lineTo(17f, 11.5f); lineToRelative(-5f, 5f); lineToRelative(-5f, -5f)
+            lineToRelative(1.41f, -1.41f); lineTo(11f, 12.67f); verticalLineTo(3f); horizontalLineToRelative(2f); close()
+        }
+    }
+
     val PhotoLibrary: ImageVector by lazy {
         icon("PhotoLibrary") {
             moveTo(20.0f, 4.0f)
