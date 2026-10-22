@@ -18,8 +18,6 @@ A hands-on review on 2026-10-22 found the app mixes the two. It uses Apple's vis
 
 These sit next to unthemed Material dialogs and square checkboxes. The seams are what make the app feel unfinished, and copying Apple's look also makes an unofficial iCloud app look official.
 
-The brand also does not reach the UI. The logo is a violet, pink and amber gradient, but the interface is iOS system blue.
-
 ## Rules
 
 | Keep from Apple Photos | Do the Android way |
@@ -39,13 +37,13 @@ The brand also does not reach the UI. The logo is a violet, pink and amber gradi
 - iOS Settings-style coloured icon squares
 - uppercase section labels
 - centred iOS-style titles
-- Apple's typography and system blue
+- Apple's typography
 
 **Leave out Apple features with no Android meaning** (Memories as Apple does them) until there is a native design for them.
 
 ## Foundations
 
-- **Colour:** derive the Material colour scheme from the brand gradient, with a violet primary taken from the logo (decided 2026-10-22) and an amber or coral tertiary for favourites and accents. Generate light and dark tonal palettes from that seed. Dynamic colour is offered as a setting under Appearance, off by default so the brand stays recognisable (decided 2026-10-22).
+- **Colour:** blue is the primary colour for buttons, links and selection, generated as a Material light and dark tonal palette from Alba's current blue. There are no accent colours for now: no secondary or tertiary hues beyond what the blue palette provides, and the logo gradient stays in the logo. Dynamic colour is offered as a setting under Appearance, off by default (all decided 2026-10-22).
 - **Type:** the Material 3 type scale on the system font. If the brand needs a display face, use it only for onboarding and empty-state headlines.
 - **Shape:** the Material 3 shape scale.
   - Photo tiles are square-cornered in the grid and inset with rounded corners when selected.
@@ -54,7 +52,7 @@ The brand also does not reach the UI. The logo is a violet, pink and amber gradi
   - **Stable now:** `NavigationBar`, `TopAppBar` / `LargeTopAppBar`, `ModalBottomSheet`, `AlertDialog`, `ListItem`, `SearchBar`, `FilterChip`.
   - **Expressive components** (`ShortNavigationBar`, `FloatingToolbar`, button groups) are still experimental, so use them only where they clearly help, for example the viewer and editor toolbars.
   - The design-system wrappers (`AlbaCard`, `AlbaListRow`, `AlbaSheetBody`) become thin themed wrappers around these, or are removed.
-- **Icons:** Material Symbols (outlined, filled when active), one tint rule per surface. The favourite heart is white on photos and filled in the tertiary colour in the viewer and lists.
+- **Icons:** Material Symbols (outlined, filled when active), one tint rule per surface. The favourite heart is white on photos and filled, in the surrounding icon colour, in the viewer and lists.
 - **Motion:** Material motion tokens, shared-element transitions from grid to viewer (kept), and predictive back animations.
 
 ## Screens
