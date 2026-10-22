@@ -461,8 +461,9 @@ internal fun GalleryHome(
                         SelectionActions(gallery, session, mediaBusy, actions)
                     }
                     else if (!wide) FloatingGalleryNavigation(tab, { navigate(it) },
-                        Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 16.dp)
-                            .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } })
+                        // It hides behind an open keyboard; keep the grid's bottom space at its last real height.
+                        Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
+                            .onSizeChanged { if (it.height > 0) floatingBarHeight = with(uiDensity) { it.height.toDp() } })
                 }
             }
         }
