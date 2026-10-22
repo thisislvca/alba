@@ -16,6 +16,8 @@ internal data class AlbaColors(
     val accent: Color,
     /** A healthy state, such as a verified connection. */
     val success: Color,
+    /** A set favourite's filled heart on app surfaces. On photos the heart uses [onMedia]. */
+    val favorite: Color,
     /** Base of gradients and badges drawn over photos. Photos are not themed, so this is the same in both sets. */
     val mediaScrim: Color,
     /** Text and icons drawn on photos or on [mediaScrim]. */
@@ -75,6 +77,7 @@ internal val LightAlbaColors = AlbaColors(
     isDark = false,
     accent = Color(0xFF009FFF),
     success = SuccessGreen,
+    favorite = Color(0xFFFF3B30),
     mediaScrim = Color.Black,
     onMedia = Color.White,
     sheetHandle = Color(0xFFDADCE6),
@@ -87,6 +90,7 @@ internal val DarkAlbaColors = AlbaColors(
     isDark = true,
     accent = Color(0xFF3DB4FF),
     success = Color(0xFF4CB782),
+    favorite = Color(0xFFFF453A),
     mediaScrim = Color.Black,
     onMedia = Color.White,
     sheetHandle = Color(0xFF4A4D57),

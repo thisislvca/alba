@@ -308,6 +308,16 @@ internal object AlbaIcons {
         }
     }
 
+    /** Arrows up and down: uploads, downloads and other transfers. */
+    val SwapVert: ImageVector by lazy {
+        icon("SwapVert") {
+            moveTo(16f, 17.01f); verticalLineTo(10f); horizontalLineToRelative(-2f); verticalLineToRelative(7.01f); horizontalLineToRelative(-3f)
+            lineTo(15f, 21f); lineToRelative(4f, -3.99f); horizontalLineToRelative(-3f); close()
+            moveTo(9f, 3f); lineTo(5f, 6.99f); horizontalLineToRelative(3f); verticalLineTo(14f); horizontalLineToRelative(2f)
+            verticalLineTo(6.99f); horizontalLineToRelative(3f); lineTo(9f, 3f); close()
+        }
+    }
+
     /** A tray with an arrow into it: saving a copy onto this phone. */
     val SaveAlt: ImageVector by lazy {
         icon("SaveAlt") {
@@ -374,10 +384,10 @@ private fun icon(name: String, pathBuilder: PathBuilder.() -> Unit): ImageVector
     )
 }.build()
 
-/** Favourites are a heart everywhere: filled when set, outlined when not. */
+/** Favourites are a heart everywhere: filled in the favourite red when set, outlined in the content colour when not. */
 @Composable
 internal fun FavoriteIcon(favorite: Boolean, contentDescription: String?, modifier: Modifier = Modifier,
-    tint: Color = LocalContentColor.current) {
+    tint: Color = if (favorite) AlbaTheme.colors.favorite else LocalContentColor.current) {
     Icon(if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, contentDescription, modifier, tint)
 }
 

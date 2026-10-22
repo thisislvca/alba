@@ -352,12 +352,12 @@ internal fun GalleryHome(
                             } else if (!(tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null))) {
                                 if (phonePhotos && gallery.selection.isEmpty()) IconButton(onClick = { sheet = GallerySheet.Filters },
                                     modifier = Modifier.testTag("gallery-menu-button")) {
-                                    Icon(Icons.Outlined.MoreVert, stringResource(R.string.filter_and_sort))
+                                    Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort))
                                 }
                                 IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
                                 IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
                                     BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
-                                        Icon(Icons.Outlined.Notifications, stringResource(R.string.uploads_and_activity))
+                                        Icon(AlbaIcons.SwapVert, stringResource(R.string.uploads_and_activity))
                                     }
                                 }
                                 IconButton(onClick = actions::openAccount, modifier = Modifier.testTag("account-button").semantics { contentDescription = contextAccountLabel }) {
