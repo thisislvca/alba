@@ -62,6 +62,7 @@ import me.lvca.alba.app.ui.InvitationActions
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
+import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
 import me.lvca.alba.app.ui.onboarding.WelcomeScreen
 import me.lvca.alba.app.ui.shared.SharedInvitations
 import me.lvca.alba.engine.companion.BatchAction
@@ -131,15 +132,27 @@ internal fun AlbaRoot(
     onIncomingChange: (IncomingSession) -> Unit,
 ) {
     var showWelcome by rememberSaveable { mutableStateOf(!onboarding.completed) }
+    // Sign-in opened from the introduction: leaving it without an account returns there, not to an empty library.
+    var connectingFromWelcome by rememberSaveable { mutableStateOf(false) }
     // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
     AlbaTheme(darkTheme = isSystemInDarkTheme()) {
         if (showWelcome && incoming.request == null) {
             WelcomeScreen(
-                onConnect = { onboarding.complete(); viewModel.account.connectAccount(); showWelcome = false },
+                // Returning from sign-in lands on the page that offers it, next to the demo.
+                initialPage = if (onboarding.completed) WELCOME_CHOICES_PAGE else 0,
+                onConnect = {
+                    onboarding.complete(); viewModel.account.connectAccount()
+                    connectingFromWelcome = true; showWelcome = false
+                },
                 onDemo = { onboarding.complete(); viewModel.account.startDemo(); showWelcome = false },
             )
         } else {
-            AlbaMain(viewModel, incoming, onIncomingChange)
+            AlbaMain(viewModel, incoming, onIncomingChange, onAccountClosed = {
+                if (connectingFromWelcome) {
+                    connectingFromWelcome = false
+                    if (viewModel.account.state.value.accountState !is ICloudAccountState.SignedIn) showWelcome = true
+                }
+            })
         }
     }
 }
@@ -150,6 +163,7 @@ private fun AlbaMain(
     viewModel: AlbaViewModel,
     incoming: IncomingSession,
     onIncomingChange: (IncomingSession) -> Unit,
+    onAccountClosed: () -> Unit,
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
@@ -263,7 +277,8 @@ private fun AlbaMain(
             override fun confirm(next: RootDialog) { dialog = next }
         }
     }
-    val actions = remember(viewModel, platform) { AlbaRootActions(viewModel, platform) }
+    val accountClosed by rememberUpdatedState(onAccountClosed)
+    val actions = remember(viewModel, platform) { AlbaRootActions(viewModel, platform, onAccountClosed = { accountClosed() }) }
 
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -447,6 +462,7 @@ internal interface PlatformRequests {
 private class AlbaRootActions(
     private val viewModel: AlbaViewModel,
     private val platform: PlatformRequests,
+    private val onAccountClosed: () -> Unit,
 ) : AlbaActions {
 
     private val gallery get() = viewModel.gallery
@@ -506,7 +522,7 @@ private class AlbaRootActions(
     override fun cancelOfflineDownload() = transfers.cancelOfflineDownload()
     override fun moveVerifiedPhotoToTrash(mediaId: String) = transfers.requestVerifiedTrash(mediaId)
 
-    override fun closeAccount() = account.closeAccount()
+    override fun closeAccount() { account.closeAccount(); onAccountClosed() }
     override fun signIn(appleId: String, password: String) = account.signIn(appleId, password)
     override fun submitTwoFactor(code: String) = account.submitTwoFactor(code)
     override fun resendTwoFactor() = account.resendTwoFactor()
