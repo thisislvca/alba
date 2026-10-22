@@ -94,7 +94,7 @@ These sit next to unthemed Material dialogs and square checkboxes. The seams are
    - **Albums and Shared Albums:** horizontal rows with "See all".
    - **Media Types:** empty types are hidden.
    - **Phone photos:** one "On this phone" entry replaces the current tile and row.
-   - **Trash:** phone trash and iCloud Recently Deleted appear under one "Recently Deleted" entry with two clearly labelled sources.
+   - **Trash:** phone trash and iCloud Recently Deleted appear under one "Recently Deleted" entry with two clearly labelled sources (decided 2026-10-22).
 8. **Album and shared album:**
    - **Header:** a large collapsing top bar over the cover photo; actions are top-bar icons plus an overflow menu, with no "Select" text button.
    - **Grid:** the same density as the library.
@@ -133,6 +133,5 @@ Store screenshots are regenerated at the end.
 
 ## Open questions
 
-- **Trash:** merge phone trash and iCloud Recently Deleted under one entry, as proposed, or keep them separate?
 - **Navigation:** a standard navigation bar, or the experimental short navigation bar?
 - **Library order:** keep newest at the top (Google Photos, and Alba today), or newest at the bottom (Apple Photos)?
