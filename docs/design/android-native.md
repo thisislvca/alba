@@ -45,7 +45,7 @@ The brand also does not reach the UI. The logo is a violet, pink and amber gradi
 
 ## Foundations
 
-- **Colour:** derive the Material colour scheme from the brand gradient, with a violet primary taken from the logo (decided 2026-10-22) and an amber or coral tertiary for favourites and accents. Generate light and dark tonal palettes from that seed. Dynamic colour can be an option in settings, off by default so the brand stays recognisable.
+- **Colour:** derive the Material colour scheme from the brand gradient, with a violet primary taken from the logo (decided 2026-10-22) and an amber or coral tertiary for favourites and accents. Generate light and dark tonal palettes from that seed. Dynamic colour is offered as a setting under Appearance, off by default so the brand stays recognisable (decided 2026-10-22).
 - **Type:** the Material 3 type scale on the system font. If the brand needs a display face, use it only for onboarding and empty-state headlines.
 - **Shape:** the Material 3 shape scale.
   - Photo tiles are square-cornered in the grid and inset with rounded corners when selected.
@@ -135,7 +135,6 @@ Store screenshots are regenerated at the end.
 
 ## Open questions
 
-- **Dynamic colour:** offer it at all, and if so off by default?
 - **Trash:** merge phone trash and iCloud Recently Deleted under one entry, as proposed, or keep them separate?
 - **Navigation:** a standard navigation bar, or the experimental short navigation bar?
 - **Library order:** keep newest at the top (Google Photos, and Alba today), or newest at the bottom (Apple Photos)?
