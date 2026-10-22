@@ -131,15 +131,16 @@ internal fun AlbaRoot(
     onIncomingChange: (IncomingSession) -> Unit,
 ) {
     var showWelcome by rememberSaveable { mutableStateOf(!onboarding.completed) }
-    if (showWelcome && incoming.request == null) {
-        AlbaTheme(darkTheme = isSystemInDarkTheme()) {
+    // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
+    AlbaTheme(darkTheme = isSystemInDarkTheme()) {
+        if (showWelcome && incoming.request == null) {
             WelcomeScreen(
                 onConnect = { onboarding.complete(); viewModel.account.connectAccount(); showWelcome = false },
                 onDemo = { onboarding.complete(); viewModel.account.startDemo(); showWelcome = false },
             )
+        } else {
+            AlbaMain(viewModel, incoming, onIncomingChange)
         }
-    } else {
-        AlbaMain(viewModel, incoming, onIncomingChange)
     }
 }
 
@@ -301,9 +302,7 @@ private fun AlbaMain(
             })
     }
     (incoming.request as? IncomingRequest.Invitation)?.takeUnless { incomingSuspended }?.let { request ->
-        AlbaTheme(darkTheme = isSystemInDarkTheme()) {
-            IncomingInvitation(request.link, session.accountState, actions, ::closeIncoming, ::connectForIncoming)
-        }
+        IncomingInvitation(request.link, session.accountState, actions, ::closeIncoming, ::connectForIncoming)
     }
 
     editingId?.let { id -> gallery.catalogItems.firstOrNull { it.id == id }?.let { media ->
@@ -337,39 +336,37 @@ private fun AlbaMain(
             }
         }
     }
-    AlbaTheme(darkTheme = darkTheme) {
-        AlbaApp(
-            gallery = gallery,
-            session = session,
-            transfers = transfers,
-            phoneStorage = phoneStorage,
-            mediaWork = mediaWork,
-            previewRetryVersion = previewRetryVersion,
-            message = message,
-            diagnostics = diagnostics,
-            actions = actions,
-            onViewerLightBars = { viewerLightBars = it },
+    AlbaApp(
+        gallery = gallery,
+        session = session,
+        transfers = transfers,
+        phoneStorage = phoneStorage,
+        mediaWork = mediaWork,
+        previewRetryVersion = previewRetryVersion,
+        message = message,
+        diagnostics = diagnostics,
+        actions = actions,
+        onViewerLightBars = { viewerLightBars = it },
+    )
+    when (val current = dialog) {
+        is RootDialog.ConfirmCloudTrash -> ConfirmRemoval(
+            title = if (current.trashed) R.string.trash_in_icloud else R.string.restore_from_icloud,
+            body = if (current.trashed) R.plurals.cloud_trash_confirmation else R.plurals.cloud_restore_confirmation,
+            count = current.mediaIds.size,
+            dismiss = { dialog = null },
+            confirm = { viewModel.edits.setCloudTrashed(current.mediaIds, current.trashed); dialog = null },
         )
-        when (val current = dialog) {
-            is RootDialog.ConfirmCloudTrash -> ConfirmRemoval(
-                title = if (current.trashed) R.string.trash_in_icloud else R.string.restore_from_icloud,
-                body = if (current.trashed) R.plurals.cloud_trash_confirmation else R.plurals.cloud_restore_confirmation,
-                count = current.mediaIds.size,
-                dismiss = { dialog = null },
-                confirm = { viewModel.edits.setCloudTrashed(current.mediaIds, current.trashed); dialog = null },
-            )
-            is RootDialog.ConfirmRemoveFromAlbum -> ConfirmRemoval(
-                title = R.string.remove_from_album,
-                body = R.plurals.remove_album_confirmation,
-                count = current.mediaIds.size,
-                dismiss = { dialog = null },
-                confirm = { viewModel.edits.removeFromAlbum(current.albumId, current.mediaIds); dialog = null },
-            )
-            RootDialog.DemoUpload, null -> Unit
-        }
-        transfers.backupSetup?.takeUnless { it.awaitingPermissions }?.let { setup ->
-            BackupDisclosure(setup, accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
-        }
+        is RootDialog.ConfirmRemoveFromAlbum -> ConfirmRemoval(
+            title = R.string.remove_from_album,
+            body = R.plurals.remove_album_confirmation,
+            count = current.mediaIds.size,
+            dismiss = { dialog = null },
+            confirm = { viewModel.edits.removeFromAlbum(current.albumId, current.mediaIds); dialog = null },
+        )
+        RootDialog.DemoUpload, null -> Unit
+    }
+    transfers.backupSetup?.takeUnless { it.awaitingPermissions }?.let { setup ->
+        BackupDisclosure(setup, accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
     }
 }
 
