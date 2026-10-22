@@ -70,4 +70,12 @@ class GalleryScrollFeelTest {
         assertTrue(buckets.fractionAt(450f) in (1f / 3f)..1f)
         assertEquals(0f, MonthBuckets(emptyList(), 500f).fractionAt(100f), 0f)
     }
+
+    @Test fun floatingDateStepsAsideForAMonthHeaderNearTheTop() {
+        assertFalse(monthHeaderNearTop(emptyList(), 150f))
+        assertTrue(monthHeaderNearTop(listOf(-20 to 30), 150f))
+        assertTrue(monthHeaderNearTop(listOf(120 to 170), 150f))
+        assertFalse(monthHeaderNearTop(listOf(-60 to 0), 150f))
+        assertFalse(monthHeaderNearTop(listOf(150 to 200, 900 to 950), 150f))
+    }
 }

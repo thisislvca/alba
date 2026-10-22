@@ -311,13 +311,17 @@ internal fun GalleryHome(
         val monthOffsets = remember(sections, gallery.deviceMediaAccess, permissionDismissed, leadingItems, visibleLevel, query.date) {
             galleryMonthOffsets(sections, !gallery.deviceMediaAccess && !permissionDismissed, visibleLevel.dayHeaders, query.date, leadingItems)
         }
-        val visibleMonth by remember(libraryGrid, sections, monthOffsets) {
+        val headerClearance = with(uiDensity) { GalleryFeel.STICKY_DATE_HEADER_CLEARANCE.toPx() }
+        val visibleMonth by remember(libraryGrid, sections, monthOffsets, headerClearance) {
             derivedStateOf {
-                val first = libraryGrid.layoutInfo.visibleItemsInfo.firstOrNull {
-                    it.offset.y + it.size.height > 0
-                }
+                val visible = libraryGrid.layoutInfo.visibleItemsInfo
+                val first = visible.firstOrNull { it.offset.y + it.size.height > 0 }
+                val headers = visible.filter { (it.key as? String)?.startsWith("month-") == true }
+                    .map { it.offset.y to it.offset.y + it.size.height }
                 // A month farther down the viewport must not label the opening featured section.
                 if (!galleryScrolled || first == null || first.index < (monthOffsets.firstOrNull() ?: Int.MAX_VALUE)) null
+                // Like Google Photos, the pill steps aside while a real month header is near the top.
+                else if (monthHeaderNearTop(headers, headerClearance)) null
                 else sections.getOrNull(monthOffsets.indexOfLast { it <= first.index })?.month
             }
         }

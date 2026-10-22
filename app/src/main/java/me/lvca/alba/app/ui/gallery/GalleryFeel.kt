@@ -31,6 +31,12 @@ internal object GalleryFeel {
     /** Below this width the default day level has 3 columns instead of 4 (grid redesign, sw413dp). */
     const val DAY_FOUR_COLUMNS_FROM_DP = 413
 
+    /**
+     * The floating date pill hides while a real month header is this close to the top, so the two never stack
+     * (photos_photogrid_stickyheaders_hide_header_threshold).
+     */
+    val STICKY_DATE_HEADER_CLEARANCE = 150.dp
+
     // Selection.
 
     /** A checked tile shrinks by this much on every side (photos_photoadapteritem_checked_padding). */

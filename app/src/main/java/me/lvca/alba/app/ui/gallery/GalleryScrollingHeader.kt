@@ -145,6 +145,13 @@ internal fun GalleryStatusBarScrim(color: () -> Color, modifier: Modifier = Modi
         .testTag("gallery-status-scrim"))
 }
 
+/**
+ * Whether a real month header is on screen within [clearancePx] of the grid's top, given each visible month header's
+ * top and bottom in viewport pixels. The floating date would then repeat or cover it.
+ */
+internal fun monthHeaderNearTop(headers: List<Pair<Int, Int>>, clearancePx: Float): Boolean =
+    headers.any { (top, bottom) -> bottom > 0 && top < clearancePx }
+
 /** The date floats above the photo timeline, independent of the header's visibility. */
 @Composable
 internal fun FloatingGridDate(month: YearMonth?, dates: () -> Unit,
