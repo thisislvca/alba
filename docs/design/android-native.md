@@ -1,5 +1,7 @@
 # Design direction: Android-native, Apple-familiar
 
+> **Superseded on 2026-10-22.** Alba is not being redesigned. It keeps its current layout and is polished to match Google Photos' gestures, motion and details (see `VISION.md`). This document is kept for reference only.
+
 Alba should look and behave like a native Android app, organised the way iCloud users know from Apple Photos.
 
 - **From Apple, take the structure.** That means where things are, what they are called, and how the library is grouped.
