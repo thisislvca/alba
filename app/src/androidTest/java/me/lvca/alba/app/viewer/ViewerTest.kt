@@ -107,10 +107,13 @@ class ViewerTest {
         compose.mainClock.advanceTimeBy(600)
         compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithContentDescription("Share").assertDoesNotExist()
+        // GP hides the system bars with the chrome.
+        compose.waitUntil(SHORT_WAIT) { statusBarsVisible() == false }
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").performTouchInput { advanceEventTime(500); click() }
         compose.mainClock.advanceTimeBy(600)
         compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Share").assertIsDisplayed()
+        compose.waitUntil(SHORT_WAIT) { statusBarsVisible() == true }
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
@@ -140,6 +143,11 @@ class ViewerTest {
             assertFalse(player()!!.playWhenReady)
             assertTrue("Playback position should survive recreation", player()!!.currentPosition in 1100..1400)
         }
+    }
+
+    private fun statusBarsVisible(): Boolean? = compose.runOnIdle {
+        androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+            ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.statusBars())
     }
 
     private fun hasNodeWithText(text: String): Boolean =

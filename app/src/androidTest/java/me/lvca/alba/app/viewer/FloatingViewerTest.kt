@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
@@ -107,18 +108,31 @@ class FloatingViewerTest {
         compose.onNodeWithTag("media-pager").assertDoesNotExist()
         compose.onNodeWithTag("media-$id").assertIsDisplayed()
     }
+    private fun photoBounds() = compose.onNodeWithTag("photo-viewer-$id", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+    private fun waitForPhoto() = compose.waitUntil(UI_WAIT) {
+        compose.onAllNodesWithTag("photo-viewer-$id", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+    }
+
     @Test fun predictiveBackProgressCancelsAndCompletes() {
         open()
-        val initial = compose.onNodeWithTag("media-pager").fetchSemanticsNode().boundsInRoot
-        fun progress(value: Float) = androidx.activity.BackEventCompat(0f, 100f, value, androidx.activity.BackEventCompat.EDGE_LEFT)
+        waitForPhoto()
+        val initial = photoBounds()
+        fun progress(value: Float, y: Float = 100f) = androidx.activity.BackEventCompat(0f, y, value, androidx.activity.BackEventCompat.EDGE_LEFT)
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.dispatchOnBackStarted(progress(0f)) }
-        compose.runOnIdle { compose.activity.onBackPressedDispatcher.dispatchOnBackProgressed(progress(.6f)) }
+        // The started event does not reach the handler's flow; the first progress event anchors the touch.
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.dispatchOnBackProgressed(progress(.05f)) }
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.dispatchOnBackProgressed(progress(.6f, y = 180f)) }
         compose.waitForIdle()
-        val moved = compose.onNodeWithTag("media-pager").fetchSemanticsNode().boundsInRoot
-        assertTrue("Back progress moves the photo with the gesture", moved.top > initial.top + 80f)
+        val moved = photoBounds()
+        // GP: scale 1 - 0.35p, a shift away from the swipe edge, and the touch's vertical movement.
+        assertEquals("Back progress shrinks the photo", initial.width * (1f - .35f * .6f), moved.width, initial.width * .02f)
+        assertTrue("A left-edge swipe moves the photo right", moved.center.x > initial.center.x + 20f)
+        assertTrue("The photo follows the touch down", moved.center.y > initial.center.y + 20f)
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.dispatchOnBackCancelled() }
         compose.waitForIdle()
-        assertEquals(initial.top, compose.onNodeWithTag("media-pager").fetchSemanticsNode().boundsInRoot.top, 1f)
+        val restored = photoBounds()
+        assertEquals(initial.top, restored.top, 1f)
+        assertEquals(initial.width, restored.width, 1f)
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.dispatchOnBackStarted(progress(0f)) }
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.dispatchOnBackProgressed(progress(.8f)) }
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
@@ -143,10 +157,41 @@ class FloatingViewerTest {
         image.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, compose.activity.getString(R.string.photo_zoomed)))
         compose.onNodeWithTag("photo-details-panel").assertDoesNotExist()
         image.performTouchInput { doubleClick() }
+        // GP dismisses after ~30dp of travel; 20dp (less the touch slop) settles back.
         compose.onNodeWithTag("media-pager").performTouchInput {
-            swipe(center, Offset(center.x, center.y + height * .045f), 700)
+            swipe(center, Offset(center.x, center.y + 20.dp.toPx()), 700)
         }
         compose.onNodeWithTag("media-pager").assertIsDisplayed()
         compose.onNodeWithTag("photo-details-panel").assertDoesNotExist()
+    }
+
+    @Test fun swipeDownFollowsTheFingerInBothAxesAndShortTravelSettlesBack() {
+        open()
+        waitForPhoto()
+        val initial = photoBounds()
+        val pager = compose.onNodeWithTag("media-pager")
+        pager.performTouchInput {
+            down(center)
+            moveBy(Offset(0f, viewConfiguration.touchSlop + 1f))
+            moveBy(Offset(12.dp.toPx(), 6.dp.toPx()))
+        }
+        compose.waitForIdle()
+        val dragged = photoBounds()
+        assertTrue("The photo follows the finger sideways", dragged.center.x > initial.center.x + 8f)
+        assertTrue("The photo shrinks as it is pulled", dragged.width < initial.width * .98f)
+        pager.performTouchInput { up() }
+        compose.waitForIdle()
+        pager.assertIsDisplayed()
+        val settled = photoBounds()
+        assertEquals(initial.left, settled.left, 1f)
+        assertEquals(initial.width, settled.width, 1f)
+        pager.performTouchInput {
+            down(center)
+            moveBy(Offset(0f, viewConfiguration.touchSlop + 1f))
+            moveBy(Offset(-20.dp.toPx(), 40.dp.toPx()))
+            up()
+        }
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("media-$id").assertIsDisplayed()
     }
 }

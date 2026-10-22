@@ -4,6 +4,7 @@ import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -13,7 +14,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 
-internal const val PHOTO_TRANSITION_MILLIS = 250
+internal const val PHOTO_TRANSITION_MILLIS = ViewerSpec.TRANSITION_MILLIS
 internal val galleryEaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 internal val galleryColorEase = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 
@@ -42,7 +43,7 @@ internal fun Modifier.sharedPhoto(id: String?): Modifier {
         sharedElement(
             rememberSharedContentState("photo-$id"),
             animatedVisibilityScope = scope.visibility,
-            boundsTransform = { _, _ -> if (reduceMotion) snap() else tween(PHOTO_TRANSITION_MILLIS, easing = galleryEaseOut) },
+            boundsTransform = { _, _ -> if (reduceMotion) snap() else tween(PHOTO_TRANSITION_MILLIS, easing = ViewerSpec.TransitionEasing) },
         )
     }
 }
@@ -51,8 +52,9 @@ internal fun Modifier.sharedPhoto(id: String?): Modifier {
 internal fun Modifier.photoChrome(): Modifier {
     val scope = LocalPhotoTransition.current ?: return this
     val reduceMotion = reduceGalleryMotion()
+    // GP fades chrome linearly alongside the geometry, with no delay.
+    val millis = if (reduceMotion) 80 else PHOTO_TRANSITION_MILLIS
     return with(scope.visibility) {
-        animateEnterExit(enter = fadeIn(tween(if (reduceMotion) 80 else 140, delayMillis = if (reduceMotion) 0 else 100)),
-            exit = fadeOut(tween(if (reduceMotion) 80 else 90)))
+        animateEnterExit(enter = fadeIn(tween(millis, easing = LinearEasing)), exit = fadeOut(tween(millis, easing = LinearEasing)))
     }
 }

@@ -1,9 +1,15 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package me.lvca.alba.app.ui.viewer
 
 import android.net.Uri
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -125,6 +131,8 @@ fun VideoPlayer(
     onDismissOptions: () -> Unit = {},
     loopEnabled: Boolean = true,
     showPlaybackControls: Boolean = true,
+    controlsVisible: Boolean = true,
+    onControlsVisibleChange: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val colors = viewerColors()
@@ -139,7 +147,14 @@ fun VideoPlayer(
     var scrubbing by remember(id) { mutableStateOf(false) }
     var scrubPosition by remember(id) { mutableLongStateOf(0L) }
     var resumeAfterSeek by remember(id) { mutableStateOf(false) }
-    var overlayVisible by remember(id) { mutableStateOf(false) }
+    // The viewer owns chrome visibility; a tap on the video toggles it exactly like a tap on a photo.
+    var overlayVisible by remember(id) { mutableStateOf(controlsVisible) }
+    LaunchedEffect(controlsVisible) { overlayVisible = controlsVisible }
+    val latestControlsChange by rememberUpdatedState(onControlsVisibleChange)
+    fun setOverlay(visible: Boolean) {
+        overlayVisible = visible
+        latestControlsChange(visible)
+    }
     var muted by rememberSaveable(id) { mutableStateOf(false) }
     var speed by rememberSaveable(id) { mutableFloatStateOf(1f) }
     val memory = rememberSaveable(id, saver = PlaybackMemory.Saver) { PlaybackMemory(0, autoPlay) }
@@ -179,7 +194,7 @@ fun VideoPlayer(
     LaunchedEffect(isPlaying) { onPlayingChanged(isPlaying) }
     LaunchedEffect(loopEnabled) { player.repeatMode = if (loopEnabled) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF }
     LaunchedEffect(showPlaybackControls) {
-        if (!showPlaybackControls) { player.pause(); overlayVisible = false }
+        if (!showPlaybackControls) player.pause()
     }
     LaunchedEffect(player) {
         while (true) {
@@ -192,10 +207,10 @@ fun VideoPlayer(
             }
         }
     }
-    LaunchedEffect(isPlaying, overlayVisible) {
-        if (isPlaying && overlayVisible) {
+    LaunchedEffect(isPlaying, overlayVisible, scrubbing) {
+        if (isPlaying && overlayVisible && !scrubbing) {
             delay(3_000)
-            overlayVisible = false
+            setOverlay(false)
         }
     }
     DisposableEffect(player, lifecycle) {
@@ -220,24 +235,27 @@ fun VideoPlayer(
     BoxWithConstraints(modifier.testTag("video-player").semantics { stateDescription = playbackState },
         contentAlignment = Alignment.Center) {
         val width = minOf(maxWidth, maxHeight * videoAspect)
-        val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        // Ignore visibility: the bars hide with the chrome, and the controls must not jump when they do.
+        val navBottom = WindowInsets.navigationBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding()
         val controlsOnVideo = (maxHeight + width / videoAspect) / 2 > maxHeight - navBottom - 163.dp
         AndroidView(factory = { PlayerView(it).apply { useController = false; this.player = player } },
             update = { it.player = player; it.keepScreenOn = state == R.string.playing }, modifier = Modifier.size(width, width / videoAspect))
         Box(Modifier.fillMaxSize().clickable(
             interactionSource = remember { MutableInteractionSource() }, indication = null,
             onClickLabel = stringResource(R.string.toggle_photo_controls),
-        ) { overlayVisible = !overlayVisible })
-        if (showPlaybackControls && (!isPlaying || overlayVisible || scrubbing)) {
+        ) { setOverlay(!overlayVisible) })
+        val fade = tween<Float>(if (reduceGalleryMotion()) 80 else ViewerSpec.CHROME_FADE_MILLIS, easing = LinearEasing)
+        androidx.compose.animation.AnimatedVisibility(showPlaybackControls && (overlayVisible || scrubbing),
+            modifier = Modifier.align(Alignment.BottomCenter), enter = fadeIn(fade), exit = fadeOut(fade)) {
             val darkControls = AlbaTheme.colors.isDark || isPlaying || controlsOnVideo
             val ink = (if (darkControls) VideoControlsOnDark else VideoControlsOnLight).ink
             Column(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = navBottom + 76.dp),
+                Modifier.fillMaxWidth().padding(bottom = navBottom + 76.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = {
-                        if (player.isPlaying) player.pause() else { overlayVisible = true; player.play() }
+                        if (player.isPlaying) player.pause() else { setOverlay(true); player.play() }
                     }, modifier = Modifier.size(48.dp).testTag("video-play-pause")) {
                         Icon(if (isPlaying) AlbaIcons.Pause else Icons.Filled.PlayArrow,
                             stringResource(if (isPlaying) R.string.pause_video else R.string.play_video), tint = ink)
@@ -258,7 +276,7 @@ fun VideoPlayer(
                     darkCanvas = darkControls,
                     onSeekStart = {
                         resumeAfterSeek = player.isPlaying
-                        scrubbing = true; scrubPosition = position; player.pause(); overlayVisible = true
+                        scrubbing = true; scrubPosition = position; player.pause(); setOverlay(true)
                     },
                     onSeek = { next -> scrubPosition = next; player.seekTo(next) },
                     onSeekFinished = {
@@ -352,8 +370,9 @@ private fun VideoTimeline(
                 }
             }
         }
+        // Axis-locked: a vertical swipe that starts on the rail still dismisses or opens details.
         .pointerInput(duration) {
-            detectDragGestures(onDragStart = { if (duration > 0L) beginSeek() },
+            detectHorizontalDragGestures(onDragStart = { if (duration > 0L) beginSeek() },
                 onDragEnd = { if (duration > 0L) finishSeek() }, onDragCancel = { if (duration > 0L) finishSeek() }) { change, _ ->
                 if (duration > 0L) {
                     val inset = 4.dp.toPx()
