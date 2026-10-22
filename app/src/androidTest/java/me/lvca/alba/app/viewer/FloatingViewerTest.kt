@@ -11,6 +11,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
@@ -34,6 +35,12 @@ class FloatingViewerTest {
     @Test fun favoriteHeartIsFilledRedRatherThanThePrimaryBlue() {
         compose.waitForGalleryMedia()
         compose.openGalleryMedia(favoriteId)
+        // Other tests in the run may have unfavourited this demo photo; set it through the viewer first.
+        val unfavorite = compose.activity.getString(R.string.unfavorite)
+        fun isFavorite() = compose.onNodeWithTag("viewer-favorite").fetchSemanticsNode()
+            .config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }.contains(unfavorite)
+        if (!isFavorite()) compose.onNodeWithTag("viewer-favorite").performClick()
+        compose.waitUntil(UI_WAIT) { isFavorite() }
         val heart = compose.onNodeWithTag("viewer-favorite").captureToImage().toPixelMap()
         val pixels = (0 until heart.width).flatMap { x -> (0 until heart.height).map { y -> heart[x, y] } }
         assertTrue("The set favourite is drawn in red", pixels.any { it.red > .8f && it.green < .4f && it.blue < .4f })
