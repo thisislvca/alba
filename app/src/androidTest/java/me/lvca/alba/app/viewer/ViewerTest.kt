@@ -121,6 +121,21 @@ class ViewerTest {
         compose.onNodeWithTag("viewer-image-fixture:icloud:0001").assertIsDisplayed()
     }
 
+    @Test fun tappingAPlayingVideoBringsBackTheWholeChrome() {
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia("fixture:icloud:0019")
+        compose.waitUntil(UI_WAIT) { compose.runOnIdle { player()?.isPlaying == true } }
+        // Playback hides the chrome after a few seconds.
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isEmpty() }
+        compose.onAllNodesWithTag("floating-viewer-back").assertCountEquals(0)
+        compose.onNodeWithTag("video-player").performClick()
+        // Like Google Photos, the tap brings back the top bar and actions with the playback controls, without pausing.
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("floating-viewer-back").assertIsDisplayed()
+        compose.onNodeWithTag("video-play-pause").assertIsDisplayed()
+        compose.runOnIdle { assertTrue("The tap must not pause playback", player()?.isPlaying == true) }
+    }
+
     @Test fun swipingAwayFromVideoReleasesPlayback() {
         compose.waitForGalleryMedia()
         compose.openGalleryMedia("fixture:icloud:0019")

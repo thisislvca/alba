@@ -156,13 +156,15 @@ internal fun MediaDetailScreen(
         val pose = { motion.pose(fullEffectPx, widthPx) }
         val panelHeight = with(density) { (motion.details * detailsHeightPx).toDp() }
         val expanded = panelHeight > 0.dp
-        val chromeOn = controls && (media.kind != MediaKind.VIDEO || !videoPlaying)
+        // Like Google Photos, a tap on a playing video brings back the whole chrome (top bar, actions and the playback
+        // overlay) over a black canvas; the overlay hides it all again after a few seconds of playback.
+        val chromeOn = controls
+        val playingVideo = media.kind == MediaKind.VIDEO && videoPlaying
         val chromeFade = tween<Float>(if (reduceMotion) 80 else ViewerSpec.CHROME_FADE_MILLIS, easing = LinearEasing)
-        val canvasColor by animateColorAsState(if (chromeOn || expanded) colors.canvas else Color.Black,
+        val canvasColor by animateColorAsState(if ((chromeOn && !playingVideo) || expanded) colors.canvas else Color.Black,
             tween(if (reduceMotion) 0 else ViewerSpec.CHROME_FADE_MILLIS, easing = LinearEasing), label = "viewer-canvas")
         SideEffect { onViewerLightBars(!darkViewer && (chromeOn || expanded)) }
         // GP hides the status and navigation bars with the chrome; an edge swipe reveals them briefly.
-        // A playing video's overlay is chrome too, so the bars follow `controls` rather than `chromeOn`.
         ImmersiveSystemBars(activeScreen && !controls && !expanded)
         gallerySnapshot?.let { layer -> Box(Modifier.fillMaxSize().drawWithContent { drawLayer(layer) }) }
         Box(Modifier.fillMaxSize().drawBehind { drawRect(canvasColor, alpha = pose().backdrop) })
