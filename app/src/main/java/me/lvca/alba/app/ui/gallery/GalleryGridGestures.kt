@@ -97,7 +97,7 @@ private fun Modifier.gridPinchInput(pinch: GridPinch, dragSelecting: () -> Boole
                 val event = awaitPointerEvent(PointerEventPass.Initial)
                 val pressed = event.changes.count { it.pressed }
                 if (pressed >= 2 && !ended && !dragSelecting()) {
-                    val span = event.calculateCentroidSize(useCurrent = true)
+                    val span = event.pressedSpan()
                     if (startSpan == 0f) startSpan = span
                     if (!pinching && abs(span - startSpan) >= viewConfiguration.touchSlop && startSpan > 0f) {
                         pinching = pinch.begin(event.calculateCentroid(useCurrent = true))
@@ -114,6 +114,17 @@ private fun Modifier.gridPinchInput(pinch: GridPinch, dragSelecting: () -> Boole
             } while (event.changes.any { it.pressed })
             if (pinching && !ended) pinch.end()
         }
+}
+
+/**
+ * The fingers' mean distance from their centroid. Unlike [calculateCentroidSize] it counts a finger from the event it
+ * lands in, so the pinch measures from where both fingers went down rather than from their first move.
+ */
+private fun PointerEvent.pressedSpan(): Float {
+    val points = changes.filter { it.pressed }.map { it.position }
+    if (points.size < 2) return 0f
+    val centroid = points.fold(Offset.Zero) { sum, point -> sum + point } / points.size.toFloat()
+    return points.sumOf { (it - centroid).getDistance().toDouble() }.toFloat() / points.size
 }
 
 /**

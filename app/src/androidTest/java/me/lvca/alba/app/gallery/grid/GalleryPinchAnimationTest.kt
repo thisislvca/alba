@@ -20,7 +20,12 @@ class GalleryPinchAnimationTest {
     private val photo get() = compose.onNodeWithTag("media-fixture:icloud:0020")
     private val grid get() = compose.onNodeWithTag("gallery-grid")
     private fun width() = photo.fetchSemanticsNode().boundsInRoot.width
-    private fun center() = photo.fetchSemanticsNode().boundsInRoot.center - grid.fetchSemanticsNode().boundsInRoot.topLeft
+
+    /** The photo's row, across the middle of the grid: fingers either side of a first-column photo must stay on screen. */
+    private fun center(): Offset {
+        val area = grid.fetchSemanticsNode().boundsInRoot
+        return Offset(area.width / 2f, photo.fetchSemanticsNode().boundsInRoot.center.y - area.top)
+    }
 
     /** Two fingers [start] px either side of the photo, past touch slop at [slop], then held at [hold]. */
     private fun pinchTo(start: Float, slop: Float, hold: Float) {
