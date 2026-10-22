@@ -1,11 +1,12 @@
 package me.lvca.alba.app.ui.account
 
 import android.os.Build
-import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -61,8 +63,17 @@ import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaPageScaffold
 import me.lvca.alba.app.ui.localized
+import me.lvca.alba.app.ui.navigation.BackPhase
+import me.lvca.alba.app.ui.navigation.NavigationDirection
+import me.lvca.alba.app.ui.navigation.NavigationMotion
+import me.lvca.alba.app.ui.navigation.PredictiveBackNavigation
+import me.lvca.alba.app.ui.navigation.PredictiveBackState
+import me.lvca.alba.app.ui.navigation.navigationTransform
+import me.lvca.alba.app.ui.navigation.predictiveBackPose
+import me.lvca.alba.app.ui.navigation.rememberNavigationTransition
 import me.lvca.alba.app.ui.timestampLabel
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
+import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
@@ -81,14 +92,11 @@ fun ICloudAccountScreen(
     actions: AccountScreenActions,
 ) {
     val state = session.accountState
-    val busy = session.accountBusy
     var page by rememberSaveable { mutableStateOf(ProfilePage.OVERVIEW) }
     var appleId by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var verificationCode by remember { mutableStateOf("") }
     val signedIn = state as? ICloudAccountState.SignedIn
-    val authenticating = state is ICloudAccountState.SigningIn || state is ICloudAccountState.AwaitingTwoFactor ||
-        state == ICloudAccountState.Restoring
     LaunchedEffect(state) {
         if (signedIn?.status == SessionStatus.VERIFIED && page == ProfilePage.SIGN_IN) page = ProfilePage.OVERVIEW
     }
@@ -102,9 +110,58 @@ fun ICloudAccountScreen(
             verificationCode = ""
         }
     }
-    BackHandler(enabled = page != ProfilePage.OVERVIEW) { back() }
+    val reduceMotion = reduceGalleryMotion()
+    val pageBack = remember { PredictiveBackState() }
+    val (pageState, pageTransition) = rememberNavigationTransition(page, pageBack, reduceMotion, label = "account-pages")
+    PredictiveBackNavigation(pageState, pageBack, previous = ProfilePage.OVERVIEW.takeIf { page != ProfilePage.OVERVIEW },
+        key = { it }, reduceMotion = reduceMotion) { back() }
+    val slide = with(LocalDensity.current) { NavigationMotion.SHARED_AXIS_DP.dp.roundToPx() }
+    pageTransition.AnimatedContent(
+        transitionSpec = {
+            val direction = when {
+                targetState == ProfilePage.OVERVIEW -> NavigationDirection.BACK
+                initialState == ProfilePage.OVERVIEW -> NavigationDirection.FORWARD
+                else -> NavigationDirection.LATERAL
+            }
+            navigationTransform(direction, slide, gesture = pageBack.phase != BackPhase.IDLE, reduceMotion = reduceMotion)
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) { shown ->
+        Box(Modifier.fillMaxSize().predictiveBackPose(pageBack, shown)) {
+            AccountPage(shown, session, transfers, phoneStorage, mediaBusy, diagnostics, actions,
+                appleId = appleId, password = password, verificationCode = verificationCode,
+                onAppleId = { appleId = it }, onPassword = { password = it }, onVerificationCode = { verificationCode = it },
+                onNavigate = { page = it }, onBack = back)
+        }
+    }
+}
+
+/** One page of the account screen; [page] is the page being shown, which differs from the current one while it animates. */
+@Composable
+private fun AccountPage(
+    page: ProfilePage,
+    session: SessionState,
+    transfers: TransferState,
+    phoneStorage: PhoneStorageState,
+    mediaBusy: Boolean,
+    diagnostics: DiagnosticsConsent,
+    actions: AccountScreenActions,
+    appleId: String,
+    password: String,
+    verificationCode: String,
+    onAppleId: (String) -> Unit,
+    onPassword: (String) -> Unit,
+    onVerificationCode: (String) -> Unit,
+    onNavigate: (ProfilePage) -> Unit,
+    onBack: () -> Unit,
+) {
+    val state = session.accountState
+    val busy = session.accountBusy
+    val signedIn = state as? ICloudAccountState.SignedIn
+    val authenticating = state is ICloudAccountState.SigningIn || state is ICloudAccountState.AwaitingTwoFactor ||
+        state == ICloudAccountState.Restoring
     if (page == ProfilePage.ABOUT) {
-        AboutScreen(diagnostics, actions::setDiagnosticsEnabled) { page = ProfilePage.OVERVIEW }
+        AboutScreen(diagnostics, actions::setDiagnosticsEnabled, onBack)
         return
     }
     AlbaPageScaffold(
@@ -113,7 +170,7 @@ fun ICloudAccountScreen(
             state == ICloudAccountState.SignedOut -> R.string.icloud_account
             else -> page.title
         }),
-        onBack = back,
+        onBack = onBack,
     ) {
         when {
             state == ICloudAccountState.Restoring -> if (session.restoreFailed) {
@@ -129,8 +186,8 @@ fun ICloudAccountScreen(
             )
             state is ICloudAccountState.AwaitingTwoFactor -> VerificationForm(
                 busy, state, verificationCode,
-                { verificationCode = it.filter(Char::isDigit).take(6) },
-                { actions.submitTwoFactor(verificationCode); verificationCode = "" },
+                { onVerificationCode(it.filter(Char::isDigit).take(6)) },
+                { actions.submitTwoFactor(verificationCode); onVerificationCode("") },
                 actions::resendTwoFactor, actions::signOut,
             )
             page == ProfilePage.SIGN_IN || state == ICloudAccountState.SignedOut -> {
@@ -140,8 +197,8 @@ fun ICloudAccountScreen(
                 }
                 SignInForm(
                     appleId.ifBlank { signedIn?.appleId.orEmpty() }, password,
-                    { appleId = it }, { password = it },
-                    { actions.signIn(appleId.ifBlank { signedIn?.appleId.orEmpty() }, password); password = "" },
+                    onAppleId, onPassword,
+                    { actions.signIn(appleId.ifBlank { signedIn?.appleId.orEmpty() }, password); onPassword("") },
                 )
             }
             page == ProfilePage.BACKUP -> BackupSettings(
@@ -156,7 +213,7 @@ fun ICloudAccountScreen(
             )
             else -> ProfileOverview(
                 session, phoneStorage, transfers.backup,
-                onNavigate = { page = it }, onCheckConnection = actions::checkConnection, onSignOut = actions::signOut,
+                onNavigate = onNavigate, onCheckConnection = actions::checkConnection, onSignOut = actions::signOut,
             )
         }
     }
