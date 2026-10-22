@@ -31,8 +31,10 @@ class EmptyLibraryTest {
         compose.onNodeWithText("0 items").assertDoesNotExist()
         // The header's small status link is replaced by the empty state's primary action.
         compose.onNodeWithText("Connect to iCloud").assertDoesNotExist()
-        compose.onNodeWithTag("empty-connect-button").performScrollTo().performClick()
-        compose.onNodeWithTag("empty-demo-button").performScrollTo().performClick()
+        // On short screens the phone-photo prompt pushes the buttons under the floating navigation.
+        compose.onNodeWithText("Not now").performClick()
+        compose.onNodeWithTag("empty-connect-button").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("empty-demo-button").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(1, connects); assertEquals(1, demos) }
     }
 
