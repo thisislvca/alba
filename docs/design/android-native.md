@@ -123,7 +123,7 @@ Each step is its own PR. Every PR includes:
 
 Store screenshots are regenerated at the end.
 
-1. **Foundations:** brand colour scheme, type, shapes, themed dialogs and sheets, and icon and heart rules. No layout changes.
+1. **Foundations:** the blue colour scheme, type, shapes, themed dialogs and sheets, and icon and heart rules. No layout changes.
 2. **Shell:** navigation bar, top app bars, status-bar scrim, selection mode, the upload floating action button and the upload-status entry point.
 3. **Onboarding, sign-in and empty states.**
 4. **Viewer and editor.**
