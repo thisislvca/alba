@@ -47,12 +47,14 @@ internal data class GalleryScrollLabel(val index: Int, val month: String, val ye
 
 /**
  * Google Photos' date scrubber: each month gets an equal share of the track and ticks as the thumb crosses it. It
- * appears after a little scrolling, can be grabbed as soon as any of it shows, and hides again once things settle.
+ * appears after a little scrolling on a grid of at least [GalleryFeel.SCRUBBER_MIN_ITEMS] items, can be grabbed as soon
+ * as any of it shows, and hides again once things settle.
  */
 @Composable
 internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLabel>, fullSpanEstimates: Map<Int, Float>,
     columns: Int, modifier: Modifier = Modifier, bottomSpace: Dp = 108.dp) {
-    if (labels.isEmpty()) return
+    // Like Google Photos, a short grid gets no scrubber; ordinary scrolling covers it.
+    if (labels.isEmpty() || !GalleryFeel.scrubberAvailable(grid.layoutInfo.totalItemsCount)) return
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()

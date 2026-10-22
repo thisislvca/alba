@@ -70,6 +70,12 @@ internal object GalleryFeel {
 
     // Fast scroller.
 
+    /** The scrubber only appears on a list of at least this many items, headers included (both GP scrubber configs). */
+    const val SCRUBBER_MIN_ITEMS = 100
+
+    /** Whether a grid of [itemCount] items is long enough to get the scrubber. */
+    fun scrubberAvailable(itemCount: Int): Boolean = itemCount >= SCRUBBER_MIN_ITEMS
+
     /** The scrubber appears after this much scrolling since the scroll began (photos_list_fastscroll_distance_threshold). */
     val SCRUBBER_REVEAL_DISTANCE = 15.dp
 

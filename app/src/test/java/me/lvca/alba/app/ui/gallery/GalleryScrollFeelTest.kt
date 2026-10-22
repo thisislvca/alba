@@ -4,6 +4,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GalleryScrollFeelTest {
+    @Test fun scrubberNeedsAHundredItemsLikeGooglePhotos() {
+        assertFalse(GalleryFeel.scrubberAvailable(0))
+        assertFalse(GalleryFeel.scrubberAvailable(99))
+        assertTrue(GalleryFeel.scrubberAvailable(100))
+        assertTrue(GalleryFeel.scrubberAvailable(5_000))
+    }
+
     @Test fun dragAutoscrollRampsToItsCapInsideTheEdgeBands() {
         val speed = { y: Float -> dragAutoscrollSpeed(y, top = 0f, bottom = 1000f, edge = 56f, maxSpeed = 600f) }
         assertEquals(0f, speed(500f), 0f)

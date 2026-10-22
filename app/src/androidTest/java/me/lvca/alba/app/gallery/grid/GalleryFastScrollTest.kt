@@ -26,14 +26,15 @@ class GalleryFastScrollTest {
         compose.setContent {
             MaterialTheme {
                 val grid = rememberLazyGridState()
-                val headers = (0 until 24).map { it * 4 }
+                // 24 months of a header and four photos: 120 items, past the 100-item minimum.
+                val headers = (0 until 24).map { it * 5 }
                 val density = LocalDensity.current
                 Box(Modifier.fillMaxSize()) {
                     LazyVerticalGrid(GridCells.Fixed(3), state = grid, modifier = Modifier.fillMaxSize().testTag("test-grid"),
                         horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         repeat(24) { month ->
                             item(span = { GridItemSpan(maxLineSpan) }) { Text("Month $month", Modifier.fillMaxWidth().height(40.dp)) }
-                            items(3) { Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primaryContainer)) }
+                            items(4) { Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primaryContainer)) }
                         }
                     }
                     GalleryFastScroll(grid, headers.mapIndexed { month, index -> GalleryScrollLabel(index, "Month $month · ${2026 - month / 6}", 2026 - month / 6) },
@@ -76,5 +77,29 @@ class GalleryFastScrollTest {
         // A released thumb hides after a second, sooner than after ordinary scrolling.
         compose.mainClock.advanceTimeBy(1300)
         compose.onNodeWithTag("fast-scroll-handle").assertIsNotDisplayed()
+    }
+
+    @Test fun shortGridGetsNoScrubber() {
+        compose.setContent {
+            MaterialTheme {
+                val grid = rememberLazyGridState()
+                // 99 items: one short of Google Photos' minimum.
+                val headers = (0 until 33).map { it * 3 }
+                Box(Modifier.fillMaxSize()) {
+                    LazyVerticalGrid(GridCells.Fixed(2), state = grid, modifier = Modifier.fillMaxSize().testTag("test-grid")) {
+                        repeat(33) { month ->
+                            item(span = { GridItemSpan(maxLineSpan) }) { Text("Month $month", Modifier.fillMaxWidth().height(40.dp)) }
+                            items(2) { Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primaryContainer)) }
+                        }
+                    }
+                    GalleryFastScroll(grid, headers.mapIndexed { month, index -> GalleryScrollLabel(index, "Month $month", 2026) },
+                        emptyMap(), 2, Modifier.align(Alignment.CenterEnd).fillMaxHeight(), 0.dp)
+                }
+            }
+        }
+        compose.onNodeWithTag("test-grid").performTouchInput { swipeUp(durationMillis = 450) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("fast-scroll-handle").assertDoesNotExist()
+        compose.onNodeWithTag("gallery-fast-scroll").assertDoesNotExist()
     }
 }
