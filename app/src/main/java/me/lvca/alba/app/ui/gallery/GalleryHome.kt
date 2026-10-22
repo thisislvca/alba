@@ -20,6 +20,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -740,10 +741,8 @@ private fun PhotoGrid(
                     Box(Modifier.weight(1f)) { MonthHeader(month, section.items.size) }
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), monthLabel(month))
                     AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
-                        HeaderCheckbox {
-                            Checkbox(checked = section.items.all { it.id in selection },
-                                onCheckedChange = { actions.selectItems(section.items.map { it.id }.toSet(), it) }, modifier = Modifier.padding(end = 12.dp).semantics { contentDescription = selectionLabel })
-                        }
+                        HeaderSelectionCircle(section.items.all { it.id in selection }, selectionLabel,
+                            { actions.selectItems(section.items.map { it.id }.toSet(), it) }, Modifier.padding(end = 12.dp))
                     }
                 }
             }
@@ -753,10 +752,8 @@ private fun PhotoGrid(
                     Text(dateLabel(day), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), dateLabel(day))
                     AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
-                        HeaderCheckbox {
-                            Checkbox(photos.all { it.id in selection }, { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) },
-                                modifier = Modifier.semantics { contentDescription = selectionLabel })
-                        }
+                        HeaderSelectionCircle(photos.all { it.id in selection }, selectionLabel,
+                            { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) })
                     }
                 }
             }
@@ -867,13 +864,15 @@ private fun SearchLanding(bottomSpace: Dp, onDates: () -> Unit, choose: (String)
 }
 
 /**
- * A date header's select-all checkbox at its visual size. Compose still extends its touch area to the minimum touch
- * target.
+ * A date header's select-all control: the same check circle as a photo's, as in Google Photos. Compose extends its
+ * touch area to the minimum touch target.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HeaderCheckbox(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified, content = content)
+private fun HeaderSelectionCircle(checked: Boolean, label: String, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    SelectionCircle(checked, onPhoto = false, modifier = modifier
+        .toggleable(checked, interactionSource = null, indication = ripple(bounded = false, radius = 20.dp), role = Role.Checkbox,
+            onValueChange = onCheckedChange)
+        .semantics { contentDescription = label })
 }
 
 /**

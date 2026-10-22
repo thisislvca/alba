@@ -56,7 +56,6 @@ import me.lvca.alba.app.ui.designsystem.FavoriteIcon
 import me.lvca.alba.app.ui.designsystem.MediaPill
 import me.lvca.alba.app.ui.designsystem.MediaScrim
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
-import me.lvca.alba.app.ui.designsystem.theme.tile
 import me.lvca.alba.app.ui.label
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.GalleryMedia
@@ -94,8 +93,7 @@ internal fun MediaTile(
                 onLongClick(label = selectLabel) { selectionAction(); true }
                 this.selected = selected
                 contentDescription = description
-            }
-            .then(if (selected) Modifier.background(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.shapes.tile) else Modifier),
+            },
     ) {
         val reducedMotion = reduceGalleryMotion()
         Box {
@@ -142,8 +140,8 @@ internal fun MediaTile(
 }
 
 /**
- * A selected photo shrinks inside a tinted frame and rounds its corners, so the selection reads at a glance even
- * without its circle. Toggling one photo is quick; entering or leaving selection mode is slower. It scales rather than
+ * A selected photo shrinks and rounds its corners, leaving the page showing around it as in Google Photos, so the
+ * selection reads at a glance even without its circle. Toggling one photo is quick; entering or leaving selection mode is slower. It scales rather than
  * pads, so selecting never re-lays out the tile.
  */
 @Composable
@@ -172,13 +170,18 @@ private const val MIN_SCALE = .01f
 /** An unselected tile's corner radius, matching the tile shape. */
 private val TileCorner = 2.dp
 
-/** A filled check in the checkbox colours when selected; an empty ring on the photo otherwise. */
+/**
+ * A filled check when selected, an empty ring otherwise. Photos and date headers share it, as in Google Photos; the
+ * ring is light over a photo ([onPhoto]) and quiet ink on the page.
+ */
 @Composable
-private fun SelectionCircle(selected: Boolean, modifier: Modifier = Modifier) {
+internal fun SelectionCircle(selected: Boolean, modifier: Modifier = Modifier, onPhoto: Boolean = true) {
     val colors = AlbaTheme.colors
     if (selected) Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary,
         modifier = modifier.size(24.dp).border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
-            .background(MaterialTheme.colorScheme.primary, CircleShape).padding(4.dp).testTag("tile-selected"))
-    else Box(modifier.size(24.dp).alpha(GalleryFeel.UNCHECKED_RING_ALPHA)
+            .background(MaterialTheme.colorScheme.primary, CircleShape).padding(4.dp)
+            .then(if (onPhoto) Modifier.testTag("tile-selected") else Modifier))
+    else if (onPhoto) Box(modifier.size(24.dp).alpha(GalleryFeel.UNCHECKED_RING_ALPHA)
         .background(colors.mediaScrim.copy(alpha = .2f), CircleShape).border(2.dp, colors.onMedia, CircleShape))
+    else Box(modifier.size(24.dp).border(2.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
 }
