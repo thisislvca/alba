@@ -135,6 +135,9 @@ internal fun Modifier.predictiveBackPose(state: PredictiveBackState, key: Any?):
     clip = true
 }
 
+/** The share of a gesture-driven transition the gesture itself seeks through: up to [navigationTransform]'s exit fade. */
+internal const val GESTURE_SEEK_LIMIT = NavigationMotion.SHORT4.toFloat() / NavigationMotion.MEDIUM2
+
 /** How long a committed back gesture waits for the app state to reach the screen it popped to. */
 private const val COMMIT_TIMEOUT_MILLIS = 600L
 
@@ -203,7 +206,9 @@ internal fun <S> PredictiveBackNavigation(
                     backState.start(key(from), event)
                     started = true
                 } else backState.update(event)
-                transition.seekTo(event.progress.coerceIn(0f, 1f), to)
+                // The gesture covers the transition up to where the screen being left starts to fade, so that screen
+                // stays in view as a card however far the finger travels; committing plays the rest.
+                transition.seekTo(event.progress.coerceIn(0f, 1f) * GESTURE_SEEK_LIMIT, to)
             }
             if (started) backState.commit()
             latestOnBack()
