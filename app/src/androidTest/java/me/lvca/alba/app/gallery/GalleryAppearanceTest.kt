@@ -12,6 +12,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.withLongLibrary
 import me.lvca.alba.app.ui.gallery.mediaDuration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -59,16 +60,19 @@ class GalleryAppearanceTest {
         val sharedVideo = "shared:demo-library:private:owner:two:video"
         runBlocking { repository.ensurePreview(sharedVideo) }
         compose.waitForIdle()
-        val rail = compose.onNodeWithTag("gallery-fast-scroll")
-        rail.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(.35f) }
-        compose.waitForIdle()
-        val handle = compose.onNodeWithTag("fast-scroll-handle").fetchSemanticsNode().boundsInRoot
-        val track = rail.fetchSemanticsNode().boundsInRoot
-        rail.performTouchInput { down(handle.center - track.topLeft) }
-        compose.onAllNodes(SemanticsMatcher("fast-scroll year label") { node ->
-            node.config.getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.TestTag) { null }?.startsWith("fast-scroll-year-") == true
-        }).onFirst().assertIsDisplayed()
-        rail.performTouchInput { up() }
+        // The date scrubber only appears on grids of 100 items or more.
+        compose.withLongLibrary {
+            val rail = compose.onNodeWithTag("gallery-fast-scroll")
+            rail.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(.35f) }
+            compose.waitForIdle()
+            val handle = compose.onNodeWithTag("fast-scroll-handle").fetchSemanticsNode().boundsInRoot
+            val track = rail.fetchSemanticsNode().boundsInRoot
+            rail.performTouchInput { down(handle.center - track.topLeft) }
+            compose.onAllNodes(SemanticsMatcher("fast-scroll year label") { node ->
+                node.config.getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.TestTag) { null }?.startsWith("fast-scroll-year-") == true
+            }).onFirst().assertIsDisplayed()
+            rail.performTouchInput { up() }
+        }
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collection-albums").assertIsDisplayed()
         compose.onNodeWithTag("collection-shared").assertIsDisplayed()

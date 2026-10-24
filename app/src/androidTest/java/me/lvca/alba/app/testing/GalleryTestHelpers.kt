@@ -5,7 +5,13 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.test.ext.junit.rules.ActivityScenarioRule
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import me.lvca.alba.app.AlbaApplication
+import me.lvca.alba.app.MainActivity
 
 internal fun ComposeTestRule.waitForGalleryMedia(id: String = "fixture:icloud:0020") {
     // Wait for the item in the lazy grid's data, even when phone photos put it offscreen.
@@ -47,5 +53,32 @@ internal fun ComposeTestRule.openViewerDetails() {
 internal fun ComposeTestRule.waitForVideoPlaying() = waitUntil(UI_WAIT) {
     onAllNodesWithTag("video-player").fetchSemanticsNodes().any {
         it.config.getOrNull(SemanticsProperties.StateDescription) == "Playing"
+    }
+}
+
+/**
+ * Runs [block] with [count] extra phone photos in the library, so the grid is long enough (100+ items) to get the date
+ * scrubber, which the 20-photo demo alone is not. The photos are removed again afterwards.
+ */
+internal fun <T> AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>.withLongLibrary(
+    count: Int = 110, block: () -> T,
+): T {
+    waitForGalleryMedia()
+    grantTestMediaPermissions(activity)
+    // The gallery shows phone photos once it sees the permission, which it checks when the activity resumes.
+    activityRule.scenario.recreate()
+    waitForGalleryMedia()
+    val repository = (activity.application as AlbaApplication).graph.galleryRepository
+    val uris = mutableListOf<android.net.Uri>()
+    try {
+        repeat(count) { uris += MediaStoreFixtures.insertJpeg("alba-long-library-$it-${System.nanoTime()}.jpg") }
+        // Scan once rather than wait for the debounced MediaStore observer, which follows the activity's lifecycle.
+        runBlocking { repository.refreshDevice() }
+        val references = uris.map { it.toString() }.toSet()
+        waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().count { it.originalReference in references } == count } }
+        waitForIdle()
+        return block()
+    } finally {
+        uris.forEach { runCatching { activity.contentResolver.delete(it, null, null) } }
     }
 }
