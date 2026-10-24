@@ -152,8 +152,10 @@ class GalleryNavigationTest {
         compose.waitForGalleryMedia()
         compose.onNodeWithTag("tab-SEARCH").performClick()
         compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
-        compose.activityRule.scenario.recreate()
-        compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Sea breeze") }
+        // libraryLeadsWithPhotosAndDestinationsPreserveTheirOwnState checks that the search survives recreation.
+        // The navigation steps aside while the keyboard is open, so close it as a recreation used to.
+        compose.hideKeyboard()
+        compose.waitUntilDisplayed(hasTestTag("tab-COLLECTIONS"))
         compose.scrollToGalleryMedia("fixture:icloud:0019")
         compose.onNodeWithTag("media-fixture:icloud:0019").performTouchInput { longClick() }
         compose.onNodeWithText("1 selected").assertIsDisplayed()

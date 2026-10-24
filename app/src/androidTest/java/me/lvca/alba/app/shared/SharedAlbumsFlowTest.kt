@@ -79,6 +79,8 @@ class SharedAlbumsFlowTest {
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collection-shared").performClick()
         for (generation in listOf(SharedAlbumGeneration.MODERN, SharedAlbumGeneration.LEGACY)) {
+            // Restoring the album screen and the version sheet does not depend on the generation; check it once.
+            val recreate = generation == SharedAlbumGeneration.MODERN
             compose.onNodeWithTag("collections-grid").performScrollToNode(hasTestTag("create-shared-album"))
             compose.onNodeWithTag("create-shared-album").performClick()
             val name = "Android ${generation.name} test"
@@ -88,8 +90,10 @@ class SharedAlbumsFlowTest {
             compose.onNodeWithText(label(R.string.save)).performClick()
             compose.waitUntil(UI_WAIT) { compose.onAllNodesWithContentDescription(label(R.string.shared_add_photos)).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText(name).assertIsDisplayed()
-            compose.activityRule.scenario.recreate()
-            compose.onNodeWithText(name).assertIsDisplayed()
+            if (recreate) {
+                compose.activityRule.scenario.recreate()
+                compose.onNodeWithText(name).assertIsDisplayed()
+            }
             compose.onNodeWithContentDescription(label(R.string.shared_add_photos)).performClick()
             compose.onNodeWithTag("shared-select-fixture:icloud:${if (generation == SharedAlbumGeneration.LEGACY) "0019" else "0020"}").performClick()
             compose.onNodeWithText(compose.activity.resources.getQuantityString(R.plurals.shared_add_selected, 1, 1)).performClick()
@@ -113,8 +117,10 @@ class SharedAlbumsFlowTest {
             compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithTag("shared-version-badge").fetchSemanticsNodes().size == 1 }
             compose.onNodeWithTag("shared-version-badge").performClick()
             compose.onNodeWithText(label(R.string.shared_role_owner)).assertIsDisplayed()
-            compose.activityRule.scenario.recreate()
-            compose.onNodeWithText(label(R.string.shared_role_owner)).assertIsDisplayed()
+            if (recreate) {
+                compose.activityRule.scenario.recreate()
+                compose.onNodeWithText(label(R.string.shared_role_owner)).assertIsDisplayed()
+            }
             compose.onNodeWithText(label(R.string.shared_understood)).performScrollTo().performClick()
             compose.onNodeWithContentDescription(label(R.string.back_action)).performClick()
         }

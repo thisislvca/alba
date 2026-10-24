@@ -59,12 +59,12 @@ class LocalizationTest {
         error("Visible text not found: $text. Visible labels: $labels")
     }
     private fun click(text: String) {
+        // Settle before the click only: every following step waits for its own text or settles before its own click.
         waitFor(text)
         instrumentation.uiAutomation.waitForIdle(500, UI_WAIT)
         var node = waitFor(text)
         while (!node.isClickable && node.parent != null) node = node.parent
         check(node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) { "Could not click $text" }
-        instrumentation.uiAutomation.waitForIdle(500, UI_WAIT)
     }
     @Test fun switchingLanguagePreservesOnboardingAndLocalizesGalleryAndSignIn() {
         val previous = instrumentation.targetContext.getSystemService(LocaleManager::class.java).applicationLocales.toLanguageTags()

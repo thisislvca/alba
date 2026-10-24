@@ -8,8 +8,12 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 
@@ -73,7 +77,15 @@ internal fun <T> AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, Main
     try {
         repeat(count) { uris += MediaStoreFixtures.insertJpeg("alba-long-library-$it-${System.nanoTime()}.jpg") }
         // Scan once rather than wait for the debounced MediaStore observer, which follows the activity's lifecycle.
-        runBlocking { repository.refreshDevice() }
+        // refreshDevice() first waits for the repository's refresh lock and both catalog permits, so a catalog refresh
+        // or media download that never finishes blocks it indefinitely. Bound the wait so the test fails instead.
+        val scan = CoroutineScope(Dispatchers.Default).async { repository.refreshDevice() }
+        runBlocking {
+            withTimeoutOrNull(LONG_WAIT) { scan.await() } ?: run {
+                scan.cancel()
+                error("refreshDevice() did not finish within $LONG_WAIT ms; other repository work holds the catalog")
+            }
+        }
         val references = uris.map { it.toString() }.toSet()
         waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().count { it.originalReference in references } == count } }
         waitForIdle()

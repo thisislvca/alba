@@ -38,9 +38,8 @@ class AppSurfacesTest {
         val sheet = compose.onNodeWithTag("gallery-filter-sheet").fetchSemanticsNode().boundsInRoot
         val screenHeight = compose.activity.resources.displayMetrics.heightPixels
         assertTrue("Sheet must leave visible space above its handle", sheet.top >= screenHeight * .15f)
+        // GalleryNavigationTest checks that the sheet and its choices survive recreation.
         compose.onNodeWithText(label(R.string.small)).performClick().assertIsSelected()
-        compose.activityRule.scenario.recreate()
-        compose.onNodeWithText(label(R.string.small)).assertIsSelected()
         compose.onNodeWithText(label(R.string.medium)).performClick()
         compose.onNodeWithText(label(R.string.refresh_library)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithContentDescription(label(R.string.close_surface)).assertIsDisplayed()
