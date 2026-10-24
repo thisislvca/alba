@@ -133,7 +133,7 @@ fun VideoPlayer(
     showPlaybackControls: Boolean = true,
     controlsVisible: Boolean = true,
     onControlsVisibleChange: (Boolean) -> Unit = {},
-    autoHideControls: Boolean = true,
+    playbackHidesChrome: Boolean = true,
 ) {
     val context = LocalContext.current
     val colors = viewerColors()
@@ -208,11 +208,13 @@ fun VideoPlayer(
             }
         }
     }
-    val hideSoon = autoHideControls && isPlaying && !scrubbing
-    LaunchedEffect(hideSoon, overlayVisible) {
-        if (hideSoon && overlayVisible) {
+    val hidesChrome by rememberUpdatedState(playbackHidesChrome)
+    LaunchedEffect(isPlaying, overlayVisible, scrubbing) {
+        if (isPlaying && overlayVisible && !scrubbing) {
             delay(3_000)
-            setOverlay(false)
+            // The playback overlay always steps aside (which also stops its per-frame clock); the viewer's chrome only
+            // goes with it when playback hides the chrome.
+            if (hidesChrome) setOverlay(false) else overlayVisible = false
         }
     }
     DisposableEffect(player, lifecycle) {

@@ -297,7 +297,7 @@ internal fun MediaDetailScreen(
                                 controlsVisible = controls, onControlsVisibleChange = { controls = it },
                                 // Playing a video hides the chrome after a few seconds; a Live Photo's motion, like
                                 // GP's motion photos, keeps it so "Show still photo" stays at hand.
-                                autoHideControls = item.kind == MediaKind.VIDEO)
+                                playbackHidesChrome = item.kind == MediaKind.VIDEO)
                         } else MediaThumbnail(reference = item.linkedDeviceReference ?: item.originalReference ?: item.viewerReference ?: item.previewReference, sourceRevision = item.sourceRevision,
                             fallbackReference = item.previewReference, sharedMediaId = if (active) item.id else null,
                             accentStartArgb = item.accentStartArgb, accentEndArgb = item.accentEndArgb, contentDescription = item.fileName,
