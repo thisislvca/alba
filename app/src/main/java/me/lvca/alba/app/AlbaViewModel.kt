@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import me.lvca.alba.app.account.AccountController
 import me.lvca.alba.app.account.PhoneStorageController
 import me.lvca.alba.app.actions.MediaAction
@@ -173,7 +174,11 @@ class AlbaViewModel(
 
     /** Records phone photo access, refreshing the library when access itself changed. */
     fun setDeviceMediaAccess(granted: Boolean, limited: Boolean) {
-        if (gallery.setDeviceMediaAccess(granted, limited)) sync.refresh()
+        if (!gallery.setDeviceMediaAccess(granted, limited)) return
+        sync.refresh()
+        // A refresh already running started without phone access and refresh() leaves it be, so scan the phone once it
+        // ends; otherwise photos taken before the grant stay missing until the next change.
+        if (granted) viewModelScope.launch { sync.deviceLibraryChanged() }
     }
 
     /** Phone items Alba last asked Android to move to its trash, kept for Undo; null for a restore. In memory only. */
