@@ -23,7 +23,7 @@ To refresh icon exports: `bun run assets`. To refresh screens too, pass a folder
 
 ## Publishing
 
-GitHub Pages deploys through `.github/workflows/website.yml`. Changes to `website/`, `PRIVACY.md`, the root Node LTS pin (`.nvmrc`), or the website workflow on `main` automatically check, build, and publish to `https://alba.lvca.me`. Pull requests check and build without publishing. The workflow can also be run manually against `main`.
+GitHub Pages deploys through `.github/workflows/website.yml`. Changes to `website/`, `PRIVACY.md`, the root Node pin (`.nvmrc`), or the website workflow on `main` automatically check, build, and publish to `https://alba.lvca.me`. Pull requests check and build without publishing. The workflow can also be run manually against `main`.
 
 The `github-pages` environment allows deployment from `main`. App releases use separate manual, version-based workflows described in [`../RELEASING.md`](../RELEASING.md); updating the website does not ship an app build. There is no long-lived release branch to synchronize.
 
