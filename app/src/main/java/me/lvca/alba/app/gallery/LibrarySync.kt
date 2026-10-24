@@ -99,9 +99,11 @@ internal class LibrarySync(
             if (!replaceActive) return
             refreshJob?.cancel()
         }
-        refreshJob = scope.launch {
+        // A refresh withdraws only its own earlier message: clearing every message erased the Undo that a trash shows
+        // right before the refresh it starts.
+        refreshJob = scope.launch(messages.ownedBy(RefreshMessages)) {
             mutableState.update { it.copy(isRefreshing = true) }
-            messages.clear()
+            messages.clear(RefreshMessages)
             val span = diagnostics.start(DiagnosticOperation.GALLERY_REFRESH)
             try {
                 val summary = repository.refresh(includeDeviceMedia = hasDeviceAccess())
@@ -116,7 +118,7 @@ internal class LibrarySync(
                 mutableState.update {
                     it.copy(isRefreshing = false, lastRefreshedAt = Instant.ofEpochMilli(summary.refreshedAtEpochMillis))
                 }
-                if (summary.sharedAlbumsUnavailable) messages.show(R.string.shared_refresh_unavailable) else messages.clear()
+                if (summary.sharedAlbumsUnavailable) messages.show(R.string.shared_refresh_unavailable) else messages.clear(RefreshMessages)
                 previews.retry()
             } catch (cancelled: CancellationException) {
                 span.finish(DiagnosticOutcome.CANCELLED)
@@ -160,3 +162,6 @@ internal class LibrarySync(
         Unit
     }.onFailure { if (it is CancellationException) throw it }
 }
+
+/** Owns the messages a library refresh shows. */
+private object RefreshMessages
