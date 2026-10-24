@@ -33,9 +33,12 @@ import me.lvca.alba.app.ui.designsystem.AlbaFeatureRow
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 
+/** The second page, which offers connecting iCloud or trying the demo. */
+internal const val WELCOME_CHOICES_PAGE = 1
+
 @Composable
-internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit) {
-    var page by rememberSaveable { mutableIntStateOf(0) }
+internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit, initialPage: Int = 0) {
+    var page by rememberSaveable { mutableIntStateOf(initialPage) }
     val pageScroll = rememberScrollState()
     LaunchedEffect(page) { pageScroll.scrollTo(0) }
     BackHandler(enabled = page > 0) { page-- }

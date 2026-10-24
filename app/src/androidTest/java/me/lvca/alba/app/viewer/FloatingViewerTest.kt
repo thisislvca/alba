@@ -1,6 +1,7 @@
 package me.lvca.alba.app.viewer
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -10,6 +11,8 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
@@ -22,12 +25,28 @@ class FloatingViewerTest {
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val id = "fixture:icloud:0016"
+    private val favoriteId = "fixture:icloud:0001"
     private fun open() {
         compose.waitForGalleryMedia()
         compose.scrollToGalleryMedia(id)
         compose.onNodeWithTag("media-$id").performClick()
         compose.onNodeWithTag("media-pager").assertIsDisplayed()
     }
+    @Test fun favoriteHeartIsFilledRedRatherThanThePrimaryBlue() {
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia(favoriteId)
+        // Other tests in the run may have unfavourited this demo photo; set it through the viewer first.
+        val unfavorite = compose.activity.getString(R.string.unfavorite)
+        fun isFavorite() = compose.onNodeWithTag("viewer-favorite").fetchSemanticsNode()
+            .config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }.contains(unfavorite)
+        if (!isFavorite()) compose.onNodeWithTag("viewer-favorite").performClick()
+        compose.waitUntil(UI_WAIT) { isFavorite() }
+        val heart = compose.onNodeWithTag("viewer-favorite").captureToImage().toPixelMap()
+        val pixels = (0 until heart.width).flatMap { x -> (0 until heart.height).map { y -> heart[x, y] } }
+        assertTrue("The set favourite is drawn in red", pixels.any { it.red > .8f && it.green < .4f && it.blue < .4f })
+        assertTrue("No primary blue in the heart", pixels.none { it.blue > .6f && it.red < .3f })
+    }
+
     @Test fun swipeUpResizesPhotoAndDetailsRestoreWithoutCoveringIt() {
         open()
         val original = compose.onNodeWithTag("viewer-photo-viewport").fetchSemanticsNode().boundsInRoot

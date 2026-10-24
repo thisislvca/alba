@@ -1,6 +1,8 @@
 package me.lvca.alba.app.transfers
 
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import kotlinx.coroutines.runBlocking
@@ -43,6 +45,16 @@ class DemoUploadTest {
         compose.onNodeWithTag("media-pager").assertIsDisplayed()
         assertNull(graph.accountManager.session.value)
         assertNull(graph.demoCatalog.writeAccountId)
+    }
+
+    @Test fun sampleUploadDialogUsesAlbaThemeColors() {
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(label(R.string.upload_photos)).performClick()
+        val dialog = compose.onNode(isDialog()).captureToImage().toPixelMap()
+        val container = dialog[dialog.width / 2, 4]
+        val dark = compose.activity.resources.configuration.isNightModeActive
+        // Alba's surfaceContainerHigh, not Material's default lavender (0xFFECE6F0 / 0xFF2B2930).
+        assertEquals(if (dark) Color(0xFF292D35) else Color(0xFFE6EAF0), container)
     }
 
     @Test fun pickedPhotoKeepsItsBytesAndBadSharedCopiesAreRejected() {

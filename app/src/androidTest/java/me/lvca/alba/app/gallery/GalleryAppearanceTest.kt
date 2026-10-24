@@ -1,7 +1,9 @@
 package me.lvca.alba.app.gallery
 
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.AlbaApplication
@@ -11,6 +13,8 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.ui.gallery.mediaDuration
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -20,6 +24,29 @@ class GalleryAppearanceTest {
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val context get() = compose.activity
+
+    @Test fun statusBarAreaStaysOpaqueOverScrolledPhotos() {
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("gallery-grid").performTouchInput { swipeUp() }
+        compose.waitForIdle()
+        // Photos under a translucent scrim would show through as many colours; an opaque bar is one.
+        val scrim = compose.onNodeWithTag("gallery-status-scrim").captureToImage().toPixelMap()
+        val colors = (0 until scrim.width step 6).flatMap { x -> (0 until scrim.height step 3).map { y -> scrim[x, y] } }.toSet()
+        assertEquals(setOf(colors.first()), colors)
+    }
+
+    @Test fun libraryFooterEndsClearOfTheFloatingNavigation() {
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
+        val counts = hasText(context.getString(R.string.cloud_phone_counts, "", ""), substring = true)
+        compose.onNodeWithTag("gallery-grid").performScrollToNode(counts)
+        compose.onNodeWithTag("gallery-grid").performTouchInput { swipeUp() }
+        compose.waitForIdle()
+        val footer = compose.onNode(counts).fetchSemanticsNode().boundsInRoot
+        val navigation = compose.onNodeWithTag("gallery-destination-capsule").fetchSemanticsNode().boundsInRoot
+        val gap = with(compose.density) { 16.dp.toPx() }
+        assertTrue("footer $footer overlaps navigation $navigation", footer.bottom + gap <= navigation.top)
+    }
+
     @Test fun photosCollectionsSharedAlbumsAndVideoCovers() {
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
         val repository = (context.application as AlbaApplication).graph.galleryRepository

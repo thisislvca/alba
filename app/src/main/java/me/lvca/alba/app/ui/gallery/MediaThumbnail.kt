@@ -25,6 +25,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -68,6 +69,9 @@ import me.lvca.alba.app.ui.viewer.sharedPhoto
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
+
+/** Whether previews are paused because phone storage is low. A missing preview then blames storage, not the network. */
+internal val LocalPreviewStorageLow = compositionLocalOf { false }
 
 private data class TransitionThumbnailKey(val mediaId: String, val sourceRevision: String)
 
@@ -224,16 +228,25 @@ fun MediaThumbnail(
             )
         } else {
             val failure = decodeFailure
+            val storageLow = LocalPreviewStorageLow.current
             val label = stringResource(when (failure) {
                 ThumbnailFailure.ACCESS -> R.string.photo_access_lost
                 ThumbnailFailure.MISSING -> R.string.photo_file_missing
                 ThumbnailFailure.DECODE -> R.string.photo_decode_failed
-                null -> if (decoding) R.string.loading else R.string.photo_preview_unavailable
+                null -> when {
+                    decoding -> R.string.loading
+                    storageLow -> R.string.photo_preview_storage_low
+                    else -> R.string.photo_preview_unavailable
+                }
             })
             val onMedia = AlbaTheme.colors.onMedia
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
                 if (decoding) CircularProgressIndicator(Modifier.size(24.dp), color = onMedia, strokeWidth = 2.dp)
-                else Icon(if (failure == null) AlbaIcons.CloudQueue else Icons.Outlined.Info,
+                else Icon(when {
+                    failure != null -> Icons.Outlined.Info
+                    storageLow -> AlbaIcons.PhoneAndroid
+                    else -> AlbaIcons.CloudQueue
+                },
                     contentDescription = listOfNotNull(contentDescription, label).joinToString(". "),
                     tint = onMedia.copy(alpha = .85f), modifier = Modifier.size(28.dp))
                 if (contentScale == ContentScale.Fit && !decoding) {

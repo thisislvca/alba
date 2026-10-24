@@ -1,20 +1,26 @@
 package me.lvca.alba.app.ui.gallery
 
 import android.os.Build
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
@@ -22,6 +28,7 @@ import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.ui.GalleryScreenActions
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.collections.isUserAlbum
+import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.UploadMediaFormat
@@ -46,18 +53,24 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
                 TextButton(onClick = actions::selectAllShown) { Text(stringResource(R.string.select_all_shown)) }
                 IconButton(onClick = actions::clearSelection) { Icon(Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(enabled = !mediaBusy && withinLimit,
-                    onClick = { actions.share(selectedItems) }) { Text(stringResource(R.string.share)) }
-                if (hasCloud) FilledTonalButton(onClick = { actions.runBatch(BatchAction.KEEP_OFFLINE) }) { Text(stringResource(R.string.keep_offline)) }
+            // Icons with short labels share the width evenly, so every action fits; the full name is for accessibility.
+            Row(Modifier.fillMaxWidth()) {
+                SelectionAction(Icons.Outlined.Share, stringResource(R.string.share), stringResource(R.string.share),
+                    enabled = !mediaBusy && withinLimit, modifier = Modifier.weight(1f)) { actions.share(selectedItems) }
+                if (hasCloud) SelectionAction(AlbaIcons.DownloadForOffline, stringResource(R.string.selection_offline_short),
+                    stringResource(R.string.keep_offline), modifier = Modifier.weight(1f)) { actions.runBatch(BatchAction.KEEP_OFFLINE) }
                 if (hasCloud && !query.trashOnly && Build.VERSION.SDK_INT >= 29)
-                    FilledTonalButton(onClick = { actions.runBatch(BatchAction.SAVE_TO_PHONE) }, modifier = Modifier.testTag("save-selection-to-phone")) {
-                        Text(stringResource(R.string.save_to_phone_gallery))
-                    }
-                if (hasPhone && !query.trashOnly && selectedItems.any { it.origin == MediaOrigin.DEVICE && UploadMediaFormat.isCandidate(it.mimeType) }) FilledTonalButton(enabled = session.accountState == ICloudAccountState.Demo || (session.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED,
-                    onClick = { actions.runBatch(BatchAction.UPLOAD) }) { Text(stringResource(if (session.accountState == ICloudAccountState.Demo) R.string.demo_upload_title else R.string.upload_phone_jpegs)) }
-                Box {
-                    OutlinedButton(onClick = { more = true }) { Text(stringResource(R.string.more)) }
+                    SelectionAction(AlbaIcons.SaveAlt, stringResource(R.string.selection_save_short), stringResource(R.string.save_to_phone_gallery),
+                        modifier = Modifier.weight(1f).testTag("save-selection-to-phone")) { actions.runBatch(BatchAction.SAVE_TO_PHONE) }
+                if (hasPhone && !query.trashOnly && selectedItems.any { it.origin == MediaOrigin.DEVICE && UploadMediaFormat.isCandidate(it.mimeType) })
+                    SelectionAction(AlbaIcons.CloudUpload, stringResource(R.string.selection_upload_short),
+                        stringResource(if (session.accountState == ICloudAccountState.Demo) R.string.demo_upload_title else R.string.upload_phone_jpegs),
+                        enabled = session.accountState == ICloudAccountState.Demo ||
+                            (session.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED,
+                        modifier = Modifier.weight(1f)) { actions.runBatch(BatchAction.UPLOAD) }
+                Box(Modifier.weight(1f)) {
+                    SelectionAction(Icons.Outlined.MoreVert, stringResource(R.string.more), stringResource(R.string.more),
+                        modifier = Modifier.fillMaxWidth()) { more = true }
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
                         if (!query.trashOnly && !hasShared) {
                             val canFavorite = !session.accountBusy && !mediaBusy && (!hasCloud || editable) && withinLimit
@@ -90,6 +103,27 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
         actions.createAlbumWithPhotos(name, gallery.selection.toList()); addingToAlbum = false
     }) { id ->
         actions.addToAlbum(id, gallery.selection.toList()); addingToAlbum = false
+    }
+}
+
+/** One action for the selection: an icon over a short [label]. [description] names it in full for accessibility. */
+@Composable
+private fun SelectionAction(
+    icon: ImageVector,
+    label: String,
+    description: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .38f)
+    Column(modifier.heightIn(min = 56.dp).clip(MaterialTheme.shapes.small)
+        .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        .semantics { contentDescription = description }
+        .padding(horizontal = 4.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
