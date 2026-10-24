@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculateCentroidSize
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -25,12 +26,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -38,6 +43,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 
@@ -353,6 +359,107 @@ internal fun Modifier.photoZoomGestures(state: PhotoZoomState, reduceMotion: Boo
                 if (gesture.zoomedByPinch && !reduce) {
                     val velocity = gesture.tracker.calculateVelocity()
                     state.launch(this@coroutineScope) { state.fling(velocity, decay) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The second press of a double tap. Released in place it toggles the zoom; once it travels past touch slop mostly
+ * vertically it becomes GP's quick scale (double-tap and drag): dragging down zooms in and dragging up zooms out. A
+ * mostly horizontal drag is [abandoned] to the pager.
+ */
+internal class QuickScaleTracker(private val slopPx: Float, private val distancePx: Float) {
+    var scaling = false
+        private set
+    var abandoned = false
+        private set
+    private var travel = Offset.Zero
+
+    /** The zoom factor for a move of [delta]: 1 while still deciding, then exponential in the vertical travel. */
+    fun move(delta: Offset): Float {
+        if (abandoned) return 1f
+        if (!scaling) {
+            travel += delta
+            if (travel.getDistance() <= slopPx) return 1f
+            if (abs(travel.x) > abs(travel.y)) {
+                abandoned = true
+                return 1f
+            }
+            scaling = true
+        }
+        return quickScaleFactor(delta.y, distancePx)
+    }
+}
+
+/** Zoom factor for a quick-scale drag of [dyPx] (down is positive): e-fold every [distancePx], so it reverses exactly. */
+internal fun quickScaleFactor(dyPx: Float, distancePx: Float): Float = if (distancePx <= 0f) 1f else exp(dyPx / distancePx)
+
+/** Android's default double-tap slop: the second tap must land this close to the first. */
+private val DoubleTapSlop = 100.dp
+
+private suspend fun AwaitPointerEventScope.awaitSecondDown(firstUp: PointerInputChange): PointerInputChange? =
+    withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) {
+        val minUptime = firstUp.uptimeMillis + viewConfiguration.doubleTapMinTimeMillis
+        var change: PointerInputChange
+        // A second tap that lands too soon is the same touch bouncing, not a double tap.
+        do change = awaitFirstDown() while (change.uptimeMillis < minUptime)
+        change
+    }
+
+/**
+ * Taps on a photo: a single tap calls [onTap] once the double-tap timeout passes; a double tap toggles fit ↔ 2.5×
+ * around the tap; double-tap and drag zooms continuously around the tap point (GP's quick scale), clamped to
+ * [1, max] with the same 1× detent and haptic as a pinch. Releasing a quick scale keeps its zoom.
+ *
+ * Put it after [photoZoomGestures] in the modifier chain so it sees each event first and can claim the drag.
+ */
+@Composable
+internal fun Modifier.photoTapGestures(state: PhotoZoomState, reduceMotion: Boolean, key1: Any?, key2: Any?, onTap: () -> Unit): Modifier {
+    val haptics = LocalHapticFeedback.current
+    val reduce by rememberUpdatedState(reduceMotion)
+    val tap by rememberUpdatedState(onTap)
+    return pointerInput(key1, key2) {
+        val distancePx = ViewerSpec.QuickScaleDistance.toPx()
+        coroutineScope {
+            awaitEachGesture {
+                awaitFirstDown().consume()
+                val firstUp = waitForUpOrCancellation() ?: return@awaitEachGesture
+                firstUp.consume()
+                val second = awaitSecondDown(firstUp)
+                if (second == null) {
+                    tap()
+                    return@awaitEachGesture
+                }
+                // Android only pairs taps that land close together; a far second touch is a new gesture.
+                if ((second.position - firstUp.position).getDistance() > DoubleTapSlop.toPx()) {
+                    tap()
+                    return@awaitEachGesture
+                }
+                second.consume()
+                val quick = QuickScaleTracker(viewConfiguration.touchSlop, distancePx)
+                val zoom = ZoomGesture(state, density) { haptics.performHapticFeedback(HapticFeedbackType.VirtualKey) }
+                while (true) {
+                    val event = awaitPointerEvent()
+                    // A second finger turns this into a pinch, which photoZoomGestures handles.
+                    if (event.changes.count { it.pressed } > 1) return@awaitEachGesture
+                    val change = event.changes.firstOrNull { it.id == second.id } ?: return@awaitEachGesture
+                    if (!change.pressed) {
+                        change.consume()
+                        if (!quick.scaling) state.launch(this@coroutineScope) { state.toggle(change.position, reduce) }
+                        return@awaitEachGesture
+                    }
+                    if (!quick.scaling && change.isConsumed) return@awaitEachGesture
+                    val factor = quick.move(change.positionChange())
+                    if (quick.abandoned) return@awaitEachGesture
+                    if (quick.scaling) {
+                        if (factor != 1f) {
+                            state.stop()
+                            zoom.zoom(factor, second.position)
+                        }
+                        change.consume()
+                    }
                 }
             }
         }

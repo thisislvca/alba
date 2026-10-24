@@ -12,7 +12,6 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,7 +47,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -74,6 +72,7 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.viewer.PhotoZoomState
 import me.lvca.alba.app.ui.viewer.PinchToClose
 import me.lvca.alba.app.ui.viewer.photoPanExtent
+import me.lvca.alba.app.ui.viewer.photoTapGestures
 import me.lvca.alba.app.ui.viewer.photoZoomGestures
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.app.ui.viewer.sharedPhoto
@@ -212,13 +211,10 @@ fun MediaThumbnail(
                     zoomState.launch(zoomScope) { zoomState.toggle(center, reduceMotion) }; true
                 })
             }
-                // A sharper resource is still the same photo; do not cancel an in-flight tap.
-                .pointerInput(sharedMediaId ?: reference, sourceRevision) {
-                    detectTapGestures(onTap = { tap() }, onDoubleTap = { point ->
-                        zoomState.launch(zoomScope) { zoomState.toggle(point, reduceMotion) }
-                    })
-                }
-                .photoZoomGestures(zoomState, reduceMotion, pinchToClose) else Modifier)
+                .photoZoomGestures(zoomState, reduceMotion, pinchToClose)
+                // After the pinch so it sees each touch first and can claim a double-tap drag. A sharper resource is
+                // still the same photo; do not cancel an in-flight tap.
+                .photoTapGestures(zoomState, reduceMotion, sharedMediaId ?: reference, sourceRevision) { tap() } else Modifier)
             .clipToBounds()
             .then(when {
                 contentScale == ContentScale.Fit -> Modifier

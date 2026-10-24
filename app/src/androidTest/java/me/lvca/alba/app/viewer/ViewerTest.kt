@@ -181,6 +181,36 @@ class ViewerTest {
         compose.onNodeWithTag("media-fixture:icloud:0016").assertExists()
     }
 
+    @Test fun doubleTapAndDragZoomsAroundTheTapAndKeepsTheZoom() {
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia("fixture:icloud:0016")
+        val photo = compose.onNodeWithTag("viewer-image-fixture:icloud:0016")
+        val zoomed = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Zoomed")
+        val fit = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Fit")
+        // Tap, then keep the second touch down and drag it down: GP's quick scale zooms in and stays zoomed on release.
+        photo.performTouchInput {
+            click(center)
+            advanceEventTime(100)
+            down(center)
+            repeat(10) { moveBy(androidx.compose.ui.geometry.Offset(0f, 25f)) }
+            up()
+        }
+        compose.waitForIdle()
+        photo.assert(zoomed)
+        compose.onNodeWithTag("media-pager").assertExists()
+        // Dragging back up past where it started returns to fit.
+        photo.performTouchInput {
+            advanceEventTime(500)
+            click(center)
+            advanceEventTime(100)
+            down(center)
+            repeat(12) { moveBy(androidx.compose.ui.geometry.Offset(0f, -25f)) }
+            up()
+        }
+        compose.waitForIdle()
+        photo.assert(fit)
+    }
+
     private fun statusBarsVisible(): Boolean? = compose.runOnIdle {
         androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
             ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.statusBars())

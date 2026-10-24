@@ -84,6 +84,12 @@ internal object ViewerSpec {
      */
     const val DOUBLE_TAP_ZOOM = 2.5f
 
+    /**
+     * GP's double-tap-and-drag uses the platform quick scale. Alba zooms exponentially with the drag instead, so a
+     * drag back up always returns to the same zoom: e-fold every 160dp, about 2.5× after 150dp.
+     */
+    val QuickScaleDistance = 160.dp
+
     /** GP animates double-tap zoom over 250 ms, FastOutSlowIn on both scale and centre. */
     const val ZOOM_MILLIS = 250
 
