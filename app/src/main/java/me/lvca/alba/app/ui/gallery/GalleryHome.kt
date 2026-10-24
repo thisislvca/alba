@@ -229,9 +229,14 @@ internal fun GalleryHome(
     // The navigation answers a tap at once; the screens switch once the current one has faded out. Only the navigation
     // reads the pending tab, so the tap's first frame recomposes nothing else.
     fun selectedTab() = tabFade.pending ?: tab
+    // A tap whose fade a rotation or other recreation cuts short still lands on its tab. Nothing in composition reads
+    // this, so writing it keeps the tap's first frame cheap.
+    var interruptedTab by rememberSaveable { mutableStateOf<GalleryTab?>(null) }
+    LaunchedEffect(Unit) { interruptedTab?.let { interruptedTab = null; switchTab(it) } }
     fun navigate(next: GalleryTab) {
         if (next == selectedTab()) return
-        tabFade.start(tab, next, reduceTabMotion, ::switchTab)
+        interruptedTab = next.takeIf { it != tab }
+        tabFade.start(tab, next, reduceTabMotion) { interruptedTab = null; switchTab(it) }
     }
     val query = gallery.query
     val inCollection = tab == GalleryTab.COLLECTIONS && (query.collectionId != null || query.offlineOnly || query.trashOnly)
