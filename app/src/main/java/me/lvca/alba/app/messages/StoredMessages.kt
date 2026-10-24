@@ -73,7 +73,6 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.RECONNECT_TO_ICLOUD_TO_CHECK_STORAGE_SAVED_COPIES_REMAIN_AVAILABLE -> R.string.message_reconnect_to_icloud_to_check_storage_saved_copies_remain_available
     StoredMessage.THE_PHOTO_IS_NO_LONGER_AVAILABLE -> R.string.message_the_photo_is_no_longer_available
     StoredMessage.CHOOSE_BETWEEN_1_AND_50_PHOTOS_TO_SHARE_AT_ONCE -> R.string.message_choose_between_1_and_50_photos_to_share_at_once
-    StoredMessage.USE_EXPORT_ORIGINAL_ON_ANDROID_9 -> R.string.message_use_export_original_on_android_9
     StoredMessage.ANDROID_COULD_NOT_CREATE_A_GALLERY_COPY -> R.string.message_android_could_not_create_a_gallery_copy
     StoredMessage.ANDROID_COULD_NOT_PUBLISH_THE_GALLERY_COPY -> R.string.message_android_could_not_publish_the_gallery_copy
     StoredMessage.COULD_NOT_OPEN_THE_EXPORT_DESTINATION -> R.string.message_could_not_open_the_export_destination
@@ -82,10 +81,8 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.UPLOAD_RESULT_WAS_LOST_ALBA_WILL_CHECK_ICLOUD_WITHOUT_UPLOADING_AGAIN -> R.string.message_upload_result_was_lost_alba_will_check_icloud_without_uploading_again
     StoredMessage.THIS_UNCERTAIN_ITEM_REMAINS_BLOCKED_FROM_UPLOAD_OTHER_PHOTOS_MAY_CONTINUE -> R.string.message_this_uncertain_item_remains_blocked_from_upload_other_photos_may_continue
     StoredMessage.VERIFIED_IN_ICLOUD -> R.string.message_verified_in_icloud
-    StoredMessage.AUTOMATIC_BACKUP_REQUIRES_ANDROID_11_OR_LATER -> R.string.message_automatic_backup_requires_android_11_or_later
     StoredMessage.MEDIASTORE_CHANGED_DURING_BACKUP_SETUP -> R.string.message_mediastore_changed_during_backup_setup
     StoredMessage.SELECT_AT_LEAST_ONE_PHOTO_TO_MOVE_TO_TRASH -> R.string.message_select_at_least_one_photo_to_move_to_trash
-    StoredMessage.ANDROID_TRASH_REQUIRES_ANDROID_11_OR_LATER -> R.string.message_android_trash_requires_android_11_or_later
     StoredMessage.THIS_PHOTO_CHANGED_BEFORE_IT_COULD_BE_STAGED -> R.string.message_this_photo_changed_before_it_could_be_staged
     StoredMessage.ANDROID_DID_NOT_GRANT_ACCESS_TO_THE_EXACT_ORIGINAL -> R.string.message_android_did_not_grant_access_to_the_exact_original
     StoredMessage.UPLOAD_UNSUPPORTED_FORMAT -> R.string.upload_unsupported_format

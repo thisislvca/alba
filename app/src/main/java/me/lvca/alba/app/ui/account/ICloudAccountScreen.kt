@@ -1,6 +1,5 @@
 package me.lvca.alba.app.ui.account
 
-import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -448,7 +447,6 @@ private fun BackupSettings(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (Build.VERSION.SDK_INT < 30) Text(stringResource(R.string.automatic_backup_requires_android_11_or_later_use_the_photo_picker_for_manual_uploads))
             backup.message?.let { Text(localizedStoredMessage(it).localized()) }
             Spacer(Modifier.height(14.dp))
             if (backup.enabled) {
@@ -458,7 +456,7 @@ private fun BackupSettings(
                 ) { Text(stringResource(R.string.turn_off_automatic_backup)) }
             } else {
                 Button(
-                    enabled = (connected || demo) && Build.VERSION.SDK_INT >= 30,
+                    enabled = connected || demo,
                     onClick = actions::enableAutomaticBackup,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(if (demo) R.string.demo_backup_start else R.string.set_up_automatic_backup)) }

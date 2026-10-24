@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -85,18 +86,11 @@ class AndroidMediaStoreSource(
                 has(Manifest.permission.READ_EXTERNAL_STORAGE) -> "full"
             else -> "none"
         }
-        val location = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
-            has(Manifest.permission.ACCESS_MEDIA_LOCATION)
-        ) {
-            "unredacted"
-        } else {
-            "redacted"
-        }
+        val location = if (has(Manifest.permission.ACCESS_MEDIA_LOCATION)) "unredacted" else "redacted"
         return "$imageAccess:$location:api${Build.VERSION.SDK_INT}"
     }
 
-    override fun hasAutomaticBackupAccess(): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && permissionFingerprint().startsWith("full:unredacted")
+    override fun hasAutomaticBackupAccess(): Boolean = permissionFingerprint().startsWith("full:unredacted")
 
     override suspend fun discoverJpegs(
         checkpoint: LocalDiscoveryCheckpoint?,
@@ -114,9 +108,6 @@ class AndroidMediaStoreSource(
         require(limit in 1..200) { "MediaStore discovery limit must be between 1 and 200" }
         check(hasAutomaticBackupAccess()) {
             StoredMessage.AUTOMATIC_BACKUP_NEEDS_FULL_PHOTO_ACCESS_AND_PRECISE_MEDIA_LOCATION_ACCESS.code
-        }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            error(StoredMessage.AUTOMATIC_BACKUP_REQUIRES_ANDROID_11_OR_LATER.code)
         }
 
         val volume = MediaStore.VOLUME_EXTERNAL
@@ -178,9 +169,6 @@ class AndroidMediaStoreSource(
     }
 
     override suspend fun captureEnrollmentBaseline(): LocalDiscoveryCheckpoint = withContext(Dispatchers.IO) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            error(StoredMessage.AUTOMATIC_BACKUP_REQUIRES_ANDROID_11_OR_LATER.code)
-        }
         check(hasAutomaticBackupAccess())
         val volume = MediaStore.VOLUME_EXTERNAL
         val version = MediaStore.getVersion(appContext, volume)
@@ -193,15 +181,12 @@ class AndroidMediaStoreSource(
         Settings.Global.getInt(resolver, Settings.Global.BOOT_COUNT).toString()
     }.getOrNull()
 
-    override fun createTrashRequest(contentUris: List<String>) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+    override fun createTrashRequest(contentUris: List<String>): IntentSender {
         require(contentUris.isNotEmpty()) { StoredMessage.SELECT_AT_LEAST_ONE_PHOTO_TO_MOVE_TO_TRASH.code }
-        MediaStore.createTrashRequest(resolver, contentUris.map { it.toUri() }, true).intentSender
-    } else {
-        error(StoredMessage.ANDROID_TRASH_REQUIRES_ANDROID_11_OR_LATER.code)
+        return MediaStore.createTrashRequest(resolver, contentUris.map { it.toUri() }, true).intentSender
     }
 
     override suspend fun readTrashState(contentUri: String): LocalTrashState? = withContext(Dispatchers.IO) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return@withContext null
         resolver.query(
             contentUri.toUri(),
             arrayOf(MediaStore.MediaColumns.IS_TRASHED, MediaStore.MediaColumns.DATE_EXPIRES),
@@ -222,10 +207,10 @@ class AndroidMediaStoreSource(
         if (Build.VERSION.SDK_INT >= 33 && !has(if (video) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_MEDIA_IMAGES) &&
             !(Build.VERSION.SDK_INT >= 34 && has(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))) return emptyList()
         val collection = if (video) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else galleryCollection()
-        val version = if (Build.VERSION.SDK_INT >= 29) MediaStore.getVersion(appContext, MediaStore.VOLUME_EXTERNAL) else "legacy"
+        val version = MediaStore.getVersion(appContext, MediaStore.VOLUME_EXTERNAL)
         val args = Bundle().apply {
             putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, "datetaken DESC, _id DESC")
-            if (Build.VERSION.SDK_INT >= 30) putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
         }
         return resolver.query(collection, galleryProjection() + if (video) arrayOf("duration") else emptyArray(), args, null)
             ?.use { readRecords(it, collection, version, video) }.orEmpty()
@@ -245,20 +230,16 @@ class AndroidMediaStoreSource(
         val heightIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
         val mimeIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)
         val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
-        val generationIndex = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            cursor.getColumnIndexOrThrow(MediaStore.Images.Media.GENERATION_MODIFIED)
-        } else -1
-        val volumeIndex = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            cursor.getColumnIndexOrThrow(MediaStore.Images.Media.VOLUME_NAME)
-        } else -1
+        val generationIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.GENERATION_MODIFIED)
+        val volumeIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.VOLUME_NAME)
 
         while (cursor.moveToNext()) {
             val id = cursor.getLong(idIndex)
             val uri = ContentUris.withAppendedId(collection, id)
             val capturedAt = cursor.getLong(takenIndex).takeIf { it > 0L }
                 ?: cursor.getLong(addedIndex) * 1_000L
-            val generation = if (generationIndex >= 0) cursor.getLong(generationIndex) else -1L
-            val volume = if (volumeIndex >= 0) cursor.getString(volumeIndex) ?: "external" else "external"
+            val generation = cursor.getLong(generationIndex)
+            val volume = cursor.getString(volumeIndex) ?: "external"
             add(
                 DeviceMediaRecord(
                     id = if (video) "device:video:$volume:$id" else "device:$volume:$id",
@@ -288,7 +269,8 @@ class AndroidMediaStoreSource(
     private fun galleryProjection(): Array<String> = buildList {
         add("bucket_id")
         add("bucket_display_name")
-        if (Build.VERSION.SDK_INT >= 30) { add("is_trashed"); add("date_expires") }
+        add("is_trashed")
+        add("date_expires")
         add(MediaStore.Images.Media._ID)
         add(MediaStore.Images.Media.DISPLAY_NAME)
         add(MediaStore.Images.Media.DATE_TAKEN)
@@ -297,15 +279,11 @@ class AndroidMediaStoreSource(
         add(MediaStore.Images.Media.HEIGHT)
         add(MediaStore.Images.Media.MIME_TYPE)
         add(MediaStore.Images.Media.SIZE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) add(MediaStore.Images.Media.GENERATION_MODIFIED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) add(MediaStore.Images.Media.VOLUME_NAME)
+        add(MediaStore.Images.Media.GENERATION_MODIFIED)
+        add(MediaStore.Images.Media.VOLUME_NAME)
     }.toTypedArray()
 
-    private fun galleryCollection(): Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-    } else {
-        MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-    }
+    private fun galleryCollection(): Uri = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
 
     private fun copyExact(
         uri: Uri,
@@ -320,11 +298,7 @@ class AndroidMediaStoreSource(
             require(before.revision == expectedRevision) { StoredMessage.THIS_PHOTO_CHANGED_BEFORE_IT_COULD_BE_STAGED.code }
         }
         val isMediaStore = uri.authority == MediaStore.AUTHORITY
-        val requireOriginalUri = if (requireMediaStoreOriginal && isMediaStore &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-        ) {
-            MediaStore.setRequireOriginal(uri)
-        } else uri
+        val requireOriginalUri = if (requireMediaStoreOriginal && isMediaStore) MediaStore.setRequireOriginal(uri) else uri
         val originalFormatRequested = isMediaStore &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         val digest = MessageDigest.getInstance("SHA-256")
@@ -365,8 +339,7 @@ class AndroidMediaStoreSource(
             sourceRevision = after.revision,
             acquisitionMethod = acquisitionMethod,
             originalFormatRequested = originalFormatRequested,
-            unredacted = !isMediaStore || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
-                has(Manifest.permission.ACCESS_MEDIA_LOCATION),
+            unredacted = !isMediaStore || has(Manifest.permission.ACCESS_MEDIA_LOCATION),
             formatValidated = true,
             lastModifiedAtEpochMillis = after.lastModifiedAtEpochMillis,
             byteCount = byteCount,
@@ -392,12 +365,8 @@ class AndroidMediaStoreSource(
                 if (!cursor.moveToFirst()) return@use null
                 val displayName = cursor.stringOrNull(MediaStore.MediaColumns.DISPLAY_NAME)
                 val size = cursor.longOrNull(MediaStore.MediaColumns.SIZE) ?: -1L
-                val generation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    cursor.longOrNull(MediaStore.MediaColumns.GENERATION_MODIFIED) ?: -1L
-                } else -1L
-                val volume = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    cursor.stringOrNull(MediaStore.MediaColumns.VOLUME_NAME) ?: uri.authority.orEmpty()
-                } else "external"
+                val generation = cursor.longOrNull(MediaStore.MediaColumns.GENERATION_MODIFIED) ?: -1L
+                val volume = cursor.stringOrNull(MediaStore.MediaColumns.VOLUME_NAME) ?: uri.authority.orEmpty()
                 val rowId = cursor.longOrNull(MediaStore.MediaColumns._ID)
                     ?: uri.lastPathSegment?.toLongOrNull() ?: -1L
                 SourceMetadata(
@@ -405,9 +374,7 @@ class AndroidMediaStoreSource(
                     lastModifiedAtEpochMillis = cursor.longOrNull(MediaStore.MediaColumns.DATE_MODIFIED)?.takeIf { it > 0L }?.let { it * 1000L }
                         ?: cursor.longOrNull(android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED)?.takeIf { it > 0L },
                     revision = if (uri.authority == MediaStore.AUTHORITY) {
-                        val version = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            MediaStore.getVersion(appContext, MediaStore.VOLUME_EXTERNAL)
-                        } else "legacy"
+                        val version = MediaStore.getVersion(appContext, MediaStore.VOLUME_EXTERNAL)
                         mediaStoreRevision(version, volume, rowId, generation, size)
                     } else "$volume:$rowId:$generation:$size",
                     lineageKey = "$volume:$rowId",

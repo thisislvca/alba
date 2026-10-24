@@ -9,7 +9,6 @@
     <string name="albums">Albums</string>
     <string name="all_items">All items</string>
     <string name="all_photos">All photos</string>
-    <string name="android_11_or_later_is_required_for_verified_trash">Android 11 or later is required for verified trash.</string>
     <string name="any_date">Any</string>
     <string name="app_name">Alba</string>
     <string name="brand_name">Alba</string>
@@ -17,7 +16,6 @@
     <string name="apple_did_not_provide_a_photos_service_for_this_account">Apple did not provide a Photos service for this account</string>
     <string name="apple_session_verified">Apple session verified</string>
     <string name="apply">Apply</string>
-    <string name="automatic_backup_requires_android_11_or_later_use_the_photo_picker_for_manual_uploads">Automatic backup requires Android 11 or later. Use the photo picker for manual uploads.</string>
     <string name="automatic_jpeg_backup">Automatic JPEG backup</string>
     <string name="available_offline">Available offline</string>
     <string name="back_to_gallery">Back to gallery</string>
@@ -134,13 +132,11 @@
     <string name="message_android_could_not_open_this_photo">Android could not open this photo.</string>
     <string name="message_android_could_not_publish_the_gallery_copy">Android could not publish the gallery copy.</string>
     <string name="message_android_did_not_grant_access_to_the_exact_original">Android did not grant access to the exact original.</string>
-    <string name="message_android_trash_requires_android_11_or_later">Android trash requires Android 11 or later</string>
     <string name="message_another_upload_is_unresolved">Another upload is unresolved</string>
     <string name="message_apple_sent_another_verification_code">Apple sent another verification code.</string>
     <string name="message_automatic_backup_is_off">Automatic backup is off.</string>
     <string name="message_automatic_backup_needs_full_photo_access_and_precise_media_location_access">Automatic backup needs full photo access and precise media location access.</string>
     <string name="message_automatic_backup_permission_or_consent_changed">Automatic backup permission or consent changed</string>
-    <string name="message_automatic_backup_requires_android_11_or_later">Automatic backup requires Android 11 or later.</string>
     <string name="message_automatic_backup_was_disabled_before_this_upload_started">Automatic backup was disabled before this upload started.</string>
     <string name="message_automatic_jpeg_backup_is_on">Automatic JPEG backup is on.</string>
     <string name="message_backup_paused_allow_full_photo_and_media_location_access">Backup paused: allow full photo and media location access.</string>
@@ -248,7 +244,6 @@
     <string name="message_upload_result_was_lost_alba_will_check_icloud_without_uploading_again">Upload result was lost. Alba will check iCloud without uploading again.</string>
     <string name="message_uploading_to_icloud">Uploading to iCloud</string>
     <string name="message_use_an_album_name_between_1_and_255_characters">Use an album name between 1 and 255 characters.</string>
-    <string name="message_use_export_original_on_android_9">Use Export original on Android 9.</string>
     <string name="message_verified_in_icloud">Verified in iCloud</string>
     <string name="message_waiting_for_upload_authorization_and_an_eligible_network">Waiting for upload authorization and an eligible network</string>
     <string name="message_waiting_to_upload">Waiting to upload</string>

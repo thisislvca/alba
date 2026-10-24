@@ -188,7 +188,6 @@
     <ID>MaxLineLength:CollectionsScreen.kt$else</ID>
     <ID>MaxLineLength:DemoUploadTest.kt$DemoUploadTest$val missing = androidx.core.content.FileProvider.getUriForFile(compose.activity, "${compose.activity.packageName}.shares", File(file.parentFile, "missing-review.png"))</ID>
     <ID>MaxLineLength:DeviceUploadControls.kt$Text(if (isWorking) stringResource(R.string.staging_original) else stringResource(if (demo) R.string.demo_upload_title else R.string.upload_to_icloud))</ID>
-    <ID>MaxLineLength:DeviceUploadControls.kt$if (Build.VERSION.SDK_INT &lt; 30) stringResource(R.string.android_11_or_later_is_required_for_verified_trash) else stringResource(R.string.alba_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi)</ID>
     <ID>MaxLineLength:DeviceUploadControls.kt$text = uploadTransfer.message?.let { localizedStoredMessage(it).localized() } ?: stringResource(R.string.staged_bytes, Formatter.formatShortFileSize(LocalContext.current, uploadTransfer.byteCount))</ID>
     <ID>MaxLineLength:GalleryDateSheet.kt$LazyColumn</ID>
     <ID>MaxLineLength:GalleryDateSheet.kt$Text(itemCount(section.items.size), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)</ID>

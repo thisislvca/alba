@@ -5,7 +5,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.StatFs
 import android.provider.DocumentsContract
 import android.provider.MediaStore
@@ -99,7 +98,6 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
     }
 
     suspend fun saveToGallery(media: GalleryMedia) = withContext(Dispatchers.IO) {
-        if (Build.VERSION.SDK_INT < 29) error(StoredMessage.USE_EXPORT_ORIGINAL_ON_ANDROID_9.code)
         // Both Live Photo resources are written before either is made visible.
         val copies = (if (media.kind == MediaKind.LIVE_PHOTO) listOf(false, true) else listOf(false)).map { motion ->
             val mime = if (motion) media.motionMimeType else media.mimeType

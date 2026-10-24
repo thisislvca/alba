@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.media.MediaMetadataRetriever
-import android.os.Build
 import android.util.LruCache
 import android.util.Size
 import androidx.compose.animation.core.Animatable
@@ -315,7 +314,7 @@ private fun decodeThumbnail(context: Context, reference: String, targetSidePx: I
             retriever.setDataSource(context, reference.toUri())
             retriever.getScaledFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, targetSidePx, targetSidePx)
         } finally { retriever.release() }
-    } else if (contentReference && !fullImage && Build.VERSION.SDK_INT >= 29) {
+    } else if (contentReference && !fullImage) {
         context.contentResolver.loadThumbnail(reference.toUri(), Size(targetSidePx, targetSidePx), null)
     } else {
         // ImageDecoder applies EXIF rotation/mirroring, and sizes before allocating pixels.

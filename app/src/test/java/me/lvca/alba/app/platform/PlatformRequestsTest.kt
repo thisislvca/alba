@@ -54,10 +54,9 @@ class PlatformRequestsTest {
 
     @Test fun uploadsAskForLocationAccessOnlyForRealAccounts() {
         val signedIn = ICloudAccountState.SignedIn("owner@example.test")
-        assertTrue(uploadNeedsMediaLocationPermission(signedIn, sdkInt = 34, granted = false))
-        assertFalse(uploadNeedsMediaLocationPermission(signedIn, sdkInt = 34, granted = true))
-        assertFalse(uploadNeedsMediaLocationPermission(ICloudAccountState.Demo, sdkInt = 34, granted = false))
-        assertFalse(uploadNeedsMediaLocationPermission(signedIn, sdkInt = 28, granted = false))
+        assertTrue(uploadNeedsMediaLocationPermission(signedIn, granted = false))
+        assertFalse(uploadNeedsMediaLocationPermission(signedIn, granted = true))
+        assertFalse(uploadNeedsMediaLocationPermission(ICloudAccountState.Demo, granted = false))
     }
 
     @Test fun partialPhotoAccessIsDistinguishedFromFullAccess() {

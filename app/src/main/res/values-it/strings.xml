@@ -9,7 +9,6 @@
     <string name="albums">Album</string>
     <string name="all_items">Tutti gli elementi</string>
     <string name="all_photos">Tutte le foto</string>
-    <string name="android_11_or_later_is_required_for_verified_trash">Per spostare nel cestino gli originali verificati serve Android 11 o successivo.</string>
     <string name="any_date">Qualsiasi</string>
     <string name="app_name">Alba</string>
     <string name="brand_name">Alba</string>
@@ -17,7 +16,6 @@
     <string name="apple_did_not_provide_a_photos_service_for_this_account">Apple non ha reso disponibile il servizio Foto per questo account</string>
     <string name="apple_session_verified">Sessione Apple verificata</string>
     <string name="apply">Applica</string>
-    <string name="automatic_backup_requires_android_11_or_later_use_the_photo_picker_for_manual_uploads">Il backup automatico richiede Android 11 o successivo. Usa il selettore foto per i caricamenti manuali.</string>
     <string name="automatic_jpeg_backup">Backup automatico JPEG</string>
     <string name="available_offline">Disponibile offline</string>
     <string name="back_to_gallery">Torna alla galleria</string>
@@ -134,13 +132,11 @@
     <string name="message_android_could_not_open_this_photo">Android non è riuscito ad aprire questa foto.</string>
     <string name="message_android_could_not_publish_the_gallery_copy">Android non è riuscito a rendere disponibile la copia nella galleria.</string>
     <string name="message_android_did_not_grant_access_to_the_exact_original">Android non ha concesso l’accesso all’originale esatto.</string>
-    <string name="message_android_trash_requires_android_11_or_later">Il cestino richiede Android 11 o successivo</string>
     <string name="message_another_upload_is_unresolved">Un altro caricamento ha esito incerto</string>
     <string name="message_apple_sent_another_verification_code">Apple ha inviato un altro codice di verifica.</string>
     <string name="message_automatic_backup_is_off">Il backup automatico è disattivato.</string>
     <string name="message_automatic_backup_needs_full_photo_access_and_precise_media_location_access">Il backup automatico richiede l’accesso completo alle foto e alla loro posizione precisa.</string>
     <string name="message_automatic_backup_permission_or_consent_changed">I permessi o il consenso per il backup automatico sono cambiati</string>
-    <string name="message_automatic_backup_requires_android_11_or_later">Il backup automatico richiede Android 11 o successivo.</string>
     <string name="message_automatic_backup_was_disabled_before_this_upload_started">Il backup automatico è stato disattivato prima dell’inizio di questo caricamento.</string>
     <string name="message_automatic_jpeg_backup_is_on">Il backup automatico JPEG è attivo.</string>
     <string name="message_backup_paused_allow_full_photo_and_media_location_access">Backup in pausa: consenti l’accesso completo alle foto e alla loro posizione.</string>
@@ -248,7 +244,6 @@
     <string name="message_upload_result_was_lost_alba_will_check_icloud_without_uploading_again">Il risultato del caricamento è andato perso. Alba verificherà iCloud senza ripetere il caricamento.</string>
     <string name="message_uploading_to_icloud">Caricamento su iCloud</string>
     <string name="message_use_an_album_name_between_1_and_255_characters">Usa un nome di album da 1 a 255 caratteri.</string>
-    <string name="message_use_export_original_on_android_9">Su Android 9 usa Esporta originale.</string>
     <string name="message_verified_in_icloud">Verificato in iCloud</string>
     <string name="message_waiting_for_upload_authorization_and_an_eligible_network">In attesa dell’autorizzazione al caricamento e di una rete consentita</string>
     <string name="message_waiting_to_upload">In attesa di caricamento</string>

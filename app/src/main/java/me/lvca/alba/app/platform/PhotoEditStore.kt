@@ -8,8 +8,6 @@ import android.graphics.ImageDecoder
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.net.Uri
-import android.os.Build
-import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
@@ -79,14 +77,13 @@ private fun editMemoryBudget(): Long {
     return minOf(runtime.maxMemory() * 3 / 5, available - 32 * 1024 * 1024).coerceAtLeast(8 * 1024 * 1024)
 }
 
-suspend fun saveEditedCopy(context: Context, media: GalleryMedia, bitmap: Bitmap, document: Uri? = null,
-    source: File? = null): Uri = withContext(Dispatchers.IO) {
+suspend fun saveEditedCopy(context: Context, media: GalleryMedia, bitmap: Bitmap, source: File? = null): Uri = withContext(Dispatchers.IO) {
     val prepared = prepareEditedCopy(context, bitmap, source)
-    try { publishEditedCopy(context, media, prepared, document) } finally { prepared.delete() }
+    try { publishEditedCopy(context, media, prepared) } finally { prepared.delete() }
 }
 
-/** Complete rendering and metadata before opening a document picker or publishing a gallery row. */
-internal suspend fun prepareEditedCopy(context: Context, bitmap: Bitmap, source: File?): File = withContext(Dispatchers.IO) {
+/** Complete rendering and metadata before publishing a gallery row. */
+private suspend fun prepareEditedCopy(context: Context, bitmap: Bitmap, source: File?): File = withContext(Dispatchers.IO) {
     val directory = File(context.cacheDir, "edit_results").apply { mkdirs() }
     directory.listFiles()?.filter { it.lastModified() < System.currentTimeMillis() - 86_400_000 }?.forEach { it.delete() }
     val prepared = File.createTempFile("edited-", ".jpg", directory)
@@ -98,27 +95,13 @@ internal suspend fun prepareEditedCopy(context: Context, bitmap: Bitmap, source:
     } catch (e: Throwable) { prepared.delete(); throw e }
 }
 
-internal suspend fun publishEditedCopy(context: Context, media: GalleryMedia, prepared: File,
-    document: Uri? = null): Uri = withContext(Dispatchers.IO) {
-    val resolver = context.contentResolver
-    if (document == null) {
-        check(Build.VERSION.SDK_INT >= 29)
-        return@withContext publishToMediaStore(resolver, listOf(MediaStoreCopy(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, media.fileName.substringBeforeLast('.') + "-edited-${System.currentTimeMillis()}.jpg")
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/Alba")
-            put(MediaStore.MediaColumns.DATE_TAKEN, media.capturedAtEpochMillis)
-        }) { output -> prepared.inputStream().use { it.copyTo(output) } })).single()
-    }
-    try {
-        checkNotNull(resolver.openOutputStream(document, "w")).use { output -> prepared.inputStream().use { it.copyTo(output) } }
-        ensureActive()
-    } catch (e: Throwable) {
-        withContext(NonCancellable) { runCatching { DocumentsContract.deleteDocument(resolver, document) } }
-        throw e
-    }
-    document
-}
+private suspend fun publishEditedCopy(context: Context, media: GalleryMedia, prepared: File): Uri =
+    publishToMediaStore(context.contentResolver, listOf(MediaStoreCopy(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, media.fileName.substringBeforeLast('.') + "-edited-${System.currentTimeMillis()}.jpg")
+        put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+        put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/Alba")
+        put(MediaStore.MediaColumns.DATE_TAKEN, media.capturedAtEpochMillis)
+    }) { output -> prepared.inputStream().use { it.copyTo(output) } })).single()
 
 private fun copyPhotoMetadata(source: File?, target: File, width: Int, height: Int) {
     val original = source?.let { runCatching { ExifInterface(it) }.getOrNull() }
