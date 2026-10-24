@@ -98,6 +98,13 @@ internal class MediaActionRunner(
         return true
     }
 
+    /** Like [start], but waits for a running action with the same [key] to end instead of refusing to start. */
+    fun startAfter(key: MediaActionKey, @StringRes fallbackMessage: Int, block: suspend () -> Unit) {
+        val running = jobs[key]?.takeIf { it.isActive }
+        if (running == null) start(key, fallbackMessage, block)
+        else scope.launch { running.join(); start(key, fallbackMessage, block) }
+    }
+
     fun cancel(key: MediaActionKey) {
         jobs[key]?.cancel()
     }

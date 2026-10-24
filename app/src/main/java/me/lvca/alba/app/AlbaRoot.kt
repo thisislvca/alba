@@ -490,7 +490,7 @@ private class AlbaRootActions(
 
     override fun dismissMessage() = viewModel.dismissMessage()
     override fun undo(action: UndoAction) = when (action) {
-        is UndoAction.CloudTrash -> edits.setCloudTrashed(action.mediaIds, trashed = false)
+        is UndoAction.CloudTrash -> edits.undoCloudTrash(action.mediaIds)
         is UndoAction.PhoneTrash -> platform.restoreOnPhone(action.contentUris)
     }
 

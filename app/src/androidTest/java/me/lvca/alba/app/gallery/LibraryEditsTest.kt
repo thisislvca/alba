@@ -13,8 +13,10 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.openViewerDetails
+import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
+import me.lvca.alba.app.testing.waitUntilDisplayed
 import me.lvca.alba.engine.model.MediaOrigin
 import org.junit.Assert.*
 import org.junit.Rule
@@ -58,6 +60,10 @@ class LibraryEditsTest {
             compose.onNodeWithText(trash).performScrollTo().performClick()
             compose.onAllNodesWithText(trash).onLast().performClick()
             compose.waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed } }
+            // Like Google Photos, the viewer moves on to the next (older) photo instead of closing.
+            compose.waitUntilDisplayed(hasTestTag("viewer-image-fixture:icloud:0018"))
+            compose.onAllNodesWithTag("viewer-image-$id").assertCountEquals(0)
+            compose.pressBack()
             compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
             compose.runOnIdle {
                 val lightTheme = compose.activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK != android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -110,6 +116,10 @@ class LibraryEditsTest {
             compose.onNodeWithText(compose.activity.resources.getQuantityString(R.plurals.cloud_trash_moved, 1, 1)).assertIsDisplayed()
             compose.onNodeWithTag("snackbar-action").assertTextEquals(compose.activity.getString(R.string.undo)).performClick()
             compose.waitUntil(LONG_WAIT) { !trashed() }
+            // The viewer moved on after the trash; Undo brings the photo back into it, and back into the library.
+            compose.waitUntilDisplayed(hasTestTag("viewer-image-$id"))
+            compose.pressBack()
+            compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithTag("media-$id").assertExists()
         } finally { runBlocking { repository.setCloudTrashed(listOf(id), false) } }
     }
