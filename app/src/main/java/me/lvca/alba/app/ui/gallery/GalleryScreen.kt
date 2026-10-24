@@ -160,8 +160,11 @@ internal fun GalleryScreenHost(
         Box(Modifier.fillMaxSize().predictiveBackPose(backState, shown).drawWithContent {
             if (live) {
                 // Shared photos must draw directly while the viewer opens or closes, as AlbaApp's gallery frame does.
-                if (photoTransition?.visibility?.transition?.isRunning != true) frame.record { this@drawWithContent.drawContent() }
-                drawContent()
+                // Record the frame once and draw that, rather than recording the whole screen twice every frame.
+                if (photoTransition?.visibility?.transition?.isRunning != true) {
+                    frame.record { this@drawWithContent.drawContent() }
+                    drawLayer(frame)
+                } else drawContent()
             } else drawLayer(frame)
         }) {
             if (live) {

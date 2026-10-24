@@ -36,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -232,10 +233,11 @@ fun AlbaApp(
                                         Destination.Gallery -> Box(Modifier.fillMaxSize().drawWithContent {
                                             // Keep the settled gallery for interactive dismissal, but let shared
                                             // elements draw directly during navigation so their return bounds survive.
+                                            // Record it once and draw that, rather than recording the gallery twice every frame.
                                             if (!navigation.isRunning && destination is Destination.Gallery) {
                                                 galleryLayer.record { this@drawWithContent.drawContent() }
-                                            }
-                                            drawContent()
+                                                drawLayer(galleryLayer)
+                                            } else drawContent()
                                         }) {
                                             GalleryHome(
                                                 gallery = gallery,

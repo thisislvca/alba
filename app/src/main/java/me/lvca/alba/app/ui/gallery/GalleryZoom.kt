@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.util.lerp
@@ -274,4 +275,7 @@ internal fun Modifier.pinchPose(pinch: GridPinch, key: Any, incoming: Boolean): 
     scaleX = pose.scale
     scaleY = pose.scale
     alpha = pose.alpha
+    // A tile's image and badges barely overlap, so fade them together instead of through an offscreen buffer per tile
+    // every frame of the pinch.
+    compositingStrategy = CompositingStrategy.ModulateAlpha
 }
