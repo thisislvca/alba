@@ -20,6 +20,7 @@ import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitForVideoPlaying
 import me.lvca.alba.app.testing.waitUntilDisplayed
+import me.lvca.alba.app.ui.viewer.ViewerSpec
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -128,12 +129,17 @@ class ViewerTest {
         // Playback hides the chrome after a few seconds.
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isEmpty() }
         compose.onAllNodesWithTag("floating-viewer-back").assertCountEquals(0)
-        compose.onNodeWithTag("video-player").performClick()
-        // Like Google Photos, the tap brings back the top bar and actions with the playback controls, without pausing.
-        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("floating-viewer-back").assertIsDisplayed()
-        compose.onNodeWithTag("video-play-pause").assertIsDisplayed()
-        compose.runOnIdle { assertTrue("The tap must not pause playback", player()?.isPlaying == true) }
+        // Hold the test clock: with it advancing on its own, waiting for idle would also run the 3 s auto-hide.
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.onNodeWithTag("video-player").performClick()
+            compose.mainClock.advanceTimeBy(ViewerSpec.CHROME_FADE_MILLIS + 100L)
+            // Like Google Photos, the tap brings back the top bar and actions with the playback controls, without pausing.
+            compose.onAllNodesWithContentDescription("Share").onFirst().assertExists()
+            compose.onNodeWithTag("floating-viewer-back").assertIsDisplayed()
+            compose.onNodeWithTag("video-play-pause").assertIsDisplayed()
+            assertTrue("The tap must not pause playback", compose.runOnUiThread { player()?.isPlaying } == true)
+        } finally { compose.mainClock.autoAdvance = true }
     }
 
     @Test fun swipingAwayFromVideoReleasesPlayback() {
