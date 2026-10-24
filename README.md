@@ -73,7 +73,7 @@ ktlint rules are configured in `.editorconfig` and detekt overrides in `config/d
 
 Reports are written to `<module>/build/reports/detekt/` and `<module>/build/reports/ktlint/`.
 
-JavaScript tools use the Node LTS version pinned in `.nvmrc`. Run `nvm install` and `nvm use` from the repository root before using website, screenshot or release scripts. Script checks: `node --test 'scripts/**/*.test.mjs'`. Bun is used to install the website and screenshot packages from their lockfiles.
+JavaScript tools use the Node 26 version pinned in `.nvmrc`. Run `nvm install` and `nvm use` from the repository root before using website, screenshot or release scripts. Script checks: `node --test 'scripts/**/*.test.mjs'`. Bun is used to install the website and screenshot packages from their lockfiles.
 
 ## Releases
 
