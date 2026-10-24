@@ -37,6 +37,18 @@ internal object GalleryFeel {
      */
     val STICKY_DATE_HEADER_CLEARANCE = 150.dp
 
+    // Tile overlays. Google Photos uses the same resources at every grid level; Alba's smallest tile (5 columns on a
+    // 400dp phone) is still about 78dp, so an 18dp icon 8dp from the edge stays clear of the opposite corner.
+
+    /** The gradient behind a video duration or badge on a tile (photos_photoadapteritem_media_overlay_gradient_height). */
+    val TILE_SCRIM_HEIGHT = 56.dp
+
+    /** Badges and the duration sit this far inside the tile's edges (..._media_overlay_inset). */
+    val TILE_OVERLAY_INSET = 8.dp
+
+    /** Media-type icons on a tile, such as video or offline (..._media_overlay_type_icon_size). */
+    val TILE_TYPE_ICON = 18.dp
+
     // Selection.
 
     /** A checked tile shrinks by this much on every side (photos_photoadapteritem_checked_padding). */

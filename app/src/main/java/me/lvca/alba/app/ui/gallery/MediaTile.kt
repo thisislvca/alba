@@ -110,24 +110,24 @@ internal fun MediaTile(
                 )
                 val onMedia = AlbaTheme.colors.onMedia
                 if (media.kind == MediaKind.VIDEO || media.availability == MediaAvailability.ORIGINAL_CACHED)
-                    MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(44.dp))
+                    MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(GalleryFeel.TILE_SCRIM_HEIGHT))
                 if (media.availability == MediaAvailability.ORIGINAL_CACHED) Icon(
                     AlbaIcons.DownloadForOffline, contentDescription = stringResource(R.string.available_offline), tint = onMedia,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).size(18.dp))
+                    modifier = Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
                 if (media.kind == MediaKind.VIDEO) {
                     val duration = mediaDuration(media.durationMillis)
                     if (duration != null) Text(duration, color = onMedia, style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(horizontal = 7.dp, vertical = 5.dp))
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(GalleryFeel.TILE_OVERLAY_INSET))
                     else Icon(Icons.Filled.PlayArrow, stringResource(R.string.videos), tint = onMedia,
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(18.dp))
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
                 }
-                if (media.kind == MediaKind.LIVE_PHOTO) MediaPill(Modifier.align(Alignment.TopStart).padding(6.dp)) {
+                if (media.kind == MediaKind.LIVE_PHOTO) MediaPill(Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET)) {
                     Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp))
                     Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
                 }
                 if (media.isFavorite && !selecting) FavoriteIcon(true,
                     contentDescription = stringResource(R.string.favorite), tint = onMedia,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(16.dp))
+                    modifier = Modifier.align(Alignment.TopEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(16.dp))
             }
             AnimatedVisibility(selecting, Modifier.align(Alignment.TopEnd).padding(6.dp),
                 enter = if (reducedMotion) EnterTransition.None
