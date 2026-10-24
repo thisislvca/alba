@@ -1,5 +1,6 @@
 package me.lvca.alba.app.testing
 
+import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import android.util.Log
@@ -13,6 +14,16 @@ import java.util.concurrent.TimeoutException
  * runs before each one. The settings persist, which suits the disposable emulators device tests run on.
  */
 class AlbaTestRunner : AndroidJUnitRunner() {
+    override fun onCreate(arguments: Bundle) {
+        // Artwork captures run only when a run selects them by annotation. The orchestrator lists the tests through
+        // this runner as well, so ordinary runs never schedule them.
+        val capture = ScreenshotCapture::class.java.name
+        if (arguments.getString(ANNOTATION) != capture) {
+            arguments.putString(NOT_ANNOTATION, listOfNotNull(arguments.getString(NOT_ANNOTATION), capture).joinToString(","))
+        }
+        super.onCreate(arguments)
+    }
+
     override fun onStart() {
         prepareDevice()
         super.onStart()
@@ -56,6 +67,8 @@ class AlbaTestRunner : AndroidJUnitRunner() {
 
     private companion object {
         const val TAG = "AlbaTestRunner"
+        const val ANNOTATION = "annotation"
+        const val NOT_ANNOTATION = "notAnnotation"
         const val MAX_DIALOGS = 3
         const val IDLE_MS = 500L
     }

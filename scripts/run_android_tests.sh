@@ -119,7 +119,11 @@ else
 fi
 ANDROID_SERIAL="$EMULATOR_SERIAL" ./gradlew --max-workers=2 --no-parallel --console=plain "${TEST_TASKS[@]}"
 
-# AGP retrieves additional test output before uninstalling the test application.
+# AGP retrieves additional test output before uninstalling the test application. The README feature captures
+# (features-*.png) exist only when the run selected them:
+#   scripts/run_android_tests.sh :app:connectedDebugAndroidTest \
+#     -Pandroid.testInstrumentationRunnerArguments.annotation=me.lvca.alba.app.testing.ScreenshotCapture \
+#     -Pandroid.testInstrumentationRunnerArguments.class=me.lvca.alba.app.viewer.ViewerTest
 while IFS= read -r capture; do
   cp "$capture" "$ARTIFACT_DIR/"
 done < <(find app/build/outputs/connected_android_test_additional_output -type f -name 'features-*.png' 2>/dev/null)

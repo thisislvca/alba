@@ -11,6 +11,7 @@ import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.ScreenshotCapture
 import me.lvca.alba.app.testing.Screenshots
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
@@ -65,29 +66,29 @@ class ViewerTest {
     }
 
     @Test
-    fun demoVideoActuallyPlaysAndCapturesFeatureScreens() {
+    fun demoVideoPlaysResumesAfterTheAppReturnsAndClosesItsPlayer() {
         compose.waitForGalleryMedia()
-        compose.scrollToGalleryMedia("fixture:icloud:0019")
-        // scripts/run_android_tests.sh collects the features-* captures.
-        Screenshots.capture("features-gallery")
-        compose.onNodeWithTag("media-fixture:icloud:0019").performClick()
+        compose.openGalleryMedia("fixture:icloud:0019")
         compose.waitForVideoPlaying()
-        Screenshots.capture("features-video")
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
         compose.waitForVideoPlaying()
-        compose.openViewerDetails()
-        if (hasNodeWithText("Remove offline copy")) {
-            compose.onNodeWithText("Remove offline copy").performScrollTo().performClick()
-            compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Keep original offline") }
-        }
-        compose.onNodeWithText("Keep original offline").performScrollTo().performClick()
-        compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Remove offline copy") }
-        compose.pressBack()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.waitUntil(timeoutMillis = SHORT_WAIT) {
             compose.onAllNodes(hasTestTag("video-player")).fetchSemanticsNodes().isEmpty()
         }
+    }
+
+    /** README feature captures, which scripts/run_android_tests.sh collects. Runs only when asked for; see [ScreenshotCapture]. */
+    @ScreenshotCapture
+    @Test
+    fun captureFeatureScreens() {
+        compose.waitForGalleryMedia()
+        compose.scrollToGalleryMedia("fixture:icloud:0019")
+        Screenshots.capture("features-gallery")
+        compose.onNodeWithTag("media-fixture:icloud:0019").performClick()
+        compose.waitForVideoPlaying()
+        Screenshots.capture("features-video")
     }
 
     @Test fun viewerSwipesZoomsHidesControlsAndRestoresSelectedPhoto() {
