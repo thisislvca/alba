@@ -25,6 +25,7 @@ import me.lvca.alba.app.gallery.LibraryEditsController
 import me.lvca.alba.app.gallery.LibrarySync
 import me.lvca.alba.app.gallery.PreviewController
 import me.lvca.alba.app.messages.UiMessage
+import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.platform.PhotoEditStore
 import me.lvca.alba.app.sharing.SharedAlbumsController
@@ -175,11 +176,28 @@ class AlbaViewModel(
         if (gallery.setDeviceMediaAccess(granted, limited)) sync.refresh()
     }
 
-    /** Android moved or restored phone items: leave the selection and viewer, then show the result. */
-    fun phoneTrashChanged() {
+    /** Phone items Alba last asked Android to move to its trash, kept for Undo; null for a restore. In memory only. */
+    private var pendingPhoneTrash: List<String>? = null
+
+    /** Alba is about to ask Android to move [contentUris] to its trash, or to [restore] them from it. */
+    fun phoneTrashRequested(contentUris: List<String>, restore: Boolean) {
+        pendingPhoneTrash = contentUris.takeUnless { restore }
+    }
+
+    /**
+     * Android answered the last trash or restore request. When it moved or restored the items, leave the selection
+     * and viewer and show the result; a move to the trash can be undone, like Google Photos' "Moved to trash".
+     */
+    fun phoneTrashAnswered(approved: Boolean) {
+        val trashed = pendingPhoneTrash
+        pendingPhoneTrash = null
+        if (!approved) return
         gallery.clearSelection()
         gallery.closeMedia()
         sync.refresh()
+        if (!trashed.isNullOrEmpty()) {
+            messages.show(UiMessage.Undoable(UiMessage.quantity(R.plurals.phone_trash_moved, trashed.size), UndoAction.PhoneTrash(trashed)))
+        }
     }
 
     /** Stops everything that belongs to the outgoing account and waits for it to end. */

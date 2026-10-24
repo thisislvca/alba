@@ -481,7 +481,6 @@
     <string name="album_photos_removed">Rimosse dall’album. Le foto restano nella libreria.</string>
     <string name="remove_from_album">Rimuovi dall’album</string>
     <string name="cloud_trash_failed">iCloud non ha confermato la modifica. Aggiorna Eliminati di recente prima di riprovare.</string>
-    <string name="cloud_trashed_success">Spostati in Eliminati di recente su iCloud.</string>
     <string name="cloud_restored_success">Ripristinati nella libreria iCloud.</string>
     <string name="restore_from_icloud">Ripristina dal cestino iCloud</string>
     <string name="trash_in_icloud">Sposta nel cestino iCloud</string>
@@ -501,6 +500,16 @@
         <item quantity="one">Rimuovere questo elemento dall’album? Resterà nella libreria e negli altri album.</item>
         <item quantity="other">Rimuovere %1$d elementi da questo album? Resteranno nella libreria e negli altri album.</item>
         <item quantity="many">Rimuovere %1$d elementi da questo album? Resteranno nella libreria e negli altri album.</item>
+    </plurals>
+    <plurals name="cloud_trash_moved">
+        <item quantity="one">Spostato in Eliminati di recente su iCloud</item>
+        <item quantity="other">%1$d spostati in Eliminati di recente su iCloud</item>
+        <item quantity="many">%1$d spostati in Eliminati di recente su iCloud</item>
+    </plurals>
+    <plurals name="phone_trash_moved">
+        <item quantity="one">Spostato nel cestino del telefono</item>
+        <item quantity="other">%1$d spostati nel cestino del telefono</item>
+        <item quantity="many">%1$d spostati nel cestino del telefono</item>
     </plurals>
     <plurals name="cloud_trash_confirmation">
         <item quantity="one">Spostare questo elemento in Eliminati di recente? La libreria iCloud cambierà su tutti i dispositivi collegati. Normalmente puoi recuperarlo per 30 giorni. Le copie separate sul telefono restano qui.</item>
@@ -548,6 +557,7 @@
     <string name="discard_edits">Scarta</string>
     <string name="keep_editing">Continua a modificare</string>
     <string name="undo_edit">Annulla modifica</string>
+    <string name="undo">Annulla</string>
     <string name="adjust_crop">Regola ritaglio</string>
     <string name="crop_left_edge">Bordo sinistro</string>
     <string name="crop_top_edge">Bordo superiore</string>

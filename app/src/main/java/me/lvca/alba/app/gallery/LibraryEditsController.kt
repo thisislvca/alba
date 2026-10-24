@@ -6,6 +6,7 @@ import me.lvca.alba.app.actions.MediaAction
 import me.lvca.alba.app.actions.MediaActionKey
 import me.lvca.alba.app.actions.MediaActionRunner
 import me.lvca.alba.app.messages.UiMessage
+import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.engine.model.GalleryRepository
 
@@ -55,7 +56,9 @@ internal class LibraryEditsController(
         runner.start(MediaActionKey(MediaAction.CLOUD_TRASH), R.string.cloud_trash_failed) {
             repository.setCloudTrashed(mediaIds, trashed)
             gallery.clearSelection(); gallery.closeMedia()
-            messages.show(if (trashed) R.string.cloud_trashed_success else R.string.cloud_restored_success)
+            // Like Google Photos' "Moved to trash", a move to Recently Deleted can be undone from its message.
+            messages.show(if (trashed) UiMessage.Undoable(UiMessage.quantity(R.plurals.cloud_trash_moved, mediaIds.size), UndoAction.CloudTrash(mediaIds))
+                else UiMessage(R.string.cloud_restored_success))
         }
     }
 

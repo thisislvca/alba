@@ -2,6 +2,7 @@ package me.lvca.alba.app.testing
 
 import me.lvca.alba.app.AlbaDependencies
 import me.lvca.alba.app.di.AlbaGraph
+import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.transfers.TransferScheduler
 import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.engine.companion.BatchAction
@@ -72,6 +73,7 @@ internal fun testAlbaActions(
         override fun moveVerifiedPhotoToTrash(mediaId: String) = onMoveVerifiedPhotoToTrash(mediaId)
 
         override fun dismissMessage() = Unit
+        override fun undo(action: UndoAction) = Unit
         override fun changeQuery(query: GalleryQuery) = Unit
         override fun toggleSelection(mediaId: String) = Unit
         override fun selectItems(mediaIds: Set<String>, selected: Boolean) = Unit

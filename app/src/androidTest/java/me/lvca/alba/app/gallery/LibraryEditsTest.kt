@@ -69,8 +69,8 @@ class LibraryEditsTest {
             assertTrue("Status messages must not cover floating navigation", snackbar.bottom <= tab.top)
             compose.onNodeWithTag("tab-COLLECTIONS").performClick()
             compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("collections-grid").fetchSemanticsNodes().isNotEmpty() }
-            // Snackbar timeout runs on the injected clock, not waitUntil's wall clock.
-            compose.mainClock.advanceTimeBy(5_000)
+            // Snackbar timeout runs on the injected clock, not waitUntil's wall clock. The Undo message stays 5 s.
+            compose.mainClock.advanceTimeBy(6_000)
             compose.onNodeWithTag("collections-grid").performScrollToNode(hasText(compose.activity.getString(R.string.icloud_recently_deleted)))
             // Lazy-grid scroll-to only accounts for its viewport. Scroll the whole row
             // above the floating controls, as a user does, before injecting a touch.
@@ -90,6 +90,27 @@ class LibraryEditsTest {
             compose.onNodeWithText(restore).performScrollTo().performClick()
             compose.onAllNodesWithText(restore).onLast().performClick()
             compose.waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed.not() } }
+        } finally { runBlocking { repository.setCloudTrashed(listOf(id), false) } }
+    }
+
+    @Test fun movingToICloudTrashCanBeUndoneFromItsMessage() {
+        compose.waitForGalleryMedia()
+        val id = "fixture:icloud:0016"
+        fun trashed() = runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed }
+        try {
+            compose.scrollToGalleryMedia(id)
+            compose.onNodeWithTag("media-$id").performClick()
+            compose.openViewerDetails()
+            val trash = compose.activity.getString(R.string.trash_in_icloud)
+            compose.onNodeWithText(trash).performScrollTo().performClick()
+            // iCloud trash keeps its confirmation, like Google Photos' "Remove from your Google Account" question.
+            compose.onAllNodesWithText(trash).onLast().performClick()
+            compose.waitUntil(LONG_WAIT) { trashed() }
+            compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("snackbar-action").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText(compose.activity.resources.getQuantityString(R.plurals.cloud_trash_moved, 1, 1)).assertIsDisplayed()
+            compose.onNodeWithTag("snackbar-action").assertTextEquals(compose.activity.getString(R.string.undo)).performClick()
+            compose.waitUntil(LONG_WAIT) { !trashed() }
+            compose.onNodeWithTag("media-$id").assertExists()
         } finally { runBlocking { repository.setCloudTrashed(listOf(id), false) } }
     }
 }

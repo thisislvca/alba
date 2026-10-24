@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.debounce
 import me.lvca.alba.app.intake.IncomingRequest
 import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
+import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.platform.ExportDocument
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PendingExport
@@ -214,7 +215,7 @@ private fun AlbaMain(
         recheckDevicePhotoAccess()
     }
     val phoneTrash = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) viewModel.phoneTrashChanged()
+        viewModel.phoneTrashAnswered(result.resultCode == Activity.RESULT_OK)
     }
     val verifiedTrash = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         viewModel.transfers.verifiedTrashAnswered(when (result.resultCode) {
@@ -260,9 +261,17 @@ private fun AlbaMain(
 
             override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || items.isEmpty()) return
-                val uris = phoneTrashUris(items)?.map(Uri::parse) ?: return viewModel.localOperationFailed()
+                requestPhoneTrash(phoneTrashUris(items) ?: return viewModel.localOperationFailed(), restore)
+            }
+
+            override fun restoreOnPhone(contentUris: List<String>) = requestPhoneTrash(contentUris, restore = true)
+
+            private fun requestPhoneTrash(contentUris: List<String>, restore: Boolean) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || contentUris.isEmpty()) return
+                viewModel.phoneTrashRequested(contentUris, restore)
                 runCatching {
-                    phoneTrash.launch(IntentSenderRequest.Builder(MediaStore.createTrashRequest(context.contentResolver, uris, !restore).intentSender).build())
+                    val request = MediaStore.createTrashRequest(context.contentResolver, contentUris.map(Uri::parse), !restore)
+                    phoneTrash.launch(IntentSenderRequest.Builder(request.intentSender).build())
                 }.onFailure { viewModel.localOperationFailed() }
             }
 
@@ -458,6 +467,9 @@ internal interface PlatformRequests {
     fun pickUpload()
     fun upload(target: UploadTarget)
     fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean)
+
+    /** Asks Android to restore phone items that Alba moved to its trash. */
+    fun restoreOnPhone(contentUris: List<String>)
     fun exportDocument(media: GalleryMedia, livePair: Boolean)
     fun edit(media: GalleryMedia)
     fun confirm(next: RootDialog)
@@ -477,6 +489,10 @@ private class AlbaRootActions(
     private val account get() = viewModel.account
 
     override fun dismissMessage() = viewModel.dismissMessage()
+    override fun undo(action: UndoAction) = when (action) {
+        is UndoAction.CloudTrash -> edits.setCloudTrashed(action.mediaIds, trashed = false)
+        is UndoAction.PhoneTrash -> platform.restoreOnPhone(action.contentUris)
+    }
 
     override fun changeQuery(query: GalleryQuery) = gallery.setQuery(query)
     override fun toggleSelection(mediaId: String) = gallery.toggleSelection(mediaId)
