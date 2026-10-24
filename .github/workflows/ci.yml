@@ -4,13 +4,17 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Nightly, so the minSdk device run still covers main between merges.
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # The event is part of the key so a nightly run and a push to main do not cancel each other.
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -59,7 +63,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [30, 36]
+        # Pull requests run the target API level only. Pushes to main, the nightly schedule and manual runs also
+        # cover the minimum SDK (API 30). Dropping it from the matrix, rather than skipping a job, keeps the
+        # instrumentation result that "Android checks" requires meaningful on pull requests.
+        api: ${{ fromJSON(github.event_name == 'pull_request' && '[36]' || '[30, 36]') }}
     env:
       ALBA_SENTRY_DSN: ''
       ALBA_SENTRY_PROPERTIES: /tmp/alba-ci-no-sentry.properties
@@ -134,6 +141,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
+      # instrumentation is a matrix; its result is success only if every API level that ran passed.
       - name: Require all checks
         env:
           BUILD_RESULT: ${{ needs.android.result }}
