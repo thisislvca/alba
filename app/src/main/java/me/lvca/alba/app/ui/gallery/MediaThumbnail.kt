@@ -72,6 +72,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.viewer.PhotoZoomState
+import me.lvca.alba.app.ui.viewer.PinchToClose
 import me.lvca.alba.app.ui.viewer.photoPanExtent
 import me.lvca.alba.app.ui.viewer.photoZoomGestures
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
@@ -120,6 +121,7 @@ fun MediaThumbnail(
     sharedMediaId: String? = null,
     sourceSize: IntSize = IntSize.Zero,
     presentationScale: () -> Float = { 1f },
+    pinchToClose: PinchToClose? = null,
 ) {
     val context = LocalContext.current
     var decodeFailure by remember(sharedMediaId ?: reference, sourceRevision) { mutableStateOf<ThumbnailFailure?>(null) }
@@ -216,7 +218,7 @@ fun MediaThumbnail(
                         zoomState.launch(zoomScope) { zoomState.toggle(point, reduceMotion) }
                     })
                 }
-                .photoZoomGestures(zoomState, reduceMotion) else Modifier)
+                .photoZoomGestures(zoomState, reduceMotion, pinchToClose) else Modifier)
             .clipToBounds()
             .then(when {
                 contentScale == ContentScale.Fit -> Modifier

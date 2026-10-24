@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.util.lerp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -198,6 +199,39 @@ internal class PhotoZoomState {
     }
 }
 
+/** The viewer's side of a pinch to close; the photo's zoom gestures drive it. */
+interface PinchToClose {
+    /** The photo should be drawn at [scale] (below 1) and offset by [translation] from its resting place. */
+    fun pinch(scale: Float, translation: Offset)
+
+    /** The fingers lifted, or the gesture was [cancelled]: close or return to fit. */
+    fun release(cancelled: Boolean)
+}
+
+/**
+ * A pinch to close. The photo shrinks with the fingers and keeps the point under them at [anchor] (relative to the
+ * viewport centre, where the photo shrinks around), following the fingers' pan as well.
+ */
+internal class PinchCloseTracker(private val anchor: Offset) {
+    var scale = 1f
+        private set
+    private var pan = Offset.Zero
+
+    val translation: Offset get() = anchor * (1f - scale) + pan
+
+    fun update(zoomChange: Float, panDelta: Offset) {
+        scale = (scale * zoomChange).coerceIn(ViewerSpec.PINCH_CLOSE_MIN_SCALE, 1f)
+        pan += panDelta
+    }
+}
+
+/**
+ * GP enters its pinch to close when a two-finger gesture starts at fit scale without spreading the fingers; a
+ * spreading pinch zooms in instead.
+ */
+internal fun startsPinchToClose(zoom: Float, pinchMotion: Float, pressed: Int): Boolean =
+    pressed > 1 && zoom <= 1f && pinchMotion <= 1f
+
 /** One pinch/pan gesture on a photo, from first finger down to last finger up. */
 private class ZoomGesture(
     private val state: PhotoZoomState,
@@ -207,19 +241,28 @@ private class ZoomGesture(
     val tracker = VelocityTracker()
     var transforming = false
         private set
+
+    /** Set when this gesture became a pinch to close rather than a zoom. */
+    var closing: PinchCloseTracker? = null
+        private set
     private var pinchMotion = 1f
     private var panMotion = Offset.Zero
     private var rawZoom = state.zoom
     private var snapped = state.zoom == 1f
     private var pointers = 1
 
-    /** Pinch with two fingers anywhere; pan with one only once zoomed, so fit-scale drags stay with the viewer. */
-    fun claim(pressed: Int, zoomChange: Float, pan: Offset, centroidSize: Float, slop: Float): Boolean {
+    /**
+     * Pinch with two fingers anywhere; pan with one only once zoomed, so fit-scale drags stay with the viewer. When
+     * [canClose], a two-finger gesture at fit that does not spread the fingers becomes a pinch to close around
+     * [centroid] (relative to the viewport centre).
+     */
+    fun claim(pressed: Int, zoomChange: Float, pan: Offset, centroidSize: Float, slop: Float, canClose: Boolean, centroid: Offset): Boolean {
         pinchMotion *= zoomChange
         panMotion += pan
         val pinchPx = abs(1f - pinchMotion) * centroidSize
         val moved = panMotion.getDistance() > slop
         transforming = if (pressed > 1) pinchPx > slop || moved else state.zoom > 1f && moved
+        if (transforming && canClose && startsPinchToClose(state.zoom, pinchMotion, pressed)) closing = PinchCloseTracker(centroid)
         return transforming
     }
 
@@ -245,6 +288,9 @@ private class ZoomGesture(
         state.zoomAround(next, centroid)
     }
 
+    /** A zoom (not a pinch to close) that leaves the photo zoomed in, so a pan keeps moving after release. */
+    val zoomedByPinch: Boolean get() = transforming && closing == null && state.zoom > 1f
+
     fun pan(pan: Offset) {
         // GP clamps the pan at the photo's edges; the pager only pages at fit scale.
         state.panBy(pan)
@@ -252,14 +298,15 @@ private class ZoomGesture(
 }
 
 /**
- * Pinch (anchored to the fingers' centroid, clamped to [1, max] with GP's 1× detent) and pan
- * with fling for a zoomed photo. A single finger on a photo at fit is left alone, so the pager,
- * swipe-down and the details sheet keep working.
+ * Pinch (anchored to the fingers' centroid, clamped to [1, max] with GP's 1× detent) and pan with fling for a zoomed
+ * photo. A pinch in at fit scale is handed to [pinchToClose] when there is one. A single finger on a photo at fit is
+ * left alone, so the pager, swipe-down and the details sheet keep working.
  */
 @Composable
-internal fun Modifier.photoZoomGestures(state: PhotoZoomState, reduceMotion: Boolean): Modifier {
+internal fun Modifier.photoZoomGestures(state: PhotoZoomState, reduceMotion: Boolean, pinchToClose: PinchToClose? = null): Modifier {
     val haptics = LocalHapticFeedback.current
     val reduce by rememberUpdatedState(reduceMotion)
+    val closer by rememberUpdatedState(pinchToClose)
     return pointerInput(state) {
         val decay = splineBasedDecay<Float>(this)
         coroutineScope {
@@ -269,24 +316,41 @@ internal fun Modifier.photoZoomGestures(state: PhotoZoomState, reduceMotion: Boo
                 val gesture = ZoomGesture(state, density) {
                     haptics.performHapticFeedback(HapticFeedbackType.VirtualKey)
                 }
-                do {
-                    val event = awaitPointerEvent()
-                    if (!gesture.transforming && event.changes.any { it.isConsumed }) return@awaitEachGesture
-                    val pressed = event.changes.count { it.pressed }
-                    gesture.pointersChanged(pressed)
-                    val zoomChange = event.calculateZoom()
-                    val pan = event.calculatePan()
-                    val centroid = event.calculateCentroid(useCurrent = true)
-                    val active = gesture.transforming || gesture.claim(pressed, zoomChange, pan,
-                        event.calculateCentroidSize(useCurrent = true), viewConfiguration.touchSlop)
-                    if (active && pressed > 0 && centroid.isSpecified) {
-                        gesture.zoom(zoomChange, centroid)
-                        gesture.pan(pan)
-                        gesture.tracker.addPosition(event.changes.first().uptimeMillis, centroid)
-                        event.changes.forEach { if (it.positionChanged()) it.consume() }
-                    }
-                } while (event.changes.any { it.pressed })
-                if (gesture.transforming && state.zoom > 1f && !reduce) {
+                // Whoever was told about this pinch to close hears how it ends, even if the viewer changed meanwhile.
+                var closing: PinchToClose? = null
+                try {
+                    do {
+                        val event = awaitPointerEvent()
+                        if (!gesture.transforming && event.changes.any { it.isConsumed }) return@awaitEachGesture
+                        val pressed = event.changes.count { it.pressed }
+                        gesture.pointersChanged(pressed)
+                        val zoomChange = event.calculateZoom()
+                        val pan = event.calculatePan()
+                        val centroid = event.calculateCentroid(useCurrent = true)
+                        val center = Offset(size.width / 2f, size.height / 2f)
+                        val active = gesture.transforming || gesture.claim(pressed, zoomChange, pan,
+                            event.calculateCentroidSize(useCurrent = true), viewConfiguration.touchSlop,
+                            canClose = closer != null && centroid.isSpecified, centroid = if (centroid.isSpecified) centroid - center else Offset.Zero)
+                        if (active && pressed > 0 && centroid.isSpecified) {
+                            val close = gesture.closing
+                            if (close != null) {
+                                close.update(zoomChange, pan)
+                                closing = closing ?: closer
+                                closing?.pinch(close.scale, close.translation)
+                            } else {
+                                gesture.zoom(zoomChange, centroid)
+                                gesture.pan(pan)
+                                gesture.tracker.addPosition(event.changes.first().uptimeMillis, centroid)
+                            }
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                        }
+                    } while (event.changes.any { it.pressed })
+                } catch (cancelled: CancellationException) {
+                    closing?.release(cancelled = true)
+                    throw cancelled
+                }
+                closing?.release(cancelled = false)
+                if (gesture.zoomedByPinch && !reduce) {
                     val velocity = gesture.tracker.calculateVelocity()
                     state.launch(this@coroutineScope) { state.fling(velocity, decay) }
                 }

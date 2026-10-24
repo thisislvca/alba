@@ -160,6 +160,27 @@ class ViewerTest {
         }
     }
 
+    @Test fun pinchingInAtFitClosesTheViewerAndASlightPinchReturns() {
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia("fixture:icloud:0016")
+        val photo = compose.onNodeWithTag("viewer-image-fixture:icloud:0016")
+        // A slight pinch (about 0.9×) springs back to fit and keeps the viewer open.
+        photo.performTouchInput {
+            pinch(center - androidx.compose.ui.geometry.Offset(width * .3f, 0f), center - androidx.compose.ui.geometry.Offset(width * .27f, 0f),
+                center + androidx.compose.ui.geometry.Offset(width * .3f, 0f), center + androidx.compose.ui.geometry.Offset(width * .27f, 0f), 300)
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("media-pager").assertExists()
+        photo.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Fit"))
+        // Pinching well in closes back to the grid, like a swipe down.
+        photo.performTouchInput {
+            pinch(center - androidx.compose.ui.geometry.Offset(width * .35f, 0f), center - androidx.compose.ui.geometry.Offset(width * .08f, 0f),
+                center + androidx.compose.ui.geometry.Offset(width * .35f, 0f), center + androidx.compose.ui.geometry.Offset(width * .08f, 0f), 300)
+        }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("media-fixture:icloud:0016").assertExists()
+    }
+
     private fun statusBarsVisible(): Boolean? = compose.runOnIdle {
         androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
             ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.statusBars())

@@ -188,6 +188,23 @@ internal fun MediaDetailScreen(
                 actions.closeMedia()
             } else motion.settleDismiss(scope, reduceMotion)
         }
+        // GP: pinching in at fit scale shrinks the photo with the fingers and fades the canvas like a swipe down;
+        // released past half the fade it closes to its tile, otherwise it returns to fit.
+        val latestActions by rememberUpdatedState(actions)
+        val latestReduceMotion by rememberUpdatedState(reduceMotion)
+        val pinchToClose = remember(motion) { object : PinchToClose {
+            override fun pinch(scale: Float, translation: Offset) {
+                if (!motion.dragging) motion.begin()
+                motion.pinchClose(scale, translation)
+            }
+            override fun release(cancelled: Boolean) {
+                if (!cancelled && shouldClosePinch(motion.pinchScale)) {
+                    // Keep the pose: the shared element returns to its tile from where the fingers left it.
+                    motion.dragging = false
+                    latestActions.closeMedia()
+                } else motion.settleDismiss(scope, latestReduceMotion)
+            }
+        } }
         val pagerDrag = Modifier.viewerDrag(dragEnabled, { details || motion.details > 0f }, startDrag, moveDrag, stopDrag)
         val handleDrag = Modifier.viewerDrag(dragEnabled, { true }, startDrag, moveDrag, stopDrag)
         PredictiveBackHandler(enabled = activeScreen) { progress ->
@@ -284,6 +301,7 @@ internal fun MediaDetailScreen(
                             contentScale = ContentScale.Fit, zoomable = active && !expanded, onTap = { if (!expanded) controls = !controls },
                             onZoomChanged = { if (active) zoomed = it }, sourceSize = IntSize(item.width, item.height),
                             presentationScale = if (active) { { pose().scale } } else { { 1f } },
+                            pinchToClose = pinchToClose.takeIf { active && activeScreen },
                             modifier = Modifier.fillMaxSize().testTag("viewer-image-${item.id}"))
                         if (active && loading) CircularProgressIndicator(Modifier.align(Alignment.TopCenter).padding(top = 76.dp).size(22.dp), strokeWidth = 2.dp)
                         if (active && failed) FilledTonalButton(onClick = { retry++; actions.requestPreview(item.id) }, modifier = Modifier.align(Alignment.Center).testTag("retry-viewer")) {

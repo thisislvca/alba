@@ -3,7 +3,6 @@ package me.lvca.alba.app.ui.viewer
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Immutable
@@ -13,7 +12,9 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -40,6 +41,16 @@ internal object ViewerSpec {
 
     /** GP settles both release outcomes with the same 200 ms FastOutSlowIn driver, not a spring. */
     const val DISMISS_SETTLE_MILLIS = 200
+
+    /**
+     * GP pinch-in at fit scale closes the viewer: the backdrop fades as 1 − clamp((1 − scale) / 0.35) and a release
+     * at or past half of that (scale ≤ 0.825) closes, otherwise the photo returns to fit.
+     */
+    const val PINCH_CLOSE_FULL_EFFECT = .35f
+    const val PINCH_CLOSE_COMMIT_PROGRESS = .5f
+
+    /** Alba: a pinch to close never shrinks the photo below this, so it stays recognisable under the fingers. */
+    const val PINCH_CLOSE_MIN_SCALE = .25f
 
     /** GP starts details within ±30° of straight up: tan(30°). Dismissal takes anything within 45° of down. */
     const val DETAILS_START_MAX_SLOPE = .577f
@@ -115,6 +126,14 @@ internal data class ViewerPose(val translation: Offset, val scale: Float, val ba
 
 internal enum class ViewerDrag { DISMISS, DETAILS }
 
+internal fun pinchCloseProgress(scale: Float): Float = ((1f - scale) / ViewerSpec.PINCH_CLOSE_FULL_EFFECT).coerceIn(0f, 1f)
+
+internal fun pinchClosePose(scale: Float, translation: Offset): ViewerPose =
+    ViewerPose(translation, scale, 1f - pinchCloseProgress(scale))
+
+/** Whether a pinch to close released at [scale] closes the viewer (GP: once the backdrop is at most half opaque). */
+internal fun shouldClosePinch(scale: Float): Boolean = pinchCloseProgress(scale) >= ViewerSpec.PINCH_CLOSE_COMMIT_PROGRESS
+
 /** Decides what a single-finger drag past touch slop means, from its travel so far. */
 internal fun classifyViewerDrag(travel: Offset, detailsOpen: Boolean): ViewerDrag? {
     val horizontal = abs(travel.x)
@@ -170,9 +189,14 @@ internal class ViewerMotion(detailsOpen: Boolean) {
     var details by mutableFloatStateOf(if (detailsOpen) 1f else 0f)
         private set
 
-    /** Finger travel of a swipe-down dismissal; the photo follows it in X and Y. */
+    /** Finger travel of a swipe-down dismissal, or a pinch to close's offset; the photo follows it in X and Y. */
     var travel by mutableStateOf(Offset.Zero)
         private set
+
+    /** The photo's scale during a pinch to close; 1 otherwise. */
+    var pinchScale by mutableFloatStateOf(1f)
+        private set
+    private var pinching by mutableStateOf(false)
     var dragging by mutableStateOf(false)
     private var backProgress by mutableFloatStateOf(0f)
     private var backEdge by mutableFloatStateOf(1f)
@@ -181,6 +205,7 @@ internal class ViewerMotion(detailsOpen: Boolean) {
 
     fun pose(fullEffectPx: Float, widthPx: Float): ViewerPose = when {
         backProgress > 0f -> predictiveBackPose(backProgress, backEdge, backDy, widthPx)
+        pinching -> pinchClosePose(pinchScale, travel)
         travel != Offset.Zero -> dismissPose(travel, fullEffectPx)
         else -> ViewerPose.Rest
     }
@@ -192,6 +217,13 @@ internal class ViewerMotion(detailsOpen: Boolean) {
 
     fun dragDismiss(delta: Offset) {
         travel += delta
+    }
+
+    /** A pinch to close: the photo is drawn at [scale] (below 1), offset by [translation]. */
+    fun pinchClose(scale: Float, translation: Offset) {
+        pinching = true
+        pinchScale = scale
+        travel = translation
     }
 
     fun dragDetails(deltaYPx: Float, sheetHeightPx: Float) {
@@ -214,10 +246,26 @@ internal class ViewerMotion(detailsOpen: Boolean) {
         else animate(details, target, animationSpec = tween(ViewerSpec.DETAILS_SNAP_MILLIS, easing = ViewerSpec.DetailsEasing)) { value, _ -> details = value }
     }
 
+    /** Returns a swipe-down or a pinch to close to rest, with GP's 200 ms FastOutSlowIn driver. */
     fun settleDismiss(scope: CoroutineScope, reduceMotion: Boolean) = settle(scope) {
-        if (reduceMotion) travel = Offset.Zero
-        else animate(Offset.VectorConverter, travel, Offset.Zero,
-            animationSpec = tween(ViewerSpec.DISMISS_SETTLE_MILLIS, easing = FastOutSlowInEasing)) { value, _ -> travel = value }
+        try {
+            if (!reduceMotion) {
+                val fromTravel = travel
+                val fromScale = pinchScale
+                animate(0f, 1f, animationSpec = tween(ViewerSpec.DISMISS_SETTLE_MILLIS, easing = FastOutSlowInEasing)) { t, _ ->
+                    travel = lerp(fromTravel, Offset.Zero, t)
+                    pinchScale = lerp(fromScale, 1f, t)
+                }
+            }
+            travel = Offset.Zero
+        } finally {
+            // A swipe interrupted mid-settle continues from where it is; a pinch restarts from fit, so snap it there.
+            if (pinching) {
+                travel = Offset.Zero
+                pinchScale = 1f
+                pinching = false
+            }
+        }
     }
 
     fun settleBack(scope: CoroutineScope, reduceMotion: Boolean) = settle(scope) {
