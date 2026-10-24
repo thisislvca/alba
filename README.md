@@ -79,9 +79,28 @@ JavaScript tools use the Node 26 version pinned in `.nvmrc`. Run `nvm install` a
 
 The website deploys from `main`. App versions are prepared in GitHub Actions, tested internally, then promoted without rebuilding. See [release instructions](RELEASING.md).
 
-## Tests
+## Testing
 
-CI runs device tests on Android 11 and 16. Locally, create a native Android emulator in Android Studio, then run `ALBA_AVD_NAME=your_avd scripts/run_android_tests.sh`. On a Mac, the script requires and checks hardware graphics.
+Unit tests, lint and static analysis are quick: `./gradlew testDebugUnitTest lintDebug detekt ktlintCheck`.
+
+The full device suite takes about 40 minutes on an emulator, so CI runs it: Android 16 (API 36) on every pull request, and Android 11 (API 30, the minimum) as well on pushes to `main` and nightly. Locally, run only the device-test classes your change affects. Create a native Android emulator in Android Studio, then pass the classes, comma-separated:
+
+```sh
+ALBA_AVD_NAME=your_avd scripts/run_android_tests.sh :app:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=me.lvca.alba.app.viewer.ViewerTest,me.lvca.alba.app.albums.AlbumsTest
+```
+
+Add `#methodName` to a class to run one test. With no arguments, the script runs every suite. On a Mac, it requires and checks hardware graphics.
+
+Tests that capture store or README screenshots carry `@ScreenshotCapture` and only run when asked for:
+
+```sh
+ALBA_AVD_NAME=your_avd scripts/run_android_tests.sh :app:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.annotation=me.lvca.alba.app.testing.ScreenshotCapture \
+  -Pandroid.testInstrumentationRunnerArguments.class=me.lvca.alba.app.viewer.ViewerTest
+```
+
+Store artwork has its own steps in [the screenshot tool](tools/store-screenshots/README.md).
 
 For performance work, set `ANDROID_SERIAL` to your test device. Run `scripts/benchmark_android.sh profile` to update the Baseline Profile, then `scripts/benchmark_android.sh measure` on a physical phone. These use a separate app with demo photos. The older emulator measurement script is only a smoke check.
 
