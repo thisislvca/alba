@@ -162,7 +162,7 @@ class GalleryNavigationTest {
         compose.onNodeWithText("1 selected").assertDoesNotExist()
         compose.onNodeWithText("Favorites").performClick()
         compose.scrollToGalleryMedia("fixture:icloud:0019")
-        compose.onNodeWithContentDescription("Back to collections").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.back_action)).performClick()
         compose.onNodeWithTag("collection-albums").performClick()
         compose.onNodeWithText("Journeys").performClick()
         compose.activityRule.scenario.recreate()

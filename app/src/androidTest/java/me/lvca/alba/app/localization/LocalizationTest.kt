@@ -89,7 +89,7 @@ class LocalizationTest {
                 waitFor("Album condivisi")
                 click("Album")
                 waitFor("Nuovo album")
-                click("Torna alle raccolte")
+                click("Indietro")
                 click("Apri account iCloud")
                 waitFor("Accedi a iCloud")
                 language("en")

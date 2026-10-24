@@ -40,7 +40,7 @@ class AlbumsTest {
         compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithText("Unfavorite").fetchSemanticsNodes().isNotEmpty() }
         compose.pressBack()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
-        compose.onNodeWithContentDescription("Back to collections").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.back_action)).performClick()
         compose.onNodeWithTag("collection-albums").performClick()
         compose.onNodeWithText("New album").performClick()
         compose.onNodeWithText("Album name").performTextInput("Extension test")
