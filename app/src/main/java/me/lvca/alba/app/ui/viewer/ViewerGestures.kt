@@ -55,8 +55,7 @@ internal fun Modifier.viewerDrag(
                     change.consume()
                     mode = claimed
                     start(claimed)
-                    // Follow the finger from where the slop ended so the photo doesn't jump.
-                    drag(claimed, travel * (1f - slop / distance))
+                    drag(claimed, claimedDragStart(claimed, travel, slop))
                 }
             }
             val claimed = checkNotNull(mode)
@@ -86,4 +85,14 @@ internal fun Modifier.viewerDrag(
             stop(claimed, velocity)
         }
     }
+}
+
+/**
+ * How far a drag has moved when [mode] claims it after [travel] past [slopPx]. A dismiss counts from where the finger
+ * went down, as in Google Photos, so ~30dp of finger travel commits it however slowly it moves; the details sheet
+ * follows from where the slop ended so it doesn't jump.
+ */
+internal fun claimedDragStart(mode: ViewerDrag, travel: Offset, slopPx: Float): Offset {
+    val distance = travel.getDistance()
+    return if (mode == ViewerDrag.DISMISS || distance <= 0f) travel else travel * (1f - slopPx / distance).coerceAtLeast(0f)
 }

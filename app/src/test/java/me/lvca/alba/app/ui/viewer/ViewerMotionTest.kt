@@ -10,6 +10,15 @@ import org.junit.Test
 class ViewerMotionTest {
     private val fullEffect = 60f
 
+    @Test fun aSlowFortyDpSwipeDownCommitsBecauseItCountsFromTouchDown() {
+        // 40dp of finger travel with an 8dp touch slop (density 1): the dismiss keeps all of it, past the 30dp commit.
+        val start = claimedDragStart(ViewerDrag.DISMISS, Offset(0f, 9f), slopPx = 8f)
+        assertEquals(Offset(0f, 9f), start)
+        assertTrue(shouldDismiss(start + Offset(0f, 31f), fullEffect))
+        // The details sheet follows from where the slop ended, so it doesn't jump.
+        assertEquals(-1f, claimedDragStart(ViewerDrag.DETAILS, Offset(0f, -9f), slopPx = 8f).y, 1e-4f)
+    }
+
     @Test fun dragsAreClaimedByDirection() {
         assertEquals(ViewerDrag.DISMISS, classifyViewerDrag(Offset(0f, 20f), detailsOpen = false))
         assertEquals("Within 45° of down still dismisses", ViewerDrag.DISMISS, classifyViewerDrag(Offset(-19f, 20f), detailsOpen = false))
