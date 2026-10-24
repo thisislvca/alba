@@ -133,6 +133,7 @@ fun VideoPlayer(
     showPlaybackControls: Boolean = true,
     controlsVisible: Boolean = true,
     onControlsVisibleChange: (Boolean) -> Unit = {},
+    autoHideControls: Boolean = true,
 ) {
     val context = LocalContext.current
     val colors = viewerColors()
@@ -207,8 +208,9 @@ fun VideoPlayer(
             }
         }
     }
-    LaunchedEffect(isPlaying, overlayVisible, scrubbing) {
-        if (isPlaying && overlayVisible && !scrubbing) {
+    val hideSoon = autoHideControls && isPlaying && !scrubbing
+    LaunchedEffect(hideSoon, overlayVisible) {
+        if (hideSoon && overlayVisible) {
             delay(3_000)
             setOverlay(false)
         }
