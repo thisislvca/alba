@@ -108,9 +108,11 @@ jobs:
 
   record-screenshots:
     # Manual: Actions > CI > Run workflow > pick the branch > tick "record-screenshots". Records every golden on Linux,
-    # where CI verifies them, and commits the result to that branch.
+    # where CI verifies them, and commits the result to that branch. Never on main: goldens reach main through review.
     name: Record screenshot goldens
-    if: github.repository != 'thisislvca/mela-archive' && inputs.record-screenshots
+    if: >-
+      github.repository != 'thisislvca/mela-archive' && inputs.record-screenshots
+      && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -137,6 +139,7 @@ jobs:
         env:
           BRANCH: ${{ github.ref_name }}
         run: |
+          test "$BRANCH" != main
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A app/src/test/screenshots
