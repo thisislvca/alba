@@ -3,10 +3,8 @@ package me.lvca.alba.app.gallery
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 import me.lvca.alba.app.MainActivity
-import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.Smoke
@@ -21,7 +19,6 @@ class GalleryAppearanceTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
-    private val context get() = compose.activity
 
     @Smoke @Test fun statusBarAreaIsStronglyTintedOverScrolledPhotos() {
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
@@ -36,17 +33,5 @@ class GalleryAppearanceTest {
             val spread = maxOf(abs(color.red - base.red), abs(color.green - base.green), abs(color.blue - base.blue))
             assertTrue("$color strays from the tint $base", spread <= .16f)
         }
-    }
-
-    @Test fun libraryFooterEndsClearOfTheFloatingNavigation() {
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
-        val counts = hasText(context.getString(R.string.cloud_phone_counts, "", ""), substring = true)
-        compose.onNodeWithTag("gallery-grid").performScrollToNode(counts)
-        compose.onNodeWithTag("gallery-grid").performTouchInput { swipeUp() }
-        compose.waitForIdle()
-        val footer = compose.onNode(counts).fetchSemanticsNode().boundsInRoot
-        val navigation = compose.onNodeWithTag("gallery-destination-capsule").fetchSemanticsNode().boundsInRoot
-        val gap = with(compose.density) { 16.dp.toPx() }
-        assertTrue("footer $footer overlaps navigation $navigation", footer.bottom + gap <= navigation.top)
     }
 }

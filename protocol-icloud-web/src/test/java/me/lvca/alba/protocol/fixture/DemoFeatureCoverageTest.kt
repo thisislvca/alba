@@ -64,8 +64,12 @@ class DemoFeatureCoverageTest {
         source.removeFromAlbum(album.id, listOf(photo))
         assertFalse(photo in source.collections().members.getValue(album.id))
         assertFalse(photo in source.collections().members.getValue(GalleryQuery.FAVORITES))
+        source.addToAlbum(album.id, listOf(photo))
+        val library = source.fetchPage(null, 100).records.map { it.id }
         source.deleteAlbum(album.id)
         assertFalse(source.collections().collections.any { it.id == album.id })
+        // Deleting an album keeps its photos in the library.
+        assertEquals(library, source.fetchPage(null, 100).records.map { it.id })
     }
 
     @Test fun bothSharedAlbumGenerationsSupportCreateContributeRemoveAndDelete() = runBlocking {

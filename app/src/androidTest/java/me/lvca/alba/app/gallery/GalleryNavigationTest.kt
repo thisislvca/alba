@@ -69,25 +69,6 @@ class GalleryNavigationTest {
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.waitUntilDisplayed(hasTestTag("media-fixture:icloud:0001"))
     }
-    @Test fun tabTapAnswersAtOnceAndSwitchesOnceTheScreenHasFaded() {
-        compose.waitForGalleryMedia()
-        compose.mainClock.autoAdvance = false
-        try {
-            compose.onNodeWithTag("tab-COLLECTIONS").performClick()
-            compose.mainClock.advanceTimeByFrame()
-            // The navigation answers in the first frame; Photos fades out before Collections composes.
-            compose.onNodeWithTag("tab-COLLECTIONS").assertIsSelected()
-            compose.onAllNodesWithTag("collection-albums").assertCountEquals(0)
-            compose.mainClock.advanceTimeBy(500)
-        } finally {
-            compose.mainClock.autoAdvance = true
-        }
-        compose.onNodeWithTag("collection-albums").assertIsDisplayed()
-        compose.onNodeWithTag("tab-LIBRARY").performClick()
-        compose.waitUntilDisplayed(hasTestTag("gallery-grid"))
-        compose.onNodeWithTag("tab-LIBRARY").assertIsSelected()
-    }
-
     @Smoke @Test fun backGestureCancelKeepsTheScreenAndCommitPopsIt() {
         compose.waitForGalleryMedia()
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()

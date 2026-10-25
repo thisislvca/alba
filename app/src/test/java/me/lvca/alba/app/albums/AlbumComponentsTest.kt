@@ -12,9 +12,12 @@ import kotlinx.coroutines.flow.*
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.R
+import me.lvca.alba.app.screenshots.ScreenshotFixtures
+import me.lvca.alba.app.testing.GalleryStateActions
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.runBlockingWithMainLooper
+import me.lvca.alba.app.testing.setAlbaContent
 import me.lvca.alba.app.testing.testDependencies
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -49,6 +52,25 @@ class AlbumComponentsTest {
         compose.onNode(hasSetTextAction()).performTextInput("Family weekend")
         compose.onNodeWithText(text(R.string.save)).performClick()
         compose.runOnIdle { assertEquals("Family weekend", created) }
+    }
+
+    @Test fun deletingAnAlbumNeedsConfirmation() {
+        val deleted = mutableListOf<String>()
+        val actions = object : GalleryStateActions(ScreenshotFixtures.gallery()) {
+            override fun deleteAlbum(albumId: String) { deleted += albumId }
+        }
+        compose.setAlbaContent(actions.state, ScreenshotFixtures.signedIn, actions)
+        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+        compose.onNodeWithTag("collection-albums").performClick()
+        compose.onNodeWithText("Trips").performClick()
+        compose.onNodeWithContentDescription(text(R.string.album_options)).performClick()
+        compose.onNodeWithText(text(R.string.delete_album)).performClick()
+        compose.onNodeWithText(text(R.string.cancel)).performClick()
+        compose.runOnIdle { assertEquals(emptyList<String>(), deleted) }
+        compose.onNodeWithContentDescription(text(R.string.album_options)).performClick()
+        compose.onNodeWithText(text(R.string.delete_album)).performClick()
+        compose.onNode(hasText(text(R.string.delete_album)) and hasClickAction()).performClick()
+        compose.runOnIdle { assertEquals(listOf("album-trips"), deleted) }
     }
 
     @Test fun albumCreationIsNotRepeatedWhenAddingPhotosHasAnUncertainResult() = runBlockingWithMainLooper<Unit> {
