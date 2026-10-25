@@ -74,7 +74,9 @@ class ViewerTest {
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
         compose.waitForVideoPlaying()
-        compose.onNodeWithContentDescription("Back to gallery").performClick()
+        // Playback hides the chrome, Back button included, after a few seconds on the test clock, and a tap toggles
+        // it, so tapping the button races that timer. System back closes the viewer whatever the chrome shows.
+        compose.pressBack()
         compose.waitUntil(timeoutMillis = SHORT_WAIT) {
             compose.onAllNodes(hasTestTag("video-player")).fetchSemanticsNodes().isEmpty()
         }
