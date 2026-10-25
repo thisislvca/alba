@@ -9,7 +9,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.pressBack
-import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.showFloatingDate
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -49,8 +49,7 @@ class AppSurfacesTest {
             swipe(Offset(center.x, 8f), Offset(center.x, height - 1f), 400)
         }
         compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithTag("gallery-filter-sheet").fetchSemanticsNodes().isEmpty() }
-        compose.scrollToGalleryMedia("fixture:icloud:0016")
-        compose.onNodeWithTag("floating-date-button").performClick()
+        compose.showFloatingDate().performClick()
         compose.onNodeWithContentDescription(label(R.string.close_surface)).performClick()
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText(label(R.string.media_types)))

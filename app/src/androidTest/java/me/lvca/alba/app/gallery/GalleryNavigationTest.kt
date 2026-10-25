@@ -12,11 +12,13 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.backGesture
 import me.lvca.alba.app.testing.hideKeyboard
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.showFloatingDate
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilDisplayed
 import me.lvca.alba.engine.model.MediaAvailability
@@ -49,6 +51,8 @@ class GalleryNavigationTest {
         compose.onNodeWithTag("tab-SEARCH").performClick()
         compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
         compose.hideKeyboard()
+        // The navigation steps aside while the keyboard is open and returns once it has closed.
+        compose.waitUntilDisplayed(hasTestTag("tab-COLLECTIONS"))
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithText("Favorites").assertIsDisplayed()
         compose.onNodeWithTag("tab-LIBRARY").performClick()
@@ -68,6 +72,43 @@ class GalleryNavigationTest {
         compose.pressBack()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.waitUntilDisplayed(hasTestTag("media-fixture:icloud:0001"))
+    }
+    @Test fun tabTapAnswersAtOnceAndSwitchesOnceTheScreenHasFaded() {
+        compose.waitForGalleryMedia()
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+            compose.mainClock.advanceTimeByFrame()
+            // The navigation answers in the first frame; Photos fades out before Collections composes.
+            compose.onNodeWithTag("tab-COLLECTIONS").assertIsSelected()
+            compose.onAllNodesWithTag("collection-albums").assertCountEquals(0)
+            compose.mainClock.advanceTimeBy(500)
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+        compose.onNodeWithTag("collection-albums").assertIsDisplayed()
+        compose.onNodeWithTag("tab-LIBRARY").performClick()
+        compose.waitUntilDisplayed(hasTestTag("gallery-grid"))
+        compose.onNodeWithTag("tab-LIBRARY").assertIsSelected()
+    }
+
+    @Test fun backGestureCancelKeepsTheScreenAndCommitPopsIt() {
+        compose.waitForGalleryMedia()
+        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+        compose.onNodeWithTag("collection-albums").performClick()
+        compose.onNodeWithText("Journeys").assertIsDisplayed()
+        compose.backGesture(commit = false)
+        compose.onNodeWithText("Journeys").assertIsDisplayed()
+        compose.onNodeWithTag("collection-albums").assertDoesNotExist()
+        compose.backGesture(commit = true)
+        compose.onNodeWithTag("collection-albums").assertIsDisplayed()
+        compose.onNodeWithTag("account-button").performClick()
+        compose.onNodeWithTag("alba-page-scroll").assertIsDisplayed()
+        compose.backGesture(commit = false)
+        compose.onNodeWithTag("alba-page-scroll").assertIsDisplayed()
+        compose.backGesture(commit = true)
+        compose.onNodeWithTag("alba-page-scroll").assertDoesNotExist()
+        compose.onNodeWithTag("collection-albums").assertIsDisplayed()
     }
     @Test fun filtersRestoreAndDoNotLeakIntoCollections() {
         compose.waitForGalleryMedia()
@@ -122,7 +163,7 @@ class GalleryNavigationTest {
         compose.onNodeWithText("1 selected").assertDoesNotExist()
         compose.onNodeWithText("Favorites").performClick()
         compose.scrollToGalleryMedia("fixture:icloud:0019")
-        compose.onNodeWithContentDescription("Back to collections").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.back_action)).performClick()
         compose.onNodeWithTag("collection-albums").performClick()
         compose.onNodeWithText("Journeys").performClick()
         compose.activityRule.scenario.recreate()
@@ -140,8 +181,7 @@ class GalleryNavigationTest {
         compose.onNodeWithText("Added").performScrollTo().assertIsSelected()
         compose.onNodeWithText("Large").performScrollTo().assertIsSelected()
         compose.onNodeWithText("Show photos").performClick()
-        compose.scrollToGalleryMedia("fixture:icloud:0016")
-        compose.onNodeWithTag("floating-date-button").performClick()
+        compose.showFloatingDate().performClick()
         // Demo spans months; selecting the earliest jumps to that month's grid header.
         val repository = (compose.activity.application as AlbaApplication).graph.galleryRepository
         val oldest = runBlocking { repository.observeGallery().first()

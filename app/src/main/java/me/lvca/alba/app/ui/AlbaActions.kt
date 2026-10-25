@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
@@ -128,4 +129,7 @@ interface AccountScreenActions : AccountActions, StorageActions
 /** Every action Alba's screens can take. */
 interface AlbaActions : GalleryScreenActions, MediaScreenActions, AccountScreenActions {
     fun dismissMessage()
+
+    /** Reverses what an undoable message reported, from its Undo action. */
+    fun undo(action: UndoAction)
 }

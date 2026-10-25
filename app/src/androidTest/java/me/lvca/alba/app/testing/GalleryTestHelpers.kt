@@ -5,7 +5,13 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.test.ext.junit.rules.ActivityScenarioRule
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import me.lvca.alba.app.AlbaApplication
+import me.lvca.alba.app.MainActivity
 
 internal fun ComposeTestRule.waitForGalleryMedia(id: String = "fixture:icloud:0020") {
     // Wait for the item in the lazy grid's data, even when phone photos put it offscreen.
@@ -48,4 +54,46 @@ internal fun ComposeTestRule.waitForVideoPlaying() = waitUntil(UI_WAIT) {
     onAllNodesWithTag("video-player").fetchSemanticsNodes().any {
         it.config.getOrNull(SemanticsProperties.StateDescription) == "Playing"
     }
+}
+
+/**
+ * Runs [block] with [count] extra phone photos in the library, so the grid is long enough (100+ items) to get the date
+ * scrubber, which the 20-photo demo alone is not. The photos are removed again afterwards.
+ */
+internal fun <T> AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>.withLongLibrary(
+    count: Int = 110, block: () -> T,
+): T {
+    waitForGalleryMedia()
+    grantTestMediaPermissions(activity)
+    // The gallery shows phone photos once it sees the permission, which it checks when the activity resumes.
+    activityRule.scenario.recreate()
+    waitForGalleryMedia()
+    val repository = (activity.application as AlbaApplication).graph.galleryRepository
+    val uris = mutableListOf<android.net.Uri>()
+    try {
+        repeat(count) { uris += MediaStoreFixtures.insertJpeg("alba-long-library-$it-${System.nanoTime()}.jpg") }
+        // Scan once rather than wait for the debounced MediaStore observer, which follows the activity's lifecycle.
+        runBlocking { repository.refreshDevice() }
+        val references = uris.map { it.toString() }.toSet()
+        waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().count { it.originalReference in references } == count } }
+        waitForIdle()
+        return block()
+    } finally {
+        uris.forEach { runCatching { activity.contentResolver.delete(it, null, null) } }
+    }
+}
+
+/** The demo's newest July photo: July's header sits right above it, and June's header is the whole month below it. */
+private const val FIRST_JULY_PHOTO = "fixture:icloud:0005"
+
+/**
+ * Shows the floating date pill, whatever the screen height. Like Google Photos, the pill steps aside while a real month
+ * header is near the top of the grid (GalleryFeel.STICKY_DATE_HEADER_CLEARANCE), so where the grid stops after scrolling
+ * to an arbitrary photo decides whether it shows. Scrolling the first photo of a month to the top instead puts that
+ * month's header just above the viewport and the next one at least a row of tiles below it.
+ */
+internal fun ComposeTestRule.showFloatingDate(): SemanticsNodeInteraction {
+    waitForGalleryMedia(FIRST_JULY_PHOTO)
+    onNodeWithTag("gallery-grid").performScrollToKey(FIRST_JULY_PHOTO)
+    return onNodeWithTag("floating-date-button").assertIsDisplayed()
 }

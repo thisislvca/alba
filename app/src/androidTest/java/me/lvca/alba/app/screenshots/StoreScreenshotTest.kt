@@ -93,8 +93,8 @@ class StoreScreenshotTest {
         compose.onNodeWithTag("media-shared:demo-library:private:owner:album-4:photo-10").assertIsDisplayed()
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.cancel_selection)).assertDoesNotExist()
         capture("05-share")
-        compose.onNodeWithContentDescription("Back to collections").performClick()
-        compose.onNodeWithContentDescription("Back to collections").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.back_action)).performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.back_action)).performClick()
         compose.onNodeWithTag("tab-LIBRARY").performClick()
         open("fixture:icloud:0019")
         compose.waitUntil(UI_WAIT) {

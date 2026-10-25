@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -122,7 +121,7 @@ internal fun OwnerAvatar(name: String?, modifier: Modifier = Modifier) {
 internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, retry: Int,
     preview: (String) -> Unit, modifier: Modifier = Modifier, featured: Boolean = false, open: () -> Unit) {
     Surface(onClick = open, modifier = modifier.testTag("${if (album.shared != null) "shared-" else ""}album-${album.id}"),
-        shape = if (featured) MaterialTheme.shapes.medium else RectangleShape,
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.background) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(MaterialTheme.shapes.medium)) {

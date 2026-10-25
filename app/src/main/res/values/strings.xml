@@ -20,7 +20,6 @@
     <string name="automatic_backup_requires_android_11_or_later_use_the_photo_picker_for_manual_uploads">Automatic backup requires Android 11 or later. Use the photo picker for manual uploads.</string>
     <string name="automatic_jpeg_backup">Automatic JPEG backup</string>
     <string name="available_offline">Available offline</string>
-    <string name="back_to_collections">Back to collections</string>
     <string name="back_to_gallery">Back to gallery</string>
     <string name="back_to_library">Back to library</string>
     <string name="back_up_new_photos">Back up new photos?</string>
@@ -488,7 +487,6 @@
     <string name="album_photos_removed">Removed from the album. Photos remain in your library.</string>
     <string name="remove_from_album">Remove from album</string>
     <string name="cloud_trash_failed">iCloud did not confirm the change. Refresh Recently Deleted before trying again.</string>
-    <string name="cloud_trashed_success">Moved to iCloud Recently Deleted.</string>
     <string name="cloud_restored_success">Restored to your iCloud library.</string>
     <string name="restore_from_icloud">Restore from iCloud trash</string>
     <string name="trash_in_icloud">Move to iCloud trash</string>
@@ -505,6 +503,14 @@
     <plurals name="remove_album_confirmation">
         <item quantity="one">Remove this item from the album? It will remain in your library and other albums.</item>
         <item quantity="other">Remove %1$d items from this album? They will remain in your library and other albums.</item>
+    </plurals>
+    <plurals name="cloud_trash_moved">
+        <item quantity="one">Moved to iCloud Recently Deleted</item>
+        <item quantity="other">%1$d moved to iCloud Recently Deleted</item>
+    </plurals>
+    <plurals name="phone_trash_moved">
+        <item quantity="one">Moved to phone trash</item>
+        <item quantity="other">%1$d moved to phone trash</item>
     </plurals>
     <plurals name="cloud_trash_confirmation">
         <item quantity="one">Move this item to Recently Deleted? This changes your iCloud library on all connected devices. It can normally be recovered for 30 days. Separate phone copies stay on this phone.</item>
@@ -547,6 +553,7 @@
     <string name="discard_edits">Discard</string>
     <string name="keep_editing">Keep editing</string>
     <string name="undo_edit">Undo</string>
+    <string name="undo">Undo</string>
     <string name="adjust_crop">Adjust crop</string>
     <string name="crop_left_edge">Left edge</string>
     <string name="crop_top_edge">Top edge</string>

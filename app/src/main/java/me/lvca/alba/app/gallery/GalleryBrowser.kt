@@ -66,6 +66,7 @@ internal class GalleryBrowser(
     private val query = MutableStateFlow(restoredQuery(savedState))
     private val selection = MutableStateFlow(savedState.get<ArrayList<String>>(SELECTION)?.toSet() ?: emptySet())
     private val deviceAccess = MutableStateFlow(DeviceAccess())
+    private val removing = MutableStateFlow<Set<String>>(emptySet())
     val selectedMediaId: StateFlow<String?> = savedState.getStateFlow(MEDIA, null)
 
     /** The selection as the user last changed it, ahead of [state]. */
@@ -78,7 +79,10 @@ internal class GalleryBrowser(
         query,
         deviceAccess.map { it.granted }.distinctUntilChanged(),
         accountManager.state,
-    ) { items, query, granted, account -> projection.apply(items, query, granted, account) }
+        removing,
+    ) { items, query, granted, account, removing ->
+        projection.apply(if (removing.isEmpty()) items else items.filterNot { it.id in removing }, query, granted, account)
+    }
         .flowOn(Dispatchers.Default)
         .shareIn(scope, SharingStarted.WhileSubscribed(5_000), replay = 1)
 
@@ -155,6 +159,26 @@ internal class GalleryBrowser(
 
     fun closeMedia() {
         savedState[MEDIA] = null
+    }
+
+    /**
+     * Hides [ids] at once while they are being removed, like Google Photos: the grid closes the gap and an open viewer
+     * moves on to the next photo (the previous one at the end), or closes when none is left. [endRemoval] shows
+     * whatever the catalog still holds again.
+     */
+    fun beginRemoval(ids: Set<String>) {
+        selectedMediaId.value?.takeIf { it in ids }?.let { open ->
+            val shown = current.items
+            val index = shown.indexOfFirst { it.id == open }
+            val neighbour = if (index < 0) null else shown.subList(index + 1, shown.size).firstOrNull { it.id !in ids }
+                ?: shown.subList(0, index).lastOrNull { it.id !in ids }
+            if (neighbour != null) openMedia(neighbour.id) else closeMedia()
+        }
+        removing.value += ids
+    }
+
+    fun endRemoval(ids: Set<String>) {
+        removing.value -= ids
     }
 
     /** Records phone photo access. Returns whether access itself changed, which calls for a refresh. */

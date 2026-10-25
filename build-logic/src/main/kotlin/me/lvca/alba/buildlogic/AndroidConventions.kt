@@ -14,7 +14,7 @@ internal const val COMPILE_SDK = 37
 internal const val MIN_SDK = 30
 internal const val TARGET_SDK = 36
 
-/** API levels of the managed devices. CI runs `:<module>:pixel2Api<api>DebugAndroidTest`. */
+/** API levels of the managed devices. CI runs `:<module>:pixel9Api<api>DebugAndroidTest`. */
 private val MANAGED_DEVICE_API_LEVELS = listOf(30, 36)
 
 /** SDK levels, Java 17 bytecode and the test runner shared by every Android module. */
@@ -30,7 +30,7 @@ internal fun Project.configureAndroidCommon(android: CommonExtension) {
 }
 
 /**
- * Device tests: Gradle-managed Pixel 2 emulators named `pixel2Api<api>`, using AOSP images for the host architecture,
+ * Device tests: Gradle-managed Pixel 9 emulators named `pixel9Api<api>`, using AOSP images for the host architecture,
  * run through the test orchestrator. The orchestrator gives every test its own instrumentation process and clears
  * the app's data first, so a crash, a stuck screen or leftover state fails one test rather than the rest of the run.
  */
@@ -39,8 +39,8 @@ internal fun Project.configureDeviceTests(android: CommonExtension) {
     val abi = if (System.getProperty("os.arch") in setOf("aarch64", "arm64")) "arm64-v8a" else "x86_64"
     android.testOptions.managedDevices.localDevices.apply {
         for (api in MANAGED_DEVICE_API_LEVELS) {
-            create("pixel2Api$api") {
-                device = "Pixel 2"
+            create("pixel9Api$api") {
+                device = "Pixel 9"
                 apiLevel = api
                 testedAbi = abi
                 systemImageSource = "aosp"

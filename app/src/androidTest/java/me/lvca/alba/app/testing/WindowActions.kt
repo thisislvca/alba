@@ -3,6 +3,7 @@ package me.lvca.alba.app.testing
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.view.inspector.WindowInspector
+import androidx.activity.BackEventCompat
 import androidx.activity.findViewTreeOnBackPressedDispatcherOwner
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.core.view.ViewCompat
@@ -22,6 +23,26 @@ internal fun ComposeTestRule.pressBack() {
         val dispatcher = appWindows().firstNotNullOfOrNull { it.findViewTreeOnBackPressedDispatcherOwner()?.onBackPressedDispatcher }
         checkNotNull(dispatcher) { "No app window handles back" }.onBackPressed()
     }
+    waitForIdle()
+}
+
+/**
+ * An Android 14+ predictive back gesture from the left edge that reaches [progress], then either commits like
+ * lifting the finger past the threshold, or is cancelled like dragging back to the edge.
+ */
+internal fun ComposeTestRule.backGesture(commit: Boolean, progress: Float = .5f) {
+    waitForIdle()
+    val dispatcher = runOnUiThread {
+        checkNotNull(appWindows().firstNotNullOfOrNull { it.findViewTreeOnBackPressedDispatcherOwner()?.onBackPressedDispatcher }) {
+            "No app window handles back"
+        }
+    }
+    runOnUiThread {
+        dispatcher.dispatchOnBackStarted(BackEventCompat(8f, 900f, 0f, BackEventCompat.EDGE_LEFT))
+        dispatcher.dispatchOnBackProgressed(BackEventCompat(160f, 940f, progress, BackEventCompat.EDGE_LEFT))
+    }
+    waitForIdle()
+    runOnUiThread { if (commit) dispatcher.onBackPressed() else dispatcher.dispatchOnBackCancelled() }
     waitForIdle()
 }
 

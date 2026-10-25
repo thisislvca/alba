@@ -1,6 +1,13 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package me.lvca.alba.app.ui.gallery
 
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -21,6 +28,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
@@ -29,6 +38,7 @@ import me.lvca.alba.app.ui.GalleryScreenActions
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.collections.isUserAlbum
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.theme.galleryOverlay
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.UploadMediaFormat
@@ -48,11 +58,6 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
             val hasPhone = selectedItems.any { it.origin == MediaOrigin.DEVICE }
             val withinLimit = selectedItems.size <= MAX_SELECTION_ACTION_ITEMS
             var more by remember { mutableStateOf(false) }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(pluralStringResource(R.plurals.selected_count, gallery.selection.size, gallery.selection.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = actions::selectAllShown) { Text(stringResource(R.string.select_all_shown)) }
-                IconButton(onClick = actions::clearSelection) { Icon(Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }
-            }
             // Icons with short labels share the width evenly, so every action fits; the full name is for accessibility.
             Row(Modifier.fillMaxWidth()) {
                 SelectionAction(Icons.Outlined.Share, stringResource(R.string.share), stringResource(R.string.share),
@@ -103,6 +108,30 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
         actions.createAlbumWithPhotos(name, gallery.selection.toList()); addingToAlbum = false
     }) { id ->
         actions.addToAlbum(id, gallery.selection.toList()); addingToAlbum = false
+    }
+}
+
+/**
+ * Google Photos' contextual bar: close and "N selected" take the header's place while choosing photos, sliding over
+ * it so the grid below never moves. It covers at least [minHeight], the header's visible height.
+ */
+@Composable
+internal fun SelectionTopBar(count: Int, minHeight: Dp, reducedMotion: Boolean, selectAll: () -> Unit, clear: () -> Unit,
+    modifier: Modifier = Modifier) {
+    // Keep the last count while the bar slides away, rather than showing "0 selected".
+    var shown by remember { mutableIntStateOf(count) }
+    if (count > 0) shown = count
+    val slide = if (reducedMotion) snap<IntOffset>() else tween(GalleryFeel.CONTEXT_BAR_SLIDE_MILLIS)
+    AnimatedVisibility(count > 0, modifier, enter = slideInVertically(slide) { -it }, exit = slideOutVertically(slide) { -it }) {
+        Surface(Modifier.fillMaxWidth().heightIn(min = minHeight).testTag("selection-top-bar"), color = MaterialTheme.colorScheme.galleryOverlay) {
+            Row(Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).padding(start = 4.dp, end = 8.dp)
+                .heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = clear) { Icon(Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }
+                Text(pluralStringResource(R.plurals.selected_count, shown, shown), style = MaterialTheme.typography.titleLarge,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 4.dp))
+                TextButton(onClick = selectAll) { Text(stringResource(R.string.select_all_shown)) }
+            }
+        }
     }
 }
 

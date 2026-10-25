@@ -20,6 +20,7 @@ import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitForVideoPlaying
 import me.lvca.alba.app.testing.waitUntilDisplayed
+import me.lvca.alba.app.ui.viewer.ViewerSpec
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -107,15 +108,38 @@ class ViewerTest {
         compose.mainClock.advanceTimeBy(600)
         compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithContentDescription("Share").assertDoesNotExist()
+        // GP hides the system bars with the chrome.
+        compose.waitUntil(SHORT_WAIT) { statusBarsVisible() == false }
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").performTouchInput { advanceEventTime(500); click() }
         compose.mainClock.advanceTimeBy(600)
         compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Share").assertIsDisplayed()
+        compose.waitUntil(SHORT_WAIT) { statusBarsVisible() == true }
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.openGalleryMedia("fixture:icloud:0001")
         compose.onNodeWithTag("viewer-image-fixture:icloud:0001").assertIsDisplayed()
+    }
+
+    @Test fun tappingAPlayingVideoBringsBackTheWholeChrome() {
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia("fixture:icloud:0019")
+        compose.waitUntil(UI_WAIT) { compose.runOnIdle { player()?.isPlaying == true } }
+        // Playback hides the chrome after a few seconds.
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithContentDescription("Share").fetchSemanticsNodes().isEmpty() }
+        compose.onAllNodesWithTag("floating-viewer-back").assertCountEquals(0)
+        // Hold the test clock: with it advancing on its own, waiting for idle would also run the 3 s auto-hide.
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.onNodeWithTag("video-player").performClick()
+            compose.mainClock.advanceTimeBy(ViewerSpec.CHROME_FADE_MILLIS + 100L)
+            // Like Google Photos, the tap brings back the top bar and actions with the playback controls, without pausing.
+            compose.onAllNodesWithContentDescription("Share").onFirst().assertExists()
+            compose.onNodeWithTag("floating-viewer-back").assertIsDisplayed()
+            compose.onNodeWithTag("video-play-pause").assertIsDisplayed()
+            assertTrue("The tap must not pause playback", compose.runOnUiThread { player()?.isPlaying } == true)
+        } finally { compose.mainClock.autoAdvance = true }
     }
 
     @Test fun swipingAwayFromVideoReleasesPlayback() {
@@ -140,6 +164,62 @@ class ViewerTest {
             assertFalse(player()!!.playWhenReady)
             assertTrue("Playback position should survive recreation", player()!!.currentPosition in 1100..1400)
         }
+    }
+
+    @Test fun pinchingInAtFitClosesTheViewerAndASlightPinchReturns() {
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia("fixture:icloud:0016")
+        val photo = compose.onNodeWithTag("viewer-image-fixture:icloud:0016")
+        // A slight pinch (about 0.9×) springs back to fit and keeps the viewer open.
+        photo.performTouchInput {
+            pinch(center - androidx.compose.ui.geometry.Offset(width * .3f, 0f), center - androidx.compose.ui.geometry.Offset(width * .27f, 0f),
+                center + androidx.compose.ui.geometry.Offset(width * .3f, 0f), center + androidx.compose.ui.geometry.Offset(width * .27f, 0f), 300)
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("media-pager").assertExists()
+        photo.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Fit"))
+        // Pinching well in closes back to the grid, like a swipe down.
+        photo.performTouchInput {
+            pinch(center - androidx.compose.ui.geometry.Offset(width * .35f, 0f), center - androidx.compose.ui.geometry.Offset(width * .08f, 0f),
+                center + androidx.compose.ui.geometry.Offset(width * .35f, 0f), center + androidx.compose.ui.geometry.Offset(width * .08f, 0f), 300)
+        }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("media-fixture:icloud:0016").assertExists()
+    }
+
+    @Test fun doubleTapAndDragZoomsAroundTheTapAndKeepsTheZoom() {
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia("fixture:icloud:0016")
+        val photo = compose.onNodeWithTag("viewer-image-fixture:icloud:0016")
+        val zoomed = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Zoomed")
+        val fit = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Fit")
+        // Tap, then keep the second touch down and drag it down: GP's quick scale zooms in and stays zoomed on release.
+        photo.performTouchInput {
+            click(center)
+            advanceEventTime(100)
+            down(center)
+            repeat(10) { moveBy(androidx.compose.ui.geometry.Offset(0f, 25f)) }
+            up()
+        }
+        compose.waitForIdle()
+        photo.assert(zoomed)
+        compose.onNodeWithTag("media-pager").assertExists()
+        // Dragging back up past where it started returns to fit.
+        photo.performTouchInput {
+            advanceEventTime(500)
+            click(center)
+            advanceEventTime(100)
+            down(center)
+            repeat(12) { moveBy(androidx.compose.ui.geometry.Offset(0f, -25f)) }
+            up()
+        }
+        compose.waitForIdle()
+        photo.assert(fit)
+    }
+
+    private fun statusBarsVisible(): Boolean? = compose.runOnIdle {
+        androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+            ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.statusBars())
     }
 
     private fun hasNodeWithText(text: String): Boolean =

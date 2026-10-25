@@ -77,4 +77,33 @@ class PhoneTrashUiTest {
             assertFalse(runBlocking { source.scanImages().single { it.id == id }.isTrashed })
         } finally { resolver.delete(uri, null, null) }
     }
+
+    @Test fun undoAfterMovingToAndroidTrashRestoresThePhoneItem() {
+        val context = compose.activity.applicationContext
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_VIDEO)
+        val resolver = context.contentResolver
+        val uri = MediaStoreFixtures.insertAsset(instrumentation.context.assets, "portrait_video.mp4", "alba-undo-trash-test.mp4",
+            "video/mp4", "Movies/AlbaTest")
+        try {
+            val source = AndroidMediaStoreSource(context)
+            val id = runBlocking { source.scanImages().single { it.contentUri == uri.toString() }.id }
+            compose.activityRule.scenario.recreate()
+            val model = androidx.lifecycle.ViewModelProvider(compose.activity)[AlbaViewModel::class.java]
+            compose.waitUntil(LONG_WAIT) { model.gallery.state.value.items.any { it.id == id } }
+            compose.scrollToGalleryMedia(id)
+            compose.onNodeWithTag("media-$id").performClick()
+            compose.openViewerDetails()
+            compose.onNodeWithText(context.getString(R.string.trash_phone_copy)).performScrollTo().performClick()
+            confirm("button1")
+            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
+            assertTrue(runBlocking { source.scanImages().single { it.id == id }.isTrashed })
+            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("snackbar-action").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText(context.resources.getQuantityString(R.plurals.phone_trash_moved, 1, 1)).assertIsDisplayed()
+            compose.onNodeWithTag("snackbar-action").performClick()
+            // Without media management access, Android asks before restoring, as it asked before trashing.
+            confirm("button1")
+            compose.waitUntil(UI_WAIT) { runBlocking { !source.scanImages().single { it.id == id }.isTrashed } }
+            compose.waitUntil(LONG_WAIT) { model.gallery.state.value.items.any { it.id == id && !it.isTrashed } }
+        } finally { resolver.delete(uri, null, null) }
+    }
 }

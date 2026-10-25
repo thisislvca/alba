@@ -9,7 +9,10 @@ internal const val TARGET = "me.lvca.alba.benchmark"
 
 internal fun MacrobenchmarkScope.waitForGallery() {
     check(device.wait(Until.hasObject(By.res("gallery-grid")), 15_000)) { "Gallery did not appear" }
-    check(device.wait(Until.hasObject(By.res("media-fixture:icloud:0001")), 15_000)) { "Demo photos did not load" }
+    // Any demo photo: which ones fit the first screen depends on the grid level and on the phone's own photos.
+    check(device.wait(Until.hasObject(By.res(java.util.regex.Pattern.compile("media-fixture:icloud:.*"))), 15_000)) {
+        "Demo photos did not load"
+    }
 }
 
 internal fun MacrobenchmarkScope.browseGallery() {

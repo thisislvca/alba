@@ -7,11 +7,11 @@ import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.util.LruCache
 import android.util.Size
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,34 +20,38 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -65,6 +69,12 @@ import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.viewer.PhotoZoomState
+import me.lvca.alba.app.ui.viewer.PinchToClose
+import me.lvca.alba.app.ui.viewer.photoPanExtent
+import me.lvca.alba.app.ui.viewer.photoTapGestures
+import me.lvca.alba.app.ui.viewer.photoZoomGestures
+import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.app.ui.viewer.sharedPhoto
 import java.io.File
 import java.io.FileNotFoundException
@@ -108,15 +118,20 @@ fun MediaThumbnail(
     onZoomChanged: (Boolean) -> Unit = {},
     fallbackReference: String? = null,
     sharedMediaId: String? = null,
+    sourceSize: IntSize = IntSize.Zero,
+    presentationScale: () -> Float = { 1f },
+    pinchToClose: PinchToClose? = null,
 ) {
     val context = LocalContext.current
     var decodeFailure by remember(sharedMediaId ?: reference, sourceRevision) { mutableStateOf<ThumbnailFailure?>(null) }
     var localRetry by remember { mutableIntStateOf(0) }
     var decoding by remember { mutableStateOf(false) }
     var longestSidePx by remember { mutableIntStateOf(0) }
-    var zoom by remember(sharedMediaId ?: reference, zoomable) { mutableFloatStateOf(1f) }
-    var offset by remember(sharedMediaId ?: reference, zoomable) { mutableStateOf(Offset.Zero) }
-    val targetSidePx = if (zoomable && zoom > 1.1f) (longestSidePx * 2).coerceAtMost(4096) else thumbnailSizeBucket(longestSidePx)
+    val zoomState = remember(sharedMediaId ?: reference, zoomable) { PhotoZoomState() }
+    // Derived so a pinch recomposes only when these flip, not on every frame.
+    val zoomedIn by remember(zoomState) { derivedStateOf { zoomState.zoom > 1f } }
+    val sharpen by remember(zoomState) { derivedStateOf { zoomState.zoom > SHARPEN_ZOOM } }
+    val targetSidePx = if (zoomable && sharpen) (longestSidePx * 2).coerceAtMost(4096) else thumbnailSizeBucket(longestSidePx)
     val cacheKey = reference?.takeIf { targetSidePx > 0 }?.let {
         ThumbnailCacheKey(it, targetSidePx, contentScale == ContentScale.Fit, sourceRevision)
     }
@@ -154,6 +169,10 @@ fun MediaThumbnail(
         }
     } }
 
+    // A tile that had to wait for its decode fades the photo in over the flat placeholder; cached tiles show at once.
+    val fadesIn = remember(sharedMediaId ?: reference, sourceRevision) { bitmap == null }
+    val placeholder = MaterialTheme.colorScheme.surfaceContainerHigh
+
     val thumbnailOwner = remember { Any() }
     DisposableEffect(sharedMediaId, sourceRevision, bitmap) {
         val key = sharedMediaId?.let { TransitionThumbnailKey(it, sourceRevision) }
@@ -169,40 +188,41 @@ fun MediaThumbnail(
 
     val tap by rememberUpdatedState(onTap)
     val zoomChanged by rememberUpdatedState(onZoomChanged)
-    LaunchedEffect(zoom > 1f) { zoomChanged(zoom > 1f) }
-    var bounds by remember { mutableStateOf(IntSize.Zero) }
-    fun clamp(value: Offset): Offset {
-        val loaded = bitmap ?: return Offset.Zero
-        return constrainPhotoPan(value, bounds, IntSize(loaded.width, loaded.height), zoom)
+    LaunchedEffect(zoomedIn) { zoomChanged(zoomedIn) }
+    val zoomScope = rememberCoroutineScope()
+    val reduceMotion = reduceGalleryMotion()
+    val dpi = LocalDensity.current.density * 160f
+    SideEffect {
+        zoomState.image = bitmap?.let { IntSize(it.width, it.height) } ?: IntSize.Zero
+        zoomState.source = sourceSize
+        zoomState.dpi = dpi
     }
-    val transformState = rememberTransformableState { scale, pan, _ ->
-        zoom = (zoom * scale).coerceIn(1f, 5f)
-        offset = if (zoom == 1f) Offset.Zero else clamp(offset + pan)
-    }
-    val zoomDescription = stringResource(if (zoom > 1f) R.string.photo_zoomed else R.string.photo_fit)
+    val zoomDescription = stringResource(if (zoomedIn) R.string.photo_zoomed else R.string.photo_fit)
     val toggleLabel = stringResource(R.string.toggle_photo_controls)
-    val zoomLabel = stringResource(if (zoom > 1f) R.string.reset_photo_zoom else R.string.zoom_in_photo)
+    val zoomLabel = stringResource(if (zoomedIn) R.string.reset_photo_zoom else R.string.zoom_in_photo)
     Box(
         modifier = modifier
-            .onSizeChanged { size -> longestSidePx = maxOf(size.width, size.height); bounds = size }
+            .onSizeChanged { size -> longestSidePx = maxOf(size.width, size.height); zoomState.viewport = size }
             .then(if (zoomable) Modifier.semantics {
                 stateDescription = zoomDescription
                 onClick(label = toggleLabel) { tap(); true }
                 customActions = listOf(CustomAccessibilityAction(zoomLabel) {
-                    zoom = if (zoom > 1f) 1f else 2.5f; offset = Offset.Zero; true
+                    val center = Offset(zoomState.viewport.width / 2f, zoomState.viewport.height / 2f)
+                    zoomState.launch(zoomScope) { zoomState.toggle(center, reduceMotion) }; true
                 })
             }
-                // A sharper resource is still the same photo; do not cancel an in-flight tap.
-                .pointerInput(sharedMediaId ?: reference, sourceRevision) {
-                    detectTapGestures(onTap = { tap() }, onDoubleTap = { point ->
-                        zoom = if (zoom > 1f) 1f else 2.5f
-                        offset = if (zoom == 1f) Offset.Zero else clamp((Offset(size.width / 2f, size.height / 2f) - point) * (zoom - 1))
-                    })
-                } else Modifier)
+                .photoZoomGestures(zoomState, reduceMotion, pinchToClose)
+                // After the pinch so it sees each touch first and can claim a double-tap drag. A sharper resource is
+                // still the same photo; do not cancel an in-flight tap.
+                .photoTapGestures(zoomState, reduceMotion, sharedMediaId ?: reference, sourceRevision) { tap() } else Modifier)
             .clipToBounds()
-            .then(if (contentScale == ContentScale.Fit) Modifier else Modifier.background(
-                Brush.linearGradient(colors = listOf(Color(accentStartArgb), Color(accentEndArgb))),
-            )),
+            .then(when {
+                contentScale == ContentScale.Fit -> Modifier
+                // Loading or loaded tiles sit on a flat neutral placeholder, like Google Photos; the photo's accent
+                // colours are kept for a tile that has no preview to show.
+                bitmap != null || decoding || (decodeFailure == null && reference != null) -> Modifier.background(placeholder)
+                else -> Modifier.background(Brush.linearGradient(colors = listOf(Color(accentStartArgb), Color(accentEndArgb))))
+            }),
         contentAlignment = Alignment.Center,
     ) {
         val loaded = bitmap
@@ -214,7 +234,9 @@ fun MediaThumbnail(
                 // fits the decoded aspect ratio, so the square tile uncrops smoothly without distortion.
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.then(if (contentScale == ContentScale.Fit) Modifier.layout { measurable, constraints ->
-                    val fit = minOf(constraints.maxWidth.toFloat() / loaded.width, constraints.maxHeight.toFloat() / loaded.height)
+                    // The viewer's swipe-down scale is a layout size, so the shared element returns from it.
+                    val fit = minOf(constraints.maxWidth.toFloat() / loaded.width, constraints.maxHeight.toFloat() / loaded.height) *
+                        presentationScale()
                     val width = (loaded.width * fit).toInt().coerceAtLeast(1)
                     val height = (loaded.height * fit).toInt().coerceAtLeast(1)
                     val placeable = measurable.measure(Constraints.fixed(width, height))
@@ -223,9 +245,13 @@ fun MediaThumbnail(
                     .sharedPhoto(sharedMediaId)
                     .fillMaxSize()
                     .then(if (sharedMediaId != null) Modifier.testTag("photo-${if (contentScale == ContentScale.Fit) "viewer" else "tile"}-$sharedMediaId") else Modifier)
-                    .then(if (zoomable) Modifier.transformable(transformState, canPan = { zoom > 1f }).graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = offset.x; translationY = offset.y } else Modifier)
+                    .then(if (zoomable) Modifier.graphicsLayer {
+                        scaleX = zoomState.zoom; scaleY = zoomState.zoom
+                        translationX = zoomState.offset.x; translationY = zoomState.offset.y
+                    } else Modifier)
                     .clipToBounds(),
             )
+            if (fadesIn && contentScale != ContentScale.Fit) TileFadeIn(placeholder)
         } else {
             val failure = decodeFailure
             val storageLow = LocalPreviewStorageLow.current
@@ -240,7 +266,9 @@ fun MediaThumbnail(
                 }
             })
             val onMedia = AlbaTheme.colors.onMedia
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
+            // A tile waiting for its decode stays a plain placeholder: a field of spinners reads as broken while scrolling.
+            val waitingTile = contentScale != ContentScale.Fit && failure == null && reference != null
+            if (!waitingTile) Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
                 if (decoding) CircularProgressIndicator(Modifier.size(24.dp), color = onMedia, strokeWidth = 2.dp)
                 else Icon(when {
                     failure != null -> Icons.Outlined.Info
@@ -256,6 +284,15 @@ fun MediaThumbnail(
             }
         }
     }
+}
+
+/** The placeholder [color] lifting off a newly decoded tile. Drawn, not recomposed, while it fades. */
+@Composable
+private fun TileFadeIn(color: Color) {
+    val reducedMotion = reduceGalleryMotion()
+    val cover = remember { Animatable(1f) }
+    LaunchedEffect(cover) { cover.animateTo(0f, if (reducedMotion) snap() else tween(GalleryFeel.TILE_FADE_IN_MILLIS)) }
+    Spacer(Modifier.fillMaxSize().drawBehind { cover.value.takeIf { it > 0f }?.let { drawRect(color, alpha = it) } })
 }
 
 private fun cachedThumbnail(reference: String?, fallback: String?, revision: String): Bitmap? =
@@ -299,15 +336,15 @@ private fun thumbnailCacheKilobytes(): Int = (Runtime.getRuntime().maxMemory() /
     .coerceIn(MIN_CACHE_KB.toLong(), MAX_CACHE_KB.toLong())
     .toInt()
 
+/** Above this zoom the viewer decodes at twice the screen size. */
+private const val SHARPEN_ZOOM = 1.1f
+
 private const val MIN_CACHE_KB = 4 * 1_024
 private const val MAX_CACHE_KB = 16 * 1_024
 
 /** Clamp to the fitted image, not the letterboxed viewport, so panning cannot lose the photo. */
 internal fun constrainPhotoPan(offset: Offset, viewport: IntSize,
     image: IntSize, zoom: Float): Offset {
-    if (image.width <= 0 || image.height <= 0) return Offset.Zero
-    val fit = minOf(viewport.width.toFloat() / image.width, viewport.height.toFloat() / image.height)
-    val horizontal = ((image.width * fit * zoom - viewport.width) / 2).coerceAtLeast(0f)
-    val vertical = ((image.height * fit * zoom - viewport.height) / 2).coerceAtLeast(0f)
-    return Offset(offset.x.coerceIn(-horizontal, horizontal), offset.y.coerceIn(-vertical, vertical))
+    val extent = photoPanExtent(viewport, image, zoom)
+    return Offset(offset.x.coerceIn(-extent.x, extent.x), offset.y.coerceIn(-extent.y, extent.y))
 }

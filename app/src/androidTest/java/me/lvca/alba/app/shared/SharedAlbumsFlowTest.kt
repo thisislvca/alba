@@ -116,7 +116,7 @@ class SharedAlbumsFlowTest {
             compose.activityRule.scenario.recreate()
             compose.onNodeWithText(label(R.string.shared_role_owner)).assertIsDisplayed()
             compose.onNodeWithText(label(R.string.shared_understood)).performScrollTo().performClick()
-            compose.onNodeWithContentDescription(label(R.string.back_to_collections)).performClick()
+            compose.onNodeWithContentDescription(label(R.string.back_action)).performClick()
         }
         val personal = runBlocking { GalleryQuery().apply(repository.observeGallery().first()) }
         assertFalse(personal.any { it.isShared })
