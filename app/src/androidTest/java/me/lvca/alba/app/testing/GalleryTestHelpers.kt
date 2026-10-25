@@ -94,3 +94,18 @@ internal fun <T> AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, Main
         uris.forEach { runCatching { activity.contentResolver.delete(it, null, null) } }
     }
 }
+
+/** The demo's newest July photo: July's header sits right above it, and June's header is the whole month below it. */
+private const val FIRST_JULY_PHOTO = "fixture:icloud:0005"
+
+/**
+ * Shows the floating date pill, whatever the screen height. Like Google Photos, the pill steps aside while a real month
+ * header is near the top of the grid (GalleryFeel.STICKY_DATE_HEADER_CLEARANCE), so where the grid stops after scrolling
+ * to an arbitrary photo decides whether it shows. Scrolling the first photo of a month to the top instead puts that
+ * month's header just above the viewport and the next one at least a row of tiles below it.
+ */
+internal fun ComposeTestRule.showFloatingDate(): SemanticsNodeInteraction {
+    waitForGalleryMedia(FIRST_JULY_PHOTO)
+    onNodeWithTag("gallery-grid").performScrollToKey(FIRST_JULY_PHOTO)
+    return onNodeWithTag("floating-date-button").assertIsDisplayed()
+}

@@ -100,21 +100,21 @@ jobs:
       - name: Run app device tests
         if: ${{ !cancelled() && steps.build-test-apks.outcome == 'success' }}
         run: >-
-          ./gradlew ":app:pixel2Api${{ matrix.api }}DebugAndroidTest"
+          ./gradlew ":app:pixel9Api${{ matrix.api }}DebugAndroidTest"
           -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
           -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1
           --max-workers=2 --no-parallel --no-daemon --console=plain
       - name: Run engine device tests
         if: ${{ !cancelled() && steps.build-test-apks.outcome == 'success' }}
         run: >-
-          ./gradlew ":engine:pixel2Api${{ matrix.api }}DebugAndroidTest"
+          ./gradlew ":engine:pixel9Api${{ matrix.api }}DebugAndroidTest"
           -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
           -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1
           --max-workers=2 --no-parallel --no-daemon --console=plain
       - name: Run protocol-icloud-web device tests
         if: ${{ !cancelled() && steps.build-test-apks.outcome == 'success' }}
         run: >-
-          ./gradlew ":protocol-icloud-web:pixel2Api${{ matrix.api }}DebugAndroidTest"
+          ./gradlew ":protocol-icloud-web:pixel9Api${{ matrix.api }}DebugAndroidTest"
           -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
           -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1
           --max-workers=2 --no-parallel --no-daemon --console=plain

@@ -18,6 +18,7 @@ import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.showFloatingDate
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilDisplayed
 import me.lvca.alba.engine.model.MediaAvailability
@@ -182,8 +183,7 @@ class GalleryNavigationTest {
         compose.onNodeWithText("Added").performScrollTo().assertIsSelected()
         compose.onNodeWithText("Large").performScrollTo().assertIsSelected()
         compose.onNodeWithText("Show photos").performClick()
-        compose.scrollToGalleryMedia("fixture:icloud:0016")
-        compose.onNodeWithTag("floating-date-button").performClick()
+        compose.showFloatingDate().performClick()
         // Demo spans months; selecting the earliest jumps to that month's grid header.
         val repository = (compose.activity.application as AlbaApplication).graph.galleryRepository
         val oldest = runBlocking { repository.observeGallery().first()
