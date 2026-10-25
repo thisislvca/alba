@@ -22,9 +22,10 @@ internal fun ComposeContentTestRule.setAlbaContent(
     onContinue: (TransferId) -> Unit = {},
     onOpenAccount: () -> Unit = {},
     onStartDemo: () -> Unit = {},
+    darkTheme: Boolean = false,
 ) {
     setContent {
-        AlbaTheme(darkTheme = false) {
+        AlbaTheme(darkTheme = darkTheme) {
             AlbaApp(
                 gallery = gallery,
                 session = session,
