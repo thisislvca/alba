@@ -12,6 +12,7 @@ import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import org.junit.Assert.*
@@ -27,7 +28,7 @@ class PhotoTransitionTest {
         compose.onAllNodesWithTag("photo-viewer-$id", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
     }
 
-    @Test fun imageExpandsFromTileAndShrinksBackWithoutRemovingOutgoingViewer() {
+    @Smoke @Test fun imageExpandsFromTileAndShrinksBackWithoutRemovingOutgoingViewer() {
         compose.scrollToGalleryMedia("fixture:icloud:0020")
         val id = "fixture:icloud:0020"
         kotlinx.coroutines.runBlocking { (compose.activity.application as AlbaApplication).graph.galleryRepository.keepOriginalOffline(id) }

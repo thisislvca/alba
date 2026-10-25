@@ -15,8 +15,15 @@ internal const val COMPILE_SDK = 37
 internal const val MIN_SDK = 30
 internal const val TARGET_SDK = 36
 
-/** API levels of the managed devices. CI runs `:<module>:pixel9Api<api>DebugAndroidTest`. */
-private val MANAGED_DEVICE_API_LEVELS = listOf(30, 36)
+/**
+ * Managed devices by name: a Pixel 9 at the minimum and target API levels, and a compact phone (Pixel 2, 411 x 731 dp)
+ * at the target level. CI runs `:<module>:<name>DebugAndroidTest`.
+ */
+private val MANAGED_DEVICES = mapOf(
+    "pixel9Api30" to ("Pixel 9" to 30),
+    "pixel9Api36" to ("Pixel 9" to 36),
+    "compactApi36" to ("Pixel 2" to 36),
+)
 
 /** SDK levels, Java 17 bytecode and the test runner shared by every Android module. */
 internal fun Project.configureAndroidCommon(android: CommonExtension) {
@@ -49,7 +56,7 @@ internal fun Project.configureJvmTests(android: CommonExtension) {
 }
 
 /**
- * Device tests: Gradle-managed Pixel 9 emulators named `pixel9Api<api>`, using AOSP images for the host architecture,
+ * Device tests: Gradle-managed emulators ([MANAGED_DEVICES]), using AOSP images for the host architecture,
  * run through the test orchestrator. The orchestrator gives every test its own instrumentation process and clears
  * the app's data first, so a crash, a stuck screen or leftover state fails one test rather than the rest of the run.
  */
@@ -57,10 +64,10 @@ internal fun Project.configureDeviceTests(android: CommonExtension) {
     val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
     val abi = if (System.getProperty("os.arch") in setOf("aarch64", "arm64")) "arm64-v8a" else "x86_64"
     android.testOptions.managedDevices.localDevices.apply {
-        for (api in MANAGED_DEVICE_API_LEVELS) {
-            create("pixel9Api$api") {
-                device = "Pixel 9"
-                apiLevel = api
+        for ((name, profile) in MANAGED_DEVICES) {
+            create(name) {
+                device = profile.first
+                apiLevel = profile.second
                 testedAbi = abi
                 systemImageSource = "aosp"
             }

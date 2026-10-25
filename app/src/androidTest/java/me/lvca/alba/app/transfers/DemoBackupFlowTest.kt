@@ -9,6 +9,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import org.junit.Assert.*
 import org.junit.Rule
@@ -20,7 +21,7 @@ class DemoBackupFlowTest {
     @get:Rule(order = 2) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 3) val failureCapture = FailureCapture { compose }
 
-    @Test fun sampleBackupAndSyncWorkWithoutAnAppleAccountOrPhotoPermission() {
+    @Smoke @Test fun sampleBackupAndSyncWorkWithoutAnAppleAccountOrPhotoPermission() {
         val graph = (compose.activity.application as AlbaApplication).graph
         assertNull(graph.accountManager.session.value)
         val permissions = listOf(Manifest.permission.READ_EXTERNAL_STORAGE, "android.permission.READ_MEDIA_IMAGES")

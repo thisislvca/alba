@@ -12,6 +12,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.pressBack
 import org.junit.Assert.*
@@ -23,7 +24,7 @@ class OnboardingTest {
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
 
-    @Test fun introductionRestoresPageAndConnectsWithoutRequestingPermissions() {
+    @Smoke @Test fun introductionRestoresPageAndConnectsWithoutRequestingPermissions() {
         compose.onNodeWithTag("welcome").assertIsDisplayed()
         compose.onNodeWithText("Your iCloud photos.\nOn Android.").assertIsDisplayed()
         assertFalse(OnboardingPreferences(compose.activity).completed)

@@ -2,7 +2,8 @@
 # Runs one module's device tests on a Gradle managed device for CI, retries only the tests that failed (once), and
 # appends a summary to the job summary that names every flaky test (failed, then passed on retry).
 #
-# Usage: scripts/ci_device_tests.sh <module> <managed device, e.g. pixel9Api36> <summary title>
+# Usage: scripts/ci_device_tests.sh <module> <managed device, e.g. pixel9Api36> <summary title> [Gradle arguments...]
+# Extra Gradle arguments apply to both attempts, e.g. -Pandroid.testInstrumentationRunnerArguments.annotation=...
 # Exits non-zero when a test still fails after its retry, or when the run produced no results.
 set -uo pipefail
 shopt -s nullglob
@@ -10,12 +11,14 @@ shopt -s nullglob
 module="$1"
 device="$2"
 title="$3"
+shift 3
 results="$module/build/outputs/androidTest-results/managedDevice/debug/$device"
 attempts="$module/build/device-test-attempts"
 gradle_args=(
   -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
   -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1
   --max-workers=2 --no-parallel --console=plain
+  "$@"
 )
 
 rm -rf "$attempts"

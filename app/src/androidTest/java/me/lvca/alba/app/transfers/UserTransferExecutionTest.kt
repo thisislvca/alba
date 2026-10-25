@@ -10,6 +10,7 @@ import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.work.UserTransferScheduler
 import me.lvca.alba.app.work.cancelUserTransfers
@@ -26,7 +27,7 @@ class UserTransferExecutionTest {
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
 
-    @Test fun scheduledTransferCompletesThroughThePlatformRunner() {
+    @Smoke @Test fun scheduledTransferCompletesThroughThePlatformRunner() {
         val graph = (compose.activity.application as AlbaApplication).graph
         val id = "fixture:icloud:0001"
         val batch = runBlocking {

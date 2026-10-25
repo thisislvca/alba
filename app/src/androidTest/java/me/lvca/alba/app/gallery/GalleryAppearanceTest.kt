@@ -11,6 +11,7 @@ import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.withLongLibrary
 import me.lvca.alba.app.ui.gallery.mediaDuration
@@ -27,7 +28,7 @@ class GalleryAppearanceTest {
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val context get() = compose.activity
 
-    @Test fun statusBarAreaIsStronglyTintedOverScrolledPhotos() {
+    @Smoke @Test fun statusBarAreaIsStronglyTintedOverScrolledPhotos() {
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("gallery-grid").performTouchInput { swipeUp() }
         compose.waitForIdle()

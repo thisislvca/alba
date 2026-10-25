@@ -13,6 +13,7 @@ import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.ScreenshotCapture
 import me.lvca.alba.app.testing.Screenshots
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
@@ -65,7 +66,7 @@ class ViewerTest {
         compose.onNodeWithText("Remove offline copy").performScrollTo().assertIsDisplayed()
     }
 
-    @Test
+    @Smoke @Test
     fun demoVideoPlaysResumesAfterTheAppReturnsAndClosesItsPlayer() {
         compose.waitForGalleryMedia()
         compose.openGalleryMedia("fixture:icloud:0019")
@@ -123,7 +124,7 @@ class ViewerTest {
         compose.onNodeWithTag("viewer-image-fixture:icloud:0001").assertIsDisplayed()
     }
 
-    @Test fun tappingAPlayingVideoBringsBackTheWholeChrome() {
+    @Smoke @Test fun tappingAPlayingVideoBringsBackTheWholeChrome() {
         compose.waitForGalleryMedia()
         compose.openGalleryMedia("fixture:icloud:0019")
         compose.waitUntil(UI_WAIT) { compose.runOnIdle { player()?.isPlaying == true } }
@@ -154,7 +155,7 @@ class ViewerTest {
         compose.onNodeWithTag("video-player").assertDoesNotExist()
     }
 
-    @Test fun pausedVideoRetainsPositionAcrossActivityRecreation() {
+    @Smoke @Test fun pausedVideoRetainsPositionAcrossActivityRecreation() {
         compose.waitForGalleryMedia(); compose.openGalleryMedia("fixture:icloud:0019")
         compose.waitUntil(UI_WAIT) { compose.runOnIdle { player()?.playbackState == Player.STATE_READY } }
         compose.runOnIdle { player()!!.apply { pause(); seekTo(1200) } }

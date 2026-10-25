@@ -8,13 +8,14 @@ import me.lvca.alba.app.platform.PhotoCrop
 import me.lvca.alba.app.platform.SmallerPhotoCopyRequired
 import me.lvca.alba.app.platform.renderPhotoEdit
 import me.lvca.alba.app.platform.saveEditedCopy
+import me.lvca.alba.app.testing.Smoke
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
 
 class PhotoEditRenderingTest {
 
-    @Test fun editsPreserveExifAndRequireConsentBeforeReducingResolution() = runBlocking {
+    @Smoke @Test fun editsPreserveExifAndRequireConsentBeforeReducingResolution() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val source = File.createTempFile("camera-edit", ".jpg", context.cacheDir)
         val bitmap = Bitmap.createBitmap(1600, 1200, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLUE) }
@@ -58,7 +59,7 @@ class PhotoEditRenderingTest {
         } finally { source.delete() }
     }
 
-    @Test fun cropAndRotationPreserveTheOriginalAndPublishOnlyCompletedCopies() = runBlocking {
+    @Smoke @Test fun cropAndRotationPreserveTheOriginalAndPublishOnlyCompletedCopies() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val source = File.createTempFile("edit-test", ".png", context.cacheDir)
         val original = Bitmap.createBitmap(120, 80, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
