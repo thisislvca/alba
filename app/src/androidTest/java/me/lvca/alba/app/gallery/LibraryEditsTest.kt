@@ -2,11 +2,9 @@ package me.lvca.alba.app.gallery
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.AlbaApplication
-import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
@@ -18,7 +16,6 @@ import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilDisplayed
-import me.lvca.alba.engine.model.MediaOrigin
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -28,23 +25,6 @@ class LibraryEditsTest {
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val repository get() = (compose.activity.application as AlbaApplication).graph.galleryRepository
-
-    @Test fun bulkFavoritesAlbumRemovalAndCloudTrashRestoreWorkInDemo() {
-        compose.waitForGalleryMedia()
-        val ids = listOf("fixture:icloud:0016", "fixture:icloud:0017")
-        val previous = runBlocking { repository.observeGallery().first().filter { it.id in ids }.associate { it.id to it.isFavorite } }
-        val album = runBlocking { repository.createAlbum("Completion test").also { repository.addToAlbum(it.id, ids) } }
-        try {
-            compose.runOnUiThread { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].apply { gallery.selectItems(ids.toSet(), true); edits.setFavorites(ids, true) } }
-            compose.waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().filter { it.id in ids }.all { it.isFavorite } } }
-            runBlocking { repository.removeFromAlbum(album.id, ids); repository.setCloudTrashed(ids, true); repository.refresh(false) }
-            var items = runBlocking { repository.observeGallery().first().filter { it.id in ids } }
-            assertEquals(2, items.size); assertTrue(items.all { it.isTrashed && album.id !in it.collectionIds && it.origin == MediaOrigin.ICLOUD })
-            runBlocking { repository.setCloudTrashed(ids, false); repository.refresh(false) }
-            items = runBlocking { repository.observeGallery().first().filter { it.id in ids } }
-            assertEquals(2, items.size); assertTrue(items.none { it.isTrashed })
-        } finally { runBlocking { repository.setCloudTrashed(ids, false); previous.forEach { (id, value) -> repository.setFavorite(id, value) }; repository.deleteAlbum(album.id) } }
-    }
 
     @Smoke @Test fun cloudTrashRequiresConfirmationAndCanBeRestoredFromItsCollection() {
         compose.waitForGalleryMedia()

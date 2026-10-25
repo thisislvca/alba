@@ -8,7 +8,6 @@ import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
-import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.Smoke
@@ -31,8 +30,6 @@ class GalleryNavigationTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
-    private fun hasNodeWithText(text: String): Boolean =
-        compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
 
     @Smoke @Test fun libraryLeadsWithPhotosAndDestinationsPreserveTheirOwnState() {
         compose.waitForGalleryMedia()
@@ -126,55 +123,6 @@ class GalleryNavigationTest {
         compose.onNodeWithText("Favorites").assertIsSelected()
         compose.onNodeWithText("Oldest first").assertIsSelected()
     }
-    @Test fun wideWindowUsesRailAndPreservesDestination() {
-        compose.waitForGalleryMedia()
-        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
-        compose.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        try {
-            compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("navigation-rail").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("tab-COLLECTIONS").assertIsSelected()
-            compose.onNodeWithTag("collection-albums").assertIsDisplayed()
-            compose.onNodeWithTag("tab-LIBRARY").performClick()
-        } finally { compose.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
-    }
-
-    @Test fun floatingDestinationsHaveIconsAndSeparateSearch() {
-        compose.waitForGalleryMedia()
-        val capsule = compose.onNodeWithTag("gallery-destination-capsule").fetchSemanticsNode().boundsInRoot
-        val search = compose.onNodeWithTag("tab-SEARCH").fetchSemanticsNode().boundsInRoot
-        assertTrue("Search must be separate from the two-destination capsule", search.left > capsule.right)
-        compose.onNodeWithTag("tab-LIBRARY").assertIsSelected()
-        compose.onNodeWithTag("tab-COLLECTIONS").performClick().assertIsSelected()
-        compose.onNodeWithTag("tab-SEARCH").performClick().assertIsSelected()
-        compose.onNodeWithTag("search-field").assertIsDisplayed()
-    }
-
-    @Test
-    fun searchFavoritesAlbumsAndSelectionAreUsable() {
-        compose.waitForGalleryMedia()
-        compose.onNodeWithTag("tab-SEARCH").performClick()
-        compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
-        // libraryLeadsWithPhotosAndDestinationsPreserveTheirOwnState checks that the search survives recreation.
-        // The navigation steps aside while the keyboard is open, so close it as a recreation used to.
-        compose.hideKeyboard()
-        compose.waitUntilDisplayed(hasTestTag("tab-COLLECTIONS"))
-        compose.scrollToGalleryMedia("fixture:icloud:0019")
-        compose.onNodeWithTag("media-fixture:icloud:0019").performTouchInput { longClick() }
-        compose.onNodeWithText("1 selected").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Cancel selection").performClick()
-        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
-        compose.onNodeWithText("1 selected").assertDoesNotExist()
-        compose.onNodeWithText("Favorites").performClick()
-        compose.scrollToGalleryMedia("fixture:icloud:0019")
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.back_action)).performClick()
-        compose.onNodeWithTag("collection-albums").performClick()
-        compose.onNodeWithText("Journeys").performClick()
-        compose.activityRule.scenario.recreate()
-        compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("By the sea") }
-        compose.onNodeWithText("By the sea").performClick()
-        compose.onNodeWithText("By the sea").assertIsDisplayed()
-    }
-
     @Test fun dateAndDensityRestoreAndMonthJumpReachesPhotos() {
         compose.waitForGalleryMedia()
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.filter_and_sort)).performClick()

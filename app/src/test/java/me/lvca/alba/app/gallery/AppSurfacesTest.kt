@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.AlbaAppRule
+import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.showFloatingDate
 import me.lvca.alba.app.testing.waitForGalleryMedia
@@ -81,6 +83,21 @@ class AppSurfacesTest {
         compose.waitUntilExists("date-months")
         compose.onNodeWithContentDescription(app.string(R.string.close_surface)).performClick()
         compose.waitUntilGone("date-months")
+    }
+
+    @Test fun openFolderAndAlbumSurviveRecreation() {
+        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+        compose.onNodeWithTag("collection-albums").performClick()
+        // The demo's albums arrive with the catalog, which loads in the background.
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText("Journeys").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Journeys").performClick()
+        app.recreate()
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText("By the sea").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("By the sea").performClick()
+        compose.waitUntilExists("album-hero")
+        app.recreate()
+        compose.waitUntilExists("album-hero")
+        compose.onNodeWithText("By the sea").assertIsDisplayed()
     }
 
     @Test fun collectionsScrollToMediaTypes() {

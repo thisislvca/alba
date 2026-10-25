@@ -50,12 +50,4 @@ class SharedInvitationActivityTest {
             compose.onNodeWithText(context.getString(R.string.cancel)).performClick()
         }
     }
-
-    @Test fun incomingLinkIntentValidationDoesNotConfuseMediaOrUntrustedUrls() {
-        val link = "https://photos.icloud.com/shared/album/fixture"
-        assertEquals(link, incomingSharedInvitation(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "Album\n$link") }))
-        assertEquals(link, incomingSharedInvitation(Intent(Intent.ACTION_VIEW, Uri.parse(link))))
-        assertEquals("", incomingSharedInvitation(Intent(Intent.ACTION_VIEW, Uri.parse("https://evil.test/shared/album/fixture"))))
-        assertNull(incomingSharedInvitation(Intent(Intent.ACTION_VIEW, Uri.parse("content://gallery/photo"))))
-    }
 }

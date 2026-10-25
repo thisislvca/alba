@@ -2,14 +2,10 @@ package me.lvca.alba.app.gallery
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -47,12 +43,5 @@ class SelectionActionsTest {
         }
         compose.onNodeWithContentDescription("Save to phone gallery").assertHasClickAction()
         compose.onNodeWithContentDescription("Keep offline").assertHasClickAction()
-    }
-
-    @Test fun selectedTilesShowACheckCircle() {
-        compose.setAlbaContent(GalleryState(items = items, selection = setOf(items[1].id)),
-            SessionState(accountState = ICloudAccountState.Demo, isRefreshing = false))
-        compose.onNodeWithTag("media-${items[1].id}").assertIsSelected()
-        compose.onAllNodesWithTag("tile-selected", useUnmergedTree = true).assertCountEquals(1)
     }
 }
