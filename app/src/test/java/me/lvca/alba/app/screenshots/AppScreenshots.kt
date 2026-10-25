@@ -129,8 +129,9 @@ abstract class AppScreenshots(
 
     @Test fun profile() {
         state("profile")
-        show()
-        compose.onNodeWithTag("account-button").performClick()
+        // The account button asks the view model to open the account; here that state is set directly.
+        show(session = ScreenshotFixtures.signedIn.copy(isAccountOpen = true))
+        compose.onNodeWithTag("alba-page-scroll").assertExists()
         capture("profile")
     }
 
