@@ -10,6 +10,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.AlbaAppRule
+import me.lvca.alba.app.testing.FIRST_DEMO_PHOTO
+import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import org.junit.Rule
 import org.junit.Test
@@ -49,7 +51,7 @@ class AccountTest {
     }
 
     @Test fun demoProfileShowsTheDemoBadgeAndStorageAcrossRecreation() {
-        compose.waitForGalleryMedia()
+        compose.scrollToGalleryMedia(FIRST_DEMO_PHOTO)
         compose.onNodeWithTag("account-button").performClick()
         compose.onNodeWithText(app.string(R.string.demo_badge)).assertIsDisplayed()
         compose.onNodeWithText(app.string(R.string.profile_example_allowance)).assertDoesNotExist()

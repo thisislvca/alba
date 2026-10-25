@@ -54,12 +54,14 @@ class AppSurfacesTest {
         compose.onNodeWithText(app.string(R.string.uploads_downloads_and_backup)).assertDoesNotExist()
     }
 
-    @Test fun filterSheetLeavesSpaceAboveItAndChangesDensity() {
+    @Test fun filterSheetLeavesSpaceAboveItAndKeepsDensityAcrossRecreation() {
         compose.onNodeWithContentDescription(app.string(R.string.filter_and_sort)).performClick()
         val sheet = compose.onNodeWithTag("gallery-filter-sheet").fetchSemanticsNode().boundsInRoot
         val screenHeight = app.activity.resources.displayMetrics.heightPixels
         assertTrue("Sheet must leave visible space above its handle", sheet.top >= screenHeight * .15f)
         compose.onNodeWithText(app.string(R.string.small)).performClick().assertIsSelected()
+        app.recreate()
+        compose.onNodeWithText(app.string(R.string.small)).assertIsSelected()
         compose.onNodeWithText(app.string(R.string.medium)).performClick().assertIsSelected()
         compose.onNodeWithText(app.string(R.string.refresh_library)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithContentDescription(app.string(R.string.close_surface)).assertIsDisplayed()
