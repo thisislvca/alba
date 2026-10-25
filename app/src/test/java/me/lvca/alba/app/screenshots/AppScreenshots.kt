@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.R
@@ -56,7 +57,7 @@ abstract class AppScreenshots(
 
     private fun capture(name: String) {
         compose.waitForIdle()
-        captureScreenRoboImage("src/test/screenshots/$variant/$name.png")
+        captureScreenRoboImage("src/test/screenshots/$variant/$name.png", roborazziOptions = strict)
     }
 
     @Test fun gallery() {
@@ -164,5 +165,11 @@ class DarkScreenshots : AppScreenshots("dark", darkTheme = true,
 @Config(qualifiers = STANDARD)
 class LargeFontScreenshots : AppScreenshots("font-1.3", fontScale = 1.3f,
     states = setOf("gallery", "empty-signed-out", "filter-sheet", "profile", "sign-in"))
+
+/**
+ * Any changed pixel fails verification. Roborazzi's default tolerates 1% of the image, enough to miss a recoloured icon;
+ * recording the goldens twice on CI's Linux runner gave identical images, so no tolerance is needed.
+ */
+private val strict = RoborazziOptions(compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0f))
 
 private const val STANDARD = "en-rUS-w411dp-h914dp-port-hdpi"
