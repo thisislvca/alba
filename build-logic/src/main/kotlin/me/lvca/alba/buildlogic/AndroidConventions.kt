@@ -51,6 +51,9 @@ internal fun Project.configureJvmTests(android: CommonExtension) {
         // C1 only: test JVMs are short-lived, so C2 rarely pays off, and C2-compiled code under Robolectric has stalled
         // the JVM at a safepoint (the main thread spinning without polls), hanging the whole run.
         jvmArgs("-XX:TieredStopAtLevel=1")
+        // C1-only JVMs default to a small code cache, and every Robolectric sandbox (one per device configuration) loads
+        // its own copy of the app and framework classes; a full run filled it ("Out of space in CodeCache").
+        jvmArgs("-XX:ReservedCodeCacheSize=512m")
         systemProperty("robolectric.graphicsMode", "NATIVE")
     }
 }
