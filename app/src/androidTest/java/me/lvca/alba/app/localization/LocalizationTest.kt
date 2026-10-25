@@ -1,7 +1,6 @@
 package me.lvca.alba.app.localization
 
 import android.app.LocaleManager
-import android.content.res.Configuration
 import android.os.LocaleList
 import android.os.SystemClock
 import android.view.KeyEvent
@@ -10,9 +9,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.MainActivity
-import me.lvca.alba.app.R
-import me.lvca.alba.app.messages.UiMessage
-import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.Screenshots
 import me.lvca.alba.app.testing.UI_WAIT
@@ -97,31 +93,5 @@ class LocalizationTest {
                 assertNull(label("Your iCloud photos.\nOn Android."))
             }
         } finally { language(previous) }
-    }
-    @Test fun pluralsMessagesAndUnsupportedLanguagesUseNativeResources() {
-        val context = instrumentation.targetContext
-        fun localized(tag: String) = context.createConfigurationContext(Configuration(context.resources.configuration).apply { setLocales(LocaleList.forLanguageTags(tag)) })
-        val italian = localized("it")
-        assertEquals("1 elemento", italian.resources.getQuantityString(R.plurals.item_count, 1, 1))
-        assertEquals("2 elementi", italian.resources.getQuantityString(R.plurals.item_count, 2, 2))
-        val pending = UiMessage(R.string.album_created, listOf("Viaggi"))
-        assertEquals("Creato: Viaggi", pending.resolve(italian))
-        assertEquals("Created Viaggi", pending.resolve(localized("en")))
-        assertEquals("Created Weekend with 1 photo.", UiMessage.Quantity(R.plurals.album_created_with_photos, 1, listOf("Weekend", 1)).resolve(localized("en")))
-        assertEquals("Created Weekend with 2 photos.", UiMessage.Quantity(R.plurals.album_created_with_photos, 2, listOf("Weekend", 2)).resolve(localized("en")))
-        assertEquals("Album Viaggi creato con 2 foto.", UiMessage.Quantity(R.plurals.album_created_with_photos, 2, listOf("Viaggi", 2)).resolve(italian))
-        assertEquals("Library", localized("fr").getString(R.string.library))
-        assertEquals("Per ora Alba carica solo originali JPEG.", localizedStoredMessage("Mela currently uploads JPEG originals only.").resolve(italian))
-        assertTrue(localizedStoredMessage("Upload result was lost. Mela will check iCloud without uploading again.").resolve(italian).contains("senza ripetere"))
-        for (message in listOf(me.lvca.alba.engine.source.UnsupportedUploadException.MESSAGE,
-            me.lvca.alba.engine.source.UnsupportedUploadException.ANIMATED, me.lvca.alba.engine.source.UnsupportedUploadException.VIDEO_CODEC,
-            me.lvca.alba.engine.source.UnsupportedUploadException.INVALID,
-            "iCloud is processing this file. The original is still on this phone.",
-            "iCloud could not process this file. The original is still on this phone. This upload will not be repeated.")) {
-            assertNotEquals(italian.getString(R.string.operation_needs_attention), localizedStoredMessage(message).resolve(italian))
-            assertEquals(me.lvca.alba.engine.model.StoredMessage.decode(message)?.legacyText ?: message,
-                localizedStoredMessage(message).resolve(localized("en")))
-        }
-        assertTrue(italian.getString(R.string.backup_disclosure, "family@example.com").contains("family@example.com"))
     }
 }

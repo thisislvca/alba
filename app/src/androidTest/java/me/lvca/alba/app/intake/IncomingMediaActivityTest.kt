@@ -42,7 +42,7 @@ class IncomingMediaActivityTest {
             }
         } finally { context.contentResolver.delete(uri, null, null) }
     }
-    @Smoke @Test fun multipleShareIsPreviewedAndDoesNotSilentlyUpload() {
+    @Smoke @Test fun multipleShareIsPreviewedAndImportedIntoDemoOnlyAfterConfirmation() {
         val one = image(); val two = image()
         try {
             ActivityScenario.launch<MainActivity>(intent(Intent.ACTION_SEND_MULTIPLE).apply {
@@ -50,41 +50,27 @@ class IncomingMediaActivityTest {
             }).use {
                 compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText(context.getString(R.string.incoming_position, 1, 2)).fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithText(context.getString(R.string.demo_upload_title)).assertIsDisplayed()
-                assertNull((context as AlbaApplication).graph.accountManager.authorizedSession)
-                val image = compose.onNodeWithTag("incoming-image-0")
-                image.performTouchInput { doubleClick() }
-                image.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, context.getString(R.string.photo_zoomed)))
-                image.performTouchInput { swipeLeft() }
-                compose.onNodeWithText(context.getString(R.string.incoming_position, 1, 2)).assertIsDisplayed()
-                image.performTouchInput { doubleClick() }
-                image.performTouchInput { swipeLeft() }
+                compose.onNodeWithTag("incoming-image-0").performTouchInput { swipeLeft() }
                 compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithText(context.getString(R.string.incoming_position, 2, 2)).fetchSemanticsNodes().isNotEmpty() }
-            }
-        } finally { context.contentResolver.delete(one, null, null); context.contentResolver.delete(two, null, null) }
-    }
-    @Test fun sharedPhotoCanBeImportedIntoDemoAfterExplicitConfirmation() {
-        val uri = image()
-        try {
-            ActivityScenario.launch<MainActivity>(intent(Intent.ACTION_SEND).apply {
-                type = "image/jpeg"; putExtra(Intent.EXTRA_STREAM, uri)
-            }).use {
-                compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("queue-incoming-upload").fetchSemanticsNodes().isNotEmpty() }
+                // Nothing reaches the library until the import is confirmed.
                 val graph = (context as AlbaApplication).graph
-                val before = kotlinx.coroutines.runBlocking { graph.demoCatalog.fetchPage(null, 100).records.map { it.id }.toSet() }
+                fun records() = kotlinx.coroutines.runBlocking { graph.demoCatalog.fetchPage(null, 100).records }
+                val before = records().map { it.id }.toSet()
                 compose.onNodeWithTag("queue-incoming-upload").performClick()
                 compose.waitUntilDisplayed(hasTestTag("confirm-incoming-upload"))
                 compose.onNodeWithText(context.getString(R.string.cancel)).performClick()
-                assertEquals(before, kotlinx.coroutines.runBlocking { graph.demoCatalog.fetchPage(null, 100).records.map { it.id }.toSet() })
+                assertEquals(before, records().map { it.id }.toSet())
                 compose.onNodeWithTag("queue-incoming-upload").performClick()
                 compose.waitUntilDisplayed(hasTestTag("confirm-incoming-upload")).performClick()
                 compose.waitUntil(UI_WAIT) {
                     compose.onAllNodesWithText(context.getString(R.string.demo_import_complete)).fetchSemanticsNodes().isNotEmpty()
                 }
-                val added = kotlinx.coroutines.runBlocking { graph.demoCatalog.fetchPage(null, 100).records.single { it.id !in before } }
-                assertEquals(80, added.width); assertEquals(60, added.height)
+                val added = records().filter { it.id !in before }
+                assertEquals(2, added.size)
+                added.forEach { assertEquals(80, it.width); assertEquals(60, it.height) }
                 assertNull(graph.accountManager.authorizedSession)
             }
-        } finally { context.contentResolver.delete(uri, null, null) }
+        } finally { context.contentResolver.delete(one, null, null); context.contentResolver.delete(two, null, null) }
     }
 
     @Test fun unsafeSchemesAreRejectedAndMissingFilesHaveHonestErrors() {

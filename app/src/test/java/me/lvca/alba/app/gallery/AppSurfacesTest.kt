@@ -1,10 +1,12 @@
 package me.lvca.alba.app.gallery
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -15,10 +17,12 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.flow.first
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.pressBack
+import me.lvca.alba.app.testing.runBlockingWithMainLooper
 import me.lvca.alba.app.testing.showFloatingDate
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilExists
@@ -29,6 +33,9 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /** The gallery's utility surfaces: profile, activity, filter and date sheets, and the collections list. */
 @RunWith(AndroidJUnit4::class)
@@ -38,22 +45,27 @@ class AppSurfacesTest {
 
     @Before fun galleryLoaded() = compose.waitForGalleryMedia()
 
-    @Test fun profileScrollsToTheWindowEdgeAndOpensAbout() {
+    @Test fun profileScrollsToTheWindowEdgeAndAboutRestoresWithoutLeavingTheAccount() {
         compose.onNodeWithTag("account-button").performClick()
         val viewport = compose.onNodeWithTag("alba-page-scroll").fetchSemanticsNode().boundsInRoot
         val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
         assertEquals("Scrolling must continue to the window edge, not stop above the gesture bar", root.bottom, viewport.bottom, 1f)
         compose.onNodeWithTag("profile-about").performScrollTo().performClick()
         compose.waitUntilExists("about-screen")
+        val info = app.activity.packageManager.getPackageInfo(app.activity.packageName, 0)
+        compose.onNodeWithText(app.string(R.string.about_version, "${info.versionName} (${info.longVersionCode})")).assertIsDisplayed()
+        compose.onNodeWithTag("about-source").assertHasClickAction()
+        // The expanded limitations and the open About screen survive recreation.
+        compose.onNodeWithText(app.string(R.string.about_missing_support)).assertDoesNotExist()
+        compose.onNodeWithTag("about-limitations").performScrollTo().performClick()
+        app.recreate()
+        compose.waitUntilExists("about-screen")
+        compose.onNodeWithText(app.string(R.string.about_missing_support)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("about-notices").performScrollTo().performClick()
+        compose.onNodeWithText("The MIT License", substring = true).performScrollTo().assertExists()
         compose.pressBack()
         compose.waitUntilGone("about-screen")
-    }
-
-    @Test fun activitySheetOpensAndCloses() {
-        compose.onNodeWithTag("activity-button").performClick()
-        compose.onNodeWithText(app.string(R.string.uploads_downloads_and_backup)).assertIsDisplayed()
-        compose.onNodeWithContentDescription(app.string(R.string.close_surface)).performClick()
-        compose.onNodeWithText(app.string(R.string.uploads_downloads_and_backup)).assertDoesNotExist()
+        compose.onNodeWithTag("profile-about").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun filterSheetLeavesSpaceAboveItAndKeepsDensityAcrossRecreation() {
@@ -70,6 +82,20 @@ class AppSurfacesTest {
         compose.onNodeWithText(app.string(R.string.show_photos)).assertIsDisplayed()
     }
 
+    @Test fun filterChoicesSurviveRecreationAndDoNotLeakIntoCollections() {
+        compose.onNodeWithContentDescription(app.string(R.string.filter_and_sort)).performClick()
+        val choices = listOf(R.string.favorites, R.string.oldest_first, R.string.added).map(app::string)
+        choices.forEach { compose.onNodeWithText(it, useUnmergedTree = true).performScrollTo().performClick() }
+        app.recreate()
+        choices.forEach { compose.onNodeWithText(it).performScrollTo().assertIsSelected() }
+        compose.onNodeWithText(app.string(R.string.show_photos)).performClick()
+        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+        compose.onNodeWithTag("collection-albums").assertIsDisplayed()
+        compose.onNodeWithTag("tab-LIBRARY").performClick()
+        compose.onNodeWithContentDescription(app.string(R.string.filter_and_sort)).performClick()
+        choices.forEach { compose.onNodeWithText(it).performScrollTo().assertIsSelected() }
+    }
+
     @Test fun filterSheetSwipesAway() {
         compose.onNodeWithContentDescription(app.string(R.string.filter_and_sort)).performClick()
         compose.onNodeWithTag("gallery-filter-sheet").performTouchInput {
@@ -78,11 +104,26 @@ class AppSurfacesTest {
         compose.waitUntilGone("gallery-filter-sheet")
     }
 
-    @Test fun floatingDateOpensTheDateBrowser() {
+    @Test fun activityAndDateSheetsOpenAndCloseAndAMonthJumpReachesItsPhotos() {
+        compose.onNodeWithTag("activity-button").performClick()
+        compose.onNodeWithText(app.string(R.string.uploads_downloads_and_backup)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(app.string(R.string.close_surface)).performClick()
+        compose.onNodeWithText(app.string(R.string.uploads_downloads_and_backup)).assertDoesNotExist()
         compose.showFloatingDate().performClick()
         compose.waitUntilExists("date-months")
         compose.onNodeWithContentDescription(app.string(R.string.close_surface)).performClick()
         compose.waitUntilGone("date-months")
+        // The demo spans several months; choosing the earliest jumps to that month's photos.
+        val oldest = runBlockingWithMainLooper {
+            app.application.graph.galleryRepository.observeGallery().first().filterNot { it.id.startsWith("shared:") }
+                .minBy { it.capturedAtEpochMillis }
+        }
+        val label = Instant.ofEpochMilli(oldest.capturedAtEpochMillis).atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+        compose.showFloatingDate().performClick()
+        compose.onNodeWithTag("date-months").performScrollToNode(hasText(label))
+        compose.onAllNodesWithText(label).onLast().performClick()
+        compose.waitUntilExists("media-${oldest.id}")
     }
 
     @Test fun openFolderAndAlbumSurviveRecreation() {

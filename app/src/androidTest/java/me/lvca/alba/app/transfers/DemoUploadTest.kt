@@ -15,6 +15,7 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
@@ -31,23 +32,6 @@ class DemoUploadTest {
     private val repository get() = graph.galleryRepository
     private fun label(id: Int) = compose.activity.getString(id)
 
-    @Smoke @Test fun manualSampleUploadUsesPublicEntryPointAndAppearsInTheLibrary() {
-        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithContentDescription(label(R.string.upload_photos)).performClick()
-        compose.onNodeWithText(label(R.string.demo_upload_disclosure)).assertIsDisplayed()
-        compose.onNodeWithText(label(R.string.demo_upload_sample)).performClick()
-        var id: String? = null
-        compose.waitUntil(UI_WAIT) {
-            id = runBlocking { graph.demoCatalog.fetchPage(null, 100).records.firstOrNull { it.fileName == "Sample upload.webp" }?.id }
-            id != null
-        }
-        compose.scrollToGalleryMedia(requireNotNull(id))
-        compose.onNodeWithTag("media-$id").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("media-pager").assertIsDisplayed()
-        assertNull(graph.accountManager.session.value)
-        assertNull(graph.demoCatalog.writeAccountId)
-    }
-
     @Test fun sampleUploadDialogUsesAlbaThemeColors() {
         compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(label(R.string.upload_photos)).performClick()
@@ -58,7 +42,24 @@ class DemoUploadTest {
         assertEquals(if (dark) Color(0xFF292D35) else Color(0xFFE6EAF0), container)
     }
 
-    @Test fun pickedPhotoKeepsItsBytesAndBadSharedCopiesAreRejected() {
+    @Smoke @Test fun sampleAndPickedUploadsReachTheLibraryWithTheirBytesAndBadSharedCopiesAreRejected() {
+        // The sample upload goes through the public entry point and appears in the library.
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(label(R.string.upload_photos)).performClick()
+        compose.onNodeWithText(label(R.string.demo_upload_disclosure)).assertIsDisplayed()
+        compose.onNodeWithText(label(R.string.demo_upload_sample)).performClick()
+        var sample: String? = null
+        compose.waitUntil(UI_WAIT) {
+            sample = runBlocking { graph.demoCatalog.fetchPage(null, 100).records.firstOrNull { it.fileName == "Sample upload.webp" }?.id }
+            sample != null
+        }
+        compose.scrollToGalleryMedia(requireNotNull(sample))
+        compose.onNodeWithTag("media-$sample").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("media-pager").assertIsDisplayed()
+        compose.pressBack()
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
+        assertNull(graph.demoCatalog.writeAccountId)
+        // A picked photo keeps its exact bytes.
         compose.scrollToGalleryMedia("fixture:icloud:0020")
         val file = File(File(compose.activity.cacheDir, "shares").apply { mkdirs() }, "Selected-review-photo.png")
         val bitmap = Bitmap.createBitmap(96, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.MAGENTA) }

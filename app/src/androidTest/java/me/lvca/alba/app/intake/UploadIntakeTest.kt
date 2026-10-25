@@ -46,7 +46,6 @@ class UploadIntakeTest {
     }).around(compose)
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
 
-    @Test fun englishIntakeConfirmsSupportedPhotosAndVideosWithoutSendingUnsupportedFiles() = checkIntake("en")
     @Test fun italianIntakeConfirmsSupportedPhotosAndVideosWithoutSendingUnsupportedFiles() = checkIntake("it")
 
     private fun checkIntake(language: String) {

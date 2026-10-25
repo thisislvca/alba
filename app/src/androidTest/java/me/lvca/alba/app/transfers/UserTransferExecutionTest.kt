@@ -27,11 +27,22 @@ class UserTransferExecutionTest {
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
 
-    @Smoke @Test fun scheduledTransferCompletesThroughThePlatformRunner() {
+    @Smoke @Test fun persistedTransfersCompleteAfterARefreshAndThroughThePlatformRunner() {
         val graph = (compose.activity.application as AlbaApplication).graph
         val id = "fixture:icloud:0001"
-        val batch = runBlocking {
+        // Refreshing after the app resumes schedules transfers that were persisted earlier.
+        val persisted = runBlocking {
             graph.galleryRepository.refresh(false)
+            graph.galleryRepository.removeCachedOriginal(id)
+            graph.batches.enqueue(BatchAction.KEEP_OFFLINE, listOf(id))
+        }
+        compose.runOnIdle { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].sync.refresh() }
+        compose.waitUntil(LONG_WAIT) {
+            runBlocking { graph.batches.observe().first().any { it.batchId == persisted && it.status == BatchItemState.DONE } }
+        }
+        assertEquals(MediaAvailability.ORIGINAL_CACHED, runBlocking { graph.galleryRepository.findMedia(id)?.availability })
+        // A transfer scheduled directly completes through the platform runner.
+        val batch = runBlocking {
             graph.galleryRepository.removeCachedOriginal(id)
             graph.batches.enqueue(BatchAction.KEEP_OFFLINE, listOf(id))
         }
@@ -76,20 +87,5 @@ class UserTransferExecutionTest {
         }
         assertEquals(BatchItemState.STOPPED, runBlocking { graph.batches.observe().first().single { it.batchId == batch }.status })
         assertNull(runBlocking { requireNotNull(graph.galleryRepository.findMedia(id)).originalReference })
-    }
-
-    @Test fun refreshingAfterResumeSchedulesPersistedTransfers() {
-        val graph = (compose.activity.application as AlbaApplication).graph
-        val id = "fixture:icloud:0001"
-        compose.scrollToGalleryMedia(id)
-        val batch = runBlocking {
-            graph.galleryRepository.removeCachedOriginal(id)
-            graph.batches.enqueue(BatchAction.KEEP_OFFLINE, listOf(id))
-        }
-        compose.runOnIdle { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].sync.refresh() }
-        compose.waitUntil(LONG_WAIT) {
-            runBlocking { graph.batches.observe().first().any { it.batchId == batch && it.status == BatchItemState.DONE } }
-        }
-        assertEquals(MediaAvailability.ORIGINAL_CACHED, runBlocking { graph.galleryRepository.findMedia(id)?.availability })
     }
 }

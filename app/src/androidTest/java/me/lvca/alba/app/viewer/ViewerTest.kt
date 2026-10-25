@@ -67,13 +67,23 @@ class ViewerTest {
     }
 
     @Smoke @Test
-    fun demoVideoPlaysResumesAfterTheAppReturnsAndClosesItsPlayer() {
+    fun demoVideoPlaysResumesAfterTheAppReturnsAndReleasesItsPlayerOnSwipeAndBack() {
         compose.waitForGalleryMedia()
         compose.openGalleryMedia("fixture:icloud:0019")
         compose.waitForVideoPlaying()
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
         compose.waitForVideoPlaying()
+        // Swiping on to the next photo releases the player; swiping back brings one back.
+        compose.onNodeWithTag("media-pager").performTouchInput {
+            swipe(androidx.compose.ui.geometry.Offset(width * 0.8f, height * 0.5f), androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.5f), 350)
+        }
+        compose.onNodeWithTag("viewer-image-fixture:icloud:0001").assertIsDisplayed()
+        compose.onNodeWithTag("video-player").assertDoesNotExist()
+        compose.onNodeWithTag("media-pager").performTouchInput {
+            swipe(androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.5f), androidx.compose.ui.geometry.Offset(width * 0.8f, height * 0.5f), 350)
+        }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodes(hasTestTag("video-player")).fetchSemanticsNodes().isNotEmpty() }
         // Playback hides the chrome, Back button included, after a few seconds on the test clock, and a tap toggles
         // it, so tapping the button races that timer. System back closes the viewer whatever the chrome shows.
         compose.pressBack()
@@ -144,17 +154,6 @@ class ViewerTest {
             compose.onNodeWithTag("video-play-pause").assertIsDisplayed()
             assertTrue("The tap must not pause playback", compose.runOnUiThread { player()?.isPlaying } == true)
         } finally { compose.mainClock.autoAdvance = true }
-    }
-
-    @Test fun swipingAwayFromVideoReleasesPlayback() {
-        compose.waitForGalleryMedia()
-        compose.openGalleryMedia("fixture:icloud:0019")
-        compose.onNodeWithTag("video-player").assertIsDisplayed()
-        compose.onNodeWithTag("media-pager").performTouchInput {
-            swipe(androidx.compose.ui.geometry.Offset(width * 0.8f, height * 0.5f), androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.5f), 350)
-        }
-        compose.onNodeWithTag("viewer-image-fixture:icloud:0001").assertIsDisplayed()
-        compose.onNodeWithTag("video-player").assertDoesNotExist()
     }
 
     @Smoke @Test fun pausedVideoRetainsPositionAcrossActivityRecreation() {

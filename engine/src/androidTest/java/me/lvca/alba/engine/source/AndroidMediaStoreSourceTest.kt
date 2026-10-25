@@ -12,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.engine.model.BackupScope
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -48,6 +49,45 @@ class AndroidMediaStoreSourceTest {
                 put(MediaStore.Images.Media.IS_TRASHED, 1)
             }, null, null))
             assertEquals(true, source.readTrashState(uri.toString())?.isTrashed)
+        } finally {
+            resolver.delete(uri, null, null)
+        }
+    }
+
+    @Test
+    fun scanIncludesVideosWithTheirFolderAndRecoverableTrash() = runBlocking {
+        assumeTrue(Build.VERSION.SDK_INT >= 30)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        grantImageAccess(context)
+        if (Build.VERSION.SDK_INT >= 33) {
+            InstrumentationRegistry.getInstrumentation().uiAutomation
+                .grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_VIDEO)
+        }
+        val resolver = context.contentResolver
+        val uri = requireNotNull(resolver.insert(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, "alba-scan-video-${System.nanoTime()}.mp4")
+                put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/AlbaTest")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            },
+        ))
+        try {
+            requireNotNull(resolver.openOutputStream(uri)).use { output ->
+                InstrumentationRegistry.getInstrumentation().context.assets.open("upload-formats/avc.mp4").use { it.copyTo(output) }
+            }
+            resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+            val source = AndroidMediaStoreSource(context)
+            val video = source.scanImages().single { it.contentUri == uri.toString() }
+            assertEquals("video/mp4", video.mimeType)
+            assertEquals("AlbaTest", video.deviceFolderName)
+            assertTrue(video.id.startsWith("device:video:"))
+            // Trashed rows stay in the scan, marked, so they can be shown in Phone trash and restored.
+            resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_TRASHED, 1) }, null, null)
+            assertTrue(source.scanImages().single { it.id == video.id }.isTrashed)
+            resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_TRASHED, 0) }, null, null)
+            assertFalse(source.scanImages().single { it.id == video.id }.isTrashed)
         } finally {
             resolver.delete(uri, null, null)
         }

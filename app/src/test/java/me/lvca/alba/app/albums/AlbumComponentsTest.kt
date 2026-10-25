@@ -1,7 +1,6 @@
 package me.lvca.alba.app.albums
 
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.SavedStateHandle
@@ -33,27 +32,23 @@ class AlbumComponentsTest {
     private val app get() = ApplicationProvider.getApplicationContext<AlbaApplication>()
     private fun text(id: Int) = app.getString(id)
 
-    @Test fun albumPickerExcludesPhoneFoldersAndCreatesAnAlbumWithoutLeavingSelection() {
+    @Test fun albumPickerOffersOnlyPersonalAlbumsAndCreatesOneWithoutLeavingSelection() {
         var created: String? = null
         compose.setContent { AlbaTheme(darkTheme = false) {
             AlbumChooser(listOf(GalleryCollection("device-folder:external:1", "Camera"),
                 GalleryCollection("smart:videos", "Videos"), GalleryCollection("folder", "Trips", isFolder = true),
-                GalleryCollection("album", "Summer")), dismiss = {}, create = { created = it }, choose = {})
+                GalleryCollection("album", "Summer"), GalleryCollection("shared:test:x:y:z", "Shared",
+                    shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))),
+                dismiss = {}, create = { created = it }, choose = {})
         } }
         compose.onNodeWithText("Camera").assertDoesNotExist()
         compose.onNodeWithText("Trips").assertDoesNotExist()
+        compose.onNodeWithText("Shared").assertDoesNotExist()
         compose.onNodeWithText("Summer").assertIsDisplayed()
         compose.onNodeWithText(text(R.string.new_album)).performClick()
         compose.onNode(hasSetTextAction()).performTextInput("Family weekend")
         compose.onNodeWithText(text(R.string.save)).performClick()
         compose.runOnIdle { assertEquals("Family weekend", created) }
-    }
-
-    @Test fun personalAlbumChooserNeverOffersASharedDestination() {
-        compose.setContent { AlbaTheme(darkTheme = false) { AlbumChooser(listOf(GalleryCollection("personal", "Personal"),
-            GalleryCollection("shared:test:x:y:z", "Shared", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))), {}, {}, {}) } }
-        compose.onNodeWithText("Personal").assertIsDisplayed()
-        compose.onNodeWithText("Shared").assertDoesNotExist()
     }
 
     @Test fun albumCreationIsNotRepeatedWhenAddingPhotosHasAnUncertainResult() = runBlockingWithMainLooper<Unit> {

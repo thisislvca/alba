@@ -56,11 +56,6 @@ class OnboardingTest {
         compose.onNodeWithText("Try the demo").performClick()
         compose.waitUntil(UI_WAIT) { graph.accountManager.state.value == me.lvca.alba.protocol.account.ICloudAccountState.Demo }
         compose.onNodeWithTag("account-button").assertIsDisplayed()
-    }
-
-    @Test fun demoFromFirstPagePersistsAcrossANewActivity() {
-        compose.onNodeWithText("Try the demo").performClick()
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(OnboardingPreferences(compose.activity).completed)
         // A new Activity receives no saved Compose state; completion must come from disk.
         compose.activityRule.scenario.close()
