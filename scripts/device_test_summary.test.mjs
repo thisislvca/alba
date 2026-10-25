@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { moduleOf, parse, summarize } from './device_test_summary.mjs';
 
 const report = `<?xml version='1.0' encoding='UTF-8' ?>
-<testsuite name="pixel2Api36" tests="4" failures="1" errors="0" skipped="1">
+<testsuite name="pixel9Api36" tests="4" failures="1" errors="0" skipped="1">
   <testcase name="opens" classname="me.lvca.alba.app.gallery.GalleryTest" time="1.2" />
   <testcase name="closes" classname="me.lvca.alba.app.gallery.GalleryTest" time="3.4">
     <failure>androidx.compose.ui.test.ComposeTimeoutException: Condition still not satisfied after 30000 ms
@@ -25,7 +25,7 @@ test('reads outcomes and the first line of each failure', () => {
 });
 
 test('names the module from the report path', () => {
-  assert.equal(moduleOf('app/build/outputs/androidTest-results/managedDevice/debug/pixel2Api36/TEST-pixel2Api36.xml'), 'app');
+  assert.equal(moduleOf('app/build/outputs/androidTest-results/managedDevice/debug/pixel9Api36/TEST-pixel9Api36.xml'), 'app');
   assert.equal(moduleOf('protocol-icloud-web/build/outputs/x.xml'), 'protocol-icloud-web');
 });
 
