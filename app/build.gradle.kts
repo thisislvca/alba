@@ -87,6 +87,12 @@ android {
     lint {
         checkReleaseBuilds = true
     }
+
+    // Fakes that both the JVM tests and the device tests use.
+    sourceSets {
+        getByName("test").kotlin.directories += "src/sharedTest/java"
+        getByName("androidTest").kotlin.directories += "src/sharedTest/java"
+    }
 }
 
 sentry {

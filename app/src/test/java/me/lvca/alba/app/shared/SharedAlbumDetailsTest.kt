@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -17,7 +18,9 @@ import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(AndroidJUnit4::class)
 class SharedAlbumDetailsTest {
     @get:Rule val compose = createComposeRule()
     private val context get() = ApplicationProvider.getApplicationContext<AlbaApplication>()

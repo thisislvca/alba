@@ -3,11 +3,11 @@ package me.lvca.alba.app.account
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.R
-import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.ui.account.PhoneStorageDetails
@@ -17,11 +17,12 @@ import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(AndroidJUnit4::class)
 class PhoneStorageTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createComposeRule()
-    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val app get() = ApplicationProvider.getApplicationContext<AlbaApplication>()
     private fun text(id: Int) = app.getString(id)
 

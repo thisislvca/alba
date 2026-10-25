@@ -11,6 +11,7 @@ import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.runBlockingWithMainLooper
 import me.lvca.alba.app.testing.testDependencies
 import me.lvca.alba.engine.model.AccountChangeResult
 import me.lvca.alba.engine.model.PhotoCompanion
@@ -24,7 +25,7 @@ import java.io.IOException
 class AccountPreparationTest {
     private fun session(vm: AlbaViewModel) = combine(vm.account.state, vm.message) { state, message -> state to message }
 
-    @Test fun failedPreparationIsReportedAndDoesNotLeaveSignInBusy() = runBlocking {
+    @Test fun failedPreparationIsReportedAndDoesNotLeaveSignInBusy() = runBlockingWithMainLooper {
         val app = ApplicationProvider.getApplicationContext<AlbaApplication>()
         val graph = app.graph
         graph.accountManager.selectDemo(true)

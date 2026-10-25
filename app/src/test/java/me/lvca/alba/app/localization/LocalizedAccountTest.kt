@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.Density
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.account.PhoneStorageState
@@ -25,7 +26,9 @@ import me.lvca.alba.protocol.account.TwoFactorDelivery
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(AndroidJUnit4::class)
 class LocalizedAccountTest {
     @get:Rule val compose = createComposeRule()
     @Test fun italianTwoFactorAndBackupRemainUsableAtLargeTextSize() {

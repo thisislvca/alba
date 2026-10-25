@@ -18,11 +18,14 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.unit.dp
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.ui.gallery.GridAnchor
 import me.lvca.alba.app.ui.gallery.KeepGridAnchor
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(AndroidJUnit4::class)
 class GridAnchorTest {
     @get:Rule val compose = createComposeRule()
 

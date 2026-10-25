@@ -17,7 +17,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.pressBack
-import me.lvca.alba.app.testing.scrollToGalleryMedia
+import me.lvca.alba.app.testing.showFloatingDate
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilExists
 import me.lvca.alba.app.testing.waitUntilGone
@@ -75,8 +75,7 @@ class AppSurfacesTest {
     }
 
     @Test fun floatingDateOpensTheDateBrowser() {
-        compose.scrollToGalleryMedia("fixture:icloud:0016")
-        compose.onNodeWithTag("floating-date-button").performClick()
+        compose.showFloatingDate().performClick()
         compose.waitUntilExists("date-months")
         compose.onNodeWithContentDescription(app.string(R.string.close_surface)).performClick()
         compose.waitUntilGone("date-months")

@@ -7,14 +7,15 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.R
-import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.runBlockingWithMainLooper
 import me.lvca.alba.app.testing.testDependencies
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -22,12 +23,13 @@ import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
 
+@RunWith(AndroidJUnit4::class)
 class AlbumComponentsTest {
     @get:Rule(order = 0) val onboarding = OnboardingRule()
     @get:Rule(order = 1) val compose = createComposeRule()
-    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val app get() = ApplicationProvider.getApplicationContext<AlbaApplication>()
     private fun text(id: Int) = app.getString(id)
 
@@ -54,7 +56,7 @@ class AlbumComponentsTest {
         compose.onNodeWithText("Shared").assertDoesNotExist()
     }
 
-    @Test fun albumCreationIsNotRepeatedWhenAddingPhotosHasAnUncertainResult() = runBlocking<Unit> {
+    @Test fun albumCreationIsNotRepeatedWhenAddingPhotosHasAnUncertainResult() = runBlockingWithMainLooper<Unit> {
         val graph = app.graph
         check(graph.accountManager.session.value == null)
         val creates = AtomicInteger()

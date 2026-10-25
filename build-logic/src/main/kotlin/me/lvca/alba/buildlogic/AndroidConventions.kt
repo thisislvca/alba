@@ -41,6 +41,9 @@ internal fun Project.configureJvmTests(android: CommonExtension) {
         maxHeapSize = "3g"
         // Robolectric's Android 16 runtime reaches into JDK internals for file descriptors and shared memory.
         jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED")
+        // C1 only: test JVMs are short-lived, so C2 rarely pays off, and C2-compiled code under Robolectric has stalled
+        // the JVM at a safepoint (the main thread spinning without polls), hanging the whole run.
+        jvmArgs("-XX:TieredStopAtLevel=1")
         systemProperty("robolectric.graphicsMode", "NATIVE")
     }
 }

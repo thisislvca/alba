@@ -4,6 +4,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
 import me.lvca.alba.app.ui.gallery.MediaTile
@@ -12,7 +13,9 @@ import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(AndroidJUnit4::class)
 class ThumbnailFailureTest {
     @get:Rule
     val compose = createComposeRule()
