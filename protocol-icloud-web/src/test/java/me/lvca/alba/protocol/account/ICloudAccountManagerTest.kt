@@ -126,11 +126,15 @@ class ICloudAccountManagerTest {
         manager.restore()
         manager.rejectSession(SNAPSHOT)
 
-        assertTrue(telemetry.records.any { it.first == AccountOperation.VALIDATE && it.second == AccountOutcome.SUCCESS })
-        assertTrue(telemetry.records.any { it.first == AccountOperation.RESTORE && it.second == AccountOutcome.SUCCESS })
-        assertTrue(telemetry.records.any { it.first == AccountOperation.SESSION_REJECTED && it.second == AccountOutcome.EXPIRED })
-        assertTrue(telemetry.records.all { it.third >= 0L })
-        assertTrue(telemetry.cookieLifetimes.any { it != null })
+        // AccountTelemetry can only carry an operation, an outcome, a duration and aggregate cookie counts, so these
+        // records are the whole of what leaves the manager.
+        assertEquals(
+            listOf(AccountOperation.VALIDATE to AccountOutcome.SUCCESS, AccountOperation.RESTORE to AccountOutcome.SUCCESS,
+                AccountOperation.SESSION_REJECTED to AccountOutcome.EXPIRED),
+            telemetry.records.map { it.first to it.second },
+        )
+        // Every record describes the session's cookies only by counts; SNAPSHOT has none.
+        assertEquals(List(3) { CookieLifetimeMetrics(0, 0, 0, null, null) }, telemetry.cookieLifetimes)
     }
 
     @Test fun `cookie telemetry reports only aggregate remaining lifetime`() {

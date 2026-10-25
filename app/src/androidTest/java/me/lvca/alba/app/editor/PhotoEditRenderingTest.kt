@@ -59,7 +59,7 @@ class PhotoEditRenderingTest {
         } finally { source.delete() }
     }
 
-    @Smoke @Test fun cropAndRotationPreserveTheOriginalAndPublishOnlyCompletedCopies() = runBlocking {
+    @Smoke @Test fun cropAndRotationProduceTheEditedSizeAndLeaveTheSourceUntouched() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val source = File.createTempFile("edit-test", ".png", context.cacheDir)
         val original = Bitmap.createBitmap(120, 80, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }

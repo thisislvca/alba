@@ -144,5 +144,6 @@ class AppSurfacesTest {
     @Test fun collectionsScrollToMediaTypes() {
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText(app.string(R.string.media_types)))
+        compose.onNodeWithText(app.string(R.string.media_types)).assertIsDisplayed()
     }
 }

@@ -73,14 +73,13 @@ class IncomingMediaActivityTest {
         } finally { context.contentResolver.delete(one, null, null); context.contentResolver.delete(two, null, null) }
     }
 
-    @Test fun unsafeSchemesAreRejectedAndMissingFilesHaveHonestErrors() {
-        assertTrue(incomingMedia(Intent(Intent.ACTION_VIEW, Uri.parse("file:///data/private.jpg")))!!.uris.isEmpty())
-        assertTrue(incomingMedia(Intent(Intent.ACTION_VIEW, Uri.parse("https://example.invalid/photo.jpg")))!!.uris.isEmpty())
+    // File paths and network URLs are refused before any screen opens: IncomingRequestTest.filePathsAndNetworkUrls....
+    @Test fun aSharedPhotoDeletedBeforeItOpensSaysItIsMissingAndOffersNothing() {
         val uri = image(); context.contentResolver.delete(uri, null, null)
         ActivityScenario.launch<MainActivity>(intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/jpeg").apply { removeFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }).use {
-            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText(context.getString(R.string.incoming_unsupported)).fetchSemanticsNodes().isNotEmpty() ||
-                compose.onAllNodesWithText(context.getString(R.string.incoming_file_missing)).fetchSemanticsNodes().isNotEmpty() ||
-                compose.onAllNodesWithText(context.getString(R.string.incoming_access_lost)).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText(context.getString(R.string.incoming_file_missing)).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText(context.getString(R.string.incoming_unsupported)).assertDoesNotExist()
+            compose.onNodeWithText(context.getString(R.string.incoming_access_lost)).assertDoesNotExist()
             compose.onNodeWithContentDescription(context.getString(R.string.share)).assertDoesNotExist()
             compose.onNodeWithText(context.getString(R.string.incoming_connect)).assertDoesNotExist()
         }

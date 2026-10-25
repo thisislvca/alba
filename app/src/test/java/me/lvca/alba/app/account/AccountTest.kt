@@ -1,6 +1,8 @@
 package me.lvca.alba.app.account
 
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -13,6 +15,7 @@ import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.FIRST_DEMO_PHOTO
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,9 +48,16 @@ class AccountTest {
         openSignIn()
         compose.onNodeWithText(app.string(R.string.apple_account)).performTextInput("local-restoration@example.invalid")
         compose.onNodeWithText(app.string(R.string.password)).performTextInput("never-persist-this")
+        // The field masks the password in its semantics, so its text cannot be searched for; its length and the
+        // sign-in button, which needs both fields, show whether it survived.
+        fun passwordLength() = compose.onNodeWithText(app.string(R.string.password)).fetchSemanticsNode()
+            .config[SemanticsProperties.EditableText].length
+        assertEquals("never-persist-this".length, passwordLength())
+        compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).performScrollTo().assertIsEnabled()
         app.recreate()
         compose.onNodeWithText("local-restoration@example.invalid").assertIsDisplayed()
-        compose.onNodeWithText("never-persist-this").assertDoesNotExist()
+        assertEquals("The password must not be restored", 0, passwordLength())
+        compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).performScrollTo().assertIsNotEnabled()
     }
 
     @Test fun demoProfileShowsTheDemoBadgeAndStorageAcrossRecreation() {

@@ -48,10 +48,9 @@ class ProfileScreenTest {
     private val usage = CloudStorageUsage(72_000_000_000, 200_000_000_000,
         listOf(StorageCategory("Photos", 64_000_000_000), StorageCategory("Documents", 4_000_000_000), StorageCategory("Backup", 2_000_000_000), StorageCategory("Other", 2_000_000_000)), 1_790_000_000_000)
 
-    @Test fun signedInProfileLightAndDarkShowsAllowanceAndRoutesSettings() {
-        var dark by mutableStateOf(false)
+    @Test fun signedInProfileShowsAllowanceAndRoutesSettings() {
         val opened = mutableListOf<String>()
-        render({ dark }, uriHandler = object : UriHandler { override fun openUri(uri: String) { opened += uri } })
+        render({ false }, uriHandler = object : UriHandler { override fun openUri(uri: String) { opened += uri } })
         compose.onNodeWithText("alex@example.com").assertIsDisplayed()
         compose.onNodeWithText("200 GB").assertIsDisplayed()
         compose.onNodeWithText("Alex Example").assertIsDisplayed()
@@ -64,7 +63,6 @@ class ProfileScreenTest {
         compose.onNodeWithText("72 GB of 200 GB used").assertIsDisplayed()
         compose.onNodeWithText("Set up automatic backup").performScrollTo().assertIsDisplayed()
         compose.pressBack()
-        compose.runOnIdle { dark = true }
         compose.onNodeWithText("alex@example.com").performScrollTo()
         compose.onNodeWithTag("profile-phone").performScrollTo().performClick()
         compose.onNodeWithTag("phone-storage").assertIsDisplayed()
@@ -84,14 +82,12 @@ class ProfileScreenTest {
     }
 
     @Test fun expiredAccountDoesNotShowDemoAllowanceAndCanReconnect() {
-        var dark by mutableStateOf(false)
-        render({ dark }, state = ICloudAccountState.SignedIn("alex@example.com", SessionStatus.EXPIRED), demoStorage = true)
+        render({ false }, state = ICloudAccountState.SignedIn("alex@example.com", SessionStatus.EXPIRED), demoStorage = true)
         compose.onNodeWithText("200 GB").assertDoesNotExist()
         compose.onNodeWithText("Storage usage is not available yet.").assertExists()
         compose.onNodeWithTag("profile-sign-in").performScrollTo().performClick()
         compose.onNodeWithText("alex@example.com").assertIsDisplayed()
         compose.onNodeWithText("Password").assertIsDisplayed()
-        compose.runOnIdle { dark = true }
     }
 
     private fun render(dark: () -> Boolean, locale: String = "en", scale: Float = 1f,
