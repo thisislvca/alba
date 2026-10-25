@@ -14,6 +14,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
         extensions.configure<ApplicationExtension> {
             configureAndroidCommon(this)
             configureDeviceTests(this)
+            configureJvmTests(this)
             defaultConfig.targetSdk = TARGET_SDK
             lint.abortOnError = true
         }
@@ -27,6 +28,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
         extensions.configure<LibraryExtension> {
             configureAndroidCommon(this)
             configureDeviceTests(this)
+            configureJvmTests(this)
             lint.abortOnError = true
         }
     }

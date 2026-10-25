@@ -3,6 +3,7 @@ package me.lvca.alba.buildlogic
 import com.android.build.api.dsl.CommonExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
+import org.gradle.api.tasks.testing.Test
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
@@ -26,6 +27,21 @@ internal fun Project.configureAndroidCommon(android: CommonExtension) {
     android.compileOptions.targetCompatibility = JavaVersion.VERSION_17
     extensions.configure<KotlinAndroidProjectExtension> {
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+    }
+}
+
+/**
+ * JVM tests (`src/test`): plain JUnit plus Robolectric, which runs Android framework code, resources, Room and Compose
+ * UI tests on the JVM. Native graphics gives Robolectric real bitmaps and drawing, which decoding fixtures and
+ * Roborazzi screenshots need.
+ */
+internal fun Project.configureJvmTests(android: CommonExtension) {
+    android.testOptions.unitTests.isIncludeAndroidResources = true
+    tasks.withType(Test::class.java).configureEach {
+        maxHeapSize = "3g"
+        // Robolectric's Android 16 runtime reaches into JDK internals for file descriptors and shared memory.
+        jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED")
+        systemProperty("robolectric.graphicsMode", "NATIVE")
     }
 }
 
