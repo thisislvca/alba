@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { moduleOf, parse, summarize } from './device_test_summary.mjs';
+import { failedTests, moduleOf, parse, summarize } from './device_test_summary.mjs';
 
 const report = `<?xml version='1.0' encoding='UTF-8' ?>
 <testsuite name="pixel2Api36" tests="4" failures="1" errors="0" skipped="1">
@@ -34,7 +34,7 @@ test('tabulates modules and lists every failure', () => {
     { path: 'engine/build/TEST-a.xml', xml: '<testsuite><testcase name="ok" classname="E" /></testsuite>' },
     { path: 'app/build/TEST-b.xml', xml: report },
   ]);
-  assert.match(summary, /\| app \| 1 \| 2 \| 1 \|\n\| engine \| 1 \| 0 \| 0 \|/);
+  assert.match(summary, /\| app \| 1 \| 0 \| 2 \| 1 \|\n\| engine \| 1 \| 0 \| 0 \| 0 \|/);
   assert.match(summary, /\*\*2 failed\*\*/);
   assert.match(summary, /- `app` `GalleryTest.closes`: androidx.compose.ui.test.ComposeTimeoutException/);
   assert.match(summary, /- `app` `OtherTest.crashes`: Test failed to run/);
@@ -42,4 +42,19 @@ test('tabulates modules and lists every failure', () => {
 
 test('says so when no results were produced', () => {
   assert.match(summarize('Android 30 device tests', []), /No test results were produced/);
+});
+
+test('lists failed tests in the instrumentation class argument form', () => {
+  assert.equal(failedTests([{ path: 'app/build/TEST-b.xml', xml: report }]).join(','),
+    'me.lvca.alba.app.gallery.GalleryTest#closes,me.lvca.alba.app.gallery.OtherTest#crashes');
+});
+
+test('a failure that passes on retry is flaky, not failed', () => {
+  const retry = '<testsuite><testcase name="closes" classname="me.lvca.alba.app.gallery.GalleryTest" /></testsuite>';
+  const summary = summarize('Android 36 device tests', [{ path: 'app/build/TEST-b.xml', xml: report }],
+    [{ path: 'app/build/retry/TEST-b.xml', xml: retry }]);
+  assert.match(summary, /\| app \| 1 \| 1 \| 1 \| 1 \|/);
+  assert.match(summary, /\*\*1 flaky\*\*/);
+  assert.match(summary, /- `app` `GalleryTest.closes`/);
+  assert.match(summary, /\*\*1 failed\*\*/);
 });

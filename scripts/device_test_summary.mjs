@@ -1,6 +1,11 @@
 #!/usr/bin/env node
-// Summarize device-test JUnit XML as Markdown for the CI job summary, so each failure is listed on the run page.
-// Usage: device_test_summary.mjs <title> <TEST-*.xml>...
+// Summarize test JUnit XML as Markdown for the CI job summary, so each failure is listed on the run page.
+// Usage:
+//   device_test_summary.mjs <title> <TEST-*.xml>... [-- <retry TEST-*.xml>...]
+//     The reports after `--` come from a second run of the first run's failures. A test that failed and then passed
+//     is listed as flaky; it does not fail the job, but it is named so it gets fixed.
+//   device_test_summary.mjs --failed <TEST-*.xml>...
+//     Prints the failed tests as `Class#method,Class#method`, the form the instrumentation `class` argument takes.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -40,22 +45,41 @@ export function moduleOf(path) {
   return build > 0 ? parts[build - 1] : path;
 }
 
-export function summarize(title, reports) {
+/** `Class#method` for each failed test in [reports], the form the instrumentation `class` argument takes. */
+export function failedTests(reports) {
+  return [...new Set(reports.flatMap(({ xml }) => parse(xml)).filter(it => it.outcome === 'failed')
+    .map(it => `${it.className}#${it.name}`))];
+}
+
+export function summarize(title, reports, retryReports = []) {
   const lines = [`### ${title}`, ''];
   if (reports.length === 0) {
     return [...lines, 'No test results were produced. Check the step logs: the emulator or the build may have failed first.', ''].join('\n');
   }
+  const passedOnRetry = new Set(retryReports.flatMap(({ xml }) => parse(xml)).filter(it => it.outcome === 'passed')
+    .map(it => `${it.className}#${it.name}`));
   const modules = new Map();
   for (const { path, xml } of reports) {
     const module = moduleOf(path);
-    modules.set(module, [...(modules.get(module) ?? []), ...parse(xml)]);
+    const cases = parse(xml).map(it => it.outcome === 'failed' && passedOnRetry.has(`${it.className}#${it.name}`)
+      ? { ...it, outcome: 'flaky' } : it);
+    modules.set(module, [...(modules.get(module) ?? []), ...cases]);
   }
-  lines.push('| Module | Passed | Failed | Skipped |', '| --- | ---: | ---: | ---: |');
+  lines.push('| Module | Passed | Flaky | Failed | Skipped |', '| --- | ---: | ---: | ---: | ---: |');
   const failures = [];
+  const flaky = [];
   for (const [module, cases] of [...modules].sort(([a], [b]) => a.localeCompare(b))) {
     const count = outcome => cases.filter(it => it.outcome === outcome).length;
-    lines.push(`| ${module} | ${count('passed')} | ${count('failed')} | ${count('skipped')} |`);
+    lines.push(`| ${module} | ${count('passed')} | ${count('flaky')} | ${count('failed')} | ${count('skipped')} |`);
     for (const it of cases.filter(it => it.outcome === 'failed')) failures.push({ module, ...it });
+    for (const it of cases.filter(it => it.outcome === 'flaky')) flaky.push({ module, ...it });
+  }
+  if (flaky.length > 0) {
+    lines.push('', `**${flaky.length} flaky** (failed, then passed when retried; fix or quarantine them)`, '');
+    for (const it of flaky) {
+      const test = `${it.className.split('.').pop()}.${it.name}`;
+      lines.push(`- \`${it.module}\` \`${test}\`: ${it.message.replaceAll('|', '\\|').slice(0, 300)}`);
+    }
   }
   if (failures.length > 0) {
     lines.push('', `**${failures.length} failed**`, '');
@@ -67,7 +91,17 @@ export function summarize(title, reports) {
   return [...lines, ''].join('\n');
 }
 
+const read = paths => paths.map(path => ({ path, xml: readFileSync(path, 'utf8') }));
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const [title, ...paths] = process.argv.slice(2);
-  process.stdout.write(summarize(title, paths.map(path => ({ path, xml: readFileSync(path, 'utf8') }))));
+  const args = process.argv.slice(2);
+  if (args[0] === '--failed') {
+    process.stdout.write(failedTests(read(args.slice(1))).join(','));
+  } else {
+    const [title, ...rest] = args;
+    const split = rest.indexOf('--');
+    const first = split < 0 ? rest : rest.slice(0, split);
+    const retry = split < 0 ? [] : rest.slice(split + 1);
+    process.stdout.write(summarize(title, read(first), read(retry)));
+  }
 }
