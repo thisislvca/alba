@@ -12,6 +12,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
@@ -45,7 +46,7 @@ class LibraryEditsTest {
         } finally { runBlocking { repository.setCloudTrashed(ids, false); previous.forEach { (id, value) -> repository.setFavorite(id, value) }; repository.deleteAlbum(album.id) } }
     }
 
-    @Test fun cloudTrashRequiresConfirmationAndCanBeRestoredFromItsCollection() {
+    @Smoke @Test fun cloudTrashRequiresConfirmationAndCanBeRestoredFromItsCollection() {
         compose.waitForGalleryMedia()
         val id = "fixture:icloud:0017"
         try {

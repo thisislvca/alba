@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import org.junit.Assert.*
 import org.junit.Rule
@@ -48,7 +49,7 @@ class GalleryPinchAnimationTest {
         compose.mainClock.advanceTimeBy(400)
     }
 
-    @Test fun pinchFollowsTheFingersThenCommitsOrReverts() {
+    @Smoke @Test fun pinchFollowsTheFingersThenCommitsOrReverts() {
         compose.scrollToGalleryMedia("fixture:icloud:0020")
         grid.performScrollToKey("fixture:icloud:0020")
         // Initial lazy-grid placement must settle before measuring the pinch anchor.

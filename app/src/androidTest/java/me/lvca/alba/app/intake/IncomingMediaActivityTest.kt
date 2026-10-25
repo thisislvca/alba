@@ -13,6 +13,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.MediaStoreFixtures
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.waitUntilDisplayed
 import org.junit.Assert.*
@@ -27,7 +28,7 @@ class IncomingMediaActivityTest {
     private fun image(): Uri = MediaStoreFixtures.insertJpeg("alba-incoming-test-${System.nanoTime()}.jpg")
     private fun intent(action: String) = Intent(action).setPackage(context.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
-    @Test fun openWithUsesRealIntentResolutionAndRestoresThePhotoAfterRecreation() {
+    @Smoke @Test fun openWithUsesRealIntentResolutionAndRestoresThePhotoAfterRecreation() {
         val uri = image()
         try {
             ActivityScenario.launch<MainActivity>(intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/jpeg")).use { scenario ->
@@ -41,7 +42,7 @@ class IncomingMediaActivityTest {
             }
         } finally { context.contentResolver.delete(uri, null, null) }
     }
-    @Test fun multipleShareIsPreviewedAndDoesNotSilentlyUpload() {
+    @Smoke @Test fun multipleShareIsPreviewedAndDoesNotSilentlyUpload() {
         val one = image(); val two = image()
         try {
             ActivityScenario.launch<MainActivity>(intent(Intent.ACTION_SEND_MULTIPLE).apply {

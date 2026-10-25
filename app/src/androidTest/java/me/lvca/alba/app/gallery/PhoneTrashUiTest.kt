@@ -16,6 +16,7 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.MediaStoreFixtures
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.SystemWindows
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openViewerDetails
@@ -38,7 +39,7 @@ class PhoneTrashUiTest {
         checkNotNull(SystemWindows.await(id, UI_WAIT)) { "Android confirmation did not appear: $id" }.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         instrumentation.waitForIdleSync()
     }
-    @Test fun localVideoPlaysAndAndroidTrashCanBeCancelledConfirmedAndRestored() {
+    @Smoke @Test fun localVideoPlaysAndAndroidTrashCanBeCancelledConfirmedAndRestored() {
         val context = compose.activity.applicationContext
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_VIDEO)
         val resolver = context.contentResolver

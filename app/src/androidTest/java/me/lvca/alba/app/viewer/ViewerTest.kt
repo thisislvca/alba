@@ -11,7 +11,9 @@ import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.ScreenshotCapture
 import me.lvca.alba.app.testing.Screenshots
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
@@ -64,30 +66,32 @@ class ViewerTest {
         compose.onNodeWithText("Remove offline copy").performScrollTo().assertIsDisplayed()
     }
 
+    @Smoke @Test
+    fun demoVideoPlaysResumesAfterTheAppReturnsAndClosesItsPlayer() {
+        compose.waitForGalleryMedia()
+        compose.openGalleryMedia("fixture:icloud:0019")
+        compose.waitForVideoPlaying()
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        compose.waitForVideoPlaying()
+        // Playback hides the chrome, Back button included, after a few seconds on the test clock, and a tap toggles
+        // it, so tapping the button races that timer. System back closes the viewer whatever the chrome shows.
+        compose.pressBack()
+        compose.waitUntil(timeoutMillis = SHORT_WAIT) {
+            compose.onAllNodes(hasTestTag("video-player")).fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    /** README feature captures, which scripts/run_android_tests.sh collects. Runs only when asked for; see [ScreenshotCapture]. */
+    @ScreenshotCapture
     @Test
-    fun demoVideoActuallyPlaysAndCapturesFeatureScreens() {
+    fun captureFeatureScreens() {
         compose.waitForGalleryMedia()
         compose.scrollToGalleryMedia("fixture:icloud:0019")
-        // scripts/run_android_tests.sh collects the features-* captures.
         Screenshots.capture("features-gallery")
         compose.onNodeWithTag("media-fixture:icloud:0019").performClick()
         compose.waitForVideoPlaying()
         Screenshots.capture("features-video")
-        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
-        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
-        compose.waitForVideoPlaying()
-        compose.openViewerDetails()
-        if (hasNodeWithText("Remove offline copy")) {
-            compose.onNodeWithText("Remove offline copy").performScrollTo().performClick()
-            compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Keep original offline") }
-        }
-        compose.onNodeWithText("Keep original offline").performScrollTo().performClick()
-        compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Remove offline copy") }
-        compose.pressBack()
-        compose.onNodeWithContentDescription("Back to gallery").performClick()
-        compose.waitUntil(timeoutMillis = SHORT_WAIT) {
-            compose.onAllNodes(hasTestTag("video-player")).fetchSemanticsNodes().isEmpty()
-        }
     }
 
     @Test fun viewerSwipesZoomsHidesControlsAndRestoresSelectedPhoto() {
@@ -122,7 +126,7 @@ class ViewerTest {
         compose.onNodeWithTag("viewer-image-fixture:icloud:0001").assertIsDisplayed()
     }
 
-    @Test fun tappingAPlayingVideoBringsBackTheWholeChrome() {
+    @Smoke @Test fun tappingAPlayingVideoBringsBackTheWholeChrome() {
         compose.waitForGalleryMedia()
         compose.openGalleryMedia("fixture:icloud:0019")
         compose.waitUntil(UI_WAIT) { compose.runOnIdle { player()?.isPlaying == true } }
@@ -153,7 +157,7 @@ class ViewerTest {
         compose.onNodeWithTag("video-player").assertDoesNotExist()
     }
 
-    @Test fun pausedVideoRetainsPositionAcrossActivityRecreation() {
+    @Smoke @Test fun pausedVideoRetainsPositionAcrossActivityRecreation() {
         compose.waitForGalleryMedia(); compose.openGalleryMedia("fixture:icloud:0019")
         compose.waitUntil(UI_WAIT) { compose.runOnIdle { player()?.playbackState == Player.STATE_READY } }
         compose.runOnIdle { player()!!.apply { pause(); seekTo(1200) } }

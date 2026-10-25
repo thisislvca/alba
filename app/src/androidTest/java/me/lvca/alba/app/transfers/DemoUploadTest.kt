@@ -13,6 +13,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.engine.model.*
@@ -30,7 +31,7 @@ class DemoUploadTest {
     private val repository get() = graph.galleryRepository
     private fun label(id: Int) = compose.activity.getString(id)
 
-    @Test fun manualSampleUploadUsesPublicEntryPointAndAppearsInTheLibrary() {
+    @Smoke @Test fun manualSampleUploadUsesPublicEntryPointAndAppearsInTheLibrary() {
         compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(label(R.string.upload_photos)).performClick()
         compose.onNodeWithText(label(R.string.demo_upload_disclosure)).assertIsDisplayed()

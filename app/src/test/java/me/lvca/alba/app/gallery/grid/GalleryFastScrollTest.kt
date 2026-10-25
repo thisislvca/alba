@@ -1,0 +1,108 @@
+package me.lvca.alba.app.gallery.grid
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.material3.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.unit.dp
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import me.lvca.alba.app.ui.gallery.GalleryFastScroll
+import me.lvca.alba.app.ui.gallery.GalleryScrollLabel
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class GalleryFastScrollTest {
+    @get:Rule val compose = createComposeRule()
+    @Test fun handleRevealsOnScrollDoesNotJumpOnGrabAndScrubsMonthByMonth() {
+        compose.setContent {
+            MaterialTheme {
+                val grid = rememberLazyGridState()
+                // 24 months of a header and four photos: 120 items, past the 100-item minimum.
+                val headers = (0 until 24).map { it * 5 }
+                val density = LocalDensity.current
+                Box(Modifier.fillMaxSize()) {
+                    LazyVerticalGrid(GridCells.Fixed(3), state = grid, modifier = Modifier.fillMaxSize().testTag("test-grid"),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        repeat(24) { month ->
+                            item(span = { GridItemSpan(maxLineSpan) }) { Text("Month $month", Modifier.fillMaxWidth().height(40.dp)) }
+                            items(4) { Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primaryContainer)) }
+                        }
+                    }
+                    GalleryFastScroll(grid, headers.mapIndexed { month, index -> GalleryScrollLabel(index, "Month $month · ${2026 - month / 6}", 2026 - month / 6) },
+                        headers.associateWith { with(density) { 40.dp.toPx() } }, 3, Modifier.align(Alignment.CenterEnd).fillMaxHeight(), 0.dp)
+                }
+            }
+        }
+        compose.onNodeWithTag("fast-scroll-handle").assertIsNotDisplayed()
+        compose.onNodeWithTag("test-grid").performTouchInput { swipeUp(durationMillis = 450) }
+        compose.onNodeWithTag("fast-scroll-handle").assertIsDisplayed()
+        val rail = compose.onNodeWithTag("gallery-fast-scroll")
+        rail.performSemanticsAction(SemanticsActions.SetProgress) { it(.3f) }
+        compose.waitForIdle()
+        fun progress() = rail.fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo].current
+        val before = progress()
+        val handleBounds = compose.onNodeWithTag("fast-scroll-handle").fetchSemanticsNode().boundsInRoot
+        val railBounds = rail.fetchSemanticsNode().boundsInRoot
+        val grip = handleBounds.center - railBounds.topLeft
+        rail.performTouchInput { down(grip) }
+        // Like Google Photos' main grid, dragging shows year labels on the track rather than a date bubble.
+        compose.onNodeWithTag("fast-scroll-year-2026").assertIsDisplayed()
+        compose.onNodeWithTag("fast-scroll-date").assertDoesNotExist()
+        assertEquals("Taking hold should preserve position", before, progress(), .005f)
+        rail.performTouchInput { moveBy(Offset(0f, 80f), 300) }
+        compose.waitForIdle()
+        assertTrue("Dragging down should move continuously through the library", progress() > before)
+        val firstMove = progress()
+        rail.performTouchInput { moveBy(Offset(0f, 80f), 300) }
+        compose.waitForIdle()
+        assertEquals("Equal finger travel should produce equal scroll progress", firstMove - before, progress() - firstMove, .015f)
+        compose.onNodeWithTag("fast-scroll-year-2026").assertIsDisplayed()
+        val yearBounds = compose.onNodeWithTag("fast-scroll-year-2026").fetchSemanticsNode().boundsInRoot
+        rail.performTouchInput { moveBy(Offset(0f, -height.toFloat()), 500) }
+        compose.waitForIdle()
+        assertEquals(0f, progress(), .005f)
+        assertEquals("The year stays in place behind the scrubber", yearBounds,
+            compose.onNodeWithTag("fast-scroll-year-2026").fetchSemanticsNode().boundsInRoot)
+        rail.performTouchInput { up() }
+        compose.onNodeWithTag("fast-scroll-year-2026").assertDoesNotExist()
+        // A released thumb hides after a second, sooner than after ordinary scrolling.
+        compose.mainClock.advanceTimeBy(1300)
+        compose.onNodeWithTag("fast-scroll-handle").assertIsNotDisplayed()
+    }
+
+    @Test fun shortGridGetsNoScrubber() {
+        compose.setContent {
+            MaterialTheme {
+                val grid = rememberLazyGridState()
+                // 99 items: one short of Google Photos' minimum.
+                val headers = (0 until 33).map { it * 3 }
+                Box(Modifier.fillMaxSize()) {
+                    LazyVerticalGrid(GridCells.Fixed(2), state = grid, modifier = Modifier.fillMaxSize().testTag("test-grid")) {
+                        repeat(33) { month ->
+                            item(span = { GridItemSpan(maxLineSpan) }) { Text("Month $month", Modifier.fillMaxWidth().height(40.dp)) }
+                            items(2) { Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primaryContainer)) }
+                        }
+                    }
+                    GalleryFastScroll(grid, headers.mapIndexed { month, index -> GalleryScrollLabel(index, "Month $month", 2026) },
+                        emptyMap(), 2, Modifier.align(Alignment.CenterEnd).fillMaxHeight(), 0.dp)
+                }
+            }
+        }
+        compose.onNodeWithTag("test-grid").performTouchInput { swipeUp(durationMillis = 450) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("fast-scroll-handle").assertDoesNotExist()
+        compose.onNodeWithTag("gallery-fast-scroll").assertDoesNotExist()
+    }
+}

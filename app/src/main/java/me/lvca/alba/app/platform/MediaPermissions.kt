@@ -31,8 +31,8 @@ internal fun hasLimitedPhotoAccess(sdkInt: Int, granted: (String) -> Boolean): B
  * Uploads must keep photo location metadata, which Android redacts without ACCESS_MEDIA_LOCATION. The demo library
  * never uploads phone originals to Apple, so it does not ask.
  */
-internal fun uploadNeedsMediaLocationPermission(accountState: ICloudAccountState, sdkInt: Int, granted: Boolean): Boolean =
-    accountState != ICloudAccountState.Demo && sdkInt >= Build.VERSION_CODES.Q && !granted
+internal fun uploadNeedsMediaLocationPermission(accountState: ICloudAccountState, granted: Boolean): Boolean =
+    accountState != ICloudAccountState.Demo && !granted
 
 /** What a gallery upload covers: the current selection, or one phone photo. */
 internal sealed interface UploadTarget {

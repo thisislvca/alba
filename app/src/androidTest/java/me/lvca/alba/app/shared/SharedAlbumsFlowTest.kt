@@ -11,6 +11,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.hideKeyboard
 import me.lvca.alba.app.testing.openViewerDetails
@@ -57,7 +58,7 @@ class SharedAlbumsFlowTest {
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-comment-input").fetchSemanticsNodes().isNotEmpty() }
     }
-    @Test fun sharedVideoStreamsAndReopensFromOfflineStorage() {
+    @Smoke @Test fun sharedVideoStreamsAndReopensFromOfflineStorage() {
         compose.scrollToGalleryMedia("fixture:icloud:0020")
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collection-shared").performClick()

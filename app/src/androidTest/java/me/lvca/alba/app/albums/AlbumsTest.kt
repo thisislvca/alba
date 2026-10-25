@@ -11,6 +11,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.hideKeyboard
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
@@ -28,7 +29,7 @@ class AlbumsTest {
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private fun text(id: Int) = compose.activity.getString(id)
 
-    @Test fun favoriteEditingKeepsDetailOpenAndAlbumCreateRenameAddWork() {
+    @Smoke @Test fun favoriteEditingKeepsDetailOpenAndAlbumCreateRenameAddWork() {
         compose.scrollToGalleryMedia("fixture:icloud:0020")
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithText("Favorites").performClick()

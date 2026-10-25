@@ -253,21 +253,21 @@ private fun AlbaMain(
 
             override fun upload(target: UploadTarget) {
                 val accountState = viewModel.account.state.value.accountState
-                if (uploadNeedsMediaLocationPermission(accountState, Build.VERSION.SDK_INT, context.granted(Manifest.permission.ACCESS_MEDIA_LOCATION))) {
+                if (uploadNeedsMediaLocationPermission(accountState, context.granted(Manifest.permission.ACCESS_MEDIA_LOCATION))) {
                     pendingUpload = target
                     mediaLocationPermission.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
                 } else startUpload(viewModel, target)
             }
 
             override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || items.isEmpty()) return
+                if (items.isEmpty()) return
                 requestPhoneTrash(phoneTrashUris(items) ?: return viewModel.localOperationFailed(), restore)
             }
 
             override fun restoreOnPhone(contentUris: List<String>) = requestPhoneTrash(contentUris, restore = true)
 
             private fun requestPhoneTrash(contentUris: List<String>, restore: Boolean) {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || contentUris.isEmpty()) return
+                if (contentUris.isEmpty()) return
                 viewModel.phoneTrashRequested(contentUris, restore)
                 runCatching {
                     val request = MediaStore.createTrashRequest(context.contentResolver, contentUris.map(Uri::parse), !restore)

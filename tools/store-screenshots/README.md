@@ -63,14 +63,22 @@ bun run render ../../.artifacts/store-captures/raw
 To refresh the captures, build and install the debug app and instrumentation APK.
 On the owned disposable emulator, clear `me.lvca.alba.dev` app data before
 capturing so prior UI tests do not leave offline items or selections behind. Run
-`me.lvca.alba.app.screenshots.StoreScreenshotTest` with `-e captureStoreScreenshots true` alone on a disposable English demo emulator
-with a 1080 × 2400 display. Capture paths are the app's external-files directory,
+`me.lvca.alba.app.screenshots.StoreScreenshotTest` alone on a disposable English demo emulator
+with a 1080 × 2400 display, selecting it by class and by its `@ScreenshotCapture` annotation:
+
+```sh
+adb shell am instrument -w -e class me.lvca.alba.app.screenshots.StoreScreenshotTest \
+  -e annotation me.lvca.alba.app.testing.ScreenshotCapture \
+  me.lvca.alba.dev.test/me.lvca.alba.app.testing.AlbaTestRunner
+```
+
+Without the annotation argument the test runner leaves it out. Capture paths are the app's external-files directory,
 `store-screenshots`. Copy the twelve PNGs into `.artifacts/store-captures/raw`:
 eleven screens used by the README, including the five store frames, plus an
 extra `00-library-top` frame showing the gallery before scrolling.
 Use host GPU/VM acceleration on macOS, verify Apple GPU/Metal after boot, and
-stop the owned emulator when finished. The capture test is for artwork generation;
-it is not a product test to include in every CI run.
+stop the owned emulator when finished. The capture test is for artwork generation,
+not a product test, so ordinary local and CI runs skip it.
 It waits for the photo viewer's loading indicators to disappear before saving
 that frame.
 

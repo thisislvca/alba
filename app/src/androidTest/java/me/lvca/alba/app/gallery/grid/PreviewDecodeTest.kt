@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.media.ExifInterface
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.ui.gallery.loadThumbnail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -13,7 +14,7 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class PreviewDecodeTest {
-    @Test fun previewFilesAreBoundedAndExifOrientationIsApplied() {
+    @Smoke @Test fun previewFilesAreBoundedAndExifOrientationIsApplied() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val file = File(context.cacheDir, "decode-regression-preview.jpg")
         try {

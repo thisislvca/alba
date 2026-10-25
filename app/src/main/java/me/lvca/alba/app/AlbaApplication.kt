@@ -8,7 +8,7 @@ import me.lvca.alba.app.diagnostics.DiagnosticOutcome
 import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 import me.lvca.alba.app.work.LegacyWorkerFactory
 
-class AlbaApplication : Application(), Configuration.Provider {
+open class AlbaApplication : Application(), Configuration.Provider {
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             // Keep WorkManager IDs separate from the user-initiated transfer job.

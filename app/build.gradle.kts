@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.alba.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.sentry)
+    alias(libs.plugins.roborazzi)
 }
 
 // Release builds stay unsigned. Only the isolated release job receives the upload key.
@@ -87,6 +88,17 @@ android {
     lint {
         checkReleaseBuilds = true
     }
+
+    // Fakes that both the JVM tests and the device tests use.
+    sourceSets {
+        getByName("test").kotlin.directories += "src/sharedTest/java"
+        getByName("androidTest").kotlin.directories += "src/sharedTest/java"
+    }
+}
+
+// Screenshot goldens live with the tests. CI records and verifies them on Linux; see README "Testing".
+roborazzi {
+    outputDir.set(file("src/test/screenshots"))
 }
 
 sentry {
@@ -130,6 +142,15 @@ dependencies {
     debugImplementation(libs.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.androidx.espresso.core)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.ext.junit)

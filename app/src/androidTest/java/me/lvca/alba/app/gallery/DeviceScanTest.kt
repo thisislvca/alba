@@ -5,6 +5,7 @@ import android.provider.MediaStore
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.testing.MediaStoreFixtures
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.grantTestMediaPermissions
 import me.lvca.alba.engine.source.AndroidMediaStoreSource
 import org.junit.Assert.*
@@ -12,7 +13,7 @@ import org.junit.Test
 
 class DeviceScanTest {
 
-    @Test fun deviceScanIncludesVideosFoldersAndRecoverableTrash() = runBlocking {
+    @Smoke @Test fun deviceScanIncludesVideosFoldersAndRecoverableTrash() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         grantTestMediaPermissions(context)
         val resolver = context.contentResolver

@@ -1,6 +1,5 @@
 package me.lvca.alba.app.ui.transfers
 
-import android.os.Build
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -123,7 +122,7 @@ internal fun DeviceUploadControls(
             Spacer(Modifier.height(10.dp))
             OutlinedButton(
                 onClick = onMoveVerifiedPhotoToTrash,
-                enabled = !isWorking && Build.VERSION.SDK_INT >= 30,
+                enabled = !isWorking,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("move-phone-original-to-trash"),
@@ -134,7 +133,7 @@ internal fun DeviceUploadControls(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                if (Build.VERSION.SDK_INT < 30) stringResource(R.string.android_11_or_later_is_required_for_verified_trash) else stringResource(R.string.alba_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi),
+                stringResource(R.string.alba_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

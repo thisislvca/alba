@@ -10,6 +10,7 @@ import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.MediaStoreFixtures
 import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.grantTestMediaPermissions
 import me.lvca.alba.app.testing.waitForGalleryMedia
@@ -25,7 +26,7 @@ class PhoneLibraryTest {
     private val repository get() = (compose.activity.application as AlbaApplication).graph.galleryRepository
     private fun image(): Uri = MediaStoreFixtures.insertJpeg("alba-completion-${System.nanoTime()}.jpg")
 
-    @Test fun foregroundMediaStoreChangesAppearWithoutLeavingTheApp() {
+    @Smoke @Test fun foregroundMediaStoreChangesAppearWithoutLeavingTheApp() {
         compose.waitForGalleryMedia()
         grantTestMediaPermissions(compose.activity)
         // Resume updates permission state and starts the lifecycle-bound observer.

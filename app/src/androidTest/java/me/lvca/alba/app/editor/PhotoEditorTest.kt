@@ -14,6 +14,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.MediaStoreFixtures
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.pressBack
@@ -32,7 +33,7 @@ class PhotoEditorTest {
         "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} LIKE ? AND ${android.provider.MediaStore.MediaColumns.RELATIVE_PATH} = ?",
         "%-edited-%.jpg", "Pictures/Alba/")
 
-    @Test fun editorSavesNewCopyAndKeepsOriginal() {
+    @Smoke @Test fun editorSavesNewCopyAndKeepsOriginal() {
         val existing = editedCopies()
         try {
         compose.scrollToGalleryMedia("fixture:icloud:0020")

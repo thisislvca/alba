@@ -2,9 +2,6 @@ package me.lvca.alba.app.ui.editor
 
 import android.graphics.Bitmap
 import android.net.Uri
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -40,8 +37,6 @@ import kotlinx.coroutines.*
 import me.lvca.alba.app.R
 import me.lvca.alba.app.platform.PhotoCrop
 import me.lvca.alba.app.platform.SmallerPhotoCopyRequired
-import me.lvca.alba.app.platform.prepareEditedCopy
-import me.lvca.alba.app.platform.publishEditedCopy
 import me.lvca.alba.app.platform.renderPhotoEdit
 import me.lvca.alba.app.platform.saveEditedCopy
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -64,7 +59,6 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
     var failed by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var smallerCopy by remember { mutableStateOf<SmallerPhotoCopyRequired?>(null) }
-    var pendingCopyPath by rememberSaveable { mutableStateOf<String?>(null) }
     val edit = rememberSaveable(media.id, saver = PhotoEditState.Saver) { PhotoEditState() }
     val crop = edit.current.crop
     val (left, top, right, bottom) = crop
@@ -90,34 +84,14 @@ internal fun PhotoEditorScreen(media: GalleryMedia, source: suspend (GalleryMedi
         finally { busy = false }
     }
     DisposableEffect(Unit) { onDispose { file?.delete() } }
-    val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/jpeg")) { document ->
-        val prepared = pendingCopyPath?.let(::File)
-        pendingCopyPath = null
-        if (document == null) { prepared?.delete(); busy = false }
-        else scope.launch {
-            busy = true; saving = true; failed = false
-            try {
-                val uri = publishEditedCopy(context, media, requireNotNull(prepared), document)
-                close(); saved(uri)
-            } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { failed = true }
-            finally { prepared?.delete(); busy = false; saving = false }
-        }
-    }
     fun save(allowSmaller: Boolean = false) {
         val input = file ?: return
         scope.launch {
             busy = true; saving = true; failed = false
             try {
                 val output = renderPhotoEdit(input, crop, turns, allowSmallerCopy = allowSmaller)
-                if (Build.VERSION.SDK_INT >= 29) {
-                    val uri = try { saveEditedCopy(context, media, output, source = input) } finally { output.recycle() }
-                    close(); saved(uri)
-                } else {
-                    val prepared = try { prepareEditedCopy(context, output, input) } finally { output.recycle() }
-                    pendingCopyPath = prepared.path
-                    exporter.launch(media.fileName.substringBeforeLast('.') + "-edited.jpg")
-                }
+                val uri = try { saveEditedCopy(context, media, output, source = input) } finally { output.recycle() }
+                close(); saved(uri)
             } catch (e: CancellationException) { throw e }
             catch (e: SmallerPhotoCopyRequired) { smallerCopy = e }
             catch (_: Exception) { failed = true }

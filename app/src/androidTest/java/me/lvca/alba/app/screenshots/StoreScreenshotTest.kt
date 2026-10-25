@@ -4,7 +4,6 @@ import android.os.SystemClock
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.AlbaApplication
@@ -18,6 +17,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.ScreenshotCapture
 import me.lvca.alba.app.testing.Screenshots
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.pressBack
@@ -35,6 +35,7 @@ import org.junit.Rule
 import org.junit.Test
 
 /** Repeatable, real UI captures for the store artwork. Run alone on a disposable demo device. */
+@ScreenshotCapture
 class StoreScreenshotTest {
     @get:Rule(order = 1) val onboarding = OnboardingRule()
     @get:Rule(order = 2) val compose = createAndroidComposeRule<MainActivity>()
@@ -59,8 +60,6 @@ class StoreScreenshotTest {
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag(if (id == "fixture:icloud:0019") "video-player" else "viewer-image-$id").fetchSemanticsNodes().isNotEmpty() }
     }
     @Test fun captureStoreScreens() {
-        // This opt-in capture utility produces store artwork; ordinary device runs do not capture it.
-        if (InstrumentationRegistry.getArguments().getString("captureStoreScreenshots") != "true") return
         compose.waitForGalleryMedia()
         if (compose.onAllNodesWithText("Not now").fetchSemanticsNodes().isNotEmpty()) {
             compose.onNodeWithText("Not now").performScrollTo().performClick()

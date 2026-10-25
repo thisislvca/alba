@@ -11,6 +11,7 @@ import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.testing.MediaStoreFixtures
 import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.engine.model.GalleryRepository
 import org.junit.Assert.*
 import org.junit.Rule
@@ -21,7 +22,7 @@ import java.io.OutputStream
 
 class GalleryShareTest {
     @get:Rule val onboarding = OnboardingRule()
-    @Test fun sharesExactBytesThroughReadOnlyScopedUrisWithMixedMimeAndNoFilenameCollisions() = runBlocking {
+    @Smoke @Test fun sharesExactBytesThroughReadOnlyScopedUrisWithMixedMimeAndNoFilenameCollisions() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repository = (context as AlbaApplication).graph.galleryRepository
         repository.refresh(false)

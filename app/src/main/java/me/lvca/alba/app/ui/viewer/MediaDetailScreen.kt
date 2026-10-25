@@ -2,7 +2,6 @@
 
 package me.lvca.alba.app.ui.viewer
 
-import android.os.Build
 import androidx.activity.BackEventCompat
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.PredictiveBackHandler
@@ -359,7 +358,7 @@ internal fun MediaDetailScreen(
                         Spacer(Modifier.height(16.dp))
                         PhotoMetadataCards(media, accountState, uploadTransfer)
                         PhotoExtraMetadata(media)
-                        if (Build.VERSION.SDK_INT >= 30 && (media.origin == MediaOrigin.DEVICE || media.linkedDeviceReference != null)) {
+                        if (media.origin == MediaOrigin.DEVICE || media.linkedDeviceReference != null) {
                             Spacer(Modifier.height(16.dp))
                             DetailAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.trash_phone_copy), !isWorking,
                                 { actions.trashOnPhone(listOf(media), media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) })
@@ -384,7 +383,7 @@ internal fun MediaDetailScreen(
                                         DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true }, { Icon(Icons.Outlined.Info, null) })
                                         Text(stringResource(R.string.shared_copy_notice), Modifier.padding(18.dp))
                                     }
-                                    if (Build.VERSION.SDK_INT >= 29) DetailAction(stringResource(if (media.kind == MediaKind.LIVE_PHOTO) R.string.save_photo_and_video_to_gallery else R.string.save_to_phone_gallery),
+                                    DetailAction(stringResource(if (media.kind == MediaKind.LIVE_PHOTO) R.string.save_photo_and_video_to_gallery else R.string.save_to_phone_gallery),
                                         !isWorking, { actions.saveToGallery(media) }, { Icon(AlbaIcons.PhoneAndroid, null) })
                                     DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) }, { Icon(Icons.Outlined.Share, null) })
                                     if (media.kind == MediaKind.LIVE_PHOTO) DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,
@@ -526,7 +525,7 @@ private fun ViewerActionBar(
         } else ViewerAction(stringResource(R.string.details), true, onDetails, Modifier.weight(1f)) {
             Icon(Icons.Outlined.Info, null)
         }
-        if (!media.isShared && (media.origin == MediaOrigin.ICLOUD || Build.VERSION.SDK_INT >= 30)) {
+        if (!media.isShared) {
             ViewerAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.viewer_trash),
                 enabled && canEdit, onTrash, Modifier.weight(1f)) {
                 Icon(AlbaIcons.DeleteOutline, null)

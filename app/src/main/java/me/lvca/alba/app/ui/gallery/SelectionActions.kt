@@ -2,7 +2,6 @@
 
 package me.lvca.alba.app.ui.gallery
 
-import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
@@ -64,7 +63,7 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
                     enabled = !mediaBusy && withinLimit, modifier = Modifier.weight(1f)) { actions.share(selectedItems) }
                 if (hasCloud) SelectionAction(AlbaIcons.DownloadForOffline, stringResource(R.string.selection_offline_short),
                     stringResource(R.string.keep_offline), modifier = Modifier.weight(1f)) { actions.runBatch(BatchAction.KEEP_OFFLINE) }
-                if (hasCloud && !query.trashOnly && Build.VERSION.SDK_INT >= 29)
+                if (hasCloud && !query.trashOnly)
                     SelectionAction(AlbaIcons.SaveAlt, stringResource(R.string.selection_save_short), stringResource(R.string.save_to_phone_gallery),
                         modifier = Modifier.weight(1f).testTag("save-selection-to-phone")) { actions.runBatch(BatchAction.SAVE_TO_PHONE) }
                 if (hasPhone && !query.trashOnly && selectedItems.any { it.origin == MediaOrigin.DEVICE && UploadMediaFormat.isCandidate(it.mimeType) })
@@ -84,7 +83,7 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
                             DropdownMenuItem(text = { Text(stringResource(R.string.unfavorite)) }, enabled = canFavorite,
                                 onClick = { more = false; actions.setFavorites(selectedItems.map { it.id }, false) })
                         }
-                        if (Build.VERSION.SDK_INT >= 30 && hasPhone && !hasCloud) DropdownMenuItem(
+                        if (hasPhone && !hasCloud) DropdownMenuItem(
                             text = { Text(stringResource(if (query.trashOnly) R.string.restore_photo else R.string.trash_phone_copy)) },
                             onClick = { more = false; actions.trashOnPhone(selectedItems, query.trashOnly) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.add_to_album)) }, enabled = editable && !hasShared && !query.trashOnly && hasCloud && !hasPhone && withinLimit,

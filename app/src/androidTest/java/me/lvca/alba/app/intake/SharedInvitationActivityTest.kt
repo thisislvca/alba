@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import org.junit.Assert.*
 import org.junit.Rule
@@ -17,7 +18,7 @@ import org.junit.Test
 class SharedInvitationActivityTest {
     @get:Rule val compose = createEmptyComposeRule()
     private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
-    @Test fun invitationSurvivesRecreationAndWaitsForSignIn() {
+    @Smoke @Test fun invitationSurvivesRecreationAndWaitsForSignIn() {
         assertNull((context as AlbaApplication).graph.accountManager.authorizedSession)
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://photos.icloud.com/shared/album/fixture"), context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->

@@ -11,6 +11,7 @@ import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.backGesture
 import me.lvca.alba.app.testing.hideKeyboard
@@ -33,7 +34,7 @@ class GalleryNavigationTest {
     private fun hasNodeWithText(text: String): Boolean =
         compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
 
-    @Test fun libraryLeadsWithPhotosAndDestinationsPreserveTheirOwnState() {
+    @Smoke @Test fun libraryLeadsWithPhotosAndDestinationsPreserveTheirOwnState() {
         compose.waitForGalleryMedia()
         if (compose.onAllNodesWithText("Not now").fetchSemanticsNodes().isNotEmpty()) {
             compose.onNodeWithText("Not now").performScrollTo().performClick()
@@ -92,7 +93,7 @@ class GalleryNavigationTest {
         compose.onNodeWithTag("tab-LIBRARY").assertIsSelected()
     }
 
-    @Test fun backGestureCancelKeepsTheScreenAndCommitPopsIt() {
+    @Smoke @Test fun backGestureCancelKeepsTheScreenAndCommitPopsIt() {
         compose.waitForGalleryMedia()
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collection-albums").performClick()
@@ -153,8 +154,10 @@ class GalleryNavigationTest {
         compose.waitForGalleryMedia()
         compose.onNodeWithTag("tab-SEARCH").performClick()
         compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
-        compose.activityRule.scenario.recreate()
-        compose.waitUntil(timeoutMillis = UI_WAIT) { hasNodeWithText("Sea breeze") }
+        // libraryLeadsWithPhotosAndDestinationsPreserveTheirOwnState checks that the search survives recreation.
+        // The navigation steps aside while the keyboard is open, so close it as a recreation used to.
+        compose.hideKeyboard()
+        compose.waitUntilDisplayed(hasTestTag("tab-COLLECTIONS"))
         compose.scrollToGalleryMedia("fixture:icloud:0019")
         compose.onNodeWithTag("media-fixture:icloud:0019").performTouchInput { longClick() }
         compose.onNodeWithText("1 selected").assertIsDisplayed()
