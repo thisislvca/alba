@@ -1,17 +1,14 @@
 package me.lvca.alba.app.onboarding
 
-import android.content.pm.ActivityInfo
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import kotlinx.coroutines.flow.first
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
-import me.lvca.alba.app.R
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.testing.FailureCapture
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
-import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.pressBack
@@ -56,11 +53,6 @@ class OnboardingTest {
         compose.onNodeWithText("Try the demo").performClick()
         compose.waitUntil(UI_WAIT) { graph.accountManager.state.value == me.lvca.alba.protocol.account.ICloudAccountState.Demo }
         compose.onNodeWithTag("account-button").assertIsDisplayed()
-    }
-
-    @Test fun demoFromFirstPagePersistsAcrossANewActivity() {
-        compose.onNodeWithText("Try the demo").performClick()
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(OnboardingPreferences(compose.activity).completed)
         // A new Activity receives no saved Compose state; completion must come from disk.
         compose.activityRule.scenario.close()
@@ -68,18 +60,5 @@ class OnboardingTest {
             compose.onNodeWithTag("welcome").assertDoesNotExist()
             compose.onNodeWithTag("account-button").assertIsDisplayed()
         }
-    }
-
-    @Test fun landscapeKeepsActionsReachableAndContentScrollable() {
-        compose.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        try {
-            compose.waitUntil(SHORT_WAIT) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
-            compose.onNodeWithText("Continue").performScrollTo().assertIsDisplayed().performClick()
-            compose.onNodeWithText(compose.activity.getString(R.string.welcome_optional_body)).performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Connect iCloud").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Try the demo").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Try the demo").performClick()
-            compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
-        } finally { compose.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
     }
 }

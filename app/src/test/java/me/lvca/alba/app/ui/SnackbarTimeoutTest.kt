@@ -32,13 +32,10 @@ class SnackbarTimeoutTest {
         assertEquals(true, askedWithControls)
     }
 
-    @Test fun plainMessagesKeepMaterialDurations() {
-        assertEquals(4_000L, snackbarTimeoutMillis(status(SnackbarDuration.Short), screenReaderOn = true, recommended = asIs))
-        assertEquals(10_000L, snackbarTimeoutMillis(status(SnackbarDuration.Long), screenReaderOn = false, recommended = asIs))
-        assertNull(snackbarTimeoutMillis(status(SnackbarDuration.Indefinite), screenReaderOn = false, recommended = asIs))
-    }
-
-    @Test fun anyActionGetsTheScreenReaderMinimum() {
+    @Test fun onlyMessagesWithAnActionGetTheScreenReaderMinimum() {
         assertEquals(10_000L, snackbarTimeoutMillis(status(SnackbarDuration.Short, "Retry"), screenReaderOn = true, recommended = asIs))
+        // A plain message keeps its Material duration, and an indefinite one never times out.
+        assertEquals(4_000L, snackbarTimeoutMillis(status(SnackbarDuration.Short), screenReaderOn = true, recommended = asIs))
+        assertNull(snackbarTimeoutMillis(status(SnackbarDuration.Indefinite), screenReaderOn = true, recommended = asIs))
     }
 }

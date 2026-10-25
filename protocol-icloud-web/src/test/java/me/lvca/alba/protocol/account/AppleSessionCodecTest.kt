@@ -2,6 +2,7 @@ package me.lvca.alba.protocol.account
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AppleSessionCodecTest {
@@ -14,6 +15,8 @@ class AppleSessionCodecTest {
 
         assertEquals(snapshot, decoded)
         assertFalse(encoded.contains("password", ignoreCase = true))
+        // Sessions saved before the account name was kept still decode, without one.
+        assertNull(AppleSessionCodec.decode(AppleSessionCodec.encode(snapshot.copy(displayName = null))).displayName)
     }
 
     private fun sampleSnapshot() = AppleSessionSnapshot(
@@ -37,5 +40,6 @@ class AppleSessionCodecTest {
                 hostOnly = false,
             ),
         ),
+        displayName = "Person Example",
     )
 }

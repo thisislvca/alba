@@ -91,12 +91,6 @@ class ICloudAccountProfileTest {
         assertEquals("https://gateway.icloud.com/contacts/123/ck/card/photo", transport.photoUrl)
     }
 
-    @Test fun sessionNameRoundTripsAndOldSessionsRemainReadable() {
-        assertEquals(session, AppleSessionCodec.decode(AppleSessionCodec.encode(session)))
-        val old = AppleSessionCodec.encode(session.copy(displayName = null))
-        assertNull(AppleSessionCodec.decode(old).displayName)
-    }
-
     private class Transport : AppleHttpTransport {
         var status = 200
         var image = byteArrayOf(0xff.toByte(), 0xd8.toByte(), 0xff.toByte()) + ByteArray(12)

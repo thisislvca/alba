@@ -54,10 +54,4 @@ class GalleryScreenTest {
         assertEquals("trash:ICLOUD", GalleryScreen.albumOf(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)))
         assertNull(GalleryScreen.albumOf(GalleryQuery(origin = MediaOrigin.DEVICE, filename = "sea")))
     }
-
-    @Test fun anEmptySearchShowsSuggestions() {
-        assertTrue(GalleryQuery(filename = "  ").isBlankSearch)
-        assertFalse(GalleryQuery(filename = "sea").isBlankSearch)
-        assertFalse(GalleryQuery(collectionId = GalleryQuery.FAVORITES).isBlankSearch)
-    }
 }

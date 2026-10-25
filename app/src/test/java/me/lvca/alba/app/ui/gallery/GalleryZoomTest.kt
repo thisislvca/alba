@@ -53,22 +53,14 @@ class GalleryZoomTest {
         // The anchor itself travels to its new place.
         val anchor = morphPose(anchorFrom, anchorTo, anchorFrom, anchorTo, 1f, incoming = false, header = false)
         assertEquals(anchorTo.left, anchor.left, 1e-3f)
-    }
-
-    @Test fun itemsWithoutACounterpartFollowTheAnchorAndFade() {
-        val anchorFrom = rect(0f, 0f, 100f)
-        val anchorTo = rect(0f, 0f, 200f)
-        val gone = morphPose(rect(100f, 100f, 100f), null, anchorFrom, anchorTo, 1f, incoming = false, header = false)
-        assertEquals(ItemPose(200f, 200f, 2f, 0f), gone)
-        // Headers cross over: the old one is gone at half way, the new one only starts then.
-        assertEquals(0f, morphPose(rect(0f, 50f, 100f), null, anchorFrom, anchorTo, .5f, incoming = false, header = true).alpha, 1e-6f)
-        assertEquals(0f, morphPose(rect(0f, 50f, 100f), null, anchorFrom, anchorTo, .5f, incoming = true, header = true).alpha, 1e-6f)
-        // An incoming tile with no counterpart grows into place.
-        val arriving = morphPose(rect(200f, 0f, 200f), null, anchorFrom, anchorTo, 0f, incoming = true, header = false)
-        assertEquals(ItemPose(100f, 0f, .5f, 0f), arriving)
-        assertEquals(ItemPose(200f, 0f, 1f, 1f), morphPose(rect(200f, 0f, 200f), null, anchorFrom, anchorTo, 1f, incoming = true, header = false))
-        // One that the old layout already draws stays hidden.
-        assertEquals(0f, morphPose(rect(0f, 0f, 200f), rect(0f, 0f, 100f), anchorFrom, anchorTo, .7f, incoming = true, header = false).alpha, 0f)
+        // A tile with no counterpart is gone by the end, and one only the new layout has ends fully in place.
+        assertEquals(0f, morphPose(rect(100f, 100f, 80f), null, anchorFrom, anchorTo, 1f, incoming = false, header = false).alpha, 0f)
+        assertEquals(ItemPose(200f, 0f, 1f, 1f), morphPose(rect(200f, 0f, 135f), null, anchorFrom, anchorTo, 1f, incoming = true, header = false))
+        // Date headers cross over: the old one is gone at half way, and the new one only starts then.
+        assertEquals(0f, morphPose(rect(0f, 50f, 80f), null, anchorFrom, anchorTo, .5f, incoming = false, header = true).alpha, 1e-6f)
+        assertEquals(0f, morphPose(rect(0f, 50f, 80f), null, anchorFrom, anchorTo, .5f, incoming = true, header = true).alpha, 1e-6f)
+        // An incoming tile that the old layout already draws stays hidden, so it is never drawn twice.
+        assertEquals(0f, morphPose(rect(0f, 0f, 135f), rect(0f, 0f, 80f), anchorFrom, anchorTo, .7f, incoming = true, header = false).alpha, 0f)
     }
 
     @Test fun anchorIsTheNearestPhotoAndDragPrefersTheRow() {

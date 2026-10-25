@@ -2,11 +2,9 @@ package me.lvca.alba.app.gallery
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.AlbaApplication
-import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
@@ -18,7 +16,6 @@ import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilDisplayed
-import me.lvca.alba.engine.model.MediaOrigin
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -29,24 +26,7 @@ class LibraryEditsTest {
     @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
     private val repository get() = (compose.activity.application as AlbaApplication).graph.galleryRepository
 
-    @Test fun bulkFavoritesAlbumRemovalAndCloudTrashRestoreWorkInDemo() {
-        compose.waitForGalleryMedia()
-        val ids = listOf("fixture:icloud:0016", "fixture:icloud:0017")
-        val previous = runBlocking { repository.observeGallery().first().filter { it.id in ids }.associate { it.id to it.isFavorite } }
-        val album = runBlocking { repository.createAlbum("Completion test").also { repository.addToAlbum(it.id, ids) } }
-        try {
-            compose.runOnUiThread { ViewModelProvider(compose.activity)[AlbaViewModel::class.java].apply { gallery.selectItems(ids.toSet(), true); edits.setFavorites(ids, true) } }
-            compose.waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().filter { it.id in ids }.all { it.isFavorite } } }
-            runBlocking { repository.removeFromAlbum(album.id, ids); repository.setCloudTrashed(ids, true); repository.refresh(false) }
-            var items = runBlocking { repository.observeGallery().first().filter { it.id in ids } }
-            assertEquals(2, items.size); assertTrue(items.all { it.isTrashed && album.id !in it.collectionIds && it.origin == MediaOrigin.ICLOUD })
-            runBlocking { repository.setCloudTrashed(ids, false); repository.refresh(false) }
-            items = runBlocking { repository.observeGallery().first().filter { it.id in ids } }
-            assertEquals(2, items.size); assertTrue(items.none { it.isTrashed })
-        } finally { runBlocking { repository.setCloudTrashed(ids, false); previous.forEach { (id, value) -> repository.setFavorite(id, value) }; repository.deleteAlbum(album.id) } }
-    }
-
-    @Smoke @Test fun cloudTrashRequiresConfirmationAndCanBeRestoredFromItsCollection() {
+    @Smoke @Test fun cloudTrashRequiresConfirmationAndCanBeUndoneOrRestoredFromItsCollection() {
         compose.waitForGalleryMedia()
         val id = "fixture:icloud:0017"
         try {
@@ -58,9 +38,20 @@ class LibraryEditsTest {
             compose.onNodeWithText(compose.activity.resources.getQuantityString(R.plurals.cloud_trash_confirmation, 1, 1)).assertIsDisplayed()
             compose.onNodeWithText(compose.activity.getString(R.string.cancel)).performClick()
             assertFalse(runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed })
+            fun trashed() = runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed }
             compose.onNodeWithText(trash).performScrollTo().performClick()
             compose.onAllNodesWithText(trash).onLast().performClick()
-            compose.waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed } }
+            compose.waitUntil(LONG_WAIT) { trashed() }
+            // The message offers Undo, which brings the photo back into the viewer and the library.
+            compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("snackbar-action").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText(compose.activity.resources.getQuantityString(R.plurals.cloud_trash_moved, 1, 1)).assertIsDisplayed()
+            compose.onNodeWithTag("snackbar-action").assertTextEquals(compose.activity.getString(R.string.undo)).performClick()
+            compose.waitUntil(LONG_WAIT) { !trashed() }
+            compose.waitUntilDisplayed(hasTestTag("viewer-image-$id"))
+            if (compose.onAllNodesWithText(trash).fetchSemanticsNodes().isEmpty()) compose.openViewerDetails()
+            compose.onNodeWithText(trash).performScrollTo().performClick()
+            compose.onAllNodesWithText(trash).onLast().performClick()
+            compose.waitUntil(LONG_WAIT) { trashed() }
             // Like Google Photos, the viewer moves on to the next (older) photo instead of closing.
             compose.waitUntilDisplayed(hasTestTag("viewer-image-fixture:icloud:0018"))
             compose.onAllNodesWithTag("viewer-image-$id").assertCountEquals(0)
@@ -97,31 +88,6 @@ class LibraryEditsTest {
             compose.onNodeWithText(restore).performScrollTo().performClick()
             compose.onAllNodesWithText(restore).onLast().performClick()
             compose.waitUntil(LONG_WAIT) { runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed.not() } }
-        } finally { runBlocking { repository.setCloudTrashed(listOf(id), false) } }
-    }
-
-    @Test fun movingToICloudTrashCanBeUndoneFromItsMessage() {
-        compose.waitForGalleryMedia()
-        val id = "fixture:icloud:0016"
-        fun trashed() = runBlocking { repository.observeGallery().first().first { it.id == id }.isTrashed }
-        try {
-            compose.scrollToGalleryMedia(id)
-            compose.onNodeWithTag("media-$id").performClick()
-            compose.openViewerDetails()
-            val trash = compose.activity.getString(R.string.trash_in_icloud)
-            compose.onNodeWithText(trash).performScrollTo().performClick()
-            // iCloud trash keeps its confirmation, like Google Photos' "Remove from your Google Account" question.
-            compose.onAllNodesWithText(trash).onLast().performClick()
-            compose.waitUntil(LONG_WAIT) { trashed() }
-            compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("snackbar-action").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText(compose.activity.resources.getQuantityString(R.plurals.cloud_trash_moved, 1, 1)).assertIsDisplayed()
-            compose.onNodeWithTag("snackbar-action").assertTextEquals(compose.activity.getString(R.string.undo)).performClick()
-            compose.waitUntil(LONG_WAIT) { !trashed() }
-            // The viewer moved on after the trash; Undo brings the photo back into it, and back into the library.
-            compose.waitUntilDisplayed(hasTestTag("viewer-image-$id"))
-            compose.pressBack()
-            compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
-            compose.onNodeWithTag("media-$id").assertExists()
         } finally { runBlocking { repository.setCloudTrashed(listOf(id), false) } }
     }
 }

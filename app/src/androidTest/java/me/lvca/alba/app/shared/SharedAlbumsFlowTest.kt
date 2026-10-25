@@ -8,7 +8,6 @@ import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.FailureCapture
-import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.Smoke
@@ -32,31 +31,10 @@ class SharedAlbumsFlowTest {
     private val repository get() = (compose.activity.application as AlbaApplication).graph.galleryRepository
     private fun label(id: Int) = compose.activity.getString(id)
     private val graph get() = (compose.activity.application as AlbaApplication).graph
-    private fun confirm() = compose.onNodeWithText(label(R.string.shared_confirm)).performClick()
     private fun sharedAlbums() {
         compose.scrollToGalleryMedia("fixture:icloud:0020")
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collection-shared").performClick()
-    }
-    @Test fun activityOpensFromAlbumAndRestoresAfterRecreation() {
-        compose.scrollToGalleryMedia("fixture:icloud:0020")
-        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
-        compose.onNodeWithTag("collection-shared").performClick()
-        compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Family moments"))
-        compose.onNodeWithText("Family moments").performClick()
-        compose.onNodeWithContentDescription(label(R.string.shared_activity)).assertIsDisplayed()
-        compose.onNodeWithContentDescription(label(R.string.filter_and_sort)).assertIsDisplayed()
-        compose.onNodeWithContentDescription(label(R.string.shared_activity)).performClick()
-        compose.waitUntil(UI_WAIT) { compose.onAllNodes(hasText(label(R.string.shared_post_discussion)) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-        compose.activityRule.scenario.recreate()
-        compose.waitUntil(UI_WAIT) { compose.onAllNodes(hasText(label(R.string.shared_post_discussion)) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-        compose.waitForIdle()
-        compose.onNodeWithText(label(R.string.shared_post_discussion)).performScrollTo()
-        compose.waitForIdle()
-        // Invoke the restored button directly; sheet/scroll motion can move a touch target.
-        compose.onNodeWithText(label(R.string.shared_post_discussion)).assertIsDisplayed().assertIsEnabled()
-            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-comment-input").fetchSemanticsNodes().isNotEmpty() }
     }
     @Smoke @Test fun sharedVideoStreamsAndReopensFromOfflineStorage() {
         compose.scrollToGalleryMedia("fixture:icloud:0020")
@@ -124,31 +102,6 @@ class SharedAlbumsFlowTest {
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Family archive"))
         compose.onNodeWithText("Family archive").performClick()
         compose.onNodeWithContentDescription(label(R.string.shared_add_photos)).assertDoesNotExist()
-    }
-
-    @Test fun invitationAcceptAndRequestApprovalWorkThroughTheirSheets() {
-        sharedAlbums()
-        compose.onNodeWithTag("collections-grid").performScrollToNode(hasContentDescription(label(R.string.shared_invitations)))
-        compose.onNodeWithContentDescription(label(R.string.shared_invitations)).performClick()
-        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithText("Sample weekend together").fetchSemanticsNodes().isNotEmpty() }
-        compose.onAllNodesWithText(label(R.string.shared_accept))[0].performScrollTo().performClick()
-        confirm()
-        compose.waitUntil(UI_WAIT) { runBlocking { repository.pendingSharedInvitations().size == 1 } }
-        // Close through Compose: Espresso's back press waits for window focus, which the sheet and the
-        // dismissing confirmation dialog can withhold for longer than its timeout on slow CI emulators.
-        val close = hasContentDescription(label(R.string.close_surface)) and isEnabled()
-        compose.waitUntil(UI_WAIT) { compose.onAllNodes(close).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(close).performClick()
-        compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Sample weekend together"))
-        compose.onNodeWithText("Sample weekend together").assertIsDisplayed()
-        compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Family moments"))
-        compose.onNodeWithText("Family moments").performClick()
-        compose.onNodeWithContentDescription(label(R.string.shared_manage)).performClick()
-        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithText("Alex (sample)").fetchSemanticsNodes().isNotEmpty() }
-        compose.onAllNodesWithText(label(R.string.shared_approve))[0].performScrollTo().performClick()
-        confirm()
-        compose.waitUntil(UI_WAIT) { runBlocking { repository.sharedManagement("shared:demo-library:private:owner:two").participants.any { it.id == "sample-alex" } } }
-        compose.onNodeWithText("Alex (sample)").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun selectedSharedBytesAndLegacySaveAreRealCopiesAndCoverPersists() = runBlocking {

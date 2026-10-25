@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.DiagnosticsConsent
+import me.lvca.alba.app.R
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.testing.hideKeyboard
@@ -31,6 +32,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class LocalizedAccountTest {
     @get:Rule val compose = createComposeRule()
+
+    // Strings come from the Italian resources rather than literal copy, so a translation edit does not break these.
     @Test fun italianTwoFactorAndBackupRemainUsableAtLargeTextSize() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val config = Configuration(instrumentation.targetContext.resources.configuration).apply {
@@ -51,15 +54,15 @@ class LocalizedAccountTest {
                 }
             }
         }
-        compose.onNodeWithText("Apple ha inviato un codice a sei cifre al tuo numero di telefono autorizzato (+39 ••• 1234).").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Codice a sei cifre").performScrollTo().performTextInput("123456")
+        compose.onNodeWithText(context.getString(R.string.code_sent_sms_hint, "+39 ••• 1234")).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.six_digit_code)).performScrollTo().performTextInput("123456")
         compose.hideKeyboard()
-        compose.onNodeWithText("Verifica e continua").performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.verify_and_continue)).performScrollTo().performClick()
         assertEquals("123456", submitted)
         compose.runOnIdle { state = ICloudAccountState.SignedIn("family@example.com") }
         compose.onNodeWithTag("profile-backup").performScrollTo().performClick()
-        compose.onNodeWithText("Il backup automatico è disattivato.").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Configura backup automatico").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.message_automatic_backup_is_off)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.set_up_automatic_backup)).performScrollTo().assertIsDisplayed()
     }
 
     @Test fun italianWebOnlyAccountExplainsActivationAndCanRetry() {
@@ -83,10 +86,10 @@ class LocalizedAccountTest {
             }
         }
         compose.onNodeWithTag("profile-sign-in").performScrollTo().performClick()
-        compose.onNodeWithText("Foto di iCloud non è attivo").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("iCloud+ è facoltativo. Attivando l’account iCloud completo ottieni già 5 GB di spazio gratuito.")
+        compose.onNodeWithText(context.getString(R.string.icloud_photos_is_not_active)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.icloud_plus_not_required))
             .performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Ricontrolla").performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.check_again)).performScrollTo().performClick()
         assertEquals(1, checks)
     }
 }

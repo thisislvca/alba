@@ -1,7 +1,6 @@
 package me.lvca.alba.app.albums
 
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.SavedStateHandle
@@ -13,9 +12,12 @@ import kotlinx.coroutines.flow.*
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.R
+import me.lvca.alba.app.screenshots.ScreenshotFixtures
+import me.lvca.alba.app.testing.GalleryStateActions
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.runBlockingWithMainLooper
+import me.lvca.alba.app.testing.setAlbaContent
 import me.lvca.alba.app.testing.testDependencies
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -33,15 +35,18 @@ class AlbumComponentsTest {
     private val app get() = ApplicationProvider.getApplicationContext<AlbaApplication>()
     private fun text(id: Int) = app.getString(id)
 
-    @Test fun albumPickerExcludesPhoneFoldersAndCreatesAnAlbumWithoutLeavingSelection() {
+    @Test fun albumPickerOffersOnlyPersonalAlbumsAndCreatesOneWithoutLeavingSelection() {
         var created: String? = null
         compose.setContent { AlbaTheme(darkTheme = false) {
             AlbumChooser(listOf(GalleryCollection("device-folder:external:1", "Camera"),
                 GalleryCollection("smart:videos", "Videos"), GalleryCollection("folder", "Trips", isFolder = true),
-                GalleryCollection("album", "Summer")), dismiss = {}, create = { created = it }, choose = {})
+                GalleryCollection("album", "Summer"), GalleryCollection("shared:test:x:y:z", "Shared",
+                    shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))),
+                dismiss = {}, create = { created = it }, choose = {})
         } }
         compose.onNodeWithText("Camera").assertDoesNotExist()
         compose.onNodeWithText("Trips").assertDoesNotExist()
+        compose.onNodeWithText("Shared").assertDoesNotExist()
         compose.onNodeWithText("Summer").assertIsDisplayed()
         compose.onNodeWithText(text(R.string.new_album)).performClick()
         compose.onNode(hasSetTextAction()).performTextInput("Family weekend")
@@ -49,11 +54,23 @@ class AlbumComponentsTest {
         compose.runOnIdle { assertEquals("Family weekend", created) }
     }
 
-    @Test fun personalAlbumChooserNeverOffersASharedDestination() {
-        compose.setContent { AlbaTheme(darkTheme = false) { AlbumChooser(listOf(GalleryCollection("personal", "Personal"),
-            GalleryCollection("shared:test:x:y:z", "Shared", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))), {}, {}, {}) } }
-        compose.onNodeWithText("Personal").assertIsDisplayed()
-        compose.onNodeWithText("Shared").assertDoesNotExist()
+    @Test fun deletingAnAlbumNeedsConfirmation() {
+        val deleted = mutableListOf<String>()
+        val actions = object : GalleryStateActions(ScreenshotFixtures.gallery()) {
+            override fun deleteAlbum(albumId: String) { deleted += albumId }
+        }
+        compose.setAlbaContent(actions.state, ScreenshotFixtures.signedIn, actions)
+        compose.onNodeWithTag("tab-COLLECTIONS").performClick()
+        compose.onNodeWithTag("collection-albums").performClick()
+        compose.onNodeWithText("Trips").performClick()
+        compose.onNodeWithContentDescription(text(R.string.album_options)).performClick()
+        compose.onNodeWithText(text(R.string.delete_album)).performClick()
+        compose.onNodeWithText(text(R.string.cancel)).performClick()
+        compose.runOnIdle { assertEquals(emptyList<String>(), deleted) }
+        compose.onNodeWithContentDescription(text(R.string.album_options)).performClick()
+        compose.onNodeWithText(text(R.string.delete_album)).performClick()
+        compose.onNode(hasText(text(R.string.delete_album)) and hasClickAction()).performClick()
+        compose.runOnIdle { assertEquals(listOf("album-trips"), deleted) }
     }
 
     @Test fun albumCreationIsNotRepeatedWhenAddingPhotosHasAnUncertainResult() = runBlockingWithMainLooper<Unit> {

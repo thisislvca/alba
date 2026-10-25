@@ -12,7 +12,6 @@ import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.UI_WAIT
-import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitForGalleryMedia
@@ -62,7 +61,7 @@ class FloatingViewerTest {
         compose.onNodeWithTag("photo-details-panel").assertDoesNotExist()
         compose.onNodeWithTag("media-pager").assertIsDisplayed()
     }
-    @Test fun detailsBackCollapsesPanelThenViewerBackReturnsToGallery() {
+    @Test fun detailsCollapseByBackOrHandleThenViewerBackOrDragReturnsToGallery() {
         open()
         compose.openViewerDetails()
         compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
@@ -73,13 +72,7 @@ class FloatingViewerTest {
         compose.onNodeWithTag("media-pager").assertDoesNotExist()
         compose.onNodeWithTag("media-$id").performClick()
         compose.onNodeWithTag("photo-details-panel").assertDoesNotExist()
-        compose.onNodeWithTag("media-pager").performTouchInput {
-            swipe(Offset(width * .5f, height * .35f), Offset(width * .5f, height * .75f), 400)
-        }
-        compose.onNodeWithTag("media-pager").assertDoesNotExist()
-    }
-    @Test fun handleCollapsesDetailsThenDownwardPhotoDragReturnsToGrid() {
-        open()
+        // Dragging the handle down also collapses the details, then dragging the photo down returns to the grid.
         compose.openViewerDetails()
         compose.onNodeWithTag("details-drag-handle").performTouchInput {
             swipe(center, Offset(center.x, center.y + 450f), 400)
