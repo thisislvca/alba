@@ -1,0 +1,27 @@
+# One grouped pull request a week per ecosystem. CI checks each one like any other change.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      gradle:
+        patterns: ["*"]
+    commit-message:
+      prefix: chore(deps)
+    open-pull-requests-limit: 2
+
+  # Actions are pinned to commit SHAs; Dependabot moves the pin and keeps the version comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci(deps)
+    open-pull-requests-limit: 2
