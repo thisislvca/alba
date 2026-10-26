@@ -103,7 +103,7 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
-    fun schemaThirteenMovesEveryCachePathAndRetainsCatalogAndSyncToken() = runBlocking {
+    fun schemaThirteenMovesEveryCachePathAndRetainsCatalogThenRereadsICloud() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 13).use { db ->
             db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision,previewCachePath,viewerCachePath,originalCachePath,motionCachePath,resourceFingerprint,accentStartArgb,accentEndArgb,lastSeenScanId) VALUES ('kept','photo.heic',1,20,30,'ICLOUD','rev','/preview','/viewer','/original','/motion','fingerprint',0,0,'scan')")
             db.execSQL("INSERT INTO catalog_checkpoints VALUES ('icloud:account','token',10)")
@@ -115,7 +115,8 @@ class AlbaDatabaseMigrationTest {
             assertEquals("/viewer", row.viewerCachePath)
             assertEquals("/original", row.originalCachePath)
             assertEquals("/motion", row.motionCachePath)
-            assertEquals("token", migrated.catalogDao().checkpoint("icloud:account")?.changeToken)
+            // Schema 17 drops the iCloud checkpoint so the next refresh re-reads titles, locations and bursts.
+            assertEquals(null, migrated.catalogDao().checkpoint("icloud:account"))
             assertEquals(null, migrated.catalogDao().observeAll().first().single().previewCachePath)
             migrated.catalogDao().deleteByOrigin("ICLOUD")
             assertTrue(migrated.catalogDao().observeCache().first().isEmpty())
