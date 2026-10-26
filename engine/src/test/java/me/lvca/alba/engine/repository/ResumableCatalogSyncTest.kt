@@ -8,6 +8,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.lvca.alba.engine.cache.MediaFileCache
@@ -336,6 +337,31 @@ class ResumableCatalogSyncTest {
         assertEquals(30, read.await().cloudItemCount)
     }
 
+    @Test
+    fun phoneScansRunAlongsideLibraryRefreshesWithoutDeadlock() = runBlocking {
+        // Each library refresh walks the catalog for preview paths while a phone scan publishes. Both take the whole
+        // catalog; done one permit at a time outside the shared lock, each could hold one permit and wait for the other.
+        val phone = object : me.lvca.alba.engine.source.DeviceCatalogSource {
+            override suspend fun scanImages() = (0 until 50).map {
+                me.lvca.alba.engine.source.DeviceMediaRecord("device:external:$it", "IMG_$it.JPG", it.toLong(), 10, 10,
+                    "content://media/external/images/media/$it", "1")
+            }
+            override suspend fun writeOriginal(contentUri: String, output: OutputStream) = error("Not used")
+        }
+        val source = PagedSource(count = 1_200, pageSize = 100)
+        val repository = DefaultGalleryRepository(database, source, phone, cache, pause = { pauses += it })
+        repository.refresh(false)
+        withTimeout(60_000) {
+            repeat(REFRESH_ROUNDS) {
+                kotlinx.coroutines.coroutineScope {
+                    launch(Dispatchers.Default) { repository.refresh(false) }
+                    repeat(PHONE_SCANS) { launch(Dispatchers.Default) { repository.refreshDevice() } }
+                }
+            }
+        }
+        assertEquals(1_250, database.catalogDao().observeAll().first().size)
+    }
+
     /** Whether [ref]'s list could be collected, after asking the collector to run. */
     private fun collected(ref: WeakReference<*>): Boolean {
         repeat(GC_ATTEMPTS) {
@@ -411,5 +437,7 @@ class ResumableCatalogSyncTest {
 
     private companion object {
         const val GC_ATTEMPTS = 10
+        const val REFRESH_ROUNDS = 20
+        const val PHONE_SCANS = 4
     }
 }

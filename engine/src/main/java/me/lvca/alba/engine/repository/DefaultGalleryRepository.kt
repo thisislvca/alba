@@ -54,6 +54,7 @@ class DefaultGalleryRepository(
     private val editLock = Mutex()
     private val previewPublicationLock = Mutex()
     private val catalogPermits = Semaphore(2)
+    private val exclusiveEntry = Mutex()
     private val mediaLocks = Array(MEDIA_LOCK_STRIPES) { Mutex() }
 
     override suspend fun accountProfile() = cloudSource.accountProfile()
@@ -537,12 +538,13 @@ class DefaultGalleryRepository(
     private suspend fun retainPreviewPaths() {
         var after = ""
         do {
-            val rows = exclusiveCatalog {
+            // In turn with edits and phone scans, a page of rows at a time.
+            val rows = refreshLock.withLock { exclusiveCatalog {
                 sync.cloudItemsAfter(after, CATALOG_WALK_SIZE).onEach { item ->
                     val retained = cache.retainPreview(item.mediaId, item.previewCachePath)?.absolutePath
                     if (retained != null && retained != item.previewCachePath) dao.setPreviewPath(item.mediaId, retained)
                 }
-            }
+            } }
             after = rows.lastOrNull()?.mediaId ?: after
         } while (rows.size == CATALOG_WALK_SIZE)
     }
@@ -838,8 +840,16 @@ class DefaultGalleryRepository(
     private suspend fun <T> withMediaLock(mediaId: String, block: suspend () -> T): T =
         catalogPermits.withPermit { mediaLocks[Math.floorMod(mediaId.hashCode(), mediaLocks.size)].withLock { block() } }
 
-    private suspend fun <T> exclusiveCatalog(block: suspend () -> T): T = catalogPermits.withPermit {
-        catalogPermits.withPermit { block() }
+    /**
+     * Runs [block] holding both catalog permits. Both are taken under one lock: two callers taking them one at a time
+     * could each hold one and wait forever for the other, as a library refresh and a phone scan once did.
+     */
+    private suspend fun <T> exclusiveCatalog(block: suspend () -> T): T {
+        var held = 0
+        try {
+            exclusiveEntry.withLock { repeat(2) { catalogPermits.acquire(); held++ } }
+            return block()
+        } finally { repeat(held) { catalogPermits.release() } }
     }
 
     private fun toModel(entity: CatalogItemEntity): GalleryMedia {
