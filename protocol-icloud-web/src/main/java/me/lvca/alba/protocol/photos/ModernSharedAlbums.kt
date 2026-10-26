@@ -102,11 +102,11 @@ internal class ModernSharedAlbums(
         put("zoneID", album.zoneId()); putJsonArray("records") { add(buildJsonObject { put("recordName", name) }) }
     })["records"]!!.jsonArray.single().jsonObject
 
-    suspend fun modify(album: SharedAlbumRecord, operation: String, record: JsonObject): JsonObject =
+    suspend fun modify(album: SharedAlbumRecord, operation: String, record: JsonObject, recordErrors: Boolean = false): JsonObject =
         connection.ck(album.scope, "records/modify", buildJsonObject {
             put("atomic", true); put("zoneID", album.zoneId())
             putJsonArray("operations") { add(buildJsonObject { put("operationType", operation); put("record", record) }) }
-        }, write = true)
+        }, write = true, recordErrors = recordErrors)
 
     /** Updates the share at the change tag that was read, so a concurrent edit fails instead of being lost. */
     private suspend fun patchShare(album: SharedAlbumRecord, share: JsonObject, properties: JsonObject, fields: JsonObject?) {
@@ -398,14 +398,19 @@ internal class ModernSharedAlbums(
         }, if (rows.size >= ACTIVITY_PAGE) rank + rows.size else null)
     }
 
-    /** Up to four photos of the post [post], for its preview. */
-    suspend fun postPhotos(album: SharedAlbumRecord, post: String): List<String> {
+    /** The photos of a post, up to the limit asked for; [complete] is false when the post holds more. */
+    data class PostPhotos(val photoIds: List<String>, val complete: Boolean)
+
+    /** Up to [limit] photos of the post [post], in posting order. */
+    suspend fun postPhotos(album: SharedAlbumRecord, post: String, limit: Int): PostPhotos {
+        require(limit in 1..MAX_POST_PHOTOS)
         val photos = linkedSetOf<String>()
         var marker: String? = null
         val seen = mutableSetOf<String>()
         do {
             val response = connection.ck(album.scope, "records/query", buildJsonObject {
-                put("zoneID", album.zoneId()); put("resultsLimit", 8)
+                // Each photo is an asset and a master record.
+                put("zoneID", album.zoneId()); put("resultsLimit", minOf(200, (limit + 1) * 2))
                 marker?.let { put("continuationMarker", it) }
                 putJsonObject("query") { put("recordType", "CPLAssetAndMasterInPost"); putJsonArray("filterBy") {
                     add(equalsFilter("direction", JsonPrimitive("ASCENDING"), "STRING")); add(equalsFilter("startRank", JsonPrimitive(0), "INT64"))
@@ -418,11 +423,14 @@ internal class ModernSharedAlbums(
                 if (record.text("recordType") == "CPLAsset") photos += ids.photo(album, requireNotNull(record.text("recordName")))
             }
             marker = response.text("continuationMarker")
-            marker?.let { check(seen.add(it) && seen.size <= 20) { "Incomplete post preview." } }
+            marker?.let { check(seen.add(it) && seen.size <= MAX_POST_PAGES) { "Incomplete post preview." } }
             // A truncated one-photo page must not route a grouped post's comments to its first photo.
-        } while (marker != null && photos.size < 4)
-        return photos.take(4)
+        } while (marker != null && photos.size <= limit)
+        return PostPhotos(photos.take(limit), complete = photos.size <= limit && marker == null)
     }
+
+    /** How many reactions the post [post] has. */
+    suspend fun reactionCount(album: SharedAlbumRecord, post: String): Int = commentRecords(album, post, reaction = true, post = true).size
 
     private suspend fun coverThumbnail(album: SharedAlbumRecord, asset: String): String {
         val photo = readAlbum(album).first { it.assetRecordName == asset }
@@ -453,6 +461,13 @@ internal class ModernSharedAlbums(
         const val ZONE_PREFIX = "SharedCollection-"
         private const val SHARE_RECORD = "cloudkit.zoneshare"
         private const val ACTIVITY_PAGE = 25
+
+        /** The most photos read for one post. */
+        const val MAX_POST_PHOTOS = 500
+
+        /** Photos a post preview reads: the four shown, and enough more to say "+N" for most posts. */
+        const val PREVIEW_COUNT_PROBE = 20
+        private const val MAX_POST_PAGES = 50
         private const val MAX_COVER_BYTES = 4 * 1024 * 1024
         private val REACTIONS = setOf("", "👍", "❤️", "😍", "🎉", "🔥", "😂")
     }

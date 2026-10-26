@@ -54,6 +54,21 @@ class AlbumComponentsTest {
         compose.runOnIdle { assertEquals("Family weekend", created) }
     }
 
+    @Test fun albumPickerOpensFoldersAndGoesBackUp() {
+        var chosen: String? = null
+        compose.setContent { AlbaTheme(darkTheme = false) {
+            AlbumChooser(listOf(GalleryCollection("folder", "Trips", isFolder = true), GalleryCollection("beach", "Beach", parentId = "folder"),
+                GalleryCollection("album", "Summer")), dismiss = {}, create = {}, choose = { chosen = it })
+        } }
+        compose.onNodeWithText("Beach").assertDoesNotExist()
+        compose.onNodeWithTag("album-chooser-folder-folder").performClick()
+        compose.onNodeWithText("Summer").assertDoesNotExist()
+        compose.onNodeWithTag("album-chooser-up").performClick()
+        compose.onNodeWithTag("album-chooser-folder-folder").performClick()
+        compose.onNodeWithText("Beach").performClick()
+        compose.runOnIdle { assertEquals("beach", chosen) }
+    }
+
     @Test fun deletingAnAlbumNeedsConfirmation() {
         val deleted = mutableListOf<String>()
         val actions = object : GalleryStateActions(ScreenshotFixtures.gallery()) {

@@ -8,6 +8,7 @@ import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.platform.PhotoEditStore
+import me.lvca.alba.app.sharing.SharedActivityStore
 import me.lvca.alba.app.transfers.TransferScheduler
 import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.model.GalleryRepository
@@ -31,6 +32,7 @@ data class AlbaDependencies(
     val demoImporter: DemoMediaImporter,
     val network: Flow<NetworkStatus?>,
     val diagnostics: AlbaDiagnostics,
+    val sharedActivity: SharedActivityStore,
     val backupPreferences: BackupPreferences,
 ) {
     companion object {
@@ -46,6 +48,7 @@ data class AlbaDependencies(
             demoImporter = graph.demoImporter,
             network = graph.network,
             diagnostics = graph.diagnostics,
+            sharedActivity = graph.sharedActivity,
             backupPreferences = graph.backupPreferences,
         )
     }

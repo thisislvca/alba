@@ -43,6 +43,15 @@ internal object ModernShareEdits {
                     require(blocked.any { key(it) == command.subject })
                     put("blocked", JsonArray(blocked.filterNot { key(it) == command.subject }))
                 }
+                SharedAction.BLOCK -> {
+                    // Like declining a request: the person leaves and their identity joins the blocked list.
+                    val target = participants.first { it.text("participantId") == command.subject }
+                    require(target.text("type") != "OWNER")
+                    val identity = requireNotNull(target.obj("userIdentity")) { "This participant cannot be blocked." }
+                    SharedParticipants.identityKey(identity)
+                    put("participants", JsonArray(participants.filter { it != target }))
+                    put("blocked", JsonArray(share.array("blocked") + buildJsonObject { put("blockedInformation", identity) }))
+                }
                 SharedAction.APPROVE_REQUEST, SharedAction.DENY_REQUEST -> {
                     val requests = share.array("requesters").map { it.jsonObject }
                     val target = requests.first { request ->

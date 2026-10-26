@@ -18,6 +18,7 @@ import me.lvca.alba.engine.model.SharedAlbumManagement
 import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SharedDiscussion
 import me.lvca.alba.engine.model.SharedInvitation
+import me.lvca.alba.engine.model.SharedPostPreview
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.source.MediaRead
 
@@ -26,13 +27,18 @@ import me.lvca.alba.engine.source.MediaRead
  * no network callback, and no transfer job scheduled with Android.
  */
 internal fun testDependencies(graph: AlbaGraph): AlbaDependencies =
-    AlbaDependencies.from(graph).copy(network = kotlinx.coroutines.flow.flowOf(null), transferScheduler = TransferScheduler {})
+    AlbaDependencies.from(graph).copy(network = kotlinx.coroutines.flow.flowOf(null), transferScheduler = TransferScheduler {},
+        sharedActivity = graph.sharedActivity.withoutScheduling())
 
 /** Test fixtures explicitly opt into the callbacks they observe; every other action does nothing. Never used in production. */
 internal fun testAlbaActions(
     sharedActivity: suspend (String, Int) -> SharedActivityPage = { _, _ -> error("Unavailable") },
     sharedPostDiscussion: suspend (String) -> SharedDiscussion = { error("Unavailable") },
     sharedPostPhotos: suspend (String) -> List<String> = { emptyList() },
+    sharedPostPreviews: (suspend (List<String>) -> Map<String, SharedPostPreview>)? = null,
+    setSharedActivityNotifications: (Boolean) -> Unit = {},
+    sharedNotificationsAsked: () -> Unit = {},
+    consumeSharedOpen: () -> Unit = {},
     pendingSharedInvitations: suspend () -> List<SharedInvitation> = { emptyList() },
     resolveSharedInvitation: suspend (String) -> SharedInvitation = { error("Unavailable") },
     respondSharedInvitation: suspend (String, Boolean) -> Unit = { _, _ -> error("Unavailable") },
@@ -65,6 +71,8 @@ internal fun testAlbaActions(
 ): AlbaActions {
     // Renamed so the overrides below cannot resolve to themselves.
     val onSharedActivity = sharedActivity; val onSharedPostDiscussion = sharedPostDiscussion; val onSharedPostPhotos = sharedPostPhotos
+    val onSharedPostPreviews = sharedPostPreviews; val onSetNotifications = setSharedActivityNotifications
+    val onNotificationsAsked = sharedNotificationsAsked; val onConsumeOpen = consumeSharedOpen
     val onPendingInvitations = pendingSharedInvitations; val onResolveInvitation = resolveSharedInvitation; val onRespondInvitation = respondSharedInvitation
     val onSharedManagement = sharedManagement; val onSharedDiscussion = sharedDiscussion; val onChangeSharedAlbum = changeSharedAlbum
     val onClearLocalMedia = clearLocalMedia; val onCheckConnection = checkConnection; val onSubmitTwoFactor = submitTwoFactor
@@ -90,6 +98,11 @@ internal fun testAlbaActions(
         override suspend fun sharedActivity(albumId: String, rank: Int) = onSharedActivity(albumId, rank)
         override suspend fun sharedPostDiscussion(postId: String) = onSharedPostDiscussion(postId)
         override suspend fun sharedPostPhotos(postId: String) = onSharedPostPhotos(postId)
+        override suspend fun sharedPostPreviews(postIds: List<String>): Map<String, SharedPostPreview> =
+            onSharedPostPreviews?.invoke(postIds) ?: super.sharedPostPreviews(postIds)
+        override fun setSharedActivityNotifications(enabled: Boolean) = onSetNotifications(enabled)
+        override fun sharedNotificationsAsked() = onNotificationsAsked()
+        override fun consumeSharedOpen() = onConsumeOpen()
         override suspend fun pendingSharedInvitations() = onPendingInvitations()
         override suspend fun resolveSharedInvitation(url: String) = onResolveInvitation(url)
         override suspend fun respondSharedInvitation(invitationId: String, accept: Boolean) = onRespondInvitation(invitationId, accept)
@@ -131,7 +144,7 @@ internal fun testAlbaActions(
         override fun confirmRemoveFromAlbum(albumId: String, mediaIds: List<String>) = Unit
         override fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean) = Unit
         override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) = Unit
-        override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>) = Unit
+        override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>, caption: String) = Unit
         override fun createSharedAlbum(name: String, generation: SharedAlbumGeneration) = Unit
         override fun runBatch(action: BatchAction) = Unit
         override fun retryBatch(batchId: String) = Unit

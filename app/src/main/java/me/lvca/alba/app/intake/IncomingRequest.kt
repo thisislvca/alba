@@ -1,6 +1,8 @@
 package me.lvca.alba.app.intake
 
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import me.lvca.alba.engine.model.SharedAlbumLinks
@@ -13,10 +15,17 @@ internal sealed interface IncomingRequest {
     /** A shared-album invitation. A blank [link] is a link Alba rejected as not first-party. */
     data class Invitation(val link: String) : IncomingRequest
 
+    /** A web link that opened Alba but is not a shared album; it belongs in the browser. */
+    data class Browser(val url: String) : IncomingRequest
+
+    /** A shared-album notification: open [albumId], the invitations inbox, or else the Shared Albums page. */
+    data class SharedActivity(val albumId: String?, val invitations: Boolean) : IncomingRequest
+
     companion object {
         /** Null when [intent] is neither a media share nor an invitation, for example a launcher start. */
-        fun from(intent: Intent): IncomingRequest? =
-            incomingSharedInvitation(intent)?.let(::Invitation) ?: incomingMedia(intent)
+        fun from(intent: Intent): IncomingRequest? = SharedActivityLinks.from(intent)
+            ?: browserLink(intent.action, intent.data?.scheme, intent.dataString)?.let(::Browser)
+            ?: incomingSharedInvitation(intent)?.let(::Invitation) ?: incomingMedia(intent)
     }
 }
 
@@ -31,7 +40,8 @@ internal data class IncomingSession(val request: IncomingRequest?, val returnToC
                 state.putStringArrayList(URIS, ArrayList(request.uris))
                 state.putBoolean(SAVED_COPY, request.savedCopy)
             }
-            null -> Unit
+            // Both are handled at once, so recreation has nothing left to restore.
+            is IncomingRequest.Browser, is IncomingRequest.SharedActivity, null -> Unit
         }
         state.putBoolean(RETURN_TO_CALLER, returnToCaller)
     }
@@ -88,6 +98,29 @@ internal fun incomingMedia(intent: Intent): IncomingRequest.Media? {
     return IncomingRequest.Media(safeIncomingUris(candidates.map { IncomingUri(it.toString(), it.scheme, it.authority) }))
 }
 
+/** What a shared-album notification asks Alba to open. Only album IDs Alba already lists are ever opened. */
+internal object SharedActivityLinks {
+    const val ALBUM = "me.lvca.alba.extra.SHARED_ALBUM"
+    const val INVITATIONS = "me.lvca.alba.extra.SHARED_INVITATIONS"
+    const val SHARED_ALBUMS = "me.lvca.alba.extra.SHARED_ALBUMS"
+
+    fun from(intent: Intent): IncomingRequest.SharedActivity? {
+        val album = intent.getStringExtra(ALBUM)?.takeIf { it.startsWith("shared:") && it.length <= MAX_ALBUM_ID }
+        val invitations = intent.getBooleanExtra(INVITATIONS, false)
+        if (album == null && !invitations && !intent.getBooleanExtra(SHARED_ALBUMS, false)) return null
+        return IncomingRequest.SharedActivity(album, invitations)
+    }
+
+    private const val MAX_ALBUM_ID = 1024
+}
+
+/**
+ * A viewed https link that is not a shared album, which Alba hands back to the browser instead of calling it an invalid
+ * invitation; null for anything else.
+ */
+internal fun browserLink(action: String?, dataScheme: String?, dataString: String?): String? =
+    dataString?.takeIf { action == Intent.ACTION_VIEW && dataScheme == "https" && SharedAlbumLinks.token(it) == null }
+
 /** Null means another intent type; empty means a rejected incoming invitation. */
 internal fun incomingSharedInvitation(intent: Intent): String? = sharedInvitationLink(
     action = intent.action, type = intent.type, text = intent.getStringExtra(Intent.EXTRA_TEXT),
@@ -100,4 +133,14 @@ internal fun sharedInvitationLink(action: String?, type: String?, text: String?,
     action == Intent.ACTION_VIEW && dataScheme in setOf("http", "https") ->
         dataString?.takeIf { SharedAlbumLinks.token(it) != null }.orEmpty()
     else -> null
+}
+
+/**
+ * Every Alba entry that claims [url], for a chooser to leave out: a link Alba took but cannot use goes back to a browser
+ * without a way to loop into Alba again.
+ */
+internal fun albaComponents(packageManager: PackageManager, packageName: String, url: String): Array<ComponentName> {
+    val view = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+    return packageManager.queryIntentActivities(view, 0).map { it.activityInfo }
+        .filter { it.packageName == packageName }.map { ComponentName(it.packageName, it.name) }.toTypedArray()
 }

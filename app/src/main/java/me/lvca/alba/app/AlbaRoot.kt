@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -56,6 +57,7 @@ import me.lvca.alba.app.gallery.withBurstFrames
 import me.lvca.alba.app.intake.IncomingRequest
 import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
+import me.lvca.alba.app.intake.albaComponents
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.platform.ExportDocument
 import me.lvca.alba.app.platform.HiddenLock
@@ -89,7 +91,11 @@ import me.lvca.alba.app.ui.gallery.backupBadges
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
 import me.lvca.alba.app.ui.onboarding.WelcomeScreen
+import me.lvca.alba.app.ui.shared.LocalNotificationAccess
+import me.lvca.alba.app.ui.shared.LocalSharedActivity
+import me.lvca.alba.app.ui.shared.NotificationAccess
 import me.lvca.alba.app.ui.shared.SharedInvitations
+import me.lvca.alba.app.work.canNotify
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.GalleryMedia
@@ -98,6 +104,7 @@ import me.lvca.alba.engine.model.LocalMediaCategory
 import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedCommand
+import me.lvca.alba.engine.model.SharedUploadFile
 import me.lvca.alba.engine.model.SystemConsentCallback
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -238,6 +245,7 @@ private fun AlbaMain(
     val previewStorageLow by viewModel.previews.storageLow.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnosticsConsent.collectAsStateWithLifecycle()
+    val sharedActivity by viewModel.sharedAlbums.activity.collectAsStateWithLifecycle()
     val currentIncoming by rememberUpdatedState(incoming)
     val shareTitle by rememberUpdatedState(stringResource(R.string.share))
 
@@ -311,8 +319,36 @@ private fun AlbaMain(
     // still starts it after a rotation or process death during Android's dialog.
     var awaitingNotificationAnswer by rememberSaveable { mutableStateOf(false) }
     var notificationAnswered by remember { mutableStateOf(false) }
+    // The Shared Albums switch and first-visit prompt ask through the same launcher. Saved, so an answer that arrives
+    // after a rotation still reaches the setting.
+    var awaitingSharedNotificationAnswer by rememberSaveable { mutableStateOf(false) }
+    var notificationsGranted by remember { mutableStateOf(canNotify(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { notificationsGranted = canNotify(context) }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        notificationsGranted = canNotify(context)
+        if (awaitingSharedNotificationAnswer) {
+            awaitingSharedNotificationAnswer = false
+            viewModel.sharedAlbums.setNotifications(notificationsGranted)
+        }
         if (awaitingNotificationAnswer) notificationAnswered = true
+    }
+    val notificationAccess = remember(notificationsGranted, notificationPermission) {
+        val openSettings = {
+            runCatching {
+                context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+            }
+            Unit
+        }
+        NotificationAccess(notificationsGranted, request = {
+            // Asked here, so the first manual transfer or backup does not ask again.
+            viewModel.transfers.backup.notificationsAsked()
+            if (!notificationsGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                awaitingSharedNotificationAnswer = true
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else if (!notificationsGranted) openSettings() else viewModel.sharedAlbums.setNotifications(true)
+        }, openSettings = openSettings)
     }
     val mediaLocationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val target = pendingUpload
@@ -481,7 +517,26 @@ private fun AlbaMain(
             upload = { uris ->
                 onIncomingChange(currentIncoming.copy(returnToCaller = false))
                 uploadPicked(context, viewModel, uris)
+            },
+            sharedAlbums = gallery.collections.filter { it.shared?.canContribute == true },
+            addToShared = { albumId, items, caption, done ->
+                onIncomingChange(currentIncoming.copy(returnToCaller = false))
+                val resolver = context.contentResolver
+                val files = items.map { item ->
+                    SharedUploadFile(item.name) { output -> requireNotNull(resolver.openInputStream(item.uri)).use { it.copyTo(output) } }
+                }
+                val key = items.map { it.uri.toString() }.sorted().hashCode().toString()
+                viewModel.sharedAlbums.contributeFilesToSharedAlbum(albumId, files, key, caption, done)
             })
+    }
+    (incoming.request as? IncomingRequest.Browser)?.let { request ->
+        LaunchedEffect(request) { openInBrowser(context, request.url); closeIncoming() }
+    }
+    (incoming.request as? IncomingRequest.SharedActivity)?.let { request ->
+        LaunchedEffect(request) {
+            viewModel.sharedAlbums.requestOpen(request.albumId, request.invitations)
+            onIncomingChange(IncomingSession.None)
+        }
     }
     (incoming.request as? IncomingRequest.Invitation)?.takeUnless { incomingSuspended }?.let { request ->
         IncomingInvitation(request.link, session.accountState, actions, ::closeIncoming, ::connectForIncoming)
@@ -528,7 +583,8 @@ private fun AlbaMain(
     val backupBadges = rememberUpdatedState(remember(transfers.backup.enabled, transfers.uploadsByMediaId) {
         backupBadges(transfers.backup.enabled, transfers.uploadsByMediaId)
     })
-    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalBackupBadges provides backupBadges) {
+    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalBackupBadges provides backupBadges,
+        LocalSharedActivity provides sharedActivity, LocalNotificationAccess provides notificationAccess) {
         AlbaApp(
             gallery = gallery,
             session = session,
@@ -639,6 +695,16 @@ private fun AlbaMain(
             dismiss = { transferPrompt = null; pendingTransfer = null },
         )
         null -> Unit
+    }
+}
+
+/** Hands a web link back to a browser, leaving Alba out of the choice so it cannot loop back here. */
+private fun openInBrowser(context: Context, url: String) {
+    val view = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+    val alba = albaComponents(context.packageManager, context.packageName, url)
+    runCatching {
+        context.startActivity(Intent.createChooser(view, null).putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, alba)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }
 
@@ -806,7 +872,7 @@ private class AlbaRootActions(
             else -> platform.confirm(RootDialog.ConfirmMixedTrash(cloudIds, phoneIds))
         }
     }
-    override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>) = shared.contributeToSharedAlbum(albumId, mediaIds)
+    override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>, caption: String) = shared.contributeToSharedAlbum(albumId, mediaIds, caption)
     override fun createSharedAlbum(name: String, generation: SharedAlbumGeneration) = shared.createSharedAlbum(name, generation)
 
     override fun runBatch(action: BatchAction) = when (action) {
@@ -867,6 +933,11 @@ private class AlbaRootActions(
     override suspend fun sharedActivity(albumId: String, rank: Int) = shared.sharedActivity(albumId, rank)
     override suspend fun sharedPostDiscussion(postId: String) = shared.sharedPostDiscussion(postId)
     override suspend fun sharedPostPhotos(postId: String) = shared.sharedPostPhotos(postId)
+    override suspend fun sharedPostPreviews(postIds: List<String>) = shared.sharedPostPreviews(postIds)
+    override fun setSharedActivityNotifications(enabled: Boolean) = shared.setNotifications(enabled)
+    override fun sharedNotificationsAsked() = shared.notificationsAsked()
+    override fun consumeSharedOpen() = shared.consumeOpen()
+    override fun markInvitationsRead() = shared.markInvitationsRead()
     override suspend fun sharedManagement(albumId: String) = shared.sharedManagement(albumId)
     override suspend fun sharedDiscussion(id: String) = shared.sharedDiscussion(id)
     override suspend fun changeSharedAlbum(albumId: String, command: SharedCommand) = shared.changeSharedAlbum(albumId, command)

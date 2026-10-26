@@ -53,15 +53,30 @@ interface GalleryEdits {
     suspend fun addToAlbum(id: String, mediaIds: List<String>)
 }
 
+/** A file to add to a shared album: its display name and a way to copy its bytes. */
+class SharedUploadFile(val name: String, val write: (java.io.OutputStream) -> Unit)
+
 /** All gallery capabilities are required here; partial consumers use the smaller interfaces above. */
 interface GalleryRepository : GalleryReader, GalleryMediaAccess, GalleryEdits, SharedAlbumOperations {
-    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String)
+    /**
+     * Adds library or phone items to a shared album as one post, with [caption] where the album supports one. Returns
+     * false when the post was made without the caption.
+     */
+    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String = ""): Boolean
+
+    /** Adds files another app shared with Alba to a shared album; they are not in the catalog. False as above. */
+    suspend fun contributeFilesToSharedAlbum(id: String, files: List<SharedUploadFile>, operationId: String, caption: String = ""): Boolean =
+        error("Shared contribution is unavailable")
+
+    /** Shared albums' item counts read from Apple, for the background activity check; publishes nothing. */
+    suspend fun sharedAlbumCounts(): List<SharedAlbumCount> = error("Shared albums are unavailable")
     suspend fun createSharedAlbum(name: String, operationId: String, generation: SharedAlbumGeneration = SharedAlbumGeneration.MODERN): GalleryCollection
     suspend fun accountProfile(): CloudAccountProfile?
     suspend fun storageUsage(): CloudStorageUsage
     override suspend fun sharedActivity(id: String, rank: Int): SharedActivityPage
     override suspend fun sharedPostDiscussion(id: String): SharedDiscussion
     override suspend fun sharedPostPhotos(id: String): List<String>
+    override suspend fun sharedPostPreviews(ids: List<String>): Map<String, SharedPostPreview>
     override suspend fun pendingSharedInvitations(): List<SharedInvitation>
     override suspend fun resolveSharedInvitation(url: String): SharedInvitation
     override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String)

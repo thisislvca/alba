@@ -5,6 +5,7 @@ import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.field
 import me.lvca.alba.protocol.network.AppleHttpTransport
 import me.lvca.alba.protocol.photos.SharedAlbumJournal.Companion.data
 import me.lvca.alba.protocol.text
@@ -27,8 +28,11 @@ internal class SharedAlbumTransfers(
     private val legacy: LegacySharedAlbums,
     private val modern: ModernSharedAlbums,
 ) {
-    /** Server-side copy into a modern album, never a relation to a PrimarySync original or cleanup proof. */
-    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String) {
+    /**
+     * Server-side copy into a modern album, never a relation to a PrimarySync original or cleanup proof. Returns false
+     * when Apple refused the [caption] and the post was made without it.
+     */
+    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String, caption: String = ""): Boolean {
         UUID.fromString(operationId)
         require(mediaIds.size in 1..50)
         val prefix = "icloud:${account()}:"
@@ -48,7 +52,7 @@ internal class SharedAlbumTransfers(
             phase = "READY"; journal.save(key, phase, data)
         }
         check(data.text("target") == id)
-        if (phase == "DONE") return
+        if (phase == "DONE") return true
         var pending: JsonObject = data
         val batchId = requireNotNull(pending.text("batchId"))
         if (phase == "STARTING") error("The contribution result is uncertain. Check the album in iCloud before adding these photos again.")
@@ -70,12 +74,14 @@ internal class SharedAlbumTransfers(
         }
         // A stable post record name makes the last step recoverable after response loss.
         val existing = modern.lookup(album, batchId)
-        if (existing.text("serverErrorCode") == "NOT_FOUND") {
-            modern.modify(album, "create", post(batchId, pending.getValue("timestamp")))
+        val captionKept = if (existing.text("serverErrorCode") == "NOT_FOUND") {
+            createPost(album, batchId, pending.getValue("timestamp"), caption)
         } else {
             check(existing.text("recordType") == "CPLPost" && existing["serverErrorCode"] == null) { "Could not confirm the shared post." }
+            caption.isBlank() || existing.field("caption") != null
         }
         journal.save(key, "DONE", pending)
+        return captionKept
     }
 
     /** Copies a modern album's [asset] into the personal library, journaled under the action [key]. */
@@ -112,8 +118,8 @@ internal class SharedAlbumTransfers(
         accepted.uploadJobId?.let { awaitUpload(root, it, failed = "Apple could not process this upload.") }
     }
 
-    /** Uploads a new file into a modern album as its own post. */
-    suspend fun uploadToModern(id: String, fileName: String, source: OneShotUploadSource) {
+    /** Uploads a new file into a modern album as its own post; false when the post was made without its [caption]. */
+    suspend fun uploadToModern(id: String, fileName: String, source: OneShotUploadSource, caption: String = ""): Boolean {
         val album = fresh(id)
         require(album.collection.shared?.canContribute == true)
         val current = connection.bound()
@@ -124,10 +130,11 @@ internal class SharedAlbumTransfers(
         accepted.uploadJobId?.let { awaitUpload(root, it, failed = "Apple could not process this shared upload.") }
         require(fresh(id).collection.shared?.canContribute == true)
         val existing = modern.lookup(album, batch)
-        if (existing.text("serverErrorCode") == "NOT_FOUND") {
-            modern.modify(album, "create", post(batch, JsonPrimitive(System.currentTimeMillis())))
+        return if (existing.text("serverErrorCode") == "NOT_FOUND") {
+            createPost(album, batch, JsonPrimitive(System.currentTimeMillis()), caption)
         } else {
             check(existing.text("recordType") == "CPLPost")
+            caption.isBlank() || existing.field("caption") != null
         }
     }
 
@@ -152,9 +159,29 @@ internal class SharedAlbumTransfers(
         connection.ck("private", "zones/list", buildJsonObject {})["zones"]!!.jsonArray
             .map { it.jsonObject["zoneID"]!!.jsonObject }.first { it.text("zoneName") == PrimarySyncZone.NAME }
 
-    private fun post(recordName: String, timestamp: JsonElement) = buildJsonObject {
+    /**
+     * Creates the post record and returns whether it kept its caption. A caption uses the `caption` field that
+     * [ModernSharedAlbums.activity] reads from posts; it has not been confirmed against Apple's schema. Only when Apple
+     * refuses the record as invalid is it created again without the caption, so uploaded photos never sit outside a
+     * post. Any other error fails as before.
+     */
+    private suspend fun createPost(album: SharedAlbumRecord, recordName: String, timestamp: JsonElement, caption: String): Boolean {
+        val text = caption.trim().take(MAX_CAPTION)
+        if (text.isNotEmpty()) {
+            val result = modern.modify(album, "create", post(recordName, timestamp, text), recordErrors = true)
+            val code = (result["records"] as? JsonArray)?.singleOrNull()?.jsonObject?.text("serverErrorCode") ?: return true
+            check(code in CAPTION_REFUSED) { "Apple could not confirm the shared post. Refresh before retrying." }
+        }
+        modern.modify(album, "create", post(recordName, timestamp, ""))
+        return text.isEmpty()
+    }
+
+    private fun post(recordName: String, timestamp: JsonElement, caption: String) = buildJsonObject {
         put("recordType", "CPLPost"); put("recordName", recordName)
-        putJsonObject("fields") { putJsonObject("postTimestamp") { put("value", timestamp) } }
+        putJsonObject("fields") {
+            putJsonObject("postTimestamp") { put("value", timestamp) }
+            if (caption.isNotEmpty()) putJsonObject("caption") { put("value", caption) }
+        }
     }
 
     private suspend fun awaitCopy(jobId: String, failed: String, stillProcessing: String) {
@@ -181,6 +208,10 @@ internal class SharedAlbumTransfers(
 
     private companion object {
         const val POLL_ATTEMPTS = 20
+        const val MAX_CAPTION = 1000
+
+        /** Record errors that mean Apple refused the record's fields, here the unconfirmed caption. */
+        val CAPTION_REFUSED = setOf("BAD_REQUEST", "INVALID_ARGUMENTS")
         const val POLL_INTERVAL_MILLIS = 1000L
     }
 }

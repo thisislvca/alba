@@ -110,12 +110,13 @@ class SharedGalleryRepositoryTest {
             return SharedCatalogSnapshot(listOf(record(SHARED)), CollectionSnapshot(listOf(GalleryCollection(ALBUM, "Family",
                 shared = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, if(contributor) SharedAlbumRole.CONTRIBUTOR else SharedAlbumRole.VIEWER))), mapOf(ALBUM to setOf(SHARED))))
         }
-        override suspend fun uploadSharedPhoto(id: String, fileName: String, source: OneShotUploadSource, operationId: String) {
+        override suspend fun uploadSharedPhoto(id: String, fileName: String, source: OneShotUploadSource, operationId: String, caption: String): Boolean {
             assertEquals(ALBUM, id); assertEquals("phone.jpg", fileName)
             uploaded = source.openOnce().use { it.readBytes() }
             assertEquals(source.byteCount, uploaded.size.toLong())
             assertEquals(java.security.MessageDigest.getInstance("SHA-256").digest(uploaded).joinToString("") { "%02x".format(it) }, source.sha256Hex)
             assertTrue(runCatching { source.openOnce() }.isFailure)
+            return true
         }
         override suspend fun setFavorite(mediaId: String, favorite: Boolean) { edits++ }
         override suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean) { edits++ }
