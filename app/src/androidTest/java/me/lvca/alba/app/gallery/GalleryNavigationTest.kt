@@ -73,7 +73,8 @@ class GalleryNavigationTest {
         compose.waitForGalleryMedia()
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collection-albums").performClick()
-        compose.onNodeWithText("Journeys").assertIsDisplayed()
+        // The album list fills once the catalog has synced its collections; until then the page reads "0 albums".
+        compose.waitUntilDisplayed(hasText("Journeys"))
         compose.backGesture(commit = false)
         compose.onNodeWithText("Journeys").assertIsDisplayed()
         compose.onNodeWithTag("collection-albums").assertDoesNotExist()

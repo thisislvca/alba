@@ -88,7 +88,8 @@
             </intent-filter>
         </activity>
         <!-- New shared albums also link as /photos#/sharedalbums/sc,…, but /photos is iCloud Photos' web home. Only Android 15
-             and later can match the fragment, so this alias is enabled there alone and claims shared-album fragments only. -->
+             and later can match the fragment, so this alias is enabled there alone and claims shared-album fragments only. The path sits inside each group: a
+             path on the filter itself would match on its own and claim the plain /photos home. -->
         <activity-alias
             android:name=".SharedAlbumWebLink"
             android:enabled="@bool/shared_album_fragment_links"
@@ -106,18 +107,20 @@
                 <data android:host="photos.icloud.com.cn" />
                 <data android:host="www.icloud.com.cn" />
                 <data android:host="icloud.com.cn" />
-                <data android:path="/photos" />
-                <data android:path="/photos/" />
                 <uri-relative-filter-group>
+                    <data android:pathPrefix="/photos" />
                     <data android:fragmentPrefix="sc," />
                 </uri-relative-filter-group>
                 <uri-relative-filter-group>
+                    <data android:pathPrefix="/photos" />
                     <data android:fragmentPrefix="/sc," />
                 </uri-relative-filter-group>
                 <uri-relative-filter-group>
+                    <data android:pathPrefix="/photos" />
                     <data android:fragmentPrefix="sharedalbums/sc," />
                 </uri-relative-filter-group>
                 <uri-relative-filter-group>
+                    <data android:pathPrefix="/photos" />
                     <data android:fragmentPrefix="/sharedalbums/sc," />
                 </uri-relative-filter-group>
             </intent-filter>
