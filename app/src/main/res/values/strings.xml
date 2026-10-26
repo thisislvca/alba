@@ -438,7 +438,7 @@
     <string name="save_copy">Save copy</string>
     <string name="edit_photo">Edit photo</string>
     <string name="crop_photo">Drag the crop corners</string>
-    <string name="edit_copy_explanation">Crop and rotate a new JPEG copy. Your original stays unchanged. Live Photos produce a still copy.</string>
+    <string name="edit_copy_explanation">Saves a new JPEG copy on this phone. The original stays unchanged, on the phone and in iCloud. To put the copy in iCloud too, choose Save copy and upload to iCloud from the menu next to Save copy, or upload it later from the viewer. Live Photos save as a still.</string>
     <string name="reset">Reset</string>
     <string name="square_crop">Square</string>
     <string name="rotate_degrees">Rotate · %1$d°</string>
@@ -542,7 +542,7 @@
     <string name="check_phone_gallery_before_retry">Saving was interrupted. Check your phone gallery before saving this item again.</string>
     <string name="download_batch_started">Download queued. Open Activity to see progress or cancel.</string>
     <string name="discard_edits_title">Discard edits?</string>
-    <string name="discard_edits_explanation">Your unsaved crop and rotation will be lost.</string>
+    <string name="discard_edits_explanation">Your unsaved edits will be lost.</string>
     <string name="discard_edits">Discard</string>
     <string name="keep_editing">Keep editing</string>
     <string name="undo_edit">Undo</string>
@@ -930,6 +930,43 @@
         <item quantity="one">Alba couldn’t read %d item on the phone. It stays.</item>
         <item quantity="other">Alba couldn’t read %d items on the phone. They stay.</item>
     </plurals>
+    <string name="editor_tab_suggestions">Suggestions</string>
+    <string name="editor_tab_crop">Crop</string>
+    <string name="editor_tab_adjust">Adjust</string>
+    <string name="editor_tab_filters">Filters</string>
+    <string name="adjust_brightness">Brightness</string>
+    <string name="adjust_contrast">Contrast</string>
+    <string name="adjust_highlights">Highlights</string>
+    <string name="adjust_shadows">Shadows</string>
+    <string name="adjust_saturation">Saturation</string>
+    <string name="adjust_warmth">Warmth</string>
+    <string name="adjust_tint">Tint</string>
+    <string name="adjust_vignette">Vignette</string>
+    <string name="adjust_sharpness">Sharpen</string>
+    <string name="adjustment_changed">Changed</string>
+    <string name="reset_adjustment">Reset %1$s</string>
+    <string name="filter_vivid">Vivid</string>
+    <string name="filter_warm">Warm</string>
+    <string name="filter_cool">Cool</string>
+    <string name="filter_film">Film</string>
+    <string name="filter_fade">Fade</string>
+    <string name="filter_pastel">Pastel</string>
+    <string name="filter_dramatic">Dramatic</string>
+    <string name="filter_mono">Mono</string>
+    <string name="filter_noir">Noir</string>
+    <string name="filter_sepia">Sepia</string>
+    <string name="filter_strength">Strength</string>
+    <string name="editor_original">Original</string>
+    <string name="hold_to_compare">Photo. Touch and hold to see the original.</string>
+    <string name="editor_enhance">Enhance</string>
+    <string name="editor_enhance_explanation">Balances light, contrast and colour in one tap.</string>
+    <string name="editor_enhance_nothing">This photo already looks balanced.</string>
+    <string name="redo_edit">Redo</string>
+    <string name="save_options">More ways to save</string>
+    <string name="save_copy_and_upload">Save copy and upload to iCloud</string>
+    <string name="show_original">Show original</string>
+    <string name="show_edit">Show edit</string>
+    <string name="edited_copy_not_uploaded">The edited copy is saved on this phone but was not uploaded: you are no longer signed in to iCloud. Upload it from the viewer.</string>
 
     <!-- Sign-in: fields, inline errors and help links. -->
     <string name="sign_in_unsupported_accounts">Accounts that use Advanced Data Protection or security keys can’t sign in to Alba yet.</string>
