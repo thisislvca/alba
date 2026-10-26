@@ -22,6 +22,7 @@ internal enum class MediaAction(val diagnosticTag: String) {
     FAVORITE("favorite"),
     ALBUM("album"),
     CLOUD_TRASH("cloud_trash"),
+    HIDE("hide"),
     SHARED_ALBUM("shared_album"),
     SHARE("share"),
     SAVE_TO_GALLERY("save"),

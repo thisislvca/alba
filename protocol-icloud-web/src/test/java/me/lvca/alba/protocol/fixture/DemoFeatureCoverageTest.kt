@@ -34,7 +34,7 @@ class DemoFeatureCoverageTest {
         val sample = FixtureICloudCatalogSource(includeSharedAlbums = true, openVideo = { byteArrayOf(1, 2, 3).inputStream() })
         val source = me.lvca.alba.protocol.photos.AccountAwareICloudCatalogSource(sample, live, { true }) { null }
         assertEquals("demo-library", source.accountLabel)
-        assertEquals(20, source.fetchPage(null, 100).records.size)
+        assertEquals(22, source.fetchPage(null, 100).records.size)
         source.setFavorite(photo, true)
         source.createAlbum("Local demo album")
         source.changeSharedAlbum(owner, SharedCommand(SharedAction.INVITE, value = "sample@example.invalid"), "sample-invite")

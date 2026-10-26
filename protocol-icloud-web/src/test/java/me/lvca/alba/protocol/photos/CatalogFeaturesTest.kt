@@ -54,12 +54,26 @@ class CatalogFeaturesTest {
         t.expiredToken = true
         assertTrue(runCatching { s.changes("old", emptyList()) }.exceptionOrNull() is CatalogResetRequired)
     }
+    @Test fun aNewlyHiddenAssetIsFlaggedNotRemoved() = runBlocking {
+        val t = Transport()
+        val s = source(t)
+        val known = s.fetchPage(null, 100).records
+        t.hidden = true
+        val page = s.changes("before", known)
+        assertTrue(page.upserts.single { it.assetRecordName == "asset" }.isHidden)
+        assertEquals(setOf("gone"), page.deletedRecordNames)
+    }
+
     private class Transport : AppleHttpTransport {
+        var hidden = false
         var expire = false; var expiredToken = false; var opens = 0; var lookups = 0; var lastUrl = ""
         var masterRevision = "m1"
         var posterFingerprint = "poster-bytes"
         private val master get() = """{"recordName":"master","recordType":"CPLMaster","recordChangeTag":"$masterRevision","fields":{"filenameEnc":{"value":"dmlkZW8ubXA0"},"itemType":{"value":"public.mpeg-4"},"resOriginalFingerprint":{"value":"hash"},"resOriginalRes":{"value":{"downloadURL":"https://cws.icloud-content.com/original"}},"resVidMedRes":{"value":{"downloadURL":"https://cws.icloud-content.com/play"}},"resJPEGMedRes":{"value":{"downloadURL":"https://cws.icloud-content.com/poster","fileChecksum":"$posterFingerprint"}}}}"""
-        private val asset = """{"recordName":"asset","recordType":"CPLAsset","recordChangeTag":"a1","fields":{"masterRef":{"value":{"recordName":"master"}},"assetDate":{"value":1777777777000},"duration":{"value":3000,"type":"INT64"}}}"""
+        private val hiddenField get() = if (hidden) """"isHidden":{"value":1},""" else ""
+        private val asset get() = """{"recordName":"asset","recordType":"CPLAsset","recordChangeTag":"a1",""" +
+            """"fields":{"masterRef":{"value":{"recordName":"master"}},$hiddenField""" +
+            """"assetDate":{"value":1777777777000},"duration":{"value":3000,"type":"INT64"}}}"""
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             val body = request.body.orEmpty()
             val result = when {

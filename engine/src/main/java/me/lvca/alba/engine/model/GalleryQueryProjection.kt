@@ -26,5 +26,6 @@ class GalleryQueryProjection {
         a === b || (a.id == b.id && a.fileName == b.fileName && a.origin == b.origin &&
             a.capturedAtEpochMillis == b.capturedAtEpochMillis && a.addedAtEpochMillis == b.addedAtEpochMillis &&
             a.isTrashed == b.isTrashed && a.isFavorite == b.isFavorite && a.collectionIds == b.collectionIds &&
+            a.isHidden == b.isHidden && a.details == b.details && a.mimeType == b.mimeType && a.kind == b.kind &&
             (!offlineOnly || a.availability == b.availability))
 }

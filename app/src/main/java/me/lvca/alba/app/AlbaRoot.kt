@@ -52,11 +52,14 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.print.PrintHelper
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
+import me.lvca.alba.app.gallery.withBurstFrames
 import me.lvca.alba.app.intake.IncomingRequest
 import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.platform.ExportDocument
+import me.lvca.alba.app.platform.HiddenLock
+import me.lvca.alba.app.platform.HiddenScreenGuard
 import me.lvca.alba.app.platform.MobileDataChoice
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PendingExport
@@ -256,6 +259,14 @@ private fun AlbaMain(
             deviceLibraryChanges(context.contentResolver).debounce(350).collect { viewModel.sync.deviceLibraryChanged() }
         }
     }
+    // Hidden locks again whenever Alba leaves the screen, as on iOS.
+    // A rotation stops the activity too; that is not leaving Alba.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { if (activity?.isChangingConfigurations != true) viewModel.gallery.lockHidden() }
+    // Locking on stop comes after Android's Recents snapshot, so hidden photos are kept out of it, and out of
+    // screenshots and recordings, while they are on screen.
+    HiddenScreenGuard(activity, gallery.query.collectionId == GalleryQuery.HIDDEN || gallery.selectedMedia?.isHidden == true)
+    val unlockTitle = stringResource(R.string.hidden_unlock_title)
+    val unlockSubtitle = stringResource(R.string.hidden_unlock_subtitle)
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         recheckDevicePhotoAccess()
         viewModel.setDeviceMediaAccess(hasDevicePhotoAccess, hasLimitedPhotoAccess(Build.VERSION.SDK_INT, context::granted))
@@ -415,6 +426,8 @@ private fun AlbaMain(
                     putExtra(Intent.EXTRA_TITLE, document.title)
                 })
             }
+
+            override fun unlockHidden() = HiddenLock.unlock(context, unlockTitle, unlockSubtitle, viewModel::hiddenUnlockAnswered)
 
             override fun edit(media: GalleryMedia) { editingId = media.id }
             override fun confirm(next: RootDialog) { dialog = next }
@@ -719,6 +732,9 @@ internal interface PlatformRequests {
     /** Asks Android to restore phone items that Alba moved to its trash. */
     fun restoreOnPhone(contentUris: List<String>)
     fun exportDocument(media: GalleryMedia, livePair: Boolean)
+
+    /** Asks the user to unlock with the phone's biometrics or screen lock before Hidden opens. */
+    fun unlockHidden()
     fun edit(media: GalleryMedia)
     fun confirm(next: RootDialog)
 }
@@ -740,6 +756,7 @@ private class AlbaRootActions(
     override fun undo(action: UndoAction) = when (action) {
         is UndoAction.CloudTrash -> edits.undoCloudTrash(action.mediaIds)
         is UndoAction.PhoneTrash -> platform.restoreOnPhone(action.contentUris)
+        is UndoAction.Hidden -> edits.undoHidden(action.mediaIds, action.hidden)
         is UndoAction.MixedTrash -> {
             edits.undoCloudTrash(action.cloud.mediaIds)
             platform.restoreOnPhone(action.phone.contentUris)
@@ -759,18 +776,26 @@ private class AlbaRootActions(
     override fun openAccount() = account.openAccount()
     override fun openBackup() = account.openAccount(ProfilePage.BACKUP)
     override fun startDemo() = account.startDemo()
+    override fun openHidden() = platform.unlockHidden()
+    override fun expandBurst(burstId: String, expanded: Boolean) = gallery.expandBurst(burstId, expanded)
 
-    override fun setFavorite(mediaId: String, favorite: Boolean) = edits.setFavorite(mediaId, favorite)
-    override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = edits.setFavorites(mediaIds, favorite)
+    /** Every photo of each stacked burst among [ids], so an edit on a burst's photo edits the whole burst. */
+    private fun frames(ids: List<String>) = gallery.current.withBurstFrames(ids)
+
+    override fun setFavorite(mediaId: String, favorite: Boolean) = frames(listOf(mediaId)).let { ids ->
+        if (ids.size == 1) edits.setFavorite(mediaId, favorite) else edits.setFavorites(ids, favorite)
+    }
+    override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = edits.setFavorites(frames(mediaIds), favorite)
     override fun createAlbum(name: String) = edits.createAlbum(name)
-    override fun createAlbumWithPhotos(name: String, mediaIds: List<String>) = edits.createAlbumWithPhotos(name, mediaIds)
+    override fun createAlbumWithPhotos(name: String, mediaIds: List<String>) = edits.createAlbumWithPhotos(name, frames(mediaIds))
     override fun renameAlbum(albumId: String, name: String) = edits.renameAlbum(albumId, name)
     override fun deleteAlbum(albumId: String) = edits.deleteAlbum(albumId)
-    override fun addToAlbum(albumId: String, mediaIds: List<String>) = edits.addToAlbum(albumId, mediaIds)
+    override fun addToAlbum(albumId: String, mediaIds: List<String>) = edits.addToAlbum(albumId, frames(mediaIds))
     override fun confirmRemoveFromAlbum(albumId: String, mediaIds: List<String>) =
-        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmRemoveFromAlbum(albumId, mediaIds.toList())) else Unit
+        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmRemoveFromAlbum(albumId, frames(mediaIds))) else Unit
+    override fun setHidden(mediaIds: List<String>, hidden: Boolean) = edits.setHidden(frames(mediaIds), hidden)
     override fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean) =
-        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmCloudTrash(mediaIds.toList(), trashed)) else Unit
+        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmCloudTrash(frames(mediaIds), trashed)) else Unit
     override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) = platform.trashOnPhone(items, restore)
     override fun confirmMixedTrash(items: List<GalleryMedia>) {
         val cloudIds = items.filter { it.origin == MediaOrigin.ICLOUD }.map { it.id }
@@ -808,6 +833,8 @@ private class AlbaRootActions(
     override fun saveToGallery(media: GalleryMedia) = viewModel.exports.saveToGallery(media)
     override fun exportOriginal(media: GalleryMedia) = platform.exportDocument(media, livePair = false)
     override fun exportLivePhoto(media: GalleryMedia) = platform.exportDocument(media, livePair = true)
+    override fun shareLiveVideo(media: GalleryMedia) = viewModel.exports.shareLiveVideo(media)
+    override fun saveLiveVideo(media: GalleryMedia) = viewModel.exports.saveLiveVideo(media)
     override fun keepOriginalOffline(mediaId: String) = platform.beforeTransfer(PendingTransfer.KeepOffline(mediaId))
     override fun removeCachedOriginal(mediaId: String) = transfers.removeCachedOriginal(mediaId)
     override fun cancelOfflineDownload() = transfers.cancelOfflineDownload()

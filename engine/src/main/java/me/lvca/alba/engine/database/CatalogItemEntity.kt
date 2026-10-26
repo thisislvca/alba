@@ -41,8 +41,13 @@ data class CatalogItemEntity(
     @androidx.room.ColumnInfo(defaultValue = "0") val localFavorite: Boolean = false,
     @androidx.room.ColumnInfo(defaultValue = "0") val isTrashed: Boolean = false,
     val expiresAtEpochMillis: Long? = null,
-
+    @androidx.room.ColumnInfo(defaultValue = "0") val isHidden: Boolean = false,
+    /** Null when the row has no details at all; read it through [mediaDetails]. */
+    @androidx.room.Embedded val details: me.lvca.alba.engine.model.MediaDetails? = null,
 )
+
+internal val CatalogItemEntity.mediaDetails: me.lvca.alba.engine.model.MediaDetails
+    get() = details ?: me.lvca.alba.engine.model.MediaDetails()
 
 @Entity(tableName = "catalog_checkpoints")
 data class CatalogCheckpointEntity(
