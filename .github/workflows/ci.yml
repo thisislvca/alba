@@ -18,9 +18,10 @@ permissions:
   contents: read
 
 concurrency:
-  # The event is part of the key so a nightly run and a push to main do not cancel each other.
+  # The event is part of the key so a nightly run and a push to main do not cancel each other. Only a pull request's
+  # newer push cancels its older run; every push to main finishes its full device run, however quickly merges follow.
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   android:
@@ -143,17 +144,10 @@ jobs:
               ".pem file) as ALBA_BOT_PRIVATE_KEY under Settings > Secrets and variables > Actions; AGENTS.md has the steps."
             exit 1
           fi
-      - name: Create the GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          # The secret holds the App ID, which the action still accepts alongside the newer client ID.
-          app-id: ${{ secrets.ALBA_BOT_APP_ID }}
-          private-key: ${{ secrets.ALBA_BOT_PRIVATE_KEY }}
-          permission-contents: write
+      # No credentials stay in the checkout: the App token is used only by the push below.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
@@ -164,29 +158,48 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Record goldens
+        id: record
         run: |
           rm -rf app/src/test/screenshots
           ./gradlew :app:testDebugUnitTest --tests '*Screenshots' -Proborazzi.test.record=true --no-daemon --console=plain
-      - name: Commit goldens
+          git add -A app/src/test/screenshots
+          if git diff --cached --quiet; then
+            echo "The goldens are unchanged." >> "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Create the GitHub App token
+        if: steps.record.outputs.changed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          # The secret holds the App ID, which the action still accepts alongside the newer client ID.
+          app-id: ${{ secrets.ALBA_BOT_APP_ID }}
+          private-key: ${{ secrets.ALBA_BOT_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Commit and push goldens as the App
+        if: steps.record.outputs.changed == 'true'
         env:
           BRANCH: ${{ github.ref_name }}
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # The bot user's public id, for its commit email; reading it needs no App permission.
+          GH_TOKEN: ${{ github.token }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           test "$BRANCH" != main
           bot="${APP_SLUG}[bot]"
           git config user.name "$bot"
           git config user.email "$(gh api "/users/$bot" --jq .id)+$bot@users.noreply.github.com"
-          git add -A app/src/test/screenshots
-          if git diff --cached --quiet; then echo "The goldens are unchanged."; exit 0; fi
           git commit -m 'test: record screenshot goldens on Linux'
-          git push origin "HEAD:$BRANCH"
+          git push "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$BRANCH"
           echo "Committed new goldens to $BRANCH as $bot. The push starts CI on the branch." >> "$GITHUB_STEP_SUMMARY"
 
   instrumentation:
     # Pull requests and pushes to main run every app, engine and protocol device test on the Pixel 9 at the target API
-    # level. The nightly schedule and manual runs add the @Smoke tests on the minimum SDK and a compact phone. Dropping
-    # devices from the matrix, rather than skipping a job, keeps the result "Android checks" requires meaningful.
+    # level. The nightly schedule runs the @Smoke tests on the minimum SDK and a compact phone (main's pushes already
+    # cover the Pixel 9); manual runs do all three. Dropping devices from the matrix, rather than skipping a job, keeps
+    # the result "Android checks" requires meaningful.
     name: ${{ matrix.title }}
     if: github.repository != 'thisislvca/mela-archive' && !inputs.record-screenshots
     runs-on: ubuntu-24.04
@@ -195,7 +208,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"},{"device":"pixel9Api30","suite":"smoke","title":"Android 30 smoke device tests"},{"device":"compactApi36","suite":"smoke","title":"Compact phone smoke device tests"}]' || '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"}]') }}
+        include: ${{ fromJSON(github.event_name == 'schedule' && '[{"device":"pixel9Api30","suite":"smoke","title":"Android 30 smoke device tests"},{"device":"compactApi36","suite":"smoke","title":"Compact phone smoke device tests"}]'
+          || github.event_name == 'workflow_dispatch' && '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"},{"device":"pixel9Api30","suite":"smoke","title":"Android 30 smoke device tests"},{"device":"compactApi36","suite":"smoke","title":"Compact phone smoke device tests"}]'
+          || '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"}]') }}
     env:
       ALBA_SENTRY_DSN: ''
       ALBA_SENTRY_PROPERTIES: /tmp/alba-ci-no-sentry.properties
