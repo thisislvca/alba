@@ -17,8 +17,8 @@ import androidx.compose.ui.test.junit4.ComposeTestRule
  *   a bug on any device.
  * - UI_WAIT, 10 s: Android's own activity-launch wait. Recreating an activity, decoding the viewer's photo, or
  *   preparing a video fits in that on the CI emulator.
- * - LONG_WAIT, 15 s: repository, MediaStore and transfer work, which can queue behind the start-up refresh of the
- *   (already seeded) catalog. Half of the old 30 s; still several times the slowest demo transfer.
+ * - LONG_WAIT, 30 s: work the platform schedules or decodes on its own terms: WorkManager and JobScheduler runs, and
+ *   video reaching playback through the emulator's software codecs. These were what the old 30 s base was really for.
  *
  * A wait costs time only when a test fails.
  */
@@ -29,8 +29,8 @@ internal const val SHORT_WAIT = 5_000L
 /** A screen that decodes, loads or recreates: the viewer, the editor, a new activity, a platform dialog. */
 internal const val UI_WAIT = 10_000L
 
-/** Repository, transfer and platform work, which can queue behind other work. */
-internal const val LONG_WAIT = 15_000L
+/** Platform work: WorkManager and JobScheduler runs, MediaStore scans, video playback starting. */
+internal const val LONG_WAIT = 30_000L
 
 /** Navigation, recreation and the viewer transition settle asynchronously; assert only once the node is on screen. */
 internal fun ComposeTestRule.waitUntilDisplayed(matcher: SemanticsMatcher): SemanticsNodeInteraction {

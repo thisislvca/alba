@@ -11,7 +11,6 @@ import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.MediaStoreFixtures
-import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.engine.model.*
@@ -54,11 +53,12 @@ class PhoneCopiesTest {
         compose.onNodeWithTag("collection-live_photos").assertIsDisplayed()
         compose.onNodeWithTag("collection-live_photos").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
         compose.openGalleryMedia("fixture:icloud:0020")
-        compose.onNodeWithTag("viewer-live").performClick()
-        compose.waitUntil(UI_WAIT) {
+        compose.onNodeWithTag("viewer-live").assertContentDescriptionEquals("Play Live Photo").performClick()
+        compose.waitUntil(LONG_WAIT) {
             compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Playing")).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("viewer-live").performClick()
+        // The same button now offers the still photo again.
+        compose.onNodeWithTag("viewer-live").assertContentDescriptionEquals("Show still photo").performClick()
         val repository = (compose.activity.application as AlbaApplication).graph.galleryRepository
         repository.keepOriginalOffline("fixture:icloud:0020")
         val media = repository.observeGallery().first().first { it.id == "fixture:icloud:0020" }

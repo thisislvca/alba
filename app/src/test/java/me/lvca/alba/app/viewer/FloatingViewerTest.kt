@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.AlbaAppRule
-import me.lvca.alba.app.testing.SHORT_WAIT
+import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import org.junit.Assert.assertEquals
@@ -41,7 +41,7 @@ class FloatingViewerTest {
         compose.scrollToGalleryMedia(id)
         compose.onNodeWithTag("media-$id").performClick()
         compose.onNodeWithTag("media-pager").assertIsDisplayed()
-        compose.waitUntil(SHORT_WAIT) {
+        compose.waitUntil(UI_WAIT) {
             compose.onAllNodes(hasTestTag("photo-viewer-$id"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
     }

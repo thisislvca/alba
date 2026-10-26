@@ -14,7 +14,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
         extensions.configure<ApplicationExtension> {
             configureAndroidCommon(this)
             configureDeviceTests(this)
-            configureJvmTests(this)
+            // The app's whole-app Robolectric tests start background work that can outlive a test.
+            configureJvmTests(this, isolateTestClasses = true)
             defaultConfig.targetSdk = TARGET_SDK
             lint.abortOnError = true
         }

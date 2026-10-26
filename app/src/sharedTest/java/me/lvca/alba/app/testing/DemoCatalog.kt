@@ -9,10 +9,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
 import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.gallery.SyncState
 import org.junit.rules.TestRule
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
@@ -26,8 +28,9 @@ import org.junit.runners.model.Statement
  *
  * Tests instead read the whole catalog (library, albums, shared albums, Recently Deleted, Hidden) into the repository
  * before the activity starts ([seedDemoCatalog]), and hold every Compose synchronization (each onNode, click and
- * waitForIdle) until the activity's view model has published it to the UI ([InitialCatalogIdling]). The app's own
- * start-up refresh still runs, as in production, and republishes the same rows.
+ * waitForIdle) until the activity's view model has published it to the UI and finished its own start-up refresh
+ * ([InitialCatalogIdling]). That refresh runs as in production and republishes the same rows; waiting for it means no
+ * test edit races it. `AppStartupTest` covers the unseeded path, from an empty library to a loaded one.
  */
 
 /**
@@ -45,32 +48,43 @@ internal class DemoCatalogRule(private val compose: ComposeTestRule) : TestRule 
             try {
                 base.evaluate()
             } finally {
-                compose.unregisterIdlingResource(idling)
                 idling.stop()
+                // Best effort once the test is over: a failure here must not hide the test's own.
+                runCatching { compose.unregisterIdlingResource(idling) }
             }
         }
     }
 }
 
-/** Reads the demo catalog into the repository on the calling thread; returns once Room holds all of it. */
+/**
+ * Reads the demo catalog into the repository on the calling thread; returns once Room holds all of it. The refresh needs
+ * no main looper (Room and the fixture source run on their own threads), so this can block Robolectric's main thread,
+ * and it fails rather than hangs if the refresh does not finish.
+ */
 internal fun seedDemoCatalog(application: AlbaApplication) {
-    runBlocking { application.graph.galleryRepository.refresh(includeDeviceMedia = false) }
+    runBlocking { withTimeout(SEED_TIMEOUT_MILLIS) { application.graph.galleryRepository.refresh(includeDeviceMedia = false) } }
 }
 
+/** The fixture catalog reads in well under a second; this only bounds a failure. */
+private const val SEED_TIMEOUT_MILLIS = 30_000L
+
 /**
- * Busy until [MainActivity]'s view model has published the seeded catalog to the gallery, then idle for good: later
- * refreshes and edits are each test's own to wait for. Call [start] before the activity launches, so it sees the
+ * Busy until [MainActivity]'s view model has published the seeded catalog to the gallery and finished its start-up
+ * refresh, then idle for good: later refreshes and edits are each test's own to wait for. Call [start] before the activity launches, so it sees the
  * activity start, and [stop] once the test ends. Before any activity has started it has nothing to wait for.
  */
 internal class InitialCatalogIdling(private val application: Application) : IdlingResource {
     @Volatile private var gallery: StateFlow<GalleryState>? = null
+    @Volatile private var sync: StateFlow<SyncState>? = null
     @Volatile private var published = false
 
     private val callbacks = object : Application.ActivityLifecycleCallbacks {
         override fun onActivityStarted(activity: Activity) {
             // The same instance the activity's `viewModels` delegate returns: same store, same key, same factory.
             if (activity is MainActivity) {
-                gallery = ViewModelProvider(activity, AlbaViewModel.Factory(activity))[AlbaViewModel::class.java].gallery.state
+                val model = ViewModelProvider(activity, AlbaViewModel.Factory(activity))[AlbaViewModel::class.java]
+                sync = model.sync.state
+                gallery = model.gallery.state
             }
         }
         override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
@@ -86,19 +100,24 @@ internal class InitialCatalogIdling(private val application: Application) : Idli
     fun stop() = application.unregisterActivityLifecycleCallbacks(callbacks)
 
     // Idle until the activity starts: the Compose rule synchronizes once before it launches the activity. From then on,
-    // busy until the gallery shows photos. Room publishes a query's whole result at once and the seed finished before
-    // the activity started, so the gallery's first state with photos holds the whole catalog and its albums.
+    // busy until the gallery shows photos and the start-up refresh is over. Room publishes a query's whole result at
+    // once and the seed finished before the activity started, so the gallery's first state with photos holds the whole
+    // catalog and its albums.
     override val isIdleNow: Boolean
         get() {
             val state = gallery ?: return true
-            if (!published) published = state.value.let { it.catalogItems.isNotEmpty() && it.collections.isNotEmpty() }
+            val refresh = sync?.value ?: return true
+            if (!published) {
+                published = state.value.let { it.catalogItems.isNotEmpty() && it.collections.isNotEmpty() } &&
+                    !refresh.isRefreshing && refresh.lastRefreshedAt != null
+            }
             // Robolectric polls this in a tight loop on the main thread while Room and the projection publish on others.
-            // Pausing briefly gives them the CPU, and gives the JVM a safepoint the spinning loop would not.
+            // Pausing briefly leaves them the CPU.
             if (!published) Thread.sleep(BUSY_POLL_MILLIS)
             return published
         }
 
-    override fun getDiagnosticMessageIfBusy(): String = "The seeded demo catalog has not reached the gallery yet"
+    override fun getDiagnosticMessageIfBusy(): String = "The seeded demo catalog has not reached the gallery, or the start-up refresh is running"
 
     private companion object {
         const val BUSY_POLL_MILLIS = 2L

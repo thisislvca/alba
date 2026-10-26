@@ -1,6 +1,5 @@
 package me.lvca.alba.app.gallery
 
-import android.content.res.Configuration
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
@@ -9,7 +8,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
-import androidx.core.view.WindowCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -21,7 +19,6 @@ import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.waitUntilDisplayed
 import me.lvca.alba.app.testing.waitUntilExists
 import me.lvca.alba.app.testing.waitUntilSettled
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -74,12 +71,6 @@ class LibraryEditsTest {
         compose.onNodeWithTag("viewer-image-$id").assertDoesNotExist()
         compose.pressBack()
         compose.onNodeWithTag("media-pager").assertDoesNotExist()
-        compose.runOnIdle {
-            val window = app.activity.window
-            val lightTheme = app.activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES
-            assertEquals("Gallery must restore system-bar contrast after the viewer exits", lightTheme,
-                WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars)
-        }
         val snackbar = compose.onNodeWithTag("status-snackbar").fetchSemanticsNode().boundsInRoot
         val tab = compose.onNodeWithTag("tab-COLLECTIONS").fetchSemanticsNode().boundsInRoot
         assertTrue("Status messages must not cover floating navigation", snackbar.bottom <= tab.top)

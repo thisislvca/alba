@@ -6,9 +6,8 @@ package me.lvca.alba.app.testing
  * a change can be checked on an emulator in a few minutes. Select it with the instrumentation argument
  * `annotation=me.lvca.alba.app.testing.Smoke`.
  *
- * CI does not rely on it for the target device: pull requests, pushes to `main` and the nightly run all run every
- * device test on the Pixel 9 at the target API level. The nightly and manual runs also run this subset on the minimum
- * SDK and a compact phone.
+ * CI does not rely on it for the target device: pull requests and pushes to `main` run every device test on the Pixel 9
+ * at the target API level. The nightly and manual runs run this subset on the minimum SDK and a compact phone.
  *
  * Behaviour that needs no device belongs in a JVM test under `app/src/test` instead, whole-app journeys included
  * (`AlbaAppRule`).

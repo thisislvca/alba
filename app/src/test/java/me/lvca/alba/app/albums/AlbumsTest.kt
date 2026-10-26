@@ -1,6 +1,5 @@
 package me.lvca.alba.app.albums
 
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
@@ -8,7 +7,6 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -78,11 +76,16 @@ class AlbumsTest {
         compose.waitUntilSettled { albumHoldsFirstPhoto("Extension renamed") }
 
         // A new album made from the viewer's chooser starts with the photo on screen.
-        // The "Added to album" message sits over the bottom of the details, where the row can land after scrolling.
-        compose.onNodeWithTag("detail-add-to-album").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        // Let the "Added to album" message time out on the test clock: it sits over the bottom of the details, where
+        // the row lands after scrolling, and a tap there would reach the message instead.
+        compose.mainClock.advanceTimeBy(MESSAGE_TIMEOUT_MILLIS)
+        compose.onNodeWithTag("detail-add-to-album").performScrollTo().performClick()
         compose.onNodeWithTag("album-chooser-new").performClick()
         compose.onNodeWithTag("album-name-field").performTextInput("From the viewer")
         compose.onNodeWithTag("album-name-save").performClick()
         compose.waitUntilSettled { albumHoldsFirstPhoto("From the viewer") }
     }
 }
+
+/** Longer than a status message stays on screen. */
+private const val MESSAGE_TIMEOUT_MILLIS = 6_000L

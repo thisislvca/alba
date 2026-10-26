@@ -47,7 +47,8 @@ internal fun ComposeTestRule.openViewerDetails() {
     onNodeWithTag("photo-details-panel").assertIsDisplayed()
 }
 
-internal fun ComposeTestRule.waitForVideoPlaying() = waitUntil(UI_WAIT) {
+/** Video reaches playback through the platform's decoder, which on a CI emulator is software. */
+internal fun ComposeTestRule.waitForVideoPlaying() = waitUntil(LONG_WAIT) {
     onAllNodesWithTag("video-player").fetchSemanticsNodes().any {
         it.config.getOrNull(SemanticsProperties.StateDescription) == "Playing"
     }

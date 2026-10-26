@@ -26,7 +26,7 @@ class UserTransferExecutionTest {
     @Smoke @Test fun persistedTransfersCompleteAfterARefreshAndThroughThePlatformRunner() {
         val graph = (compose.activity.application as AlbaApplication).graph
         val id = "fixture:icloud:0001"
-        // Refreshing after the app resumes schedules transfers that were persisted earlier.
+        // A transfer persisted earlier (here, after the catalog was loaded) is scheduled by the next library refresh.
         val persisted = runBlocking {
             graph.galleryRepository.removeCachedOriginal(id)
             graph.batches.enqueue(BatchAction.KEEP_OFFLINE, listOf(id))

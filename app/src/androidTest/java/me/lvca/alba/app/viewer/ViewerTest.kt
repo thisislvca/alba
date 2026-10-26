@@ -7,11 +7,11 @@ import androidx.compose.ui.test.*
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import me.lvca.alba.app.testing.AlbaAppRule
+import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.ScreenshotCapture
 import me.lvca.alba.app.testing.Screenshots
 import me.lvca.alba.app.testing.Smoke
-import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
@@ -47,7 +47,7 @@ class ViewerTest {
         compose.onNodeWithTag("media-pager").performTouchInput {
             swipe(androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.5f), androidx.compose.ui.geometry.Offset(width * 0.8f, height * 0.5f), 350)
         }
-        compose.waitUntil(UI_WAIT) { compose.onAllNodes(hasTestTag("video-player")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodes(hasTestTag("video-player")).fetchSemanticsNodes().isNotEmpty() }
         // Playback hides the chrome, Back button included, after a few seconds on the test clock, and a tap toggles
         // it, so tapping the button races that timer. System back closes the viewer whatever the chrome shows.
         compose.pressBack()
@@ -89,7 +89,9 @@ class ViewerTest {
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").performTouchInput { advanceEventTime(500); click() }
         compose.mainClock.advanceTimeBy(600)
         compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithTag("viewer-share").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("viewer-share").assertIsDisplayed()
+        // Screen readers announce the viewer's controls by these labels.
+        compose.onNodeWithTag("viewer-share").assertIsDisplayed().assertContentDescriptionEquals("Share")
+        compose.onNodeWithTag("floating-viewer-back").assertContentDescriptionEquals("Back to gallery")
         compose.waitUntil(SHORT_WAIT) { statusBarsVisible() == true }
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("viewer-image-fixture:icloud:0017").assertIsDisplayed()
@@ -100,9 +102,9 @@ class ViewerTest {
 
     @Smoke @Test fun tappingAPlayingVideoBringsBackTheWholeChrome() {
         compose.openGalleryMedia("fixture:icloud:0019")
-        compose.waitUntil(UI_WAIT) { compose.runOnIdle { player()?.isPlaying == true } }
+        compose.waitUntil(LONG_WAIT) { compose.runOnIdle { player()?.isPlaying == true } }
         // Playback hides the chrome after a few seconds.
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("viewer-share").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("viewer-share").fetchSemanticsNodes().isEmpty() }
         compose.onAllNodesWithTag("floating-viewer-back").assertCountEquals(0)
         // Hold the test clock: with it advancing on its own, waiting for idle would also run the 3 s auto-hide.
         compose.mainClock.autoAdvance = false
@@ -119,11 +121,11 @@ class ViewerTest {
 
     @Smoke @Test fun pausedVideoRetainsPositionAcrossActivityRecreation() {
         compose.openGalleryMedia("fixture:icloud:0019")
-        compose.waitUntil(UI_WAIT) { compose.runOnIdle { player()?.playbackState == Player.STATE_READY } }
+        compose.waitUntil(LONG_WAIT) { compose.runOnIdle { player()?.playbackState == Player.STATE_READY } }
         compose.runOnIdle { player()!!.apply { pause(); seekTo(1200) } }
         compose.waitUntil(SHORT_WAIT) { compose.runOnIdle { player()!!.currentPosition >= 1100 } }
         compose.activityRule.scenario.recreate()
-        compose.waitUntil(UI_WAIT) { compose.runOnIdle { player()?.playbackState == Player.STATE_READY } }
+        compose.waitUntil(LONG_WAIT) { compose.runOnIdle { player()?.playbackState == Player.STATE_READY } }
         compose.runOnIdle {
             assertFalse(player()!!.playWhenReady)
             assertTrue("Playback position should survive recreation", player()!!.currentPosition in 1100..1400)
