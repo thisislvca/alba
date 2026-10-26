@@ -40,14 +40,14 @@ internal class NotificationAccess(val granted: Boolean, val request: () -> Unit,
 internal val LocalNotificationAccess = compositionLocalOf { NotificationAccess(true, {}, {}) }
 
 /**
- * What shared-album activity asks of the gallery: open the album, inbox or page a tapped notification is about, and,
- * the first time the Shared Albums page shows with notifications on, ask for permission in context.
+ * What shared-album activity asks of the gallery: open the album, inbox or page a tapped notification is about.
+ * Android's permission dialog is never raised just by showing the page, since it would cover the app unprompted; the
+ * notifications switch asks when the person turns it on.
  */
 @Composable
-internal fun SharedActivityEffects(sharedPageShown: Boolean, albumIds: Set<String>, actions: SharedActions,
+internal fun SharedActivityEffects(albumIds: Set<String>, actions: SharedActions,
     openAlbum: (String) -> Unit, openPage: (invitations: Boolean) -> Unit) {
     val activity = LocalSharedActivity.current
-    val access = LocalNotificationAccess.current
     LaunchedEffect(activity.open, albumIds.isNotEmpty()) {
         val open = activity.open ?: return@LaunchedEffect
         val album = open.albumId
@@ -55,12 +55,5 @@ internal fun SharedActivityEffects(sharedPageShown: Boolean, albumIds: Set<Strin
         if (album != null && albumIds.isEmpty()) return@LaunchedEffect
         if (album != null && album in albumIds) openAlbum(album) else openPage(open.invitations)
         actions.consumeSharedOpen()
-    }
-    LaunchedEffect(sharedPageShown) {
-        val wanted = activity.notificationsEnabled && !activity.notificationsAsked
-        if (sharedPageShown && wanted && !access.granted) {
-            actions.sharedNotificationsAsked()
-            access.request()
-        }
     }
 }

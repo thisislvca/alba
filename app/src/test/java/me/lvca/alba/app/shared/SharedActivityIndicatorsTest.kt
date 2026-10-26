@@ -82,19 +82,19 @@ class SharedActivityIndicatorsTest {
         compose.runOnIdle { assertEquals(1, settings) }
     }
 
-    @Test fun theSharedAlbumsPageAsksOnceAndANotificationOpensItsAlbum() {
+    @Test fun showingTheSharedAlbumsPageNeverRaisesAndroidsPermissionDialogAndANotificationOpensItsAlbum() {
         var requested = 0; var asked = 0; var consumed = 0; val opened = mutableListOf<String>()
         val actions = testAlbaActions(sharedNotificationsAsked = { asked++ }, consumeSharedOpen = { consumed++ })
         val state = SharedActivityState(open = SharedOpenRequest(news.id, false))
         compose.setContent { AlbaTheme(darkTheme = false) {
             CompositionLocalProvider(LocalSharedActivity provides state,
                 LocalNotificationAccess provides NotificationAccess(false, { requested++ }, {})) {
-                SharedActivityEffects(sharedPageShown = true, albumIds = setOf(news.id), actions = actions, openAlbum = { opened += it }) {}
+                SharedActivityEffects(albumIds = setOf(news.id), actions = actions, openAlbum = { opened += it }) {}
             }
         } }
         compose.runOnIdle {
             assertEquals(listOf(news.id), opened); assertEquals(1, consumed)
-            assertEquals(1, requested); assertEquals(1, asked)
+            assertEquals(0, requested); assertEquals(0, asked)
         }
     }
 }

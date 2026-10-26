@@ -302,8 +302,7 @@ internal fun GalleryHome(
         collectionGrid.requestScrollToItem(0)
         actions.changeQuery(GalleryQuery(collectionId = id))
     }
-    SharedActivityEffects(tab == GalleryTab.COLLECTIONS && collectionsPage == CollectionsPage.SHARED && query.collectionId == null,
-        remember(sharedAlbums) { sharedAlbums.map { it.id }.toSet() }, actions, openAlbum = ::openShared) { invitations ->
+    SharedActivityEffects(remember(sharedAlbums) { sharedAlbums.map { it.id }.toSet() }, actions, openAlbum = ::openShared) { invitations ->
         libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED
         actions.clearSelection(); actions.changeQuery(GalleryQuery())
         if (invitations) sheet = GallerySheet.SharedInvitations
