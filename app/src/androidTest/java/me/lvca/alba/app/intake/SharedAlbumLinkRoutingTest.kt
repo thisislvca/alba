@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import me.lvca.alba.app.intake.albaComponents
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -27,5 +28,12 @@ class SharedAlbumLinkRoutingTest {
         assertTrue(albaHandles("https://www.icloud.com/photos/#sc,Token2"))
         assertFalse(albaHandles("https://www.icloud.com/photos/"))
         assertFalse(albaHandles("https://www.icloud.com/photos/#/library"))
+    }
+
+    @Test fun beforeAndroid15PhotosLinksStillOpenAlbaAndTheBrowserChooserLeavesItOut() {
+        assumeTrue(Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM)
+        assertTrue(albaHandles("https://www.icloud.com/photos#/sharedalbums/sc,Token1"))
+        assertTrue(albaHandles("https://www.icloud.com/photos/"))
+        assertTrue(albaComponents(context.packageManager, context.packageName, "https://www.icloud.com/photos/").isNotEmpty())
     }
 }

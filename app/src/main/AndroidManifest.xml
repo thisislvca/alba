@@ -120,6 +120,29 @@
                 </uri-relative-filter-group>
             </intent-filter>
         </activity-alias>
+        <!-- Before Android 15 a filter cannot match the fragment, so there the only way to open an invitation link that
+             arrives as /photos#/sharedalbums/sc,… is to claim /photos. Alba then hands any link that is not a shared album
+             back to the browser, through a chooser that leaves Alba out. -->
+        <activity-alias
+            android:name=".SharedAlbumPathLink"
+            android:enabled="@bool/shared_album_path_links"
+            android:exported="true"
+            android:targetActivity=".MainActivity">
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="photos.icloud.com" />
+                <data android:host="www.icloud.com" />
+                <data android:host="icloud.com" />
+                <data android:host="photos.icloud.com.cn" />
+                <data android:host="www.icloud.com.cn" />
+                <data android:host="icloud.com.cn" />
+                <data android:path="/photos" />
+                <data android:pathPrefix="/photos/" />
+            </intent-filter>
+        </activity-alias>
         <!-- Launchers pin icons by component name; keep the name used before the package rename. -->
         <activity-alias
             android:name="dev.mela.app.MainActivity"

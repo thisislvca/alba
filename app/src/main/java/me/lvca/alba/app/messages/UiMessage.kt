@@ -32,4 +32,7 @@ sealed interface UndoAction {
 
     /** Phone items moved to Android's trash: ask Android to restore these content URIs. */
     data class PhoneTrash(val contentUris: List<String>) : UndoAction
+
+    /** A selection moved to both trashes at once: put the iCloud items back and ask Android to restore the rest. */
+    data class MixedTrash(val cloud: CloudTrash, val phone: PhoneTrash) : UndoAction
 }

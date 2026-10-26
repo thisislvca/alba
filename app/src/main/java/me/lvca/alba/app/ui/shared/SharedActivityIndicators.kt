@@ -31,40 +31,13 @@ internal val LocalSharedActivity = staticCompositionLocalOf { SharedActivityStat
 
 /**
  * Whether Alba may post notifications, and how to ask. [request] asks Android in context, or opens the app's
- * notification settings once Android no longer shows its prompt; [openSettings] always opens them.
+ * notification settings once Android no longer shows its prompt; [openSettings] always opens them. AlbaRoot provides
+ * it, asking through the same launcher as backup and transfers.
  */
 internal class NotificationAccess(val granted: Boolean, val request: () -> Unit, val openSettings: () -> Unit)
 
 /** Granted by default, so previews and tests that do not provide it show the switch as it is saved. */
 internal val LocalNotificationAccess = compositionLocalOf { NotificationAccess(true, {}, {}) }
-
-/**
- * Asks Android for notification permission in context. The question survives recreation: an answer that arrives
- * after a rotation still reaches [answered].
- */
-@Composable
-internal fun rememberNotificationAccess(answered: (Boolean) -> Unit): NotificationAccess {
-    val context = LocalContext.current
-    var granted by remember { mutableStateOf(canNotify(context)) }
-    var awaiting by rememberSaveable { mutableStateOf(false) }
-    val answer by rememberUpdatedState(answered)
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { granted = canNotify(context) }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        granted = canNotify(context)
-        if (awaiting) { awaiting = false; answer(granted) }
-    }
-    val openSettings = {
-        runCatching { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }
-        Unit
-    }
-    return NotificationAccess(granted, request = {
-        if (needsPermission(context)) { awaiting = true; launcher.launch(Manifest.permission.POST_NOTIFICATIONS) }
-        else if (!granted) openSettings() else answer(true)
-    }, openSettings = openSettings)
-}
-
-private fun needsPermission(context: Context) = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
 
 /**
  * What shared-album activity asks of the gallery: open the album, inbox or page a tapped notification is about, and,

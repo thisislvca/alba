@@ -27,6 +27,7 @@ class BackupWakeWorker(
         )
         return try {
             if (app.graph.accountManager.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE) {
+                report(app, signInNeeded = true)
                 span.finish(DiagnosticOutcome.SUCCESS)
                 return Result.success()
             }
@@ -38,11 +39,14 @@ class BackupWakeWorker(
                     return Result.retry()
                 }
                 BackgroundSessionDecision.PAUSE -> {
+                    report(app, signInNeeded = true)
                     span.finish(DiagnosticOutcome.SUCCESS)
                     return Result.success()
                 }
             }
             val summary = app.graph.maintenance.wake(WakeReason.BACKGROUND)
+            // Storage full and failed items need the user; routine progress posts nothing.
+            report(app, signInNeeded = false)
             span.finish(
                 DiagnosticOutcome.SUCCESS,
                 mapOf(
@@ -60,7 +64,17 @@ class BackupWakeWorker(
         } catch (error: Exception) {
             span.finish(DiagnosticOutcome.FAILED, error = error)
             // Retry the durable state machine, never replay an uncertain HTTP upload.
-            if (app.graph.accountManager.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE) Result.success() else Result.retry()
+            if (app.graph.accountManager.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE) {
+                report(app, signInNeeded = true)
+                Result.success()
+            } else Result.retry()
         }
     }
+
+    /**
+     * Tells the user, once, what stopped backup: an expired sign-in, a full iCloud, or items that failed. A pass that
+     * only made progress posts nothing. Reporting never fails the pass.
+     */
+    private suspend fun report(app: AlbaApplication, signInNeeded: Boolean) =
+        app.graph.backupNotifications.report(app.graph.photos, signInNeeded)
 }

@@ -1,11 +1,14 @@
 package me.lvca.alba.app.transfers
 
+import android.Manifest
 import android.net.Uri
+import android.os.Build
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -14,6 +17,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
@@ -29,17 +33,25 @@ import me.lvca.alba.app.diagnostics.DiagnosticOperation
 import me.lvca.alba.app.diagnostics.measure
 import me.lvca.alba.app.gallery.GalleryBrowser
 import me.lvca.alba.app.gallery.projectTransfers
+import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.messages.toUserMessage
+import me.lvca.alba.app.platform.BackupPreferences
+import me.lvca.alba.app.platform.MobileDataChoice
+import me.lvca.alba.app.platform.PHONE_TRASH_LIMIT
 import me.lvca.alba.app.work.BackgroundSessionDecision
 import me.lvca.alba.app.work.backgroundSessionDecision
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.model.BackupDraftId
+import me.lvca.alba.engine.model.BackupProgress
+import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.BackupSetupEffect
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.BatchItem
+import me.lvca.alba.engine.model.DeviceFolder
+import me.lvca.alba.engine.model.FreeUpSpaceCandidates
 import me.lvca.alba.engine.model.GalleryRepository
 import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.engine.model.PhotoCompanion
@@ -57,6 +69,34 @@ data class TransferState(
     val uploadsByMediaId: Map<String, TransferView> = emptyMap(),
     val backup: BackupView = BackupView(enabled = false),
     val backupSetup: BackupSetup? = null,
+    val backupSettings: BackupSettings = BackupSettings(),
+    /** How much of what backup covers is verified; null until counted. */
+    val backupProgress: BackupProgress? = null,
+    /** Folders on the phone that backup can include; null until listed. */
+    val deviceFolders: List<DeviceFolder>? = null,
+    val freeUpSpace: FreeUpSpaceState = FreeUpSpaceState(),
+)
+
+/** "Free up space": what can leave the phone, and the batch re-check in progress. */
+data class FreeUpSpaceState(
+    val candidates: FreeUpSpaceCandidates? = null,
+    val loading: Boolean = false,
+    /** A run is under way: checking a chunk, or waiting for Android's answer for one. */
+    val checking: Boolean = false,
+    val checked: Int = 0,
+    val total: Int = 0,
+    /** Android is asking the user about the checked chunk. */
+    val awaitingConsent: Boolean = false,
+    /** Items of a run left from before a restart, offered again rather than resumed on their own. */
+    val leftover: Int = 0,
+)
+
+/** What backup adds to [TransferState] beyond the queue and the enrollment. */
+internal data class BackupExtras(
+    val settings: BackupSettings,
+    val progress: BackupProgress?,
+    val folders: List<DeviceFolder>?,
+    val freeUpSpace: FreeUpSpaceState,
 )
 
 /** Automatic backup setup the user started: the disclosure to accept, then the permissions Android must grant. */
@@ -95,19 +135,26 @@ internal class TransferController(
 
     private val backupSetup = BackupSetupStore(savedState)
 
+    /** Backup status, settings, prompts and "Free up space". */
+    val backup = BackupController(scope, savedState, photos, live.preferences, scheduler, messages, effects, isDemo = { mode === demo })
+
     val state: StateFlow<TransferState> = combine(
-        batches.observe(),
-        accountManager.state,
+        combine(batches.observe(), accountManager.state) { rows, _ -> rows },
         isDemo.flatMapLatest { if (it) demo.transfers else live.transfers }.map(::projectTransfers).flowOn(Dispatchers.Default),
         isDemo.flatMapLatest { if (it) demo.backup else live.backup },
         backupSetup.setup,
-    ) { batchRows, _, transfers, backup, setup ->
+        backup.extras,
+    ) { batchRows, transfers, backup, setup, extra ->
         TransferState(
             batches = batchRows.filter { it.account == batches.activeAccount },
             queue = transfers.queue,
             uploadsByMediaId = transfers.byMediaId,
             backup = backup,
             backupSetup = setup,
+            backupSettings = extra.settings,
+            backupProgress = extra.progress,
+            deviceFolders = extra.folders,
+            freeUpSpace = extra.freeUpSpace,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), TransferState())
 
@@ -219,9 +266,13 @@ internal class TransferController(
                     clearSetup()
                     finishBackup(current.draftId)
                 } else if (currentSetup()?.draftId == current.draftId) {
-                    // Only when the user has not dismissed the disclosure while acceptance was in flight.
-                    backupSetup.awaitPermissions(current, effect.permissions)
-                    effects.send(AlbaEffect.RequestBackupPermissions(effect.permissions))
+                    // Only when the user has not dismissed the disclosure while acceptance was in flight. Backup is
+                    // when a notification helps (paused, storage full), so Android asks for it here, once.
+                    val permissions = effect.permissions + backup.notificationPermission()
+                    // Asked here, with backup, so the first manual transfer does not ask again.
+                    if (permissions.size > effect.permissions.size) backup.notificationsAsked()
+                    backupSetup.awaitPermissions(current, permissions)
+                    effects.send(AlbaEffect.RequestBackupPermissions(permissions))
                 }
                 is BackupSetupEffect.Refused -> clearSetup()
             }
@@ -250,6 +301,24 @@ internal class TransferController(
         }
     }
 
+    /** Stages again an item that sent nothing to Apple. Uncertain uploads go through verification instead. */
+    fun retryTransfer(transferId: TransferId) {
+        val mode = mode
+        launchBatchWork {
+            mode.retry(transferId)
+            if (mode === live) scheduler.schedule()
+        }
+    }
+
+    fun retryAllTransfers() {
+        val mode = mode
+        launchBatchWork {
+            val retried = mode.retryAll()
+            if (retried > 0 && mode === live) scheduler.schedule()
+            messages.show(UiMessage.quantity(R.plurals.retried_items, retried))
+        }
+    }
+
     fun continuePastUnresolved(transferId: TransferId) {
         val mode = mode
         scope.launch {
@@ -270,18 +339,19 @@ internal class TransferController(
             }
             val handoff = photos.beginTrash(proposal.id)
             // Saved, so Android's answer still reaches the attempt after the activity or process is recreated.
-            savedState[TRASH_ATTEMPT] = handoff.attemptId.value
+            savedState[TRASH_ATTEMPT_KEY] = handoff.attemptId.value
             effects.send(AlbaEffect.ConfirmVerifiedTrash(handoff.intentSender))
         }
     }
 
     /** Android's answer to the verified trash request. Ignored when no request is pending. */
     fun verifiedTrashAnswered(result: SystemConsentCallback) {
-        val attempt = savedState.get<String>(TRASH_ATTEMPT) ?: return
-        savedState[TRASH_ATTEMPT] = null
+        val attempt = savedState.get<String>(TRASH_ATTEMPT_KEY) ?: return
+        savedState[TRASH_ATTEMPT_KEY] = null
         scope.launch {
             runCatching { photos.recordTrashResult(TrashAttemptId(attempt), result) }
                 .onSuccess {
+                    backup.trashAnswered(attempt, result == SystemConsentCallback.APPROVED)
                     messages.show(if (result == SystemConsentCallback.APPROVED) {
                         R.string.message_android_approved_the_trash_request_alba_is_checking_the_phone_item_its_icloud_copy_remains_veri
                     } else {
@@ -341,8 +411,4 @@ internal class TransferController(
     private fun currentSetup(): BackupSetup? = backupSetup.setup.value
 
     private fun clearSetup() = backupSetup.clear()
-
-    private companion object {
-        const val TRASH_ATTEMPT = "verifiedTrashAttempt"
-    }
 }

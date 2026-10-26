@@ -43,6 +43,16 @@ internal object CloudKitErrors {
         if (code in ZONE_CHANGES_RESET_CODES) CatalogResetRequired()
         else AppleProtocolException(AppleProtocolError.NETWORK, "Apple Photos could not list library changes ($code). Wait a moment and refresh.")
 
+    /**
+     * True when Apple refused a write because the account's iCloud storage is full. CloudKit Web Services reports this
+     * as `QUOTA_EXCEEDED` with HTTP 413; a 413 on a small JSON request cannot mean the request itself was too large.
+     */
+    fun quotaExceeded(httpCode: Int, root: JsonObject?): Boolean =
+        httpCode == QUOTA_HTTP_STATUS || (root != null && QUOTA_EXCEEDED in serverErrorCodes(root))
+
+    const val QUOTA_EXCEEDED = "QUOTA_EXCEEDED"
+    const val QUOTA_HTTP_STATUS = 413
+
     fun JsonObject.serverErrorCode(): String? =
         (this["serverErrorCode"] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 

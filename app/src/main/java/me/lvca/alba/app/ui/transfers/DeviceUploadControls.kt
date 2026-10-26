@@ -43,6 +43,7 @@ internal fun DeviceUploadControls(
     onContinuePastUnresolved: () -> Unit,
     onMoveVerifiedPhotoToTrash: () -> Unit,
     onOpenAccount: () -> Unit,
+    onRetry: () -> Unit = {},
 ) {
     if (uploadTransfer == null) {
         if (isSignedIn || demo) {
@@ -139,12 +140,21 @@ internal fun DeviceUploadControls(
             )
         }
         if (uploadTransfer.state == TransferViewState.UNRESOLVED) {
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.unresolved_item_explanation), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onContinuePastUnresolved,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(stringResource(R.string.keep_this_item_blocked_continue_others))
+                Text(stringResource(R.string.skip_unresolved_item))
+            }
+        }
+        if (uploadTransfer.retryable && !demo) {
+            Spacer(Modifier.height(10.dp))
+            Button(onClick = onRetry, enabled = !isWorking, modifier = Modifier.fillMaxWidth().testTag("retry-upload")) {
+                Text(stringResource(R.string.retry))
             }
         }
     }

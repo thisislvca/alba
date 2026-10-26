@@ -1,6 +1,8 @@
 package me.lvca.alba.app.intake
 
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import me.lvca.alba.engine.model.SharedAlbumLinks
@@ -131,4 +133,14 @@ internal fun sharedInvitationLink(action: String?, type: String?, text: String?,
     action == Intent.ACTION_VIEW && dataScheme in setOf("http", "https") ->
         dataString?.takeIf { SharedAlbumLinks.token(it) != null }.orEmpty()
     else -> null
+}
+
+/**
+ * Every Alba entry that claims [url], for a chooser to leave out: a link Alba took but cannot use goes back to a browser
+ * without a way to loop into Alba again.
+ */
+internal fun albaComponents(packageManager: PackageManager, packageName: String, url: String): Array<ComponentName> {
+    val view = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+    return packageManager.queryIntentActivities(view, 0).map { it.activityInfo }
+        .filter { it.packageName == packageName }.map { ComponentName(it.packageName, it.name) }.toTypedArray()
 }

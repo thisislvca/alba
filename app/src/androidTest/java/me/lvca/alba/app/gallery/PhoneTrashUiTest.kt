@@ -37,6 +37,20 @@ class PhoneTrashUiTest {
         checkNotNull(SystemWindows.await(id, UI_WAIT)) { "Android confirmation did not appear: $id" }.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         instrumentation.waitForIdleSync()
     }
+
+    /**
+     * Trashing an item that isn't backed up shows Alba's warning, naming the count, before Android's own request. The
+     * local test video was never uploaded, so every trash goes through it.
+     */
+    private fun trashNotBackedUp() {
+        val context = compose.activity
+        compose.onNodeWithText(context.getString(R.string.trash_phone_copy)).performScrollTo().performClick()
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("unbacked-phone-trash").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.phone_trash_not_backed_up_title, 1, 1)).assertIsDisplayed()
+        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.phone_trash_none_backed_up, 1, 1)).assertIsDisplayed()
+        compose.onNodeWithTag("confirm-unbacked-phone-trash").performClick()
+    }
+
     @Smoke @Test fun localVideoPlaysAndAndroidTrashCanBeCancelledConfirmedUndoneAndRestored() {
         val context = compose.activity.applicationContext
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_VIDEO)
@@ -55,11 +69,11 @@ class PhoneTrashUiTest {
             val playerBounds = compose.onNodeWithTag("video-player").fetchSemanticsNode().boundsInRoot
             assertTrue("Portrait video must use the available height", playerBounds.height > playerBounds.width)
             compose.openViewerDetails()
-            compose.onNodeWithText(context.getString(R.string.trash_phone_copy)).performScrollTo().performClick()
+            trashNotBackedUp()
             confirm("button2")
             compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
             assertFalse(runBlocking { source.scanImages().single { it.id == id }.isTrashed })
-            compose.onNodeWithText(context.getString(R.string.trash_phone_copy)).performScrollTo().performClick()
+            trashNotBackedUp()
             confirm("button1")
             compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
             assertTrue(runBlocking { source.scanImages().single { it.id == id }.isTrashed })
@@ -75,7 +89,7 @@ class PhoneTrashUiTest {
             compose.scrollToGalleryMedia(id)
             compose.onNodeWithTag("media-$id").performClick()
             compose.openViewerDetails()
-            compose.onNodeWithText(context.getString(R.string.trash_phone_copy)).performScrollTo().performClick()
+            trashNotBackedUp()
             confirm("button1")
             compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
             assertTrue(runBlocking { source.scanImages().single { it.id == id }.isTrashed })

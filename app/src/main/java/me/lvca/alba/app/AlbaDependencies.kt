@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import me.lvca.alba.app.demo.DemoMediaImporter
 import me.lvca.alba.app.di.AlbaGraph
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
+import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.platform.PhotoEditStore
@@ -32,6 +33,7 @@ data class AlbaDependencies(
     val network: Flow<NetworkStatus?>,
     val diagnostics: AlbaDiagnostics,
     val sharedActivity: SharedActivityStore,
+    val backupPreferences: BackupPreferences,
 ) {
     companion object {
         fun from(graph: AlbaGraph) = AlbaDependencies(
@@ -47,6 +49,7 @@ data class AlbaDependencies(
             network = graph.network,
             diagnostics = graph.diagnostics,
             sharedActivity = graph.sharedActivity,
+            backupPreferences = graph.backupPreferences,
         )
     }
 }

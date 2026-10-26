@@ -1,6 +1,7 @@
 package me.lvca.alba.app.platform
 
 import android.Manifest
+import me.lvca.alba.app.ui.gallery.trashDaysLeft
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaKind
@@ -70,6 +71,26 @@ class PlatformRequestsTest {
         assertEquals(listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO,
             Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED), requestedDevicePhotoPermissions(34))
         assertEquals(listOf(Manifest.permission.READ_EXTERNAL_STORAGE), requestedDevicePhotoPermissions(32))
+    }
+
+    @Test fun aDenialWithoutARationaleMeansAndroidStoppedAsking() {
+        assertTrue(photoPromptBlocked(anyGranted = false, showRationale = false))
+        // The first denial still lets Android ask again, and any grant clears the block.
+        assertFalse(photoPromptBlocked(anyGranted = false, showRationale = true))
+        assertFalse(photoPromptBlocked(anyGranted = true, showRationale = false))
+    }
+
+    @Test fun trashedItemsCountWholeDaysLeftRoundedUp() {
+        val now = 1_800_000_000_000L
+        val day = 86_400_000L
+        val trashed = media("device:1", MediaOrigin.DEVICE).copy(isTrashed = true)
+        assertEquals(30, trashDaysLeft(trashed.copy(expiresAtEpochMillis = now + 30 * day), now))
+        assertEquals(3, trashDaysLeft(trashed.copy(expiresAtEpochMillis = now + 2 * day + 1), now))
+        // The last hours, and an expiry already passed, still read "1 day" until the item is gone.
+        assertEquals(1, trashDaysLeft(trashed.copy(expiresAtEpochMillis = now + 60_000), now))
+        assertEquals(1, trashDaysLeft(trashed.copy(expiresAtEpochMillis = now - day), now))
+        assertNull(trashDaysLeft(trashed, now))
+        assertNull(trashDaysLeft(trashed.copy(isTrashed = false, expiresAtEpochMillis = now + day), now))
     }
 
     private fun media(id: String, origin: MediaOrigin, original: String? = null, linked: String? = null) = GalleryMedia(
