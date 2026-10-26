@@ -64,6 +64,15 @@ internal fun Throwable.toUserMessage(@StringRes fallback: Int): UiMessage = when
         AppleProtocolError.UNSUPPORTED_TWO_FACTOR -> R.string.unsupported_two_factor
         AppleProtocolError.NETWORK -> R.string.network_error
         AppleProtocolError.MALFORMED_RESPONSE -> R.string.malformed_response
+        AppleProtocolError.WEB_ACCESS_DISABLED -> R.string.web_access_off_message
+        AppleProtocolError.SECURITY_KEY_REQUIRED -> R.string.sign_in_error_security_key
+        AppleProtocolError.TOO_MANY_ATTEMPTS -> R.string.sign_in_error_too_many_attempts
     })
     else -> localizedStoredMessage(message, fallback)
 }
+
+/** The Apple protocol error behind this failure, looking through wrapping exceptions. */
+internal fun Throwable.appleProtocolError(): AppleProtocolError? =
+    generateSequence(this) { it.cause }.take(MAX_CAUSE_DEPTH).filterIsInstance<AppleProtocolException>().firstOrNull()?.error
+
+private const val MAX_CAUSE_DEPTH = 8

@@ -95,6 +95,12 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
                         if (hasCloud && !hasPhone && !hasShared) DropdownMenuItem(text = { Text(stringResource(if (query.trashOnly) R.string.restore_from_icloud else R.string.trash_in_icloud)) },
                             enabled = editable && withinLimit,
                             onClick = { more = false; actions.confirmCloudTrash(selectedItems.map { it.id }, !query.trashOnly) })
+                        // Phone and iCloud items together: one confirmation, then each goes to its own trash.
+                        val mixed = hasCloud && hasPhone
+                        if (mixed && !hasShared && !query.trashOnly) DropdownMenuItem(
+                            text = { Text(stringResource(R.string.mixed_trash_action)) }, enabled = editable && withinLimit,
+                            modifier = Modifier.testTag("trash-mixed-selection"),
+                            onClick = { more = false; actions.confirmMixedTrash(selectedItems) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.remove_offline_copies)) }, enabled = hasCloud,
                             onClick = { more = false; actions.runBatch(BatchAction.REMOVE_CACHE) })
                     }

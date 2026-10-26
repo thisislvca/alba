@@ -25,6 +25,23 @@ import java.io.IOException
 class AccountPreparationTest {
     private fun session(vm: AlbaViewModel) = combine(vm.account.state, vm.message) { state, message -> state to message }
 
+    @Test fun closingTheAccountScreenForgetsTheTypedPassword() = runBlockingWithMainLooper {
+        val app = ApplicationProvider.getApplicationContext<AlbaApplication>()
+        val store = ViewModelStore()
+        val vm = withContext(Dispatchers.Main) {
+            AlbaViewModel(testDependencies(app.graph), SavedStateHandle()).also { store.put("password-draft", it) }
+        }
+        try {
+            withContext(Dispatchers.Main) {
+                vm.account.signInDraft.password = "typed-but-not-sent"
+                vm.account.closeAccount()
+                assertEquals("", vm.account.signInDraft.password)
+            }
+        } finally {
+            withContext(Dispatchers.Main) { store.clear() }
+        }
+    }
+
     @Test fun failedPreparationIsReportedAndDoesNotLeaveSignInBusy() = runBlockingWithMainLooper {
         val app = ApplicationProvider.getApplicationContext<AlbaApplication>()
         val graph = app.graph

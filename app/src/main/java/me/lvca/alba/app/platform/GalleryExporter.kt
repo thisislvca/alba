@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.StatFs
 import android.provider.DocumentsContract
@@ -29,50 +30,48 @@ import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+/** A small decode is enough to tell whether Android can read an image at all. */
+private const val DECODE_CHECK_SAMPLE = 16
+
 /** Publishes new copies only; it never modifies the source or asks for broad storage access. */
 class GalleryExporter(context: Context, private val repository: OriginalExporter) {
     private val appContext = context.applicationContext
     private val resolver = appContext.contentResolver
 
-    /** Only completed copies in this directory are exposed to the chosen share target. */
-    suspend fun prepareShare(items: List<GalleryMedia>): Intent = withContext(Dispatchers.IO) {
-        require(items.isNotEmpty() && items.size <= 50) { StoredMessage.CHOOSE_BETWEEN_1_AND_50_PHOTOS_TO_SHARE_AT_ONCE.code }
+    /** One copy of [media]'s original, as a content URI another app can be granted. Shares the share copies' lifetime. */
+    suspend fun prepareCopy(media: GalleryMedia): Uri = withContext(Dispatchers.IO) {
+        val directory = newShareDirectory()
+        try { copyOriginals(listOf(media), directory).single() }
+        catch (error: Throwable) {
+            directory.deleteRecursively()
+            throw error
+        }
+    }
+
+    /**
+     * Whether Android can decode the image at [uri]. Android's print helper drops an image it cannot decode without
+     * saying so, so Alba checks a small decode first and reports the problem itself.
+     */
+    suspend fun canDecodeImage(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        val options = BitmapFactory.Options().apply { inSampleSize = DECODE_CHECK_SAMPLE }
+        val bitmap = runCatching { resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) } }.getOrNull()
+        bitmap?.recycle()
+        bitmap != null
+    }
+
+    private fun newShareDirectory(): File {
         val root = File(appContext.cacheDir, "shares").apply { mkdirs() }
         val expiry = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         root.listFiles()?.filter { it.lastModified() < expiry }?.forEach { it.deleteRecursively() }
-        val directory = File(root, UUID.randomUUID().toString()).apply { check(mkdirs()) }
+        return File(root, UUID.randomUUID().toString()).apply { check(mkdirs()) }
+    }
+
+    /** Only completed copies in this directory are exposed to the chosen share target. */
+    suspend fun prepareShare(items: List<GalleryMedia>): Intent = withContext(Dispatchers.IO) {
+        require(items.isNotEmpty() && items.size <= 50) { StoredMessage.CHOOSE_BETWEEN_1_AND_50_PHOTOS_TO_SHARE_AT_ONCE.code }
+        val directory = newShareDirectory()
         try {
-            val context = currentCoroutineContext()
-            var total = 0L
-            var nextSpaceCheck = 0L
-            val uris = items.mapIndexed { index, media ->
-                currentCoroutineContext().ensureActive()
-                val file = File(directory, "${index + 1}-${exportName(media)}")
-                file.outputStream().use { raw ->
-                    val output = object : OutputStream() {
-                        override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
-                        override fun write(bytes: ByteArray, offset: Int, length: Int) {
-                            context.ensureActive()
-                            total += length
-                            check(total <= 2_000_000_000L) { StoredMessage.SHARE_UP_TO_2_GB_AT_A_TIME_TRY_FEWER_ITEMS.code }
-                            if (total >= nextSpaceCheck) {
-                                // Leave headroom without evicting unrelated application caches for a share.
-                                check(StatFs(directory.path).availableBytes > 16_000_000L) {
-                                    StoredMessage.NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS.code
-                                }
-                                nextSpaceCheck = total + 1_000_000L
-                            }
-                            raw.write(bytes, offset, length)
-                        }
-                    }
-                    if (media.origin == MediaOrigin.DEVICE) {
-                        val uri = requireNotNull(media.originalReference) { "Phone photo is no longer available." }.toUri()
-                        require(uri.scheme == "content")
-                        checkNotNull(resolver.openInputStream(uri)).use { it.copyTo(output) }
-                    } else repository.exportOriginal(media.id, output)
-                }
-                FileProvider.getUriForFile(appContext, "${appContext.packageName}.shares", file)
-            }
+            val uris = copyOriginals(items, directory)
             currentCoroutineContext().ensureActive()
             val mimes = items.map { it.mimeType }.distinct()
             val mime = if (mimes.size == 1) mimes.single() else if (mimes.all { it.startsWith("image/") }) "image/*"
@@ -90,6 +89,42 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
             directory.deleteRecursively()
             throw error
         }
+    }
+
+    /** Copies each original into [directory], downloading iCloud originals when needed, within space limits. */
+    private suspend fun copyOriginals(items: List<GalleryMedia>, directory: File): List<Uri> {
+        val context = currentCoroutineContext()
+        var total = 0L
+        var nextSpaceCheck = 0L
+        val uris = items.mapIndexed { index, media ->
+            currentCoroutineContext().ensureActive()
+            val file = File(directory, "${index + 1}-${exportName(media)}")
+            file.outputStream().use { raw ->
+                val output = object : OutputStream() {
+                    override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
+                    override fun write(bytes: ByteArray, offset: Int, length: Int) {
+                        context.ensureActive()
+                        total += length
+                        check(total <= 2_000_000_000L) { StoredMessage.SHARE_UP_TO_2_GB_AT_A_TIME_TRY_FEWER_ITEMS.code }
+                        if (total >= nextSpaceCheck) {
+                            // Leave headroom without evicting unrelated application caches for a share.
+                            check(StatFs(directory.path).availableBytes > 16_000_000L) {
+                                StoredMessage.NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS.code
+                            }
+                            nextSpaceCheck = total + 1_000_000L
+                        }
+                        raw.write(bytes, offset, length)
+                    }
+                }
+                if (media.origin == MediaOrigin.DEVICE) {
+                    val uri = requireNotNull(media.originalReference) { "Phone photo is no longer available." }.toUri()
+                    require(uri.scheme == "content")
+                    checkNotNull(resolver.openInputStream(uri)).use { it.copyTo(output) }
+                } else repository.exportOriginal(media.id, output)
+            }
+            FileProvider.getUriForFile(appContext, "${appContext.packageName}.shares", file)
+        }
+        return uris
     }
 
     suspend fun clearShares() = withContext(Dispatchers.IO) {
