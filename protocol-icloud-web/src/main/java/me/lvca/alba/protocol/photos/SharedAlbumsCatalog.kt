@@ -137,17 +137,18 @@ internal class SharedAlbumsCatalog(
         created.collection
     }
 
-    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String) = connection.exclusive {
-        transfers.contribute(id, mediaIds, operationId)
+    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String, caption: String = "") = connection.exclusive {
+        transfers.contribute(id, mediaIds, operationId, caption)
     }
 
     suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: OneShotUploadSource) = connection.exclusive {
         transfers.saveLegacyPhoto(mediaId, fileName, source)
     }
 
-    suspend fun upload(id: String, fileName: String, source: OneShotUploadSource, operationId: String) = connection.exclusive {
+    /** Legacy shared streams have no caption on upload, so [caption] applies to modern albums only. */
+    suspend fun upload(id: String, fileName: String, source: OneShotUploadSource, operationId: String, caption: String = "") = connection.exclusive {
         if (ids.isLegacyAlbum(id)) transfers.uploadToLegacy(id, fileName, source, operationId)
-        else transfers.uploadToModern(id, fileName, source)
+        else transfers.uploadToModern(id, fileName, source, caption)
     }
 
     override suspend fun pendingSharedInvitations(): List<SharedInvitation> = connection.exclusive { invitations.pending() }
@@ -173,7 +174,21 @@ internal class SharedAlbumsCatalog(
         val album = fresh(ids.albumOfPost(id))
         val post = ids.postRecordName(album, id)
         modern.requirePost(album, post)
-        modern.postPhotos(album, post)
+        modern.postPhotos(album, post, ModernSharedAlbums.MAX_POST_PHOTOS).photoIds
+    }
+
+    /** The album is discovered once for the whole batch, rather than once per post. */
+    override suspend fun sharedPostPreviews(ids: List<String>): Map<String, SharedPostPreview> = connection.exclusive {
+        require(ids.size in 1..SHARED_POST_PREVIEW_BATCH)
+        val albumId = this.ids.albumOfPost(ids.first())
+        require(ids.all { this.ids.albumOfPost(it) == albumId }) { "Post previews are read one album at a time." }
+        val album = fresh(albumId)
+        require(!album.isLegacy)
+        ids.distinct().associateWith { id ->
+            val post = this.ids.postRecordName(album, id)
+            val photos = modern.postPhotos(album, post, ModernSharedAlbums.MAX_POST_PHOTOS)
+            SharedPostPreview(photos.photoIds.take(SHARED_POST_PREVIEW_PHOTOS), photos.photoIds.size, photos.complete, modern.reactionCount(album, post))
+        }
     }
 
     override suspend fun sharedPostDiscussion(id: String): SharedDiscussion = connection.exclusive {

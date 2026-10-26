@@ -28,7 +28,7 @@ internal class SharedAlbumTransfers(
     private val modern: ModernSharedAlbums,
 ) {
     /** Server-side copy into a modern album, never a relation to a PrimarySync original or cleanup proof. */
-    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String) {
+    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String, caption: String = "") {
         UUID.fromString(operationId)
         require(mediaIds.size in 1..50)
         val prefix = "icloud:${account()}:"
@@ -71,7 +71,7 @@ internal class SharedAlbumTransfers(
         // A stable post record name makes the last step recoverable after response loss.
         val existing = modern.lookup(album, batchId)
         if (existing.text("serverErrorCode") == "NOT_FOUND") {
-            modern.modify(album, "create", post(batchId, pending.getValue("timestamp")))
+            createPost(album, batchId, pending.getValue("timestamp"), caption)
         } else {
             check(existing.text("recordType") == "CPLPost" && existing["serverErrorCode"] == null) { "Could not confirm the shared post." }
         }
@@ -113,7 +113,7 @@ internal class SharedAlbumTransfers(
     }
 
     /** Uploads a new file into a modern album as its own post. */
-    suspend fun uploadToModern(id: String, fileName: String, source: OneShotUploadSource) {
+    suspend fun uploadToModern(id: String, fileName: String, source: OneShotUploadSource, caption: String = "") {
         val album = fresh(id)
         require(album.collection.shared?.canContribute == true)
         val current = connection.bound()
@@ -125,7 +125,7 @@ internal class SharedAlbumTransfers(
         require(fresh(id).collection.shared?.canContribute == true)
         val existing = modern.lookup(album, batch)
         if (existing.text("serverErrorCode") == "NOT_FOUND") {
-            modern.modify(album, "create", post(batch, JsonPrimitive(System.currentTimeMillis())))
+            createPost(album, batch, JsonPrimitive(System.currentTimeMillis()), caption)
         } else {
             check(existing.text("recordType") == "CPLPost")
         }
@@ -152,9 +152,32 @@ internal class SharedAlbumTransfers(
         connection.ck("private", "zones/list", buildJsonObject {})["zones"]!!.jsonArray
             .map { it.jsonObject["zoneID"]!!.jsonObject }.first { it.text("zoneName") == PrimarySyncZone.NAME }
 
-    private fun post(recordName: String, timestamp: JsonElement) = buildJsonObject {
+    /**
+     * Creates the post record. A caption uses the `caption` field that [ModernSharedAlbums.activity] reads from posts.
+     * Captions have not been confirmed against Apple's schema, so a post Apple refuses with a caption is created
+     * without one rather than leaving uploaded photos outside any post.
+     */
+    private suspend fun createPost(album: SharedAlbumRecord, recordName: String, timestamp: JsonElement, caption: String) {
+        val text = caption.trim().take(MAX_CAPTION)
+        if (text.isNotEmpty()) {
+            try {
+                modern.modify(album, "create", post(recordName, timestamp, text))
+                return
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: IllegalStateException) {
+                // A lost response may still have created it; the plain create then fails and the retry finds it.
+            }
+        }
+        modern.modify(album, "create", post(recordName, timestamp, ""))
+    }
+
+    private fun post(recordName: String, timestamp: JsonElement, caption: String) = buildJsonObject {
         put("recordType", "CPLPost"); put("recordName", recordName)
-        putJsonObject("fields") { putJsonObject("postTimestamp") { put("value", timestamp) } }
+        putJsonObject("fields") {
+            putJsonObject("postTimestamp") { put("value", timestamp) }
+            if (caption.isNotEmpty()) putJsonObject("caption") { put("value", caption) }
+        }
     }
 
     private suspend fun awaitCopy(jobId: String, failed: String, stillProcessing: String) {
@@ -181,6 +204,7 @@ internal class SharedAlbumTransfers(
 
     private companion object {
         const val POLL_ATTEMPTS = 20
+        const val MAX_CAPTION = 1000
         const val POLL_INTERVAL_MILLIS = 1000L
     }
 }

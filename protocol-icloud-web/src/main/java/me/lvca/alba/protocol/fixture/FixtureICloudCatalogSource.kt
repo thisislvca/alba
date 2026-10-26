@@ -129,6 +129,10 @@ class FixtureICloudCatalogSource(
                         val person = state.requests.first { it.id == command.subject }
                         management[id] = state.copy(requests = state.requests - person, blocked = state.blocked + person)
                     }
+                    SharedAction.BLOCK -> {
+                        val person = state.participants.first { it.id == command.subject && it.role != SharedAlbumRole.OWNER }
+                        management[id] = state.copy(participants = state.participants - person, blocked = state.blocked + SharedAccessRequest(person.id, person.name))
+                    }
                     me.lvca.alba.engine.model.SharedAction.RENAME -> sharedAlbums[sharedAlbums.indexOfFirst { it.id == id }] = state.album.copy(name = command.value)
                     me.lvca.alba.engine.model.SharedAction.INVITE -> management[id] = state.copy(participants = state.participants + me.lvca.alba.engine.model.SharedParticipant(operationId, command.value, me.lvca.alba.engine.model.SharedAlbumRole.CONTRIBUTOR, pending = true))
                     me.lvca.alba.engine.model.SharedAction.REMOVE_PARTICIPANT -> management[id] = state.copy(participants = state.participants.filter { it.id != command.subject })
@@ -197,13 +201,13 @@ class FixtureICloudCatalogSource(
             shared = me.lvca.alba.engine.model.SharedAlbumInfo(generation, me.lvca.alba.engine.model.SharedAlbumRole.OWNER, participantCount = 1))
             .also { sharedAlbums += it }
     }
-    override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource, operationId: String) {
+    override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource, operationId: String, caption: String) {
         require(sharedAlbums.first { it.id == albumId }.shared?.canContribute == true)
         val id = "$albumId:$operationId-${source.sha256Hex}"
         if (extraRecords.containsKey(id)) return
         importMedia(fileName, source.openOnce(), id, source.byteCount, source.sha256Hex)
     }
-    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String) {
+    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String) {
         require(sharedAlbums.first { it.id == id }.shared?.canContribute == true)
         mediaIds.forEach { media -> copyMedia(media, "$id:$operationId-${media.hashCode()}") }
     }

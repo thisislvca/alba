@@ -27,6 +27,12 @@ data class SharedDiscussion(val comments: List<SharedComment>, val canComment: B
 data class SharedPost(val id: String, val author: String, val isMine: Boolean, val timestamp: Long, val caption: String)
 data class SharedActivityPage(val posts: List<SharedPost>, val nextRank: Int?)
 
+/**
+ * A post's first [photoIds] for its preview, how many photos it holds and how many reactions it has. [total] is a
+ * lower bound when [totalIsExact] is false: very large posts are not counted to the end.
+ */
+data class SharedPostPreview(val photoIds: List<String>, val total: Int, val totalIsExact: Boolean = true, val reactions: Int = 0)
+
 enum class SharedAction {
     POST_COMMENT,
     POST_REACTION,
@@ -36,6 +42,7 @@ enum class SharedAction {
     APPROVE_REQUEST,
     DENY_REQUEST,
     UNBLOCK,
+    BLOCK,
     RENAME,
     INVITE,
     REMOVE_PARTICIPANT,
@@ -62,7 +69,12 @@ data class SharedInvitation(val id: String, val name: String, val generation: Sh
 interface SharedAlbumOperations {
     suspend fun sharedActivity(id: String, rank: Int): SharedActivityPage = error("Album activity is unavailable")
     suspend fun sharedPostDiscussion(id: String): SharedDiscussion = error("Post discussion is unavailable")
+    /** Every photo of the post [id], up to a bound, in posting order. */
     suspend fun sharedPostPhotos(id: String): List<String> = emptyList()
+
+    /** Previews of several posts of one album in one bounded read, instead of one read per post. */
+    suspend fun sharedPostPreviews(ids: List<String>): Map<String, SharedPostPreview> =
+        ids.associateWith { id -> sharedPostPhotos(id).let { SharedPostPreview(it.take(SHARED_POST_PREVIEW_PHOTOS), it.size) } }
     suspend fun pendingSharedInvitations(): List<SharedInvitation> = emptyList()
     suspend fun resolveSharedInvitation(url: String): SharedInvitation = error("Invitation link unavailable")
     suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String): Unit = error("Invitation unavailable")
@@ -70,6 +82,12 @@ interface SharedAlbumOperations {
     suspend fun sharedDiscussion(mediaId: String): SharedDiscussion = error("Shared comments are unavailable")
     suspend fun changeSharedAlbum(id: String, command: SharedCommand, operationId: String): Unit = error("Shared album editing is unavailable")
 }
+
+/** How many photos a post preview shows before "+N". */
+const val SHARED_POST_PREVIEW_PHOTOS = 4
+
+/** The most posts whose previews one [SharedAlbumOperations.sharedPostPreviews] call reads. */
+const val SHARED_POST_PREVIEW_BATCH = 25
 
 object SharedMediaIdentity {
     const val PREFIX = "shared:"
