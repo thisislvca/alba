@@ -33,11 +33,17 @@ class PhotoEditorTest {
         compose.scrollToGalleryMedia("fixture:icloud:0016")
         compose.onNodeWithTag("media-fixture:icloud:0016").performClick()
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.viewer_edit)).performClick()
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("editor-image").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("editor-tab-crop").performClick()
         compose.onNodeWithText(compose.activity.getString(R.string.square_crop)).performClick()
         compose.onNodeWithText(compose.activity.getString(R.string.rotate_degrees, 0)).performClick()
+        // Adjustments and a look go through the full-resolution render on save.
+        compose.onNodeWithTag("editor-tab-adjust").performClick()
+        compose.onNodeWithTag("editor-slider").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(30f) }
+        compose.onNodeWithTag("editor-tab-filters").performClick()
+        compose.onNodeWithTag("filter-vivid").performClick()
         compose.onNodeWithTag("save-edited-copy").performClick()
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("editor-image").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("incoming-media").assertIsDisplayed()
         compose.onNodeWithText(compose.activity.getString(R.string.edited_copy_saved)).assertIsDisplayed()
         compose.onNodeWithTag("incoming-back").performClick()

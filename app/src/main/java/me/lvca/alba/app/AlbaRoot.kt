@@ -333,8 +333,10 @@ private fun AlbaMain(
     }
 
     editingId?.let { id -> gallery.catalogItems.firstOrNull { it.id == id }?.let { media ->
-        PhotoEditorScreen(media, viewModel.photoEdits::source, close = { editingId = null }, saved = { uri ->
+        val canUpload = (session.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED
+        PhotoEditorScreen(media, viewModel.photoEdits::source, close = { editingId = null }, canUpload = canUpload, saved = { uri, upload ->
             viewModel.sync.refresh()
+            if (upload) uploadPicked(context, viewModel, listOf(uri))
             onIncomingChange(IncomingSession(IncomingRequest.Media(listOf(uri.toString()), savedCopy = true), returnToCaller = false))
         })
     } }

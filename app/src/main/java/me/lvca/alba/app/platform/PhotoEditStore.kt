@@ -12,6 +12,8 @@ import android.provider.MediaStore
 import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.*
+import me.lvca.alba.app.editing.EditRecipe
+import me.lvca.alba.app.editing.RecipeRenderer
 import me.lvca.alba.engine.model.*
 import java.io.File
 import java.io.OutputStream
@@ -48,8 +50,13 @@ data class PhotoCrop(val left: Float = 0f, val top: Float = 0f, val right: Float
 
 class SmallerPhotoCopyRequired(val width: Int, val height: Int) : Exception()
 
+/**
+ * Decodes the cropped region at full resolution, applies [recipe] row by row off the main thread, reporting [progress]
+ * from 0 to 1, then rotates.
+ */
 suspend fun renderPhotoEdit(file: File, crop: PhotoCrop, quarterTurns: Int,
-    allowSmallerCopy: Boolean = false, memoryBudget: Long = editMemoryBudget()): Bitmap = withContext(Dispatchers.IO) {
+    allowSmallerCopy: Boolean = false, memoryBudget: Long = editMemoryBudget(),
+    recipe: EditRecipe = EditRecipe(), progress: (Float) -> Unit = {}): Bitmap = withContext(Dispatchers.IO) {
     val decoded = ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
         val region = crop.pixels(info.size.width, info.size.height)
         // Rotation temporarily owns both the decoded region and the rotated output.
@@ -65,10 +72,26 @@ suspend fun renderPhotoEdit(file: File, crop: PhotoCrop, quarterTurns: Int,
         decoder.setTargetSize(targetWidth, targetHeight)
         decoder.crop = crop.pixels(targetWidth, targetHeight)
         decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+        decoder.isMutableRequired = !recipe.isIdentity
         decoder.setTargetColorSpace(ColorSpace.get(ColorSpace.Named.SRGB))
     }
+    var applied = false
+    try { withContext(Dispatchers.Default) { applyRecipe(decoded, recipe, progress) }; applied = true } finally { if (!applied) decoded.recycle() }
     if (quarterTurns % 4 == 0) decoded else Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height,
         Matrix().apply { postRotate((quarterTurns % 4) * 90f) }, true).also { if (it !== decoded) decoded.recycle() }
+}
+
+/** Applies [recipe] in place, one row at a time, so the photo never needs a second full-size pixel buffer. */
+internal suspend fun applyRecipe(bitmap: Bitmap, recipe: EditRecipe, progress: (Float) -> Unit = {}) {
+    if (recipe.isIdentity) return
+    val renderer = RecipeRenderer(recipe, bitmap.width, bitmap.height)
+    if (!renderer.changesPixels) return
+    val context = currentCoroutineContext()
+    renderer.render(
+        read = { y, row -> bitmap.getPixels(row, 0, bitmap.width, 0, y, bitmap.width, 1) },
+        write = { y, row -> bitmap.setPixels(row, 0, bitmap.width, 0, y, bitmap.width, 1) },
+        checkpoint = { context.ensureActive(); progress(it) },
+    )
 }
 
 private fun editMemoryBudget(): Long {
