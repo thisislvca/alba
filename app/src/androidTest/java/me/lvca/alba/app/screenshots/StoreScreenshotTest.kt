@@ -3,19 +3,16 @@ package me.lvca.alba.app.screenshots
 import android.os.SystemClock
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.DiagnosticsConsent
-import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.AccountInfo
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
-import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.LONG_WAIT
-import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.ScreenshotCapture
 import me.lvca.alba.app.testing.Screenshots
@@ -23,7 +20,6 @@ import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.testing.testAlbaActions
-import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -37,9 +33,8 @@ import org.junit.Test
 /** Repeatable, real UI captures for the store artwork. Run alone on a disposable demo device. */
 @ScreenshotCapture
 class StoreScreenshotTest {
-    @get:Rule(order = 1) val onboarding = OnboardingRule()
-    @get:Rule(order = 2) val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule(order = 3) val failureCapture = FailureCapture { compose }
+    @get:Rule val app = AlbaAppRule()
+    private val compose get() = app.compose
     private val repository get() = (compose.activity.application as AlbaApplication).graph.galleryRepository
 
     private fun capture(name: String) {
@@ -60,9 +55,8 @@ class StoreScreenshotTest {
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag(if (id == "fixture:icloud:0019") "video-player" else "viewer-image-$id").fetchSemanticsNodes().isNotEmpty() }
     }
     @Test fun captureStoreScreens() {
-        compose.waitForGalleryMedia()
-        if (compose.onAllNodesWithText("Not now").fetchSemanticsNodes().isNotEmpty()) {
-            compose.onNodeWithText("Not now").performScrollTo().performClick()
+        if (compose.onAllNodesWithTag("phone-photo-prompt-dismiss").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithTag("phone-photo-prompt-dismiss").performScrollTo().performClick()
         }
         // Warm the real demo previews so every captured collection mosaic has its photos.
         runBlocking {

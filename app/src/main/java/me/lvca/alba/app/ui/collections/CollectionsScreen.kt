@@ -64,12 +64,16 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                 val shortcutGap = 10.dp
                 Column(verticalArrangement = Arrangement.spacedBy(shortcutGap)) {
                     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(shortcutGap)) {
-                        ShortcutCard(stringResource(R.string.favorites), Modifier.weight(1f), { ICloudIcon(R.drawable.icloud_favorites) }) { openCollection(GalleryQuery.FAVORITES) }
-                        ShortcutCard(stringResource(R.string.offline), Modifier.weight(1f), { Icon(AlbaIcons.DownloadForOffline, null) }, openOffline)
+                        ShortcutCard(stringResource(R.string.favorites), Modifier.weight(1f).testTag("collection-favorites"),
+                            { ICloudIcon(R.drawable.icloud_favorites) }) { openCollection(GalleryQuery.FAVORITES) }
+                        ShortcutCard(stringResource(R.string.offline), Modifier.weight(1f).testTag("collection-offline"),
+                            { Icon(AlbaIcons.DownloadForOffline, null) }, openOffline)
                     }
                     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(shortcutGap)) {
-                        ShortcutCard(stringResource(R.string.phone_trash), Modifier.weight(1f), { Icon(AlbaIcons.DeleteOutline, null) }, openTrash)
-                        ShortcutCard(stringResource(R.string.icloud_recently_deleted), Modifier.weight(1f), { Icon(AlbaIcons.CloudQueue, null) }, openCloudTrash)
+                        ShortcutCard(stringResource(R.string.phone_trash), Modifier.weight(1f).testTag("collection-phone-trash"),
+                            { Icon(AlbaIcons.DeleteOutline, null) }, openTrash)
+                        ShortcutCard(stringResource(R.string.icloud_recently_deleted), Modifier.weight(1f).testTag("collection-cloud-trash"),
+                            { Icon(AlbaIcons.CloudQueue, null) }, openCloudTrash)
                     }
                 }
             }
@@ -99,7 +103,8 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                 AlbaCard {
                     SmartCollection.entries.filter { it != SmartCollection.VIDEOS }.forEachIndexed { index, smart ->
                         if (index > 0) AlbaDivider(Modifier.padding(start = 60.dp))
-                        CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) }) { openCollection(smart.id) }
+                        CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) },
+                            Modifier.testTag("collection-${smart.name.lowercase()}")) { openCollection(smart.id) }
                     }
                 }
             }
@@ -120,7 +125,11 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                         InvitationsButton(activity.unreadInvitations, canEdit, openSharedInvitations)
                         IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_create)) }
                     } else if (page != CollectionsPage.DEVICE) {
-                        TextButton(onClick = createAlbum, enabled = canEdit) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(R.string.new_album)) }
+                        TextButton(onClick = createAlbum, enabled = canEdit, modifier = Modifier.testTag("new-album")) {
+                            Icon(Icons.Outlined.Add, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(AlbaSpacing.xs))
+                            Text(stringResource(R.string.new_album))
+                        }
                     }
                 }
             }
@@ -229,8 +238,9 @@ private fun ShortcutCard(title: String, modifier: Modifier, icon: @Composable ()
 }
 
 @Composable
-internal fun CollectionRow(title: String, subtitle: String?, count: Int? = null, icon: @Composable () -> Unit, onClick: () -> Unit) {
-    AlbaListRow(title, onClick, subtitle = subtitle, leading = icon, shape = MaterialTheme.shapes.small,
+internal fun CollectionRow(title: String, subtitle: String?, count: Int? = null, icon: @Composable () -> Unit,
+    modifier: Modifier = Modifier, onClick: () -> Unit) {
+    AlbaListRow(title, onClick, modifier, subtitle = subtitle, leading = icon, shape = MaterialTheme.shapes.small,
         contentPadding = PaddingValues(horizontal = AlbaSpacing.xs, vertical = AlbaSpacing.sm),
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {

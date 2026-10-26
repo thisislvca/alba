@@ -559,7 +559,7 @@ private fun AlbaMain(
         onDismissRequest = { dialog = null },
         title = { Text(stringResource(R.string.demo_upload_title)) },
         text = { Text(stringResource(R.string.demo_upload_disclosure)) },
-        confirmButton = { TextButton(onClick = { dialog = null; viewModel.transfers.uploadDemoSample() }) {
+        confirmButton = { TextButton(onClick = { dialog = null; viewModel.transfers.uploadDemoSample() }, modifier = Modifier.testTag("demo-upload-sample")) {
             Text(stringResource(R.string.demo_upload_sample))
         } },
         dismissButton = { TextButton(onClick = {
@@ -751,8 +751,8 @@ private fun ConfirmRemoval(title: Int, body: Int, count: Int, dismiss: () -> Uni
         onDismissRequest = dismiss,
         title = { Text(stringResource(title)) },
         text = { Text(pluralStringResource(body, count, count)) },
-        confirmButton = { TextButton(onClick = confirm) { Text(stringResource(title)) } },
-        dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } },
+        confirmButton = { TextButton(onClick = confirm, modifier = Modifier.testTag("confirm-removal")) { Text(stringResource(title)) } },
+        dismissButton = { TextButton(onClick = dismiss, modifier = Modifier.testTag("cancel-removal")) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -771,8 +771,12 @@ private fun BackupDisclosure(setup: BackupSetup, storageFull: Boolean, accept: (
                     color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("backup-storage-full-warning"))
             }
         },
-        confirmButton = { Button(onClick = accept) { Text(stringResource(R.string.welcome_continue)) } },
-        dismissButton = { OutlinedButton(onClick = dismiss) { Text(stringResource(R.string.not_now)) } },
+        confirmButton = {
+            Button(onClick = accept, modifier = Modifier.testTag("backup-disclosure-accept")) { Text(stringResource(R.string.welcome_continue)) }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = dismiss, modifier = Modifier.testTag("backup-disclosure-dismiss")) { Text(stringResource(R.string.not_now)) }
+        },
     )
 }
 

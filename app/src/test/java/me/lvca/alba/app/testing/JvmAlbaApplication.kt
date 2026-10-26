@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.inspector.WindowInspector
 import androidx.compose.ui.platform.ViewRootForTest
 import me.lvca.alba.app.AlbaApplication
@@ -30,7 +31,12 @@ class JvmAlbaApplication : AlbaApplication() {
         super.onCreate()
         val canvas = Canvas(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
         Looper.getMainLooper().queue.addIdleHandler {
-            WindowInspector.getGlobalWindowViews().flatMap(::composeRoots)
+            // Dialog and popup windows only. Drawing the activity's window here as well made software drawing replay the
+            // viewer's recorded snapshot of the gallery after the gallery had left composition, which crashes; hardware
+            // rendering replays the recorded display list instead.
+            WindowInspector.getGlobalWindowViews()
+                .filter { (it.layoutParams as? WindowManager.LayoutParams)?.type != WindowManager.LayoutParams.TYPE_BASE_APPLICATION }
+                .flatMap(::composeRoots)
                 .filter { it.hasPendingMeasureOrLayout }
                 .forEach { it.view.draw(canvas) }
             true

@@ -412,14 +412,18 @@ internal fun GalleryHome(
                                 }
                                 IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                                 Box {
-                                    IconButton(onClick = { albumMenu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.album_options)) }
+                                    IconButton(onClick = { albumMenu = true }, modifier = Modifier.testTag("album-options")) {
+                                        Icon(Icons.Outlined.MoreVert, stringResource(R.string.album_options))
+                                    }
                                     DropdownMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
                                         DropdownMenuItem(text = { Text(stringResource(R.string.browse_by_date)) }, onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate }, enabled = sections.isNotEmpty())
                                         if (collection?.shared != null) {
                                             DropdownMenuItem(text = { Text(stringResource(R.string.shared_details)) }, onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo })
                                             if (collection.shared?.canContribute == true) DropdownMenuItem(text = { Text(stringResource(R.string.shared_add_photos)) }, onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit)
                                         } else {
-                                            DropdownMenuItem(text = { Text(stringResource(R.string.rename_album)) }, onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit)
+                                            DropdownMenuItem(text = { Text(stringResource(R.string.rename_album)) },
+                                                onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit,
+                                                modifier = Modifier.testTag("album-rename"))
                                             DropdownMenuItem(text = { Text(stringResource(R.string.delete_album)) }, onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit)
                                         }
                                     }
@@ -432,7 +436,9 @@ internal fun GalleryHome(
                                     modifier = Modifier.testTag("gallery-menu-button")) {
                                     Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort))
                                 }
-                                IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount) { Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos)) }
+                                IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount, modifier = Modifier.testTag("gallery-upload")) {
+                                    Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos))
+                                }
                                 IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
                                     BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
                                         Icon(AlbaIcons.SwapVert, stringResource(R.string.uploads_and_activity))
@@ -799,7 +805,9 @@ private fun PhotoGrid(
                         Text(stringResource(R.string.include_photos_from_this_phone), style = MaterialTheme.typography.titleMedium)
                         Text(stringResource(R.string.phone_photo_prompt_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                            TextButton(onClick = onDismissPermissionPrompt) { Text(stringResource(R.string.not_now)) }
+                            TextButton(onClick = onDismissPermissionPrompt, modifier = Modifier.testTag("phone-photo-prompt-dismiss")) {
+                                Text(stringResource(R.string.not_now))
+                            }
                             Button(onClick = actions::requestDevicePhotos) { Text(stringResource(R.string.phone_photo_prompt_action)) }
                         }
                     }

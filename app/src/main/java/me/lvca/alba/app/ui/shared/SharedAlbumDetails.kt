@@ -75,7 +75,7 @@ internal fun SharedAlbumDetails(album: GalleryCollection, dismiss: () -> Unit) {
                 Text(stringResource(R.string.shared_manage_explanation), style = MaterialTheme.typography.bodyMedium)
                 OutlinedButton(onClick = { uriHandler.openUri(url) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_manage_icloud)) }
             }
-            Button(onClick = dismiss, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_understood)) }
+            Button(onClick = dismiss, modifier = Modifier.fillMaxWidth().testTag("shared-understood")) { Text(stringResource(R.string.shared_understood)) }
         }
     }
 }
@@ -131,7 +131,8 @@ internal fun SharedContributionPicker(items: List<GalleryMedia>, preview: (Strin
                     }
                 }
             }
-            Button(onClick = { posting = true }, enabled = selected.isNotEmpty(), modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = AlbaSpacing.lg)) {
+            Button(onClick = { posting = true }, enabled = selected.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = AlbaSpacing.lg).testTag("shared-add-selected")) {
                 Text(pluralStringResource(R.plurals.shared_add_selected, selected.size, selected.size))
             }
         }
@@ -178,7 +179,11 @@ internal fun CreateSharedAlbumDialog(dismiss: () -> Unit, create: (String, Share
             Text(stringResource(if(generation == SharedAlbumGeneration.MODERN) R.string.shared_new_body else R.string.shared_legacy_body))
             Text(stringResource(R.string.shared_create_private_notice), style = MaterialTheme.typography.bodySmall)
         }
-    }, confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { create(name.trim(), generation) }) { Text(stringResource(R.string.save)) } },
+    }, confirmButton = {
+        TextButton(enabled = name.isNotBlank(), onClick = { create(name.trim(), generation) }, modifier = Modifier.testTag("shared-album-save")) {
+            Text(stringResource(R.string.save))
+        }
+    },
         dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } })
 }
 

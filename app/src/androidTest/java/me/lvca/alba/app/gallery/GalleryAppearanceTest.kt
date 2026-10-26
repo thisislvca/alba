@@ -1,27 +1,26 @@
 package me.lvca.alba.app.gallery
 
+import android.content.res.Configuration
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import kotlinx.coroutines.flow.first
-import me.lvca.alba.app.MainActivity
-import me.lvca.alba.app.testing.FailureCapture
-import me.lvca.alba.app.testing.OnboardingRule
+import androidx.core.view.WindowCompat
+import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
+import me.lvca.alba.app.testing.openGalleryMedia
+import me.lvca.alba.app.testing.pressBack
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import kotlin.math.abs
 
-/** Exercises the new entry points against the real demo repository and video previews. */
+/** How the gallery looks under the real system bars, which only a device draws. */
 class GalleryAppearanceTest {
-    @get:Rule(order = 0) val onboarding = OnboardingRule()
-    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
+    @get:Rule val app = AlbaAppRule()
+    private val compose get() = app.compose
 
     @Smoke @Test fun statusBarAreaIsStronglyTintedOverScrolledPhotos() {
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("gallery-grid").performTouchInput { swipeUp() }
         compose.waitForIdle()
         // Like Google Photos, photos stay faintly visible under the clock, but the tint keeps every pixel close to
@@ -32,6 +31,19 @@ class GalleryAppearanceTest {
         colors.forEach { color ->
             val spread = maxOf(abs(color.red - base.red), abs(color.green - base.green), abs(color.blue - base.blue))
             assertTrue("$color strays from the tint $base", spread <= .16f)
+        }
+    }
+
+    /** The viewer darkens the status bar icons' background; the gallery must restore its own contrast afterwards. */
+    @Test fun galleryRestoresStatusBarContrastAfterTheViewer() {
+        compose.openGalleryMedia("fixture:icloud:0017")
+        compose.pressBack()
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("media-pager").fetchSemanticsNodes().isEmpty() }
+        compose.runOnIdle {
+            val window = app.activity.window
+            val lightTheme = app.activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES
+            assertEquals("Gallery must restore system-bar contrast after the viewer exits", lightTheme,
+                WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars)
         }
     }
 }

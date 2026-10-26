@@ -42,21 +42,39 @@ internal fun Project.configureAndroidCommon(android: CommonExtension) {
  * UI tests on the JVM. Native graphics gives Robolectric real bitmaps and drawing, which decoding fixtures and
  * Roborazzi screenshots need.
  */
-internal fun Project.configureJvmTests(android: CommonExtension) {
+internal fun Project.configureJvmTests(android: CommonExtension, isolateTestClasses: Boolean = false) {
     android.testOptions.unitTests.isIncludeAndroidResources = true
+    val crashReports = layout.buildDirectory.dir("jvm-crash").get().asFile
     tasks.withType(Test::class.java).configureEach {
         maxHeapSize = "3g"
         // Robolectric's Android 16 runtime reaches into JDK internals for file descriptors and shared memory.
         jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED")
-        // C1 only: test JVMs are short-lived, so C2 rarely pays off, and C2-compiled code under Robolectric has stalled
-        // the JVM at a safepoint (the main thread spinning without polls), hanging the whole run.
+        // C1 only: test JVMs are short-lived, so C2 rarely pays off.
         jvmArgs("-XX:TieredStopAtLevel=1")
+        // A test JVM whose main thread never reaches a safepoint stops every other thread for good (see below). Fail it
+        // after a minute, with a crash report in the build directory, instead of letting it run until CI's timeout.
+        jvmArgs(
+            "-XX:+UnlockDiagnosticVMOptions", "-XX:+SafepointTimeout", "-XX:SafepointTimeoutDelay=60000",
+            "-XX:+AbortVMOnSafepointTimeout", "-XX:ErrorFile=" + crashReports.resolve("hs_err_pid%p.log").path,
+        )
+        if (isolateTestClasses) {
+            // One JVM per test class. In one long JVM, background work an earlier whole-app test left running (each test
+            // gets a new Robolectric application, not a new process) used resources while a later test resolved a
+            // theme. Robolectric's resource code is not thread-safe: the main thread then looped forever in
+            // AttributeResolution10.ApplyStyle, and the JVM stalled at its next safepoint. Separate JVMs, run side by
+            // side, also finish sooner than one.
+            forkEvery = 1
+            maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, MAX_TEST_FORKS)
+        }
         // C1-only JVMs default to a small code cache, and every Robolectric sandbox (one per device configuration) loads
         // its own copy of the app and framework classes; a full run filled it ("Out of space in CodeCache").
         jvmArgs("-XX:ReservedCodeCacheSize=512m")
         systemProperty("robolectric.graphicsMode", "NATIVE")
     }
 }
+
+/** Each test JVM can take its 3 GB heap; three fit beside Gradle on a 16 GB CI runner. */
+private const val MAX_TEST_FORKS = 3
 
 /**
  * Device tests: Gradle-managed emulators ([MANAGED_DEVICES]), using AOSP images for the host architecture,
