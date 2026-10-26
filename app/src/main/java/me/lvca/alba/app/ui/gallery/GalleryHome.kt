@@ -94,11 +94,14 @@ import me.lvca.alba.app.ui.localizedTitle
 import me.lvca.alba.app.ui.monthLabel
 import me.lvca.alba.app.ui.navigation.FadeThrough
 import me.lvca.alba.app.ui.shared.CreateSharedAlbumDialog
+import me.lvca.alba.app.ui.shared.SharedActivityEffects
 import me.lvca.alba.app.ui.shared.SharedAlbumActivity
 import me.lvca.alba.app.ui.shared.SharedAlbumControls
 import me.lvca.alba.app.ui.shared.SharedAlbumDetails
+import me.lvca.alba.app.ui.shared.SharedAlbumEmptyState
 import me.lvca.alba.app.ui.shared.SharedContributionPicker
 import me.lvca.alba.app.ui.shared.SharedInvitations
+import me.lvca.alba.app.ui.shared.sharedContributionCandidates
 import me.lvca.alba.app.ui.transfers.BatchProgress
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
 import me.lvca.alba.app.ui.viewer.LocalPhotoTransition
@@ -273,7 +276,7 @@ internal fun GalleryHome(
         signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED -> stringResource(R.string.icloud_photos_is_not_active)
         session.network?.online == false || signedIn?.status == SessionStatus.OFFLINE -> stringResource(R.string.offline_saved_photos_available)
         // The first read of a large library takes a while: say how far it is rather than only that it is updating.
-        session.catalogScan != null -> catalogScanLabel(session.catalogScan)
+        session.isRefreshing && session.catalogScan != null -> catalogScanLabel(session.catalogScan)
         session.isRefreshing -> stringResource(R.string.updating_library)
         signedIn?.status == SessionStatus.VERIFIED -> stringResource(R.string.icloud_photos)
         else -> stringResource(R.string.connect_to_icloud)
@@ -310,6 +313,11 @@ internal fun GalleryHome(
         actions.clearSelection()
         collectionGrid.requestScrollToItem(0)
         actions.changeQuery(GalleryQuery(collectionId = id))
+    }
+    SharedActivityEffects(remember(sharedAlbums) { sharedAlbums.map { it.id }.toSet() }, actions, openAlbum = ::openShared) { invitations ->
+        libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED
+        actions.clearSelection(); actions.changeQuery(GalleryQuery())
+        if (invitations) sheet = GallerySheet.SharedInvitations
     }
     val uiDensity = LocalDensity.current
     BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
@@ -526,6 +534,12 @@ internal fun GalleryHome(
                                     activity = if (collection.shared?.generation == SharedAlbumGeneration.MODERN) ({ sheet = GallerySheet.SharedActivity }) else null,
                                     view = gallery.items.firstOrNull()?.let { first -> { actions.openMedia(first.id) } },
                                     info = if (collection.shared != null) ({ sheet = GallerySheet.SharedInfo }) else null)
+                                // An empty shared album the person can add to prompts the first steps under its hero.
+                                val addable = canEdit && collection.shared?.canContribute == true
+                                if (addable && gallery.items.isEmpty() && !session.isRefreshing) {
+                                    SharedAlbumEmptyState({ sheet = GallerySheet.SharedPicker },
+                                        if (collection.shared?.canManage == true) ({ sheet = GallerySheet.SharedManage }) else null)
+                                }
                             }) else if (searchAlbums.isNotEmpty()) ({
                                 MatchingAlbums(searchAlbums, summaries, previewRetryVersion, actions::requestPreview) { album ->
                                     openShared(album.id, if (album.shared != null) CollectionsPage.SHARED else CollectionsPage.ALBUMS)
@@ -598,11 +612,13 @@ internal fun GalleryHome(
             BatchProgress(transfers.batches, gallery.items, actions::retryBatch, actions::cancelDownloadBatch)
         }
     }
-    if (sheet == GallerySheet.SharedPicker && collection?.shared != null) SharedContributionPicker(gallery.catalogItems.filter {
-        !it.isShared && !it.isTrashed && !it.isHidden &&
-            (if (collection.shared?.generation == SharedAlbumGeneration.LEGACY || it.origin == MediaOrigin.DEVICE) supportsLegacySharedUpload(it.kind, it.mimeType) else true) },
-        preview = actions::requestPreview, dismiss = { sheet = null }, contribute = { ids -> actions.contributeToSharedAlbum(collection.id, ids); sheet = null },
-        legacy = collection.shared?.generation == SharedAlbumGeneration.LEGACY, requestPhotos = actions::requestDevicePhotos)
+    if (sheet == GallerySheet.SharedPicker && collection?.shared != null) {
+        val generation = requireNotNull(collection.shared).generation
+        val (candidates, livePhotos) = remember(gallery.catalogItems, generation) { sharedContributionCandidates(gallery.catalogItems, generation) }
+        SharedContributionPicker(candidates, preview = actions::requestPreview, dismiss = { sheet = null },
+            contribute = { ids, caption -> actions.contributeToSharedAlbum(collection.id, ids, caption); sheet = null },
+            legacy = generation == SharedAlbumGeneration.LEGACY, requestPhotos = actions::requestDevicePhotos, excludedLivePhotos = livePhotos)
+    }
     if (sheet == GallerySheet.SharedInvitations) SharedInvitations(actions, dismiss = { sheet = null }, demo = session.accountState == ICloudAccountState.Demo)
     if (sheet == GallerySheet.SharedActivity && collection?.shared?.generation == SharedAlbumGeneration.MODERN) SharedAlbumActivity(collection, gallery.catalogItems, actions, actions::requestPreview, open = { sheet = null; actions.openMedia(it) }, dismiss = { sheet = null })
     if (sheet == GallerySheet.SharedManage && collection?.shared != null) SharedAlbumControls(collection, actions) { sheet = null }
@@ -793,8 +809,12 @@ private fun PhotoGrid(
         if (leading != null) item(key = "gallery-leading", span = { GridItemSpan(maxLineSpan) }) { Column(posed("gallery-leading")) { leading() } }
         if (items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (isRefreshing || counts.catalogScan != null) LibraryLoading(counts.catalogScan, isRefreshing)
-                else if (query.collectionId?.startsWith("shared:") == true) Text(stringResource(R.string.shared_album_empty))
+                // Only the main library loads page by page; Trash, Hidden and albums keep the plain loading line.
+                val scan = counts.catalogScan?.takeIf { query.collectionId == null && !query.trashOnly && !query.offlineOnly }
+                if (isRefreshing && scan != null) LibraryLoading(scan)
+                else if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
+                // Where photos can be added, the album's leading item shows the first steps instead.
+                else if (query.collectionId?.startsWith("shared:") == true) { if (onAddMedia == null) Text(stringResource(R.string.shared_album_empty)) }
                 else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
                 else if (query.collectionId == GalleryQuery.HIDDEN) Text(stringResource(R.string.hidden_empty))
                 else if (connectPrompt) ConnectLibrary(connect = actions::openAccount, demo = actions::startDemo)
@@ -846,7 +866,7 @@ private fun PhotoGrid(
             }
             }
         }
-        if (onAddMedia != null) item(key = "add-media") {
+        if (onAddMedia != null && items.isNotEmpty()) item(key = "add-media") {
             Surface(onClick = onAddMedia, modifier = posed("add-media").aspectRatio(1f).testTag("album-add-media"),
                 shape = MaterialTheme.shapes.tile, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }

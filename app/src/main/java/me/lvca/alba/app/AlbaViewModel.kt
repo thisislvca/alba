@@ -14,7 +14,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -118,8 +121,8 @@ class AlbaViewModel(
 
     internal val edits: LibraryEditsController = LibraryEditsController(dependencies.repository, runner, messages, gallery)
 
-    internal val sharedAlbums: SharedAlbumsController = SharedAlbumsController(savedState, dependencies.repository, dependencies.accountManager,
-        dependencies.diagnostics, runner, messages, gallery)
+    internal val sharedAlbums: SharedAlbumsController = SharedAlbumsController(viewModelScope, savedState, dependencies.repository,
+        dependencies.accountManager, dependencies.diagnostics, runner, messages, gallery, dependencies.sharedActivity)
 
     internal val phoneStorage: PhoneStorageController = PhoneStorageController(viewModelScope, dependencies.repository, transfers, previews, runner, messages)
 
@@ -174,6 +177,8 @@ class AlbaViewModel(
                 if (running) catalogSync.schedule(expedited = true)
             }
         }
+        // Each finished refresh also rechecks invitations, for the badge on the invitations inbox.
+        sync.state.map { it.lastRefreshedAt }.distinctUntilChanged().drop(1).onEach { sharedAlbums.checkInvitations() }.launchIn(viewModelScope)
     }
 
     fun dismissMessage() = messages.clear()

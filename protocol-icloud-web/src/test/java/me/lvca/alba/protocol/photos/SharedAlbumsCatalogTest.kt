@@ -123,6 +123,57 @@ class SharedAlbumsCatalogTest {
         assertTrue(t.requests.first { it.url.contains("copy/start") }.oneShot)
     }
 
+    @Test fun captionIsWrittenToTheContributionPost() = runBlocking {
+        val t = Transport(); val s = source(t)
+        val album = s.sharedAlbums().collections.collections.first { it.shared!!.generation == SharedAlbumGeneration.MODERN && it.shared!!.role == SharedAlbumRole.OWNER }
+        assertTrue(s.contributeToSharedAlbum(album.id, listOf("icloud:${s.accountLabel}:asset"), UUID.randomUUID().toString(), "  Beach day  "))
+        val fields = t.createdPost!!["fields"]!!.jsonObject
+        assertEquals("Beach day", fields["caption"]!!.jsonObject["value"]!!.jsonPrimitive.content)
+        assertNotNull(fields["postTimestamp"])
+    }
+
+    @Test fun postIsStillCreatedWhenAppleRefusesTheCaption() = runBlocking {
+        val t = Transport().apply { rejectCaption = true }; val s = source(t)
+        val album = s.sharedAlbums().collections.collections.first { it.shared!!.generation == SharedAlbumGeneration.MODERN && it.shared!!.role == SharedAlbumRole.OWNER }
+        assertFalse(s.contributeToSharedAlbum(album.id, listOf("icloud:${s.accountLabel}:asset"), UUID.randomUUID().toString(), "Beach day"))
+        assertEquals(1, t.postCreates)
+        assertNull(t.createdPost!!["fields"]!!.jsonObject["caption"])
+    }
+
+    @Test fun otherPostErrorsAreNotTreatedAsARefusedCaption() = runBlocking {
+        val t = Transport().apply { rejectCaption = true; captionError = "ZONE_BUSY" }; val s = source(t)
+        val album = ownModernAlbum(s)
+        val photo = listOf("icloud:${s.accountLabel}:asset")
+        assertTrue(runCatching { s.contributeToSharedAlbum(album.id, photo, UUID.randomUUID().toString(), "Beach") }.isFailure)
+        assertEquals(0, t.postCreates)
+    }
+
+    @Test fun blockingRemovesTheParticipantAndBlocksTheirIdentity() = runBlocking {
+        val t = Transport().apply { guestParticipant = true; reflectShareWrites = true }; val s = source(t)
+        val album = ownModernAlbum(s)
+        assertTrue(s.sharedManagement(album.id).participants.any { it.id == "guest-participant" })
+        s.changeSharedAlbum(album.id, SharedCommand(SharedAction.BLOCK, "guest-participant"), UUID.randomUUID().toString())
+        val state = s.sharedManagement(album.id)
+        assertEquals(listOf("owner-participant"), state.participants.map { it.id })
+        assertEquals("guest", state.blocked.single().id)
+        // The identity Block writes is the one Unblock matches.
+        s.changeSharedAlbum(album.id, SharedCommand(SharedAction.UNBLOCK, state.blocked.single().id), UUID.randomUUID().toString())
+        assertTrue(s.sharedManagement(album.id).blocked.isEmpty())
+        val blockOwner = SharedCommand(SharedAction.BLOCK, "owner-participant")
+        assertTrue(runCatching { s.changeSharedAlbum(album.id, blockOwner, UUID.randomUUID().toString()) }.isFailure)
+    }
+
+    @Test fun postPreviewsDiscoverTheAlbumOnceForTheWholePage() = runBlocking {
+        val t = Transport().apply { activityCount = 3 }; val s = source(t)
+        val album = ownModernAlbum(s)
+        val posts = s.sharedActivity(album.id, 0).posts.map { it.id }
+        val before = t.requests.count { it.url.contains("changes/database") }
+        val previews = s.sharedPostPreviews(posts)
+        assertEquals(2, t.requests.count { it.url.contains("changes/database") } - before)
+        assertEquals(posts.toSet(), previews.keys)
+        assertTrue(previews.values.all { it.total == 1 && it.totalIsExact && it.photoIds.size == 1 && it.reactions == 0 })
+    }
+
     @Test fun ambiguousCopyStartIsNeverBlindlyReplayed() = runBlocking {
         val t = Transport().apply { loseCopyResponse = true }; val journal = Journal(); val s = source(t, journal)
         val album = s.sharedAlbums().collections.collections.first { it.shared!!.generation == SharedAlbumGeneration.MODERN && it.shared!!.role == SharedAlbumRole.OWNER }
@@ -424,6 +475,9 @@ class SharedAlbumsCatalogTest {
         assertEquals(2, s.sharedPostPhotos(post.id).size)
     }
 
+    private suspend fun ownModernAlbum(s: LiveICloudCatalogSource) = s.sharedAlbums().collections.collections
+        .first { it.shared!!.role == SharedAlbumRole.OWNER && it.shared!!.generation == SharedAlbumGeneration.MODERN }
+
     private class Journal : UploadJournal {
         val values = mutableMapOf<Pair<AccountBinding, String>, UploadCheckpoint>()
         override suspend fun load(binding: AccountBinding, attempt: String) = values[binding to attempt]
@@ -443,6 +497,9 @@ class SharedAlbumsCatalogTest {
         private fun zone(name: String, owner: String = "owner") = buildJsonObject { put("zoneName", name); put("ownerRecordName", owner); put("zoneType", "REGULAR_CUSTOM_ZONE") }
         var activityCount = 0
         var splitPostPreview = false
+        var rejectCaption = false; var guestParticipant = false; var captionError = "BAD_REQUEST"
+        private val guestJson = Json.parseToJsonElement("""{"participantId":"guest-participant","type":"USER","permission":"READ_WRITE","acceptanceStatus":"ACCEPTED",""" +
+            """"userIdentity":{"userRecordName":"guest","lookupInfo":{"emailAddress":"guest@example.com"}}}""").jsonObject
         private fun post(index: Int) = buildJsonObject {
             put("recordName", "CPLPost-$index"); put("recordType", "CPLPost")
             putJsonObject("fields") { putJsonObject("postTimestamp") { put("value", 1790205441441L - index) } }
@@ -458,6 +515,7 @@ class SharedAlbumsCatalogTest {
                 if(publicShare) put("participants", JsonArray(base["participants"]!!.jsonArray + buildJsonObject {
                     put("participantId", "public-person"); put("type", "PUBLIC_USER"); put("permission", "READ_WRITE")
                 }))
+                if(guestParticipant) put("participants", JsonArray(base["participants"]!!.jsonArray + guestJson))
                 if(pendingRequest) putJsonArray("requesters") { add(buildJsonObject { putJsonObject("requesterInformation") { put("userRecordName", "waiting-user") } }) }
             } + (if(reflectShareWrites) createdShare.orEmpty() else emptyMap()))
         }
@@ -533,6 +591,9 @@ class SharedAlbumsCatalogTest {
                             createdShare = JsonObject(record + ("oneTimeStableUrlInfo" to buildJsonObject { put("oneTimeLinks", JsonArray(links.map { JsonObject(it.jsonObject + ("sharingLink" to JsonPrimitive("OnlyLink"))) })) }))
                         }
                         if(loseShareResponse) { loseShareResponse = false; throw IOException("lost response") }
+                    } else if(rejectCaption && record["fields"]?.jsonObject?.containsKey("caption") == true) {
+                        return AppleHttpResponse(200, emptyMap(), buildJsonObject { putJsonArray("records") { add(buildJsonObject {
+                            put("recordName", record.getValue("recordName")); put("serverErrorCode", captionError) }) } }.toString())
                     } else { postCreates++; createdPost = record; if(losePostResponse) { losePostResponse = false; throw IOException("lost post") } }
                     buildJsonObject { put("records", JsonArray(listOf(record))) }
                 }

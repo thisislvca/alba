@@ -1,0 +1,4 @@
+<resources>
+    <bool name="shared_album_fragment_links">false</bool>
+    <bool name="shared_album_path_links">true</bool>
+</resources>

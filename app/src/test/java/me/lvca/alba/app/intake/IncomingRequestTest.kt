@@ -46,4 +46,10 @@ class IncomingRequestTest {
     }
 
     private fun content(value: String) = IncomingUri(value, "content", value.removePrefix("content://").substringBefore('/'))
+
+    @Test fun webLinksThatAreNotSharedAlbumsGoBackToTheBrowser() {
+        assertEquals("https://www.icloud.com/photos/", browserLink(Intent.ACTION_VIEW, "https", "https://www.icloud.com/photos/"))
+        assertNull(browserLink(Intent.ACTION_VIEW, "https", link))
+        assertNull(browserLink(Intent.ACTION_SEND, null, null))
+    }
 }

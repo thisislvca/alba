@@ -112,7 +112,7 @@ class DefaultGalleryRepository(
         else library.removeMember(account, GalleryQuery.FAVORITES, mediaId)
     }
 
-    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String) = edit { account ->
+    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String): Boolean = edit { account ->
         val album = requireNotNull(library.collection(account, id)).toModel()
         require(album.shared?.canContribute == true) { "You cannot add photos to this album." }
         val ids = mediaIds.distinct()
@@ -120,8 +120,12 @@ class DefaultGalleryRepository(
         ids.forEach { require(!SharedMediaIdentity.isShared(it)); requireNotNull(dao.findById(it)) }
         val cloud = ids.filter { requireNotNull(dao.findById(it)).origin == MediaOrigin.ICLOUD.name }
         val local = ids - cloud.toSet()
+        // One contribution is one post; its caption goes on the first post written.
+        var pendingCaption = caption.trim()
+        var captionKept = true
         if (album.shared?.generation == SharedAlbumGeneration.MODERN && cloud.isNotEmpty()) {
-            cloudSource.contributeToSharedAlbum(id, cloud, operationId)
+            captionKept = cloudSource.contributeToSharedAlbum(id, cloud, operationId, pendingCaption)
+            pendingCaption = ""
         }
         val files = if (album.shared?.generation == SharedAlbumGeneration.LEGACY) ids else local
         for (mediaId in files) {
@@ -129,25 +133,60 @@ class DefaultGalleryRepository(
             require(!item.isTrashed && supportsLegacySharedUpload(MediaKind.valueOf(item.kind), item.mimeType)) {
                 "Choose JPEG, PNG, HEIC, MP4 or MOV. Live Photo pairs need a library copy."
             }
-            val staged = cache.writeAtomically("shared-stage:$operationId:$mediaId", "shared") { output ->
+            captionKept = uploadShared(account, id, operationId, "$operationId:$mediaId", item.fileName, pendingCaption) { output ->
                 if (item.origin == MediaOrigin.DEVICE.name) requireNotNull(deviceSource).writeOriginal(requireNotNull(item.localUri), output)
                 else if (cache.isReadable(item.originalCachePath)) java.io.File(item.originalCachePath!!).inputStream().use { it.copyTo(output) }
                 else cloudSource.writeOriginal(mediaId, output)
-            }
-            try {
-                val prepared = prepareSharedUpload(staged)
-                val format = prepared.format
-                checkAccount(account, "Account changed before shared upload.")
-                cloudSource.uploadSharedPhoto(id, format.fileName(item.fileName), prepared.source, operationId)
-            } finally { cache.delete(staged.absolutePath) }
+            } && captionKept
+            pendingCaption = ""
         }
         checkAccount(account, "Account changed. Refresh to check the contribution.")
         // Copies have their own remote identities. Only a fresh shared snapshot can publish membership.
+        captionKept
+    }
+
+    override suspend fun contributeFilesToSharedAlbum(id: String, files: List<SharedUploadFile>, operationId: String, caption: String): Boolean = edit { account ->
+        val album = requireNotNull(library.collection(account, id)).toModel()
+        require(album.shared?.canContribute == true) { "You cannot add photos to this album." }
+        require(files.size in 1..50)
+        var pendingCaption = caption.trim()
+        var captionKept = true
+        files.forEachIndexed { index, file ->
+            captionKept = uploadShared(account, id, operationId, "$operationId:file:$index", file.name, pendingCaption) { file.write(it) } && captionKept
+            pendingCaption = ""
+        }
+        checkAccount(account, "Account changed. Refresh to check the contribution.")
+        captionKept
+    }
+
+    /** Reads only the shared albums from Apple and counts them; the catalog is not touched. */
+    override suspend fun sharedAlbumCounts() = readShared {
+        val snapshot = cloudSource.sharedAlbums()
+        val byId = snapshot.records.associateBy { it.id }
+        snapshot.collections.collections.map { album ->
+            val members = snapshot.collections.members[album.id].orEmpty().mapNotNull(byId::get)
+            SharedAlbumCount(album.id, album.name, members.size, members.maxOfOrNull { it.addedAtEpochMillis ?: it.capturedAtEpochMillis } ?: 0)
+        }
+    }
+
+    /** Stages one file, checks its format and uploads it to the shared album [id]. */
+    private suspend fun uploadShared(account: String, id: String, operationId: String, stageKey: String, name: String, caption: String,
+        write: suspend (java.io.OutputStream) -> Unit): Boolean {
+        val staged = cache.writeAtomically("shared-stage:$stageKey", "shared") { output -> write(output) }
+        return try {
+            val prepared = prepareSharedUpload(staged)
+            checkAccount(account, "Account changed before shared upload.")
+            cloudSource.uploadSharedPhoto(id, prepared.format.fileName(name), prepared.source, operationId, caption)
+        } finally { cache.delete(staged.absolutePath) }
     }
 
     override suspend fun sharedActivity(id: String, rank: Int) = readShared { cloudSource.sharedActivity(id, rank) }
     override suspend fun sharedPostDiscussion(id: String) = readShared { cloudSource.sharedPostDiscussion(id) }
     override suspend fun sharedPostPhotos(id: String) = readShared { cloudSource.sharedPostPhotos(id) }
+    override suspend fun sharedPostPreviews(ids: List<String>) = readShared {
+        require(ids.size <= SHARED_POST_PREVIEW_BATCH)
+        if (ids.isEmpty()) emptyMap() else cloudSource.sharedPostPreviews(ids)
+    }
     override suspend fun pendingSharedInvitations() = readShared { cloudSource.pendingSharedInvitations() }
     override suspend fun resolveSharedInvitation(url: String) = readShared { cloudSource.resolveSharedInvitation(url) }
     override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String) = edit { account ->

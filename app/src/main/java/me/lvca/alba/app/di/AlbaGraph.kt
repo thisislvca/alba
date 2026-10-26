@@ -9,12 +9,15 @@ import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PhotoEditStore
 import me.lvca.alba.app.platform.networkStatus
+import me.lvca.alba.app.sharing.SharedActivityStore
 import me.lvca.alba.app.transfers.TransferScheduler
 import me.lvca.alba.app.work.BackupNotifications
 import me.lvca.alba.app.work.CatalogSyncScheduler
+import me.lvca.alba.app.work.SharedActivitySchedule
 import me.lvca.alba.app.work.UserTransferScheduler
 import me.lvca.alba.app.work.WorkManagerCatalogSyncScheduler
 import me.lvca.alba.app.work.WorkManagerWakeupScheduler
+import me.lvca.alba.app.work.cancelSharedActivityNotifications
 import me.lvca.alba.app.work.cancelUserTransfers
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.cache.UploadStagingStore
@@ -78,7 +81,10 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         cache = MediaFileCache(appContext),
     )
     val exporter = GalleryExporter(appContext, galleryRepository)
+    val sharedActivity = SharedActivityStore(appContext) { enabled -> SharedActivitySchedule.apply(appContext, enabled) }
     private suspend fun clearSignedOutData() {
+        sharedActivity.clear()
+        cancelSharedActivityNotifications(appContext)
         batches.cancelActive()
         galleryRepository.clearCloudCatalog()
         exporter.clearShares()

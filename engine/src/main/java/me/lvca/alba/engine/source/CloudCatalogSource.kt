@@ -84,10 +84,18 @@ interface LibrarySizeSource {
 
 interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations, HiddenAlbumSource, LibrarySizeSource {
     suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource): Unit = error("Shared save is unavailable")
+
+    /**
+     * Uploads one file to a shared album; [caption] is written to its post where the album supports captions. Returns
+     * false when the post was made without the caption.
+     */
     suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource,
-        operationId: String): Unit = error("Shared upload is unavailable")
+        operationId: String, caption: String = ""): Boolean = error("Shared upload is unavailable")
     suspend fun sharedAlbums(): SharedCatalogSnapshot = SharedCatalogSnapshot(emptyList(), CollectionSnapshot(emptyList(), emptyMap()))
-    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String): Unit = error("Shared contribution is unavailable")
+
+    /** Returns false when the post was made without its [caption]. */
+    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String = ""): Boolean =
+        error("Shared contribution is unavailable")
     suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration = me.lvca.alba.engine.model.SharedAlbumGeneration.MODERN): GalleryCollection = error("Shared album creation is unavailable")
     suspend fun removeFromAlbum(id: String, mediaIds: List<String>): Unit = error("Album editing is unavailable")
     suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean): Unit = error("iCloud trash is unavailable")
