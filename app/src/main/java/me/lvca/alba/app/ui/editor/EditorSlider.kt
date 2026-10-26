@@ -50,6 +50,7 @@ internal fun EditorSlider(
     range: IntRange,
     onChange: (Int) -> Unit,
     onFinished: () -> Unit,
+    onCancel: () -> Unit,
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
@@ -59,6 +60,7 @@ internal fun EditorSlider(
     val current by rememberUpdatedState(value)
     val change by rememberUpdatedState(onChange)
     val finish by rememberUpdatedState(onFinished)
+    val cancel by rememberUpdatedState(onCancel)
     val reset by rememberUpdatedState(onReset)
     val resetLabel = stringResource(R.string.reset_adjustment, label)
     val active = MaterialTheme.colorScheme.primary
@@ -76,9 +78,10 @@ internal fun EditorSlider(
         Canvas(Modifier.fillMaxWidth().height(40.dp).testTag("editor-slider").semantics {
             contentDescription = label
             stateDescription = value.toString()
-            progressBarRangeInfo = ProgressBarRangeInfo(value.toFloat(), range.first.toFloat()..range.last.toFloat())
+            progressBarRangeInfo = ProgressBarRangeInfo(value.toFloat(), range.first.toFloat()..range.last.toFloat(), steps = range.last - range.first - 1)
             if (enabled) {
-                setProgress { target -> change(settle(target)); finish(); true }
+                // An exact value from assistive technology is kept; only a drag settles on 0.
+                setProgress { target -> change(target.roundToInt().coerceIn(range)); finish(); true }
                 customActions = listOf(CustomAccessibilityAction(resetLabel) { reset(); true })
             }
         }.pointerInput(enabled, range) {
@@ -90,7 +93,7 @@ internal fun EditorSlider(
             detectHorizontalDragGestures(
                 onDragStart = { position = current.toFloat() },
                 onDragEnd = { finish() },
-                onDragCancel = { finish() },
+                onDragCancel = { cancel() },
             ) { pointer, amount ->
                 pointer.consume()
                 position = (position + amount / size.width * (range.last - range.first)).coerceIn(range.first.toFloat(), range.last.toFloat())

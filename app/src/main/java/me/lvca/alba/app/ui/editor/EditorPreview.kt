@@ -42,7 +42,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntOffset
@@ -112,16 +114,11 @@ internal fun rememberTonedPreview(preview: Bitmap?, adjustments: Adjustments): B
         val height = proxy.height
         val pixels = withContext(Dispatchers.Default) { IntArray(width * height).also { proxy.getPixels(it, 0, width, 0, 0, width, height) } }
         val output = IntArray(width * height)
-        // Two buffers: the screen draws one while the next render fills the other.
-        val buffers = arrayOfNulls<Bitmap>(2)
-        var next = 0
         snapshotFlow { latest }.conflate().collect { wanted ->
+            // A new bitmap each time, never one the screen may still be drawing.
             toned = if (!wanted.changesTone) null else withContext(Dispatchers.Default) {
                 RecipeRenderer(EditRecipe(wanted), width, height, color = false).renderPixels(pixels, output, width)
-                val target = buffers[next] ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { buffers[next] = it }
-                target.setPixels(output, 0, width, 0, 0, width, height)
-                next = 1 - next
-                target
+                Bitmap.createBitmap(output, width, height, Bitmap.Config.ARGB_8888)
             }
         }
     }
@@ -155,6 +152,7 @@ internal fun EditorImage(
     }
     val compareLabel = stringResource(R.string.hold_to_compare)
     val originalLabel = stringResource(R.string.editor_original)
+    val toggleLabel = stringResource(if (comparing) R.string.show_edit else R.string.show_original)
     val compare by rememberUpdatedState(onCompare)
     BoxWithConstraints(modifier.then(if (cropMode) Modifier else Modifier.pointerInput(Unit) {
         detectTapGestures(onPress = {
@@ -164,6 +162,8 @@ internal fun EditorImage(
     }).testTag("editor-image").semantics {
         contentDescription = compareLabel
         if (comparing) stateDescription = originalLabel
+        // Touch and hold has no accessibility equivalent, so a screen reader toggles the original instead.
+        if (!cropMode) customActions = listOf(CustomAccessibilityAction(toggleLabel) { compare(!comparing); true })
     }, contentAlignment = Alignment.Center) {
         val source = crop.pixels(bitmap.width, bitmap.height)
         val aspect = source.width().toFloat() / source.height()

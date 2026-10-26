@@ -3,6 +3,7 @@ package me.lvca.alba.app.ui.editor
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.net.Uri
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -24,6 +25,10 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import me.lvca.alba.app.R
 import me.lvca.alba.app.editing.LookFilter
 import me.lvca.alba.app.testing.UI_WAIT
@@ -31,6 +36,7 @@ import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -179,5 +185,58 @@ class PhotoEditorScreenTest {
             compose.onNodeWithTag("editor-tab-adjust").performClick()
             compose.onNodeWithTag("adjust-tool-brightness").assert(unchanged)
         } finally { photo.delete() }
+    }
+
+    @Test fun accessibilitySetsExactValuesAndTogglesTheOriginal() {
+        val photo = photo()
+        try {
+            compose.setContent { PhotoEditorScreen(media, source = { copyOf(photo) }, close = {}, saved = { _, _ -> }) }
+            waitForPhoto()
+            compose.onNodeWithTag("editor-tab-adjust").performClick()
+            // A value from assistive technology is kept exactly, even next to 0.
+            slider().performSemanticsAction(SemanticsActions.SetProgress) { it(2f) }
+            slider().assert(sliderValue(2))
+            val range = slider().fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo]
+            assertEquals(199, range.steps)
+            fun toggle(label: Int) = compose.onNodeWithTag("editor-image").fetchSemanticsNode().config[SemanticsActions.CustomActions]
+                .single { it.label == text(label) }
+            compose.runOnIdle { assertTrue(toggle(R.string.show_original).action()) }
+            compose.onNodeWithTag("compare-original").assertIsDisplayed()
+            compose.runOnIdle { assertTrue(toggle(R.string.show_edit).action()) }
+            compose.onNodeWithTag("compare-original").assertDoesNotExist()
+        } finally { photo.delete() }
+    }
+
+    @Test fun aSaveCarriesOnThroughRecreationAndKeepsItsSource() {
+        val photo = photo()
+        val gate = CompletableDeferred<Unit>()
+        val sources = mutableListOf<File>()
+        val saves = PhotoEditSaves(CoroutineScope(SupervisorJob() + Dispatchers.Default)) { request, progress ->
+            progress(.5f); gate.await()
+            assertTrue("The save's source survives the screen", request.source.exists())
+            Uri.parse("content://media/9")
+        }
+        val results = mutableListOf<Pair<Uri, Boolean>>()
+        var closed = 0
+        try {
+            StateRestorationTester(compose).apply {
+                setContent {
+                    PhotoEditorScreen(media, source = { copyOf(photo).also { sources += it } }, close = { closed++ },
+                        saved = { uri, upload -> results += uri to upload }, saves = saves)
+                }
+                waitForPhoto()
+                compose.onNodeWithTag("save-edited-copy").performClick()
+                compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("save-progress").fetchSemanticsNodes().isNotEmpty() }
+                emulateSavedInstanceStateRestore()
+                compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("save-progress").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("save-edited-copy").assertIsNotEnabled()
+                assertTrue(sources.first().exists())
+                gate.complete(Unit)
+                compose.waitUntil(UI_WAIT) { results.isNotEmpty() }
+                assertEquals(listOf(Uri.parse("content://media/9") to false), results)
+                assertEquals(1, closed)
+                compose.waitUntil(UI_WAIT) { !sources.first().exists() }
+            }
+        } finally { photo.delete(); sources.forEach(File::delete) }
     }
 }

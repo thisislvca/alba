@@ -436,7 +436,7 @@
     <string name="save_copy">Salva copia</string>
     <string name="edit_photo">Modifica foto</string>
     <string name="crop_photo">Trascina gli angoli del ritaglio</string>
-    <string name="edit_copy_explanation">Salva una nuova copia JPEG su questo telefono. L’originale resta invariato, sul telefono e su iCloud. Per aggiungere la copia a iCloud, caricala dal visualizzatore. Le Live Photo vengono salvate come foto statiche.</string>
+    <string name="edit_copy_explanation">Salva una nuova copia JPEG su questo telefono. L’originale resta invariato, sul telefono e su iCloud. Per mettere la copia anche su iCloud, scegli Salva copia e carica su iCloud dal menu accanto a Salva copia, oppure caricala più tardi dal visualizzatore. Le Live Photo vengono salvate come foto statiche.</string>
     <string name="reset">Ripristina</string>
     <string name="square_crop">Quadrato</string>
     <string name="rotate_degrees">Ruota · %1$d°</string>
@@ -832,4 +832,7 @@
     <string name="redo_edit">Ripeti</string>
     <string name="save_options">Altri modi per salvare</string>
     <string name="save_copy_and_upload">Salva copia e carica su iCloud</string>
+    <string name="show_original">Mostra originale</string>
+    <string name="show_edit">Mostra modifica</string>
+    <string name="edited_copy_not_uploaded">La copia modificata è salvata su questo telefono ma non è stata caricata: non hai più eseguito l’accesso a iCloud. Caricala dal visualizzatore.</string>
 </resources>

@@ -136,7 +136,7 @@ internal fun AdjustPanel(edit: PhotoEditState, selected: Adjustment, onSelect: (
     val changedLabel = stringResource(R.string.adjustment_changed)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         EditorSlider(label, adjustments[selected], selected.min..selected.max, enabled = enabled,
-            onChange = { edit.slide(selected, it) }, onFinished = edit::endDrag, onReset = { edit.reset(selected) },
+            onChange = { edit.slide(selected, it) }, onFinished = edit::endDrag, onCancel = edit::cancelDrag, onReset = { edit.reset(selected) },
             modifier = Modifier.padding(horizontal = 16.dp))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Adjustment.entries.forEach { tool ->
@@ -165,7 +165,7 @@ internal fun FiltersPanel(edit: PhotoEditState, thumbnail: Bitmap?, enabled: Boo
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (recipe.filter != LookFilter.NONE) {
             EditorSlider(stringResource(R.string.filter_strength), recipe.filterStrength, 0..100, enabled = enabled,
-                onChange = edit::slideFilterStrength, onFinished = edit::endDrag,
+                onChange = edit::slideFilterStrength, onFinished = edit::endDrag, onCancel = edit::cancelDrag,
                 onReset = { edit.endDrag(); edit.change(edit.current.copy(recipe = edit.current.recipe.copy(filterStrength = 100))) },
                 modifier = Modifier.padding(horizontal = 16.dp).testTag("filter-strength"))
         }

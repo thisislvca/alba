@@ -440,7 +440,7 @@
     <string name="save_copy">Save copy</string>
     <string name="edit_photo">Edit photo</string>
     <string name="crop_photo">Drag the crop corners</string>
-    <string name="edit_copy_explanation">Saves a new JPEG copy on this phone. The original stays unchanged, on the phone and in iCloud. To add the copy to iCloud, upload it from the viewer. Live Photos save as a still.</string>
+    <string name="edit_copy_explanation">Saves a new JPEG copy on this phone. The original stays unchanged, on the phone and in iCloud. To put the copy in iCloud too, choose Save copy and upload to iCloud from the menu next to Save copy, or upload it later from the viewer. Live Photos save as a still.</string>
     <string name="reset">Reset</string>
     <string name="square_crop">Square</string>
     <string name="rotate_degrees">Rotate · %1$d°</string>
@@ -820,4 +820,7 @@
     <string name="redo_edit">Redo</string>
     <string name="save_options">More ways to save</string>
     <string name="save_copy_and_upload">Save copy and upload to iCloud</string>
+    <string name="show_original">Show original</string>
+    <string name="show_edit">Show edit</string>
+    <string name="edited_copy_not_uploaded">The edited copy is saved on this phone but was not uploaded: you are no longer signed in to iCloud. Upload it from the viewer.</string>
 </resources>

@@ -128,4 +128,58 @@ class ColorMathTest {
         assertEquals(1f, progress.last())
         progress.zipWithNext().forEach { (a, b) -> assertTrue(b >= a) }
     }
+
+    /** Sharpness 70: each channel plus 1.05 times its difference from the plain average of its clamped box. */
+    private fun naiveSharpen(pixels: IntArray, width: Int, height: Int, radius: Int) = IntArray(pixels.size) { i ->
+        val x = i % width
+        val y = i / width
+        fun channel(shift: Int): Int {
+            val box = (-radius..radius).flatMap { dy -> (-radius..radius).map { dx -> dy to dx } }
+            val sum = box.sumOf { (dy, dx) -> pixels[(y + dy).coerceIn(0, height - 1) * width + (x + dx).coerceIn(0, width - 1)] shr shift and 255 }
+            val c = pixels[i] shr shift and 255
+            return Math.round(c + .7f * 1.5f * (c - sum / box.size.toFloat())).coerceIn(0, 255) shl shift
+        }
+        (pixels[i] and ALPHA_MASK) or channel(16) or channel(8) or channel(0)
+    }
+
+    @Test fun sharpeningMatchesANaiveUnsharpMaskAtAnyRadius() {
+        val random = Random(5)
+        val width = 17
+        val height = 11
+        val pixels = IntArray(width * height) { random.nextInt() or ALPHA_MASK }
+        listOf(1, 3, 6).forEach { radius ->
+            val recipe = EditRecipe(Adjustments(sharpness = 70))
+            val actual = IntArray(pixels.size).also { RecipeRenderer(recipe, width, height, sharpenRadius = radius).renderPixels(pixels, it, width) }
+            val expected = naiveSharpen(pixels, width, height, radius)
+            for (i in pixels.indices) assertEquals("radius $radius at $i", expected[i], actual[i])
+        }
+    }
+
+    @Test fun sharpeningAtFullResolutionMatchesThePreview() {
+        assertEquals(1, RecipeRenderer.sharpenRadius(1080))
+        assertEquals(4, RecipeRenderer.sharpenRadius(4320))
+        assertEquals(7, RecipeRenderer.sharpenRadius(8064))
+        // The same scene, a step from 80 to 160, at preview size and four times larger.
+        val small = 1080
+        val scale = 4
+        val height = 3
+        fun scene(width: Int) = IntArray(width * height) { if (it % width < width / 2) argb(80, 80, 80) else argb(160, 160, 160) }
+        val recipe = EditRecipe(Adjustments(sharpness = 100))
+        val preview = render(recipe, scene(small), small)
+        fun full(radius: Int): IntArray {
+            val width = small * scale
+            val pixels = scene(width)
+            return IntArray(pixels.size).also { RecipeRenderer(recipe, width, height, sharpenRadius = radius).renderPixels(pixels, it, width) }
+        }
+
+        // Average each block of four full-resolution pixels back to preview size and compare row 1.
+        fun difference(output: IntArray) = (0 until small).maxOf { x ->
+            val block = (0 until scale).sumOf { output[small * scale + x * scale + it].r() } / scale.toFloat()
+            kotlin.math.abs(block - preview[small + x].r())
+        }
+        val scaled = difference(full(RecipeRenderer.sharpenRadius(small * scale)))
+        val fixed = difference(full(1))
+        assertTrue("Scaled radius stays close to the preview ($scaled)", scaled <= 10f)
+        assertTrue("A fixed 3×3 is much weaker at full resolution ($fixed)", fixed >= 25f)
+    }
 }

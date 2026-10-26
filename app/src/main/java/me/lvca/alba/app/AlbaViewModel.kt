@@ -170,6 +170,8 @@ class AlbaViewModel(
 
     fun localOperationFailed() = messages.show(R.string.local_action_failed)
 
+    fun editedCopyNotUploaded() = messages.show(R.string.edited_copy_not_uploaded)
+
     fun setDiagnosticsEnabled(enabled: Boolean) = diagnostics.setEnabled(enabled)
 
     /** Records phone photo access, refreshing the library when access itself changed. */

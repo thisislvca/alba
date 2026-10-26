@@ -336,7 +336,11 @@ private fun AlbaMain(
         val canUpload = (session.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED
         PhotoEditorScreen(media, viewModel.photoEdits::source, close = { editingId = null }, canUpload = canUpload, saved = { uri, upload ->
             viewModel.sync.refresh()
-            if (upload) uploadPicked(context, viewModel, listOf(uri))
+            if (upload) {
+                // The session may have changed while the copy was saving.
+                val stillSignedIn = (viewModel.account.state.value.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED
+                if (stillSignedIn) uploadPicked(context, viewModel, listOf(uri)) else viewModel.editedCopyNotUploaded()
+            }
             onIncomingChange(IncomingSession(IncomingRequest.Media(listOf(uri.toString()), savedCopy = true), returnToCaller = false))
         })
     } }

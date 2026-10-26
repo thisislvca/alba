@@ -209,12 +209,21 @@ class ImageStats(val lumaHistogram: IntArray, val meanSaturation: Float) {
 }
 
 /**
- * Renders a recipe row by row, so a full-resolution photo never needs a second full-size pixel array. Sharpening reads
- * the rows above and below; the vignette is laid over the whole [width]×[height] frame.
+ * Renders a recipe row by row, so a full-resolution photo never needs a second full-size pixel array. Sharpening is an
+ * unsharp mask whose box blur reaches [sharpenRadius] pixels each way, kept as running sums over a small ring of rows,
+ * so it costs the same per pixel at any radius. The vignette is laid over the whole [width]×[height] frame.
  */
-class RecipeRenderer(recipe: EditRecipe, private val width: Int, private val height: Int, tone: Boolean = true, color: Boolean = true) {
+class RecipeRenderer(
+    recipe: EditRecipe,
+    private val width: Int,
+    private val height: Int,
+    tone: Boolean = true,
+    color: Boolean = true,
+    sharpenRadius: Int = sharpenRadius(maxOf(width, height)),
+) {
     private val lut = if (tone) ToneCurve.lut(recipe.adjustments) else null
     private val sharpen = if (tone) recipe.adjustments.sharpness / SLIDER_LIMIT.toFloat() * SHARPEN_MAX else 0f
+    private val radius = if (sharpen > 0f) sharpenRadius.coerceAtLeast(1) else 0
     private val matrix = if (color) ColorMatrices.recipe(recipe).takeUnless(ColorMatrices::isIdentity) else null
     private val vignette = if (color) recipe.adjustments.vignette else 0
     private val columnDistance = FloatArray(width) { val n = 2 * ((it + HALF) / width - HALF); n * n }
@@ -224,23 +233,92 @@ class RecipeRenderer(recipe: EditRecipe, private val width: Int, private val hei
     /** Reads every row with [read], writes the result with [write], and calls [checkpoint] with progress now and then. */
     fun render(read: (y: Int, row: IntArray) -> Unit, write: (y: Int, row: IntArray) -> Unit, checkpoint: (Float) -> Unit = {}) {
         if (width <= 0 || height <= 0) return
-        var above = IntArray(width)
-        var row = IntArray(width)
-        var below = IntArray(width)
+        val window = Window(read)
         val out = IntArray(width)
-        load(read, 0, row)
-        row.copyInto(above)
-        if (height > 1) load(read, 1, below) else row.copyInto(below)
         for (y in 0 until height) {
-            if (sharpen > 0f) sharpenRow(above, row, below, out) else row.copyInto(out)
+            window.advanceTo(y)
+            val row = window.row(y)
+            if (radius > 0) window.sharpen(row, out) else row.copyInto(out)
             finishRow(y, out)
             write(y, out)
-            val spare = above
-            above = row; row = below; below = spare
-            if (y + 2 < height) load(read, y + 2, below) else row.copyInto(below)
             if (y % CHECKPOINT_ROWS == 0) checkpoint(y / height.toFloat())
         }
         checkpoint(1f)
+    }
+
+    /**
+     * The toned rows from y - radius to y + radius (clamped at the edges), their horizontal box sums, and the
+     * vertical sum of those, per channel.
+     */
+    private inner class Window(private val read: (Int, IntArray) -> Unit) {
+        private val size = 2 * radius + 2
+        private val rows = Array(size) { IntArray(width) }
+        private val horizontal = Array(size) { Array(CHANNELS) { IntArray(if (radius > 0) width else 0) } }
+        private val vertical = Array(CHANNELS) { IntArray(if (radius > 0) width else 0) }
+        private val area = ((2 * radius + 1) * (2 * radius + 1)).toFloat()
+        private var loaded = -1
+        private var centre = -1
+
+        fun row(y: Int) = rows[y % size]
+
+        fun advanceTo(y: Int) {
+            if (radius == 0) return ensureLoaded(y)
+            if (centre < 0) {
+                ensureLoaded(minOf(radius, height - 1))
+                for (k in -radius..radius) add(clamp(k), 1)
+            } else {
+                // Slide the vertical sum down one row: drop the top row before its slot is reused, then add the next.
+                add(clamp(centre - radius), -1)
+                ensureLoaded(minOf(y + radius, height - 1))
+                add(clamp(y + radius), 1)
+            }
+            centre = y
+        }
+
+        private fun clamp(y: Int) = y.coerceIn(0, height - 1)
+
+        private fun ensureLoaded(y: Int) {
+            while (loaded < y) {
+                loaded++
+                val slot = loaded % size
+                load(read, loaded, rows[slot])
+                if (radius > 0) for (c in 0 until CHANNELS) boxRow(rows[slot], SHIFTS[c], horizontal[slot][c])
+            }
+        }
+
+        private fun add(y: Int, sign: Int) {
+            val sums = horizontal[y % size]
+            for (c in 0 until CHANNELS) {
+                val target = vertical[c]
+                val source = sums[c]
+                for (x in 0 until width) target[x] += sign * source[x]
+            }
+        }
+
+        /** Running sum of each pixel's [radius] neighbours each way along the row, edges repeated. */
+        private fun boxRow(row: IntArray, shift: Int, into: IntArray) {
+            fun at(x: Int) = row[x.coerceIn(0, width - 1)] shr shift and MAX_CHANNEL
+            var sum = 0
+            for (k in -radius..radius) sum += at(k)
+            for (x in 0 until width) {
+                into[x] = sum
+                sum += at(x + radius + 1) - at(x - radius)
+            }
+        }
+
+        /** Unsharp mask: each pixel plus [sharpen] times its difference from its box-blurred neighbourhood. */
+        fun sharpen(row: IntArray, out: IntArray) {
+            for (x in 0 until width) {
+                var result = row[x] and ALPHA_MASK
+                for (c in 0 until CHANNELS) {
+                    val shift = SHIFTS[c]
+                    val value = row[x] shr shift and MAX_CHANNEL
+                    val sharpened = value + sharpen * (value - vertical[c][x] / area)
+                    result = result or (sharpened.roundToInt().coerceIn(0, MAX_CHANNEL) shl shift)
+                }
+                out[x] = result
+            }
+        }
     }
 
     private fun load(read: (Int, IntArray) -> Unit, y: Int, into: IntArray) {
@@ -250,22 +328,6 @@ class RecipeRenderer(recipe: EditRecipe, private val width: Int, private val hei
             val p = into[x]
             into[x] = (p and ALPHA_MASK) or (curve[p shr RED and MAX_CHANNEL] shl RED) or
                 (curve[p shr GREEN and MAX_CHANNEL] shl GREEN) or curve[p and MAX_CHANNEL]
-        }
-    }
-
-    /** Unsharp mask with a 3×3 box blur: the pixel plus [sharpen] times its difference from its neighbourhood. */
-    private fun sharpenRow(above: IntArray, row: IntArray, below: IntArray, out: IntArray) {
-        for (x in 0 until width) {
-            val l = (x - 1).coerceAtLeast(0)
-            val r = (x + 1).coerceAtMost(width - 1)
-            fun channel(shift: Int): Int {
-                fun at(source: IntArray) = (source[l] shr shift and MAX_CHANNEL) + (source[x] shr shift and MAX_CHANNEL) +
-                    (source[r] shr shift and MAX_CHANNEL)
-                val c = row[x] shr shift and MAX_CHANNEL
-                val v = c + sharpen * (c - (at(above) + at(row) + at(below)) / NEIGHBOURHOOD)
-                return v.roundToInt().coerceIn(0, MAX_CHANNEL) shl shift
-            }
-            out[x] = (row[x] and ALPHA_MASK) or channel(RED) or channel(GREEN) or channel(0)
         }
     }
 
@@ -279,10 +341,20 @@ class RecipeRenderer(recipe: EditRecipe, private val width: Int, private val hei
         }
     }
 
-    private companion object {
-        const val SHARPEN_MAX = 1.5f
-        const val NEIGHBOURHOOD = 9f
-        const val CHECKPOINT_ROWS = 64
+    companion object {
+        private const val SHARPEN_MAX = 1.5f
+        private const val CHECKPOINT_ROWS = 64
+        private const val CHANNELS = 3
+        private val SHIFTS = intArrayOf(RED, GREEN, 0)
+
+        /** The live preview tones a copy at most this long; sharpening reaches one pixel there. */
+        const val PREVIEW_SIDE = 1080
+
+        /**
+         * The blur radius for an image whose uncropped long side is [longSide] pixels, so sharpening looks the same in
+         * the preview and at full resolution: 1 at preview size, about 7 for a 48 MP photo.
+         */
+        fun sharpenRadius(longSide: Int): Int = (longSide / PREVIEW_SIDE.toFloat()).roundToInt().coerceAtLeast(1)
     }
 }
 

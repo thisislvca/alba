@@ -35,11 +35,8 @@ import kotlinx.coroutines.*
 import me.lvca.alba.app.R
 import me.lvca.alba.app.editing.Adjustment
 import me.lvca.alba.app.editing.Adjustments
-import me.lvca.alba.app.platform.SmallerPhotoCopyRequired
-import me.lvca.alba.app.platform.renderPhotoEdit
-import me.lvca.alba.app.platform.saveEditedCopy
+import me.lvca.alba.app.platform.decodeEditPreview
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
-import me.lvca.alba.app.ui.gallery.loadThumbnail
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.GalleryMedia
 import java.io.File
@@ -50,7 +47,8 @@ private const val PREVIEW_SIDE = 1600
 /**
  * Edits a photo into a new JPEG copy on the phone: Suggestions, Crop, Adjust and Filters, as in Google Photos. The
  * edit is kept as parameters, so undo, redo and the current tab survive rotation and process death. [canUpload] adds
- * "Save copy and upload to iCloud"; [saved] receives the copy and whether to upload it.
+ * "Save copy and upload to iCloud"; [saved] receives the copy and whether to upload it. Saving runs in [saves], so it
+ * carries on through rotation and the recreated screen picks up its progress.
  */
 @Composable
 internal fun PhotoEditorScreen(
@@ -59,67 +57,59 @@ internal fun PhotoEditorScreen(
     close: () -> Unit,
     saved: (Uri, Boolean) -> Unit,
     canUpload: Boolean = false,
+    saves: PhotoEditSaves = PhotoEditSaves.app(LocalContext.current),
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var file by remember { mutableStateOf<File?>(null) }
     var preview by remember { mutableStateOf<Bitmap?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    var saving by remember { mutableStateOf(false) }
-    var progress by remember { mutableFloatStateOf(0f) }
+    var loading by remember { mutableStateOf(false) }
+    var loadFailed by remember { mutableStateOf(false) }
     var discard by rememberSaveable { mutableStateOf(false) }
-    var failed by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
-    var smallerCopy by remember { mutableStateOf<SmallerPhotoCopyRequired?>(null) }
+    var saveId by rememberSaveable { mutableLongStateOf(0L) }
     var pendingUpload by rememberSaveable { mutableStateOf(false) }
     var tab by rememberSaveable { mutableStateOf(EditorTab.SUGGESTIONS) }
     var tool by rememberSaveable { mutableStateOf(Adjustment.BRIGHTNESS) }
     var comparing by remember { mutableStateOf(false) }
     val edit = rememberSaveable(media.id, saver = PhotoEditState.Saver) { PhotoEditState() }
+    val save = saves.state.collectAsState().value[saveId]
+    val saving = save is EditSave.Running
+    val busy = loading || saving
     val reducedMotion = reduceGalleryMotion()
     val requestClose: () -> Unit = { if (!saving) { if (edit.dirty) discard = true else close() } }
     LaunchedEffect(media.id, retry) {
-        busy = true; failed = false
+        loading = true; loadFailed = false
         var owned: File? = null
         try {
             owned = source(media); file = owned
-            preview = withContext(Dispatchers.IO) { loadThumbnail(context, owned.path, PREVIEW_SIDE, true) }
-            check(preview != null)
+            preview = withContext(Dispatchers.IO) { decodeEditPreview(owned, PREVIEW_SIDE) }
         } catch (e: CancellationException) { owned?.delete(); throw e }
-        catch (_: Exception) { owned?.delete(); file = null; failed = true }
-        finally { busy = false }
+        catch (_: Exception) { owned?.delete(); file = null; loadFailed = true }
+        finally { loading = false }
     }
-    DisposableEffect(Unit) { onDispose { file?.delete() } }
+    // A save in progress keeps reading the photo after this screen goes away; it deletes the file when it ends.
+    DisposableEffect(Unit) { onDispose { file?.let(saves::release) } }
+    DeliverSave(save, saves) { saveId = 0; close(); saved(it.uri, it.upload) }
     val toned = rememberTonedPreview(preview, edit.current.recipe.adjustments)
     val enhanced = rememberEnhancement(preview)
-    val thumbnail = rememberFilterThumbnail(preview)
-    fun save(allowSmaller: Boolean = false, upload: Boolean = pendingUpload) {
+    val thumbnail = rememberFilterThumbnail(toned)
+    fun startSave(allowSmaller: Boolean = false, upload: Boolean = pendingUpload) {
         val input = file ?: return
-        val step = edit.current
+        if (saveId != 0L) saves.acknowledge(saveId)
         pendingUpload = upload
-        scope.launch {
-            busy = true; saving = true; failed = false; progress = 0f
-            try {
-                val output = renderPhotoEdit(input, step.crop, step.turns, allowSmallerCopy = allowSmaller, recipe = step.recipe,
-                    progress = { progress = it })
-                val uri = try { saveEditedCopy(context, media, output, source = input) } finally { output.recycle() }
-                close(); saved(uri, upload)
-            } catch (e: CancellationException) { throw e }
-            catch (e: SmallerPhotoCopyRequired) { smallerCopy = e }
-            catch (_: Exception) { failed = true }
-            finally { busy = false; saving = false }
-        }
+        saveId = saves.newId()
+        saves.start(saveId, EditSaveRequest(media, input, edit.current, allowSmaller, upload))
     }
+    fun dismissSave() { saves.acknowledge(saveId); saveId = 0 }
     Dialog(onDismissRequest = requestClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         LightSystemBarIcons()
         AlbaTheme(darkTheme = true) {
-        EditorDialogs(discard, smallerCopy, dismiss = { discard = false; smallerCopy = null }, discardEdits = { discard = false; close() },
-            saveSmaller = { smallerCopy = null; save(true) })
+        EditorDialogs(discard, save as? EditSave.NeedsSmallerCopy, dismiss = { discard = false; if (save is EditSave.NeedsSmallerCopy) dismissSave() },
+            discardEdits = { discard = false; close() }, saveSmaller = { startSave(allowSmaller = true) })
         Surface(Modifier.fillMaxSize(), color = Color.Black, contentColor = Color.White) {
             Column(Modifier.fillMaxSize().systemBarsPadding().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 EditorTopBar(edit, busy, saving, canSave = !busy && file != null, canUpload, requestClose,
-                    save = { save(upload = false) }, saveAndUpload = { save(upload = true) })
-                if (saving) SaveProgress(progress)
+                    save = { startSave(upload = false) }, saveAndUpload = { startSave(upload = true) })
+                if (save is EditSave.Running) SaveProgress(save.progress)
                 Text(stringResource(R.string.edit_copy_explanation), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
                 Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
                     val original = preview
@@ -130,15 +120,13 @@ internal fun PhotoEditorScreen(
                             CropOverlay(edit, busy)
                         }
                     }
-                    if (busy && !saving) CircularProgressIndicator()
+                    if (loading) CircularProgressIndicator()
                 }
                 Crossfade(tab, Modifier.fillMaxWidth().heightIn(min = 120.dp), animationSpec = if (reducedMotion) snap() else tween(150),
                     label = "editor-panel") { current ->
                     EditorPanel(current, edit, preview, thumbnail, enhanced, tool, onTool = { tool = it }, enabled = !busy)
                 }
-                if (failed) TextButton(onClick = { if (file == null) retry++ else save() }, enabled = !busy, modifier = Modifier.padding(horizontal = 8.dp)) {
-                    Text(stringResource(R.string.edit_failed_retry))
-                }
+                EditFailedRetry(loadFailed || save is EditSave.Failed, enabled = !busy) { if (file == null) retry++ else startSave() }
                 EditorTabs(tab, enabled = !saving) { edit.endDrag(); tab = it }
             }
         }
@@ -198,7 +186,7 @@ private fun EditorPanel(
 }
 
 @Composable
-private fun EditorDialogs(discard: Boolean, smallerCopy: SmallerPhotoCopyRequired?, dismiss: () -> Unit, discardEdits: () -> Unit, saveSmaller: () -> Unit) {
+private fun EditorDialogs(discard: Boolean, smallerCopy: EditSave.NeedsSmallerCopy?, dismiss: () -> Unit, discardEdits: () -> Unit, saveSmaller: () -> Unit) {
     if (discard) AlertDialog(onDismissRequest = dismiss,
         title = { Text(stringResource(R.string.discard_edits_title)) },
         text = { Text(stringResource(R.string.discard_edits_explanation)) },
@@ -211,6 +199,24 @@ private fun EditorDialogs(discard: Boolean, smallerCopy: SmallerPhotoCopyRequire
         confirmButton = { TextButton(onClick = saveSmaller) { Text(stringResource(R.string.save_copy)) } },
         dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } },
     ) }
+}
+
+/** Hands a finished save to the screen once, whichever screen instance is showing when it ends. */
+@Composable
+private fun DeliverSave(save: EditSave?, saves: PhotoEditSaves, deliver: (EditSave.Saved) -> Unit) {
+    LaunchedEffect(save) {
+        if (save is EditSave.Saved) {
+            saves.acknowledge(save.id)
+            deliver(save)
+        }
+    }
+}
+
+@Composable
+private fun EditFailedRetry(show: Boolean, enabled: Boolean, retry: () -> Unit) {
+    if (show) TextButton(onClick = retry, enabled = enabled, modifier = Modifier.padding(horizontal = 8.dp)) {
+        Text(stringResource(R.string.edit_failed_retry))
+    }
 }
 
 /** Saving decodes first, then reports the full-resolution render row by row. */
