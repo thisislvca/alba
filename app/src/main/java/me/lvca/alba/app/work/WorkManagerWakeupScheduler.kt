@@ -10,14 +10,15 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import me.lvca.alba.app.BackupWakeWorker
 import me.lvca.alba.app.ReconciliationTimerWorker
+import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.WakeupScheduler
 import java.util.concurrent.TimeUnit
 
-class WorkManagerWakeupScheduler(context: Context) : WakeupScheduler {
+class WorkManagerWakeupScheduler(
+    context: Context,
+    private val settings: () -> BackupSettings = { BackupSettings() },
+) : WakeupScheduler {
     private val workManager = WorkManager.getInstance(context.applicationContext)
-    private val backgroundNetwork = Constraints.Builder()
-        .setRequiredNetworkType(NetworkType.UNMETERED)
-        .build()
     private val connectedNetwork = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
@@ -48,8 +49,9 @@ class WorkManagerWakeupScheduler(context: Context) : WakeupScheduler {
             workManager.cancelUniqueWork(PERIODIC_WORK_NAME)
             return
         }
+        // UPDATE keeps the period's schedule and applies the networks the user's settings now allow.
         val request = PeriodicWorkRequestBuilder<BackupWakeWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(backgroundNetwork)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(backupNetworkType(settings())).build())
             .build()
         workManager.enqueueUniquePeriodicWork(
             PERIODIC_WORK_NAME,
@@ -58,9 +60,21 @@ class WorkManagerWakeupScheduler(context: Context) : WakeupScheduler {
         )
     }
 
+    override suspend fun cancelRunningBackup() {
+        // An upload this interrupts resumes later or goes to read-only verification; it is never sent again blindly.
+        workManager.cancelUniqueWork(IMMEDIATE_WORK_NAME)
+    }
+
     private companion object {
         // Named before the Alba rename and stored on devices; keep it.
         const val IMMEDIATE_WORK_NAME = "mela-photo-maintenance"
         const val PERIODIC_WORK_NAME = "mela-automatic-photo-backup"
     }
+}
+
+/** The least the periodic backup pass needs from the network, given what the user allows. */
+internal fun backupNetworkType(settings: BackupSettings): NetworkType = when {
+    !settings.usesMobileData -> NetworkType.UNMETERED
+    settings.whileRoaming -> NetworkType.CONNECTED
+    else -> NetworkType.NOT_ROAMING
 }

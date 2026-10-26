@@ -118,6 +118,7 @@ sentry {
 dependencies {
     implementation(libs.androidx.profileinstaller)
     implementation(libs.androidx.exif)
+    implementation(libs.androidx.print)
     implementation(libs.media3.player)
     implementation(libs.media3.ui)
     implementation(libs.androidx.room.runtime)

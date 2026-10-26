@@ -15,6 +15,7 @@ import me.lvca.alba.app.diagnostics.DiagnosticOperation
 import me.lvca.alba.app.diagnostics.DiagnosticOutcome
 import me.lvca.alba.app.diagnostics.measure
 import me.lvca.alba.app.messages.UserMessages
+import me.lvca.alba.app.messages.appleProtocolError
 import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.transfers.TransferController
 import me.lvca.alba.engine.model.GalleryRepository
@@ -23,6 +24,7 @@ import me.lvca.alba.engine.model.WakeReason
 import me.lvca.alba.protocol.account.ICloudAccountManager
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
+import me.lvca.alba.protocol.auth.AppleProtocolError
 import java.time.Instant
 
 /** Whether the library is refreshing, when it last did, and whether the saved account could not be opened. */
@@ -31,6 +33,8 @@ data class SyncState(
     val lastRefreshedAt: Instant? = null,
     /** Restoring the saved account failed; the UI offers a retry instead of a spinner. */
     val restoreFailed: Boolean = false,
+    /** The last refresh failed because "Access iCloud Data on the Web" is off; the account screen explains it. */
+    val webAccessOff: Boolean = false,
 )
 
 /** Restores the saved account at start, and refreshes the library from iCloud and the phone. */
@@ -116,7 +120,8 @@ internal class LibrarySync(
                     ),
                 )
                 mutableState.update {
-                    it.copy(isRefreshing = false, lastRefreshedAt = Instant.ofEpochMilli(summary.refreshedAtEpochMillis))
+                    it.copy(isRefreshing = false, lastRefreshedAt = Instant.ofEpochMilli(summary.refreshedAtEpochMillis),
+                        webAccessOff = false)
                 }
                 when {
                     summary.sharedAlbumsUnavailable -> messages.show(R.string.shared_refresh_unavailable)
@@ -129,7 +134,8 @@ internal class LibrarySync(
                 throw cancelled
             } catch (error: Throwable) {
                 span.finish(DiagnosticOutcome.FAILED, error = error)
-                mutableState.update { it.copy(isRefreshing = false) }
+                val webAccessOff = error.appleProtocolError() == AppleProtocolError.WEB_ACCESS_DISABLED
+                mutableState.update { it.copy(isRefreshing = false, webAccessOff = webAccessOff) }
                 messages.show(error.toUserMessage(R.string.message_could_not_refresh_the_library))
             }
         }

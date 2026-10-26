@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 16,
-    "identityHash": "bc483436783e302937702b52075da5d7",
+    "identityHash": "8a21c55482a7a54767e59d28cd7a0262",
     "entities": [
       {
         "tableName": "catalog_items",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaId` TEXT NOT NULL, `fileName` TEXT NOT NULL, `capturedAtEpochMillis` INTEGER NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `origin` TEXT NOT NULL, `sourceRevision` TEXT NOT NULL, `localUri` TEXT, `previewCachePath` TEXT, `originalCachePath` TEXT, `accentStartArgb` INTEGER NOT NULL, `accentEndArgb` INTEGER NOT NULL, `lastSeenScanId` TEXT NOT NULL, `kind` TEXT NOT NULL DEFAULT 'PHOTO', `mimeType` TEXT NOT NULL DEFAULT 'image/jpeg', `durationMillis` INTEGER, `motionCachePath` TEXT, `motionMimeType` TEXT NOT NULL DEFAULT 'video/quicktime', `masterRecordName` TEXT, `assetRecordName` TEXT, `resourceFingerprint` TEXT NOT NULL DEFAULT '', `addedAtEpochMillis` INTEGER, `viewerCachePath` TEXT, `byteCount` INTEGER, `deviceFolderId` TEXT, `deviceFolderName` TEXT, `localFavorite` INTEGER NOT NULL DEFAULT 0, `isTrashed` INTEGER NOT NULL DEFAULT 0, `expiresAtEpochMillis` INTEGER, `isHidden` INTEGER NOT NULL DEFAULT 0, `caption` TEXT, `description` TEXT, `latitude` REAL, `longitude` REAL, `altitude` REAL, `timeZoneOffsetSeconds` INTEGER, `burstId` TEXT, PRIMARY KEY(`mediaId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaId` TEXT NOT NULL, `fileName` TEXT NOT NULL, `capturedAtEpochMillis` INTEGER NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `origin` TEXT NOT NULL, `sourceRevision` TEXT NOT NULL, `localUri` TEXT, `previewCachePath` TEXT, `originalCachePath` TEXT, `accentStartArgb` INTEGER NOT NULL, `accentEndArgb` INTEGER NOT NULL, `lastSeenScanId` TEXT NOT NULL, `kind` TEXT NOT NULL DEFAULT 'PHOTO', `mimeType` TEXT NOT NULL DEFAULT 'image/jpeg', `durationMillis` INTEGER, `motionCachePath` TEXT, `motionMimeType` TEXT NOT NULL DEFAULT 'video/quicktime', `masterRecordName` TEXT, `assetRecordName` TEXT, `resourceFingerprint` TEXT NOT NULL DEFAULT '', `addedAtEpochMillis` INTEGER, `viewerCachePath` TEXT, `byteCount` INTEGER, `deviceFolderId` TEXT, `deviceFolderName` TEXT, `localFavorite` INTEGER NOT NULL DEFAULT 0, `isTrashed` INTEGER NOT NULL DEFAULT 0, `expiresAtEpochMillis` INTEGER, PRIMARY KEY(`mediaId`))",
         "fields": [
           {
             "fieldPath": "mediaId",
@@ -174,48 +174,6 @@
             "fieldPath": "expiresAtEpochMillis",
             "columnName": "expiresAtEpochMillis",
             "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "isHidden",
-            "columnName": "isHidden",
-            "affinity": "INTEGER",
-            "notNull": true,
-            "defaultValue": "0"
-          },
-          {
-            "fieldPath": "details.caption",
-            "columnName": "caption",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "details.description",
-            "columnName": "description",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "details.latitude",
-            "columnName": "latitude",
-            "affinity": "REAL"
-          },
-          {
-            "fieldPath": "details.longitude",
-            "columnName": "longitude",
-            "affinity": "REAL"
-          },
-          {
-            "fieldPath": "details.altitude",
-            "columnName": "altitude",
-            "affinity": "REAL"
-          },
-          {
-            "fieldPath": "details.timeZoneOffsetSeconds",
-            "columnName": "timeZoneOffsetSeconds",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "details.burstId",
-            "columnName": "burstId",
-            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -2493,11 +2451,90 @@
             "attemptId"
           ]
         }
+      },
+      {
+        "tableName": "upload_pauses",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `reason` TEXT NOT NULL, `pausedAtEpochMillis` INTEGER NOT NULL, `retryAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountId`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pausedAtEpochMillis",
+            "columnName": "pausedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retryAtEpochMillis",
+            "columnName": "retryAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId"
+          ]
+        }
+      },
+      {
+        "tableName": "discovery_failures",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `failures` INTEGER NOT NULL, `lastReason` TEXT NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountId`, `mediaId`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failures",
+            "columnName": "failures",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastReason",
+            "columnName": "lastReason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "mediaId"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bc483436783e302937702b52075da5d7')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8a21c55482a7a54767e59d28cd7a0262')"
     ]
   }
 }

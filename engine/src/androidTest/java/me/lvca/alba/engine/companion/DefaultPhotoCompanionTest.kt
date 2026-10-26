@@ -636,10 +636,10 @@ class DefaultPhotoCompanionTest {
         var boot = "1"
         var trashState: LocalTrashState? = LocalTrashState(true, NOW + 86_400_000)
         override fun bootSessionId(): String = boot
-        override suspend fun discoverEligibleJpegs(
-            checkpoint: LocalDiscoveryCheckpoint?, limit: Int, scope: BackupScope, addedAfterEpochMillis: Long,
-            enrollmentBaseline: LocalDiscoveryCheckpoint?,
-        ): LocalDiscoveryPage = discoverJpegs(checkpoint, limit)
+        override suspend fun discoverEligibleMedia(
+            checkpoint: LocalDiscoveryCheckpoint?, limit: Int, scope: BackupScope, folders: Set<String>,
+            addedAfterEpochMillis: Long, enrollmentBaseline: LocalDiscoveryCheckpoint?,
+        ): LocalDiscoveryPage = discoverJpegs()
 
         override suspend fun copySelected(
             contentUri: String,
@@ -662,10 +662,7 @@ class DefaultPhotoCompanionTest {
 
         override fun hasAutomaticBackupAccess(): Boolean = automaticAccess
 
-        override suspend fun discoverJpegs(
-            checkpoint: LocalDiscoveryCheckpoint?,
-            limit: Int,
-        ): LocalDiscoveryPage {
+        private fun discoverJpegs(): LocalDiscoveryPage {
             val item = DeviceMediaRecord(
                 id = LOCAL_MEDIA_ID,
                 fileName = "camera.jpg",
@@ -698,6 +695,8 @@ class DefaultPhotoCompanionTest {
         ).intentSender
 
         override suspend fun readTrashState(contentUri: String): LocalTrashState? = trashState
+
+        override suspend fun currentRevision(contentUri: String) = if (contentUri == LOCAL_URI) LOCAL_REVISION else "selected-rev"
 
         private fun evidence(
             contentUri: String,

@@ -75,10 +75,11 @@ class StoreScreenshotTest {
         open("fixture:icloud:0008")
         capture("02-viewer")
         compose.onNodeWithText(compose.activity.getString(R.string.viewer_edit)).performClick()
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("photo-crop").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("editor-image").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("save-edited-copy").assertIsEnabled()
+        compose.onNodeWithTag("editor-tab-adjust").performClick()
         capture("05-editor")
-        compose.onNodeWithText(compose.activity.getString(R.string.cancel)).performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.cancel)).performClick()
         compose.onNodeWithContentDescription("Back to gallery").performClick()
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         capture("03-collections")

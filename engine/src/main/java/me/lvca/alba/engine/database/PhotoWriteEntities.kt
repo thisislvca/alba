@@ -368,6 +368,28 @@ data class TrashAttemptEntity(
     val bootSessionId: String? = null,
 )
 
+/**
+ * Uploads for an account wait because Apple refused one for lack of iCloud storage. The refused attempt stays
+ * resumable; nothing is uploaded until the user retries or [retryAtEpochMillis] passes.
+ */
+@Entity(tableName = "upload_pauses")
+data class UploadPauseEntity(
+    @PrimaryKey val accountId: String,
+    val reason: String,
+    val pausedAtEpochMillis: Long,
+    val retryAtEpochMillis: Long,
+)
+
+/** An item automatic backup failed to stage, and how often, so a file that never reads is skipped, not retried forever. */
+@Entity(tableName = "discovery_failures", primaryKeys = ["accountId", "mediaId"])
+data class DiscoveryFailureEntity(
+    val accountId: String,
+    val mediaId: String,
+    val failures: Int,
+    val lastReason: String,
+    val updatedAtEpochMillis: Long,
+)
+
 @Entity(
     tableName = "trash_obligations",
     primaryKeys = ["trashAttemptId", "mediaId"],

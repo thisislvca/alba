@@ -337,7 +337,7 @@ class LiveICloudCatalogSource(
             ?.contentOrNull == "true"
         if (protectedWebAccessDisabled) {
             throw AppleProtocolException(
-                AppleProtocolError.PHOTOS_UNAVAILABLE,
+                AppleProtocolError.WEB_ACCESS_DISABLED,
                 "Access to iCloud data on the web is disabled for this account.",
             )
         }

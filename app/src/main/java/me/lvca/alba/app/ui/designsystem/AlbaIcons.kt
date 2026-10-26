@@ -253,6 +253,43 @@ internal object AlbaIcons {
         }
     }
 
+    /** Material "cloud_off": an item that cannot be backed up. */
+    val CloudOff: ImageVector by lazy {
+        icon("CloudOff") {
+            moveTo(19.35f, 10.04f)
+            curveTo(18.67f, 6.59f, 15.64f, 4.0f, 12.0f, 4.0f)
+            curveToRelative(-1.48f, 0.0f, -2.85f, 0.43f, -4.01f, 1.17f)
+            lineToRelative(1.46f, 1.46f)
+            curveTo(10.21f, 6.23f, 11.08f, 6.0f, 12.0f, 6.0f)
+            curveToRelative(3.04f, 0.0f, 5.5f, 2.46f, 5.5f, 5.5f)
+            verticalLineToRelative(0.5f)
+            horizontalLineTo(19.0f)
+            curveToRelative(1.66f, 0.0f, 3.0f, 1.34f, 3.0f, 3.0f)
+            curveToRelative(0.0f, 1.13f, -0.64f, 2.11f, -1.56f, 2.62f)
+            lineToRelative(1.45f, 1.45f)
+            curveTo(23.16f, 18.16f, 24.0f, 16.68f, 24.0f, 15.0f)
+            curveToRelative(0.0f, -2.64f, -2.05f, -4.78f, -4.65f, -4.96f)
+            close()
+            moveTo(3.0f, 5.27f)
+            lineToRelative(2.75f, 2.74f)
+            curveTo(2.56f, 8.15f, 0.0f, 10.77f, 0.0f, 14.0f)
+            curveToRelative(0.0f, 3.31f, 2.69f, 6.0f, 6.0f, 6.0f)
+            horizontalLineToRelative(11.73f)
+            lineToRelative(2.0f, 2.0f)
+            lineTo(21.0f, 20.73f)
+            lineTo(4.27f, 4.0f)
+            lineTo(3.0f, 5.27f)
+            close()
+            moveTo(7.73f, 10.0f)
+            lineToRelative(8.0f, 8.0f)
+            horizontalLineTo(6.0f)
+            curveToRelative(-2.21f, 0.0f, -4.0f, -1.79f, -4.0f, -4.0f)
+            reflectiveCurveToRelative(1.79f, -4.0f, 4.0f, -4.0f)
+            horizontalLineToRelative(1.73f)
+            close()
+        }
+    }
+
     val ErrorOutline: ImageVector by lazy {
         icon("ErrorOutline") {
             moveTo(11.0f, 15.0f)
@@ -365,32 +402,24 @@ internal object AlbaIcons {
         }
     }
 
-    /** Material "Visibility" (outlined): shown for Unhide. */
     val Visibility: ImageVector by lazy {
-        icon("Visibility", "M12 6c3.79 0 7.17 2.13 8.82 5.5C19.17 14.87 15.79 17 12 17s-7.17-2.13-8.82-5.5C4.83 8.13 8.21 6 12 6m0-2" +
-            "C7 4 2.73 7.11 1 11.5 2.73 15.89 7 19 12 19s9.27-3.11 11-7.5C21.27 7.11 17 4 12 4zm0 5c1.38 0 2.5 1.12 2.5 2.5" +
-            "S13.38 14 12 14s-2.5-1.12-2.5-2.5S10.62 9 12 9m0-2c-2.48 0-4.5 2.02-4.5 4.5S9.52 16 12 16s4.5-2.02 4.5-4.5S14.48 7 12 7z")
+        pathIcon("Visibility", "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5z" +
+            "M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z")
     }
 
-    /** Material "Visibility off" (outlined): shown for Hide. */
     val VisibilityOff: ImageVector by lazy {
-        icon("VisibilityOff", "M12 6c3.79 0 7.17 2.13 8.82 5.5-.59 1.22-1.42 2.27-2.41 3.12l1.41 1.41c1.39-1.23 2.49-2.77 3.18-4.53" +
-            "C21.27 7.11 17 4 12 4c-1.27 0-2.49.2-3.64.57l1.65 1.65C10.66 6.09 11.32 6 12 6zm-1.07 1.14L13 9.21c.57.25 1.03.71" +
-            " 1.28 1.28l2.07 2.07c.08-.34.14-.7.14-1.07C16.5 9.01 14.48 7 12 7c-.37 0-.72.05-1.07.14zM2.01 3.87l2.68 2.68" +
-            "C3.06 7.83 1.77 9.53 1 11.5 2.73 15.89 7 19 12 19c1.52 0 2.98-.29 4.32-.82l3.42 3.42 1.41-1.41L3.42 2.45 2.01 3.87z" +
-            "m7.5 7.5l2.61 2.61c-.04.01-.08.02-.12.02-1.38 0-2.5-1.12-2.5-2.5 0-.05.01-.08.01-.13zm-3.4-3.4l1.75 1.75" +
-            "c-.23.55-.36 1.15-.36 1.78 0 2.48 2.02 4.5 4.5 4.5.63 0 1.23-.13 1.77-.36l.98.98c-.88.24-1.8.38-2.75.38" +
-            "-3.79 0-7.17-2.13-8.82-5.5.7-1.43 1.72-2.61 2.93-3.53z")
+        pathIcon("VisibilityOff", "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75" +
+            "-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46" +
+            "C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27z" +
+            "M7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53" +
+            "-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z")
     }
 }
 
-private fun icon(name: String, pathData: String): ImageVector = ImageVector.Builder(
-    name = "Alba.$name",
-    defaultWidth = 24.dp,
-    defaultHeight = 24.dp,
-    viewportWidth = 24f,
-    viewportHeight = 24f,
-).addPath(addPathNodes(pathData), fill = SolidColor(Color.Black)).build()
+/** An icon from Material Icons' SVG path data. */
+private fun pathIcon(name: String, pathData: String): ImageVector = ImageVector.Builder(
+    name = "Alba.$name", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f,
+).addPath(pathData = addPathNodes(pathData), fill = SolidColor(Color.Black)).build()
 
 private fun icon(name: String, pathBuilder: PathBuilder.() -> Unit): ImageVector = ImageVector.Builder(
     name = "Alba.$name",

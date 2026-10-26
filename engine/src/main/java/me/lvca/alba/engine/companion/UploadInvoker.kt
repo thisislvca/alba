@@ -12,9 +12,11 @@ import me.lvca.alba.engine.database.TransferEntity
 import me.lvca.alba.engine.database.TransferState
 import me.lvca.alba.engine.database.UploadAcceptanceEntity
 import me.lvca.alba.engine.database.UploadAttemptEntity
+import me.lvca.alba.engine.database.UploadPauseEntity
 import me.lvca.alba.engine.database.UploadUncertaintyEntity
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
+import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PhotoCompanionException
 import me.lvca.alba.engine.model.PreparedICloudUpload
@@ -43,7 +45,14 @@ internal class UploadInvoker(
     /** Leases, arms and sends the next READY transfer. Returns 1 when it armed an attempt. */
     suspend fun invokeOne(binding: AccountBinding, allowManual: Boolean, allowAutomatic: Boolean): Int {
         if (transferDao.findWriteSlot(binding.accountId) != null) return 0
-        val candidate = transferDao.findNextReady(binding.accountId, now(), allowAutomatic && authority.canRun(binding), allowManual) ?: return 0
+        if (isStoragePaused(binding.accountId)) return 0
+        val candidate = transferDao.findNextReady(
+            binding.accountId,
+            now(),
+            allowAutomaticPhotos = allowAutomatic && authority.canRun(binding, video = false),
+            allowAutomaticVideos = allowAutomatic && authority.canRun(binding, video = true),
+            allowManual = allowManual,
+        ) ?: return 0
         val leaseToken = UUID.randomUUID().toString()
         val leaseNow = now()
         if (transferDao.claimReady(
@@ -56,6 +65,7 @@ internal class UploadInvoker(
         ) return 0
         val leased = requireNotNull(transferDao.findTransfer(candidate.transferId))
         val source = requireNotNull(transferDao.findStagedSource(leased.stagedSourceId))
+        val video = source.isVideo
 
         val uploadSource = try {
             staging.openVerified(source.ownedFileToken, source.byteCount, source.sha256Hex)
@@ -87,7 +97,7 @@ internal class UploadInvoker(
         }
 
         val attempt = accounts.gate(binding.accountId).withLock {
-            if (!canWriteNow(leased.authorityType)) {
+            if (!canWriteNow(leased.authorityType, video)) {
                 prepared.cancel()
                 transferDao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.WAITING_FOR_UPLOAD_AUTHORIZATION_AND_AN_ELIGIBLE_NETWORK.code)
                 return@withLock null
@@ -102,7 +112,7 @@ internal class UploadInvoker(
                 return@withLock armed
             }
 
-            if (authority.waitsForNetwork(leased.authorityType)) {
+            if (authority.waitsForNetwork(leased.authorityType, video)) {
                 prepared.cancel()
                 recordUnknown(armed, "NETWORK_CHANGED_AFTER_COMMIT")
                 return@withLock armed
@@ -116,6 +126,9 @@ internal class UploadInvoker(
 
             try {
                 send(prepared, armed.transferId, armed.attemptId)
+            } catch (full: ICloudStorageFullException) {
+                prepared.cancel()
+                storageRefused(binding, armed, full)
             } catch (error: Throwable) {
                 prepared.cancel()
                 if (!protocol.canResume(binding, armed.attemptId)) {
@@ -139,25 +152,12 @@ internal class UploadInvoker(
             val attemptId = requireNotNull(transfer.activeAttemptId)
             val observedAt = now()
             if (transfer.authorityType == AUTHORITY_AUTOMATIC && !allowAutomatic) return@forEach
-            if (authority.waitsForNetwork(transfer.authorityType)) return@forEach
+            if (authority.waitsForNetwork(transfer.authorityType, isVideo(transfer))) return@forEach
             if (transfer.accountId == binding.accountId && transfer.authEpoch == binding.authEpoch &&
                 transfer.operationFence == binding.operationFence && protocol.canResume(binding, attemptId)) {
                 if (transfer.authorityType == AUTHORITY_MANUAL && !allowManual) return@forEach
-                val attempt = requireNotNull(transferDao.findAttempt(attemptId))
-                try {
-                    resume(binding, transfer, attemptId)
-                    return@forEach
-                } catch (error: Throwable) {
-                    if (error is CancellationException) throw error
-                    if (!protocol.isWriteAuthorized()) return@forEach
-                    // Only failures that may pass on retry, with durable safe state, continue at the next wake.
-                    if (!error.failsEveryRetry() && protocol.canResume(binding, attemptId)) {
-                        if (transfer.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
-                        return@forEach
-                    }
-                    recordUnknown(attempt, "RESUME_INTERRUPTED")
-                    return@forEach
-                }
+                if (!isStoragePaused(binding.accountId)) resumeOrSettle(binding, transfer, attemptId)
+                return@forEach
             }
             database.withTransaction {
                 transferDao.insertUncertainty(
@@ -172,6 +172,27 @@ internal class UploadInvoker(
             }
         }
         return interrupted.size
+    }
+
+    /**
+     * Resumes an interrupted attempt under its own id. A failure that may pass on retry, with durable safe state, waits
+     * for the next wake; a storage refusal pauses uploads; anything else becomes uncertain and goes to verification.
+     */
+    private suspend fun resumeOrSettle(binding: AccountBinding, transfer: TransferEntity, attemptId: String) {
+        val attempt = requireNotNull(transferDao.findAttempt(attemptId))
+        try {
+            resume(binding, transfer, attemptId)
+        } catch (full: ICloudStorageFullException) {
+            storageRefused(binding, attempt, full)
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            if (!protocol.isWriteAuthorized()) return
+            if (!error.failsEveryRetry() && protocol.canResume(binding, attemptId)) {
+                if (transfer.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
+                return
+            }
+            recordUnknown(attempt, "RESUME_INTERRUPTED")
+        }
     }
 
     /**
@@ -269,13 +290,13 @@ internal class UploadInvoker(
                     StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED,
                 )
             }
-            if (authority.waitsForNetwork(transfer.authorityType)) return@withLock
             val source = refuseIfNull(
                 transferDao.findStagedSource(transfer.stagedSourceId),
                 StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN,
             )
+            if (authority.waitsForNetwork(transfer.authorityType, source.isVideo)) return@withLock
             val prepared = protocol.prepareOriginal(binding, source.displayName, openStaged(source), source.lastModifiedAtEpochMillis)
-            if (!canWriteNow(transfer.authorityType) || !isStillSending(transfer.transferId)) {
+            if (!canWriteNow(transfer.authorityType, source.isVideo) || !isStillSending(transfer.transferId)) {
                 prepared.cancel()
                 return@withLock
             }
@@ -287,6 +308,8 @@ internal class UploadInvoker(
     private suspend fun send(prepared: PreparedICloudUpload, transferId: String, attemptId: String) {
         val acceptance = prepared.startOnce(attemptId)
         database.withTransaction {
+            // Apple accepted an upload, so iCloud has space again: lift a storage pause.
+            transferDao.findTransfer(transferId)?.let { transferDao.clearUploadPause(it.accountId) }
             transferDao.insertAcceptance(acceptance.toEntity(attemptId, now()))
             fenceHolds(
                 transferDao.markReconciling(
@@ -306,8 +329,41 @@ internal class UploadInvoker(
         throw PhotoCompanionException.Refused(StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN)
     }
 
-    private fun canWriteNow(authorityType: String): Boolean =
-        protocol.isWriteAuthorized() && !authority.waitsForNetwork(authorityType)
+    private fun canWriteNow(authorityType: String, video: Boolean): Boolean =
+        protocol.isWriteAuthorized() && !authority.waitsForNetwork(authorityType, video)
+
+    private suspend fun isVideo(transfer: TransferEntity): Boolean =
+        transferDao.findStagedSource(transfer.stagedSourceId)?.isVideo == true
+
+    /** Whether iCloud refused an upload for storage and neither the user nor the retry time has lifted the pause. */
+    suspend fun isStoragePaused(accountId: String): Boolean {
+        val pause = transferDao.findUploadPause(accountId) ?: return false
+        if (pause.retryAtEpochMillis > now()) return true
+        // The retry time passed: the next upload tries again, and the status stops saying iCloud is full.
+        transferDao.clearUploadPause(accountId)
+        return false
+    }
+
+    /**
+     * Apple refused [attempt] for lack of storage. A refused reservation comes before any byte is sent, so the attempt
+     * stays resumable; a refused registration comes after the bytes, so that attempt goes to verification. Either way
+     * every upload waits rather than failing one by one.
+     */
+    private suspend fun storageRefused(binding: AccountBinding, attempt: UploadAttemptEntity, full: ICloudStorageFullException) {
+        if (!protocol.canResume(binding, attempt.attemptId)) recordUnknown(attempt, full::class.java.simpleName)
+        pauseForStorageFull(binding.accountId, attempt.transferId)
+    }
+
+    private suspend fun pauseForStorageFull(accountId: String, transferId: String) {
+        val pausedAt = now()
+        database.withTransaction {
+            transferDao.pauseUploads(
+                UploadPauseEntity(accountId, StoredMessage.ICLOUD_STORAGE_FULL.code, pausedAt, pausedAt + STORAGE_FULL_RETRY_MILLIS),
+            )
+            transferDao.noteSendingMessage(transferId, StoredMessage.ICLOUD_STORAGE_FULL.code, pausedAt)
+        }
+        runSuspendCatching { scheduler.scheduleAt(pausedAt + STORAGE_FULL_RETRY_MILLIS) }
+    }
 
     private suspend fun isStillSending(transferId: String): Boolean =
         transferDao.findTransfer(transferId)?.state == TransferState.SENDING
@@ -338,6 +394,9 @@ internal class UploadInvoker(
 
     private companion object {
         const val READY_LEASE_MILLIS = 2 * 60 * 1_000L
+
+        /** Background passes try a storage-refused upload again after this long; the user can retry sooner. */
+        const val STORAGE_FULL_RETRY_MILLIS = 6 * 60 * 60 * 1_000L
     }
 }
 
@@ -347,3 +406,6 @@ internal class UploadInvoker(
  */
 private fun Throwable.failsEveryRetry(): Boolean =
     isFinalRefusal() || this is IllegalStateException || this is IllegalArgumentException
+
+/** Staged videos follow the video setting for mobile data; everything else counts as a photo. */
+internal val StagedSourceEntity.isVideo: Boolean get() = mimeType.startsWith("video/")

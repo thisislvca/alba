@@ -187,6 +187,7 @@ internal fun GalleryHome(
     var sheet by rememberSaveable(stateSaver = GallerySheet.Saver) { mutableStateOf(null) }
     val scope = rememberCoroutineScope()
     var permissionDismissed by rememberSaveable { mutableStateOf(false) }
+    var limitedNoteDismissed by rememberSaveable { mutableStateOf(false) }
     var owner by rememberSaveable { mutableStateOf(identity) }
     LaunchedEffect(identity) {
         if (identity != null) {
@@ -293,7 +294,9 @@ internal fun GalleryHome(
         if (tab == GalleryTab.SEARCH && query.filename.isNotBlank()) matchingAlbums(gallery.collections, query.filename) else emptyList()
     }
     val leadingItems = if (hero || showSharedStrip || searchAlbums.isNotEmpty()) 1 else 0
-    val permissionPrompt = tab == GalleryTab.LIBRARY && !gallery.deviceMediaAccess && !permissionDismissed
+    // Android 14's partial access: a small note in the prompt's place says how many photos Alba sees, with Change.
+    val limitedNote = tab == GalleryTab.LIBRARY && gallery.deviceMediaAccess && gallery.limitedPhotoAccess && !limitedNoteDismissed
+    val permissionPrompt = (tab == GalleryTab.LIBRARY && !gallery.deviceMediaAccess && !permissionDismissed) || limitedNote
     fun openShared(id: String, page: CollectionsPage = CollectionsPage.SHARED) {
         when (tab) {
             GalleryTab.LIBRARY -> libraryQuery = gallery.query
@@ -337,8 +340,8 @@ internal fun GalleryHome(
             } else MaterialTheme.colorScheme.background,
             animationSpec = if (reducedMotion) snap() else tween(250, easing = galleryColorEase), label = "gallery-header-surface")
         val sections = gallery.sections
-        val monthOffsets = remember(sections, gallery.deviceMediaAccess, permissionDismissed, leadingItems, visibleLevel, query.date) {
-            galleryMonthOffsets(sections, !gallery.deviceMediaAccess && !permissionDismissed, visibleLevel.dayHeaders, query.date, leadingItems)
+        val monthOffsets = remember(sections, permissionPrompt, leadingItems, visibleLevel, query.date) {
+            galleryMonthOffsets(sections, permissionPrompt, visibleLevel.dayHeaders, query.date, leadingItems)
         }
         val headerClearance = with(uiDensity) { GalleryFeel.STICKY_DATE_HEADER_CLEARANCE.toPx() }
         val visibleMonth by remember(libraryGrid, sections, monthOffsets, headerClearance) {
@@ -435,6 +438,8 @@ internal fun GalleryHome(
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = actions::openAccount))
                         }
+                        val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
+                        if (libraryHeader && gallery.selection.isEmpty()) BackupStatusChip(session, transfers, actions::openBackup)
                         if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions)
                         else if (filterRow) {
@@ -494,7 +499,7 @@ internal fun GalleryHome(
                             unfiltered = unfiltered,
                             connectPrompt = connectPrompt,
                             isRefreshing = session.isRefreshing,
-                            counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount),
+                            counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount, limitedAccess = limitedNote),
                             previewRetryVersion = previewRetryVersion,
                             grid = when (shown.tab) {
                                 GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid
@@ -506,7 +511,7 @@ internal fun GalleryHome(
                             onLevelChange = changeLevel,
                             bottomSpace = bottomSpace,
                             showPermissionPrompt = permissionPrompt,
-                            onDismissPermissionPrompt = { permissionDismissed = true },
+                            onDismissPermissionPrompt = { if (limitedNote) limitedNoteDismissed = true else permissionDismissed = true },
                             actions = actions,
                             flat = hero,
                             onAddMedia = if (hero && collection?.shared?.canContribute == true && canEdit) ({ sheet = GallerySheet.SharedPicker }) else null,
@@ -572,9 +577,18 @@ internal fun GalleryHome(
         AlbaSheetBody(stringResource(R.string.activity), dismiss = { sheet = null }, subtitle = stringResource(R.string.uploads_downloads_and_backup)) {
             Button(onClick = if (canUpload) actions::pickUpload else { { sheet = null; actions.openAccount() } },
                 modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) { Icon(AlbaIcons.CloudUpload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.upload_photos)) }
-            OutlinedButton(onClick = { sheet = null; actions.openAccount() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
+            OutlinedButton(onClick = { sheet = null; actions.openBackup() }, modifier = Modifier.fillMaxWidth().testTag("activity-open-backup")) {
+                Text(stringResource(R.string.account_storage_and_backup))
+            }
+            if (transfers.queue.any { !it.automatic && it.state in setOf(TransferViewState.WAITING, TransferViewState.UPLOADING) } &&
+                session.accountState != ICloudAccountState.Demo) {
+                OutlinedButton(onClick = actions::cancelUploads, modifier = Modifier.fillMaxWidth().testTag("cancel-uploads")) {
+                    Text(stringResource(R.string.cancel_uploads))
+                }
+            }
             if (transfers.queue.isEmpty() && transfers.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
-            if (transfers.queue.isNotEmpty()) TransferQueueCard(transfers.queue, actions::continuePastUnresolved, demo = session.accountState == ICloudAccountState.Demo)
+            if (transfers.queue.isNotEmpty()) TransferQueueCard(transfers.queue, actions::continuePastUnresolved,
+                demo = session.accountState == ICloudAccountState.Demo, onRetry = actions::retryTransfer)
             BatchProgress(transfers.batches, gallery.items, actions::retryBatch, actions::cancelDownloadBatch)
         }
     }
@@ -646,8 +660,11 @@ internal sealed interface GallerySheet {
     }
 }
 
-/** The library's totals, shown under the grid. */
-internal data class PhotoCounts(val cloud: Int, val device: Int)
+/**
+ * The library's totals, shown under the grid. [limitedAccess] marks Android 14's partial access, where [device] counts
+ * only the photos the user selected for Alba.
+ */
+internal data class PhotoCounts(val cloud: Int, val device: Int, val limitedAccess: Boolean = false)
 
 /**
  * A grid of photos grouped by month, and by day from the [GridLevel.DAY] level up. Takes the lists it shows rather
@@ -742,7 +759,10 @@ private fun PhotoGrid(
     /** The grid's items at [shown]; [incoming] marks the next level laid out underneath during a pinch. */
     fun LazyGridScope.photoItems(shown: GridLevel, incoming: Boolean) {
         val posed = { key: Any -> Modifier.pinchPose(pinch, key, incoming) }
-        if (showPermissionPrompt) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
+        if (showPermissionPrompt && counts.limitedAccess) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
+            LimitedAccessNote(counts.device, change = actions::requestDevicePhotos, dismiss = onDismissPermissionPrompt,
+                modifier = posed("permission"))
+        } else if (showPermissionPrompt) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
             AlbaCard(posed("permission").padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
                 color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

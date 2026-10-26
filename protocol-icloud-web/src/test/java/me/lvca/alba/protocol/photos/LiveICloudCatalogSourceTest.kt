@@ -204,7 +204,7 @@ class LiveICloudCatalogSourceTest {
         val error = runCatching { source.fetchPage(null, 10) }.exceptionOrNull()
 
         assertTrue(error is AppleProtocolException)
-        assertEquals(AppleProtocolError.PHOTOS_UNAVAILABLE, (error as AppleProtocolException).error)
+        assertEquals(AppleProtocolError.WEB_ACCESS_DISABLED, (error as AppleProtocolException).error)
         assertTrue(transport.photoQueries.isEmpty())
     }
 

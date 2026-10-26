@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -50,6 +51,9 @@ class AppleAuthenticationService internal constructor(
     private val json = Json { ignoreUnknownKeys = true }
     private var pendingAuth: PendingAuth? = null
 
+    /** The last sign-in response listed hardware security keys; they explain a sign-in with no code route. */
+    private var listedSecurityKeys = false
+
     suspend fun signIn(appleId: String, password: String, reusableSession: AppleSessionSnapshot? = null): AppleSignInResult =
         withContext(computationDispatcher) { signInInternal(appleId, password, reusableSession) }
 
@@ -57,6 +61,14 @@ class AppleAuthenticationService internal constructor(
         withContext(computationDispatcher) { submitTwoFactorInternal(code) }
 
     suspend fun resendTwoFactor() = withContext(computationDispatcher) { resendTwoFactorInternal() }
+
+    /**
+     * Switches the pending verification to a text message to the trusted phone number Apple offered with the
+     * challenge, using the same `verify/phone` request as the SMS route. Only valid when the last result said
+     * [AppleSignInResult.RequiresTwoFactor.smsAvailable].
+     */
+    suspend fun sendCodeBySms(): AppleSignInResult.RequiresTwoFactor =
+        withContext(computationDispatcher) { sendCodeBySmsInternal() }
 
     suspend fun restore(snapshot: AppleSessionSnapshot): AppleSessionSnapshot? =
         withContext(computationDispatcher) { webSession.restore(snapshot) }
@@ -92,22 +104,28 @@ class AppleAuthenticationService internal constructor(
             proof = proof,
         )
 
+        completion.requireNotThrottled()
         if (completion.code == HTTP_TWO_FACTOR_REQUIRED) {
             val completionBody = completion.jsonObjectOrNull()
+            // Accounts with hardware security keys list them here. Apple may still offer a code route, so the keys
+            // only explain a failure when no such route turns up.
+            val securityKeys = completionBody.listsSecurityKeys()
             val authType = (completionBody?.get("authType") as? JsonPrimitive)?.contentOrNull
                 ?: (completionBody?.get("authenticationType") as? JsonPrimitive)?.contentOrNull
             if (authType != "hsa2") {
-                throw AppleProtocolException(
+                throw if (securityKeys) securityKeyRequired() else AppleProtocolException(
                     AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
                     "This Apple Account returned an unsupported verification challenge.",
                 )
             }
+            listedSecurityKeys = securityKeys
             val pending = requestTwoFactor(normalizedAppleId, clientId)
             pendingAuth = pending
             return AppleSignInResult.RequiresTwoFactor(
                 appleId = normalizedAppleId,
                 delivery = pending.delivery,
                 destinationHint = pending.destinationHint,
+                smsAvailable = pending.offersSms,
             )
         }
         if (completion.code !in 200..299) throw invalidCredentials()
@@ -173,6 +191,7 @@ class AppleAuthenticationService internal constructor(
                         }.toString(),
                     ),
                 )
+                if (verification.code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
                 if (verification.code !in 200..299) throw invalidTwoFactorCode()
                 true
             }
@@ -209,6 +228,7 @@ class AppleAuthenticationService internal constructor(
                 }.toString(),
             ),
         )
+        if (verification.code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
         if (verification.code !in 200..299) throw invalidTwoFactorCode()
         return true
     }
@@ -259,6 +279,36 @@ class AppleAuthenticationService internal constructor(
             }
         }
     }
+
+    private suspend fun sendCodeBySmsInternal(): AppleSignInResult.RequiresTwoFactor {
+        val pending = requireNotNull(pendingAuth) { "No Apple verification challenge is active" }
+        val phone = pending.smsPhone ?: throw AppleProtocolException(
+            AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
+            "Apple did not offer a trusted phone number for this account.",
+        )
+        val sms = transport.execute(smsRequest(pending.clientId, phone.id))
+        sms.requireNotThrottled()
+        if (sms.code !in 200..299) throw resendFailed()
+        trustedDeviceBridge.close(pending.bridgeState)
+        pendingAuth = pending.copy(
+            delivery = TwoFactorDelivery.SMS,
+            route = PendingTwoFactorRoute.SMS,
+            phoneId = phone.id,
+            destinationHint = phone.hint,
+            bridgeState = null,
+        )
+        return AppleSignInResult.RequiresTwoFactor(pending.appleId, TwoFactorDelivery.SMS, phone.hint)
+    }
+
+    private fun smsRequest(clientId: String, phoneId: String) = AppleHttpRequest(
+        method = "PUT",
+        url = "$AUTH_ENDPOINT/verify/phone",
+        headers = authHeaders(clientId),
+        body = buildJsonObject {
+            putJsonObject("phoneNumber") { put("id", phoneId) }
+            put("mode", "sms")
+        }.toString(),
+    )
 
     suspend fun logout(snapshot: AppleSessionSnapshot) {
         try {
@@ -311,6 +361,7 @@ class AppleAuthenticationService internal constructor(
                 }.toString(),
             ),
         )
+        if (response.code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
         if (response.code !in 200..299) throw invalidCredentials()
         return response.requireJsonObject("Apple returned an invalid SRP challenge")
     }
@@ -341,6 +392,7 @@ class AppleAuthenticationService internal constructor(
         )
     }
 
+    /** The first code route Apple offers. [listedSecurityKeys] explains why there is none. */
     private suspend fun requestTwoFactor(appleId: String, clientId: String): PendingAuth {
         val optionsResponse = try {
             transport.execute(
@@ -359,6 +411,9 @@ class AppleAuthenticationService internal constructor(
             ?.takeIf { it.code in 200..299 }
             ?.body
             ?.let(Hsa2BootContext::parse)
+        val authOptions = optionsResponse?.jsonObjectOrNull()
+        val trustedPhone = bootContext?.phoneNumberVerification.findTrustedPhone()
+            ?: authOptions.findTrustedPhone()
         if (bootContext?.supportsTrustedDeviceBridge == true) {
             val bridgeState = try {
                 trustedDeviceBridge.start(bootContext, authHeaders(clientId))
@@ -375,6 +430,7 @@ class AppleAuthenticationService internal constructor(
                     route = PendingTwoFactorRoute.TRUSTED_DEVICE_BRIDGE,
                     bootContext = bootContext,
                     bridgeState = bridgeState,
+                    smsPhone = trustedPhone,
                 )
             }
         }
@@ -392,27 +448,18 @@ class AppleAuthenticationService internal constructor(
                 clientId = clientId,
                 delivery = TwoFactorDelivery.TRUSTED_DEVICE,
                 route = PendingTwoFactorRoute.LEGACY_TRUSTED_DEVICE,
+                smsPhone = trustedPhone,
             )
         }
 
-        val authOptions = optionsResponse?.jsonObjectOrNull()
-        val phone = bootContext?.phoneNumberVerification.findTrustedPhone()
-            ?: authOptions.findTrustedPhone()
-            ?: throw AppleProtocolException(
+        // No trusted device and no trusted number: with security keys listed, the key is the only way in.
+        val phone = trustedPhone
+            ?: throw if (listedSecurityKeys || authOptions.listsSecurityKeys()) securityKeyRequired() else AppleProtocolException(
                 AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
                 "Apple did not offer a trusted-device or SMS verification route.",
             )
-        val sms = transport.execute(
-            AppleHttpRequest(
-                method = "PUT",
-                url = "$AUTH_ENDPOINT/verify/phone",
-                headers = authHeaders(clientId),
-                body = buildJsonObject {
-                    putJsonObject("phoneNumber") { put("id", phone.id) }
-                    put("mode", "sms")
-                }.toString(),
-            ),
-        )
+        val sms = transport.execute(smsRequest(clientId, phone.id))
+        if (sms.code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
         if (sms.code !in 200..299) {
             throw AppleProtocolException(
                 AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
@@ -466,6 +513,14 @@ class AppleAuthenticationService internal constructor(
         return TrustedPhone(id = id, hint = hint)
     }
 
+    /** Apple names the account's hardware security keys in `keyNames`; an empty list or a bare challenge lists none. */
+    private fun JsonObject?.listsSecurityKeys(): Boolean = (this?.get("keyNames") as? JsonArray)?.isNotEmpty() == true
+
+    /** Apple answers too many recent attempts with HTTP 429, which is not a wrong password or code. */
+    private fun AppleHttpResponse.requireNotThrottled() {
+        if (code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
+    }
+
     private fun encodeBase64(value: ByteArray): String = Base64.getEncoder().encodeToString(value)
 
     private fun decodeBase64(value: String): ByteArray = runCatching {
@@ -480,6 +535,16 @@ class AppleAuthenticationService internal constructor(
     private fun invalidTwoFactorCode() = AppleProtocolException(
         AppleProtocolError.INVALID_TWO_FACTOR_CODE,
         "Apple rejected that verification code.",
+    )
+
+    private fun tooManyAttempts() = AppleProtocolException(
+        AppleProtocolError.TOO_MANY_ATTEMPTS,
+        "Apple refused the attempt because of too many recent tries.",
+    )
+
+    private fun securityKeyRequired() = AppleProtocolException(
+        AppleProtocolError.SECURITY_KEY_REQUIRED,
+        "This Apple Account requires a security key to sign in on the web.",
     )
 
     private fun resendFailed() = AppleProtocolException(
@@ -506,7 +571,11 @@ class AppleAuthenticationService internal constructor(
         val destinationHint: String? = null,
         val bootContext: Hsa2BootContext? = null,
         val bridgeState: TrustedDeviceBridgeState? = null,
-    )
+        /** The trusted number a code can be texted to instead, when Apple offered one. */
+        val smsPhone: TrustedPhone? = null,
+    ) {
+        val offersSms: Boolean get() = route != PendingTwoFactorRoute.SMS && smsPhone != null
+    }
 
     private enum class PendingTwoFactorRoute {
         LEGACY_TRUSTED_DEVICE,
@@ -521,6 +590,7 @@ class AppleAuthenticationService internal constructor(
 
     private companion object {
         const val HTTP_TWO_FACTOR_REQUIRED = 409
+        const val HTTP_TOO_MANY_REQUESTS = 429
         const val IDMS_ENDPOINT = "https://idmsa.apple.com"
         const val AUTH_ENDPOINT = "$IDMS_ENDPOINT/appleauth/auth"
         const val ICLOUD_HOME = "https://www.icloud.com"

@@ -38,7 +38,7 @@ internal class Reconciler(
 
     /** Advances one due reconciliation. Returns 1 when it recorded progress. */
     suspend fun reconcileOne(binding: AccountBinding): Int {
-        val transfer = transferDao.findNextReconciliation(binding.accountId, now(), authority.isUnmetered()) ?: return 0
+        val transfer = transferDao.findNextReconciliation(binding.accountId, now(), authority.mayUseNetwork()) ?: return 0
         val attemptId = requireNotNull(transfer.activeAttemptId)
         val attempt = requireNotNull(transferDao.findAttempt(attemptId))
         val source = requireNotNull(transferDao.findStagedSource(attempt.stagedSourceId))

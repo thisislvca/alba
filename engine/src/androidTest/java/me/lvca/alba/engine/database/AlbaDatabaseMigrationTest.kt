@@ -42,8 +42,23 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
-    fun schemaFifteenAddsHiddenAndDetailsKeepingCacheAndRehydratingICloud() = runBlocking {
+    fun schemaFifteenAddsBackupTablesKeepingTheCatalog() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 15).use { db ->
+            db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision," +
+                "resourceFingerprint,accentStartArgb,accentEndArgb,lastSeenScanId) " +
+                "VALUES ('kept','photo.heic',1,20,30,'ICLOUD','rev','fingerprint',0,0,'scan')")
+            db.execSQL("INSERT INTO catalog_checkpoints VALUES ('icloud:account','token',10)")
+        }
+        // Main's 15 to 16 is an auto migration; Room applies and validates it from the exported schemas.
+        helper.runMigrationsAndValidate(DATABASE_NAME, 16, true).use { db ->
+            db.query("SELECT mediaId FROM catalog_items").use { assertTrue(it.moveToFirst()) }
+            db.query("SELECT scope FROM catalog_checkpoints WHERE scope = 'icloud:account'").use { assertTrue(it.moveToFirst()) }
+        }
+    }
+
+    @Test
+    fun schemaSixteenAddsHiddenAndDetailsKeepingCacheAndRehydratingICloud() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 16).use { db ->
             db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision," +
                 "resourceFingerprint,accentStartArgb,accentEndArgb,lastSeenScanId) " +
                 "VALUES ('kept','photo.heic',1,20,30,'ICLOUD','rev','fingerprint',0,0,'scan')")
@@ -51,7 +66,7 @@ class AlbaDatabaseMigrationTest {
             db.execSQL("INSERT INTO catalog_checkpoints VALUES ('icloud:account','token',10)")
             db.execSQL("INSERT INTO catalog_checkpoints VALUES ('device:images','scan',10)")
         }
-        helper.runMigrationsAndValidate(DATABASE_NAME, 16, true, AlbaDatabase.MIGRATION_15_16).close()
+        helper.runMigrationsAndValidate(DATABASE_NAME, 17, true, AlbaDatabase.MIGRATION_16_17).close()
         val migrated = AlbaDatabase.create(context)
         try {
             val row = requireNotNull(migrated.catalogDao().findById("kept"))

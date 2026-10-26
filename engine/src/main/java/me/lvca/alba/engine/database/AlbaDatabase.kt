@@ -36,10 +36,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TrashAttemptEntity::class,
         TrashObligationEntity::class,
         CollectionEntity::class, CollectionMemberEntity::class, BatchItemEntity::class, UploadCheckpointEntity::class,
+        UploadPauseEntity::class, DiscoveryFailureEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15)],
+    autoMigrations = [AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15), AutoMigration(from = 15, to = 16)],
 )
 abstract class AlbaDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao
@@ -56,7 +57,7 @@ abstract class AlbaDatabase : RoomDatabase() {
 
     companion object {
         /** Adds Hidden and the descriptive fields (title, caption, location, time zone, burst), then rehydrates iCloud. */
-        internal val MIGRATION_15_16 = object : Migration(15, 16) {
+        internal val MIGRATION_16_17 = object : Migration(16, 17) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 listOf("isHidden INTEGER NOT NULL DEFAULT 0", "caption TEXT", "description TEXT", "latitude REAL",
                     "longitude REAL", "altitude REAL", "timeZoneOffsetSeconds INTEGER", "burstId TEXT")
@@ -204,6 +205,6 @@ abstract class AlbaDatabase : RoomDatabase() {
             AlbaDatabase::class.java,
             // Named before the Alba rename and stored on devices; keep it.
             "mela-catalog.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_15_16).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_16_17).build()
     }
 }

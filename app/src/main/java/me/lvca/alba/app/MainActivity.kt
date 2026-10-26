@@ -11,6 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.platform.OnboardingPreferences
+import me.lvca.alba.app.ui.account.ProfilePage
+import me.lvca.alba.app.work.EXTRA_OPEN_BACKUP
 
 /** Reads what the launching or new intent asks for, keeps it across recreation, and shows [AlbaRoot]. */
 class MainActivity : ComponentActivity() {
@@ -20,7 +22,16 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (openBackupFrom(intent)) return
         incoming = IncomingSession.from(intent)
+    }
+
+    /** A backup notification opens the Backup page; the extra is consumed so recreation does not reopen it. */
+    private fun openBackupFrom(intent: Intent): Boolean {
+        if (!intent.getBooleanExtra(EXTRA_OPEN_BACKUP, false)) return false
+        intent.removeExtra(EXTRA_OPEN_BACKUP)
+        viewModel.account.openAccount(ProfilePage.BACKUP)
+        return true
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -31,6 +42,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         incoming = IncomingSession.restore(savedInstanceState) ?: IncomingSession.from(intent)
+        if (savedInstanceState == null) openBackupFrom(intent)
         enableEdgeToEdge()
         val onboarding = OnboardingPreferences(this)
         if (BuildConfig.BENCHMARK_MODE) { onboarding.complete(); onboarding.enabled = true }

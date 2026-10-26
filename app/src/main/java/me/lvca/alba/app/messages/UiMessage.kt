@@ -35,4 +35,7 @@ sealed interface UndoAction {
 
     /** iCloud photos moved into ([hidden]) or out of Hidden: move them back. */
     data class Hidden(val mediaIds: List<String>, val hidden: Boolean) : UndoAction
+
+    /** A selection moved to both trashes at once: put the iCloud items back and ask Android to restore the rest. */
+    data class MixedTrash(val cloud: CloudTrash, val phone: PhoneTrash) : UndoAction
 }

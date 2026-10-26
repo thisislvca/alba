@@ -6,8 +6,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.List
-import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +31,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaFeatureRow
 import me.lvca.alba.app.ui.designsystem.AlbaFeatureRowTextInset
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.AlbaListRow
 import me.lvca.alba.app.ui.designsystem.AlbaPageScaffold
 import me.lvca.alba.app.ui.designsystem.albaGroupColor
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
@@ -38,6 +41,10 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
     val context = LocalContext.current
     val resources = LocalResources.current
     val uriHandler = LocalUriHandler.current
+    fun open(url: String) {
+        try { uriHandler.openUri(url) }
+        catch (_: ActivityNotFoundException) { Toast.makeText(context, R.string.browser_unavailable, Toast.LENGTH_LONG).show() }
+    }
     val version = remember(context) {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         "${info.versionName} (${info.longVersionCode})"
@@ -58,18 +65,6 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
                 }
             }
             Text(stringResource(R.string.about_intro))
-            TextButton(
-                onClick = {
-                    try { uriHandler.openUri("https://github.com/thisislvca/alba") }
-                    catch (_: ActivityNotFoundException) {
-                        Toast.makeText(context, R.string.profile_browser_unavailable,
-                            Toast.LENGTH_LONG).show()
-                    }
-                },
-                modifier = Modifier.testTag("about-source"),
-            ) {
-                Text(stringResource(R.string.about_source))
-            }
             AboutFeatureSection(R.string.about_features, listOf(
                 AboutFeature(R.string.about_feature_library_title, R.string.about_feature_library_detail, AlbaIcons.PhotoLibrary),
                 AboutFeature(R.string.about_feature_shared_title, R.string.about_feature_shared_detail, Icons.Outlined.Share),
@@ -78,8 +73,6 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
                 AboutFeature(R.string.about_feature_backup_title, R.string.about_feature_backup_detail, AlbaIcons.CloudDone),
             ))
             AboutFeatureSection(R.string.about_upcoming, listOf(
-                AboutFeature(R.string.about_upcoming_formats_title, R.string.about_upcoming_formats_detail, Icons.Outlined.PlayArrow),
-                AboutFeature(R.string.about_upcoming_folders_title, R.string.about_upcoming_folders_detail, Icons.Outlined.List),
                 AboutFeature(R.string.about_upcoming_older_title, R.string.about_upcoming_older_detail, Icons.Outlined.DateRange),
             ), R.string.about_upcoming_note)
             TextButton(onClick = { showLimitations = !showLimitations }, modifier = Modifier.testTag("about-limitations")) {
@@ -99,6 +92,18 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
                 }
             }
             Text(stringResource(R.string.about_privacy))
+            AlbaCard {
+                AlbaListRow(stringResource(R.string.about_privacy_policy), { open(PRIVACY_POLICY_URL) },
+                    Modifier.testTag("about-privacy-policy"), leading = { Icon(Icons.Outlined.Lock, null) })
+                AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
+                AlbaListRow(stringResource(R.string.about_feedback), { open(FEEDBACK_URL) },
+                    Modifier.testTag("about-feedback"), subtitle = stringResource(R.string.about_feedback_detail),
+                    leading = { Icon(Icons.Outlined.Email, null) })
+                AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
+                AlbaListRow(stringResource(R.string.about_source), { open(SOURCE_URL) },
+                    Modifier.testTag("about-source"), subtitle = stringResource(R.string.about_source_detail),
+                    leading = { Icon(Icons.Outlined.Info, null) })
+            }
             AlbaCard {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.about_diagnostics_title)) },
@@ -127,6 +132,10 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
         }
     }
 }
+
+private const val PRIVACY_POLICY_URL = "https://github.com/thisislvca/alba/blob/main/PRIVACY.md"
+private const val FEEDBACK_URL = "https://github.com/thisislvca/alba/issues/new"
+private const val SOURCE_URL = "https://github.com/thisislvca/alba"
 
 private data class AboutFeature(val title: Int, val detail: Int, val icon: ImageVector)
 

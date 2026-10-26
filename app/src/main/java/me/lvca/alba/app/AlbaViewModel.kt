@@ -9,8 +9,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
@@ -92,7 +94,8 @@ class AlbaViewModel(
         runner = runner,
         effects = effectQueue,
         gallery = gallery,
-        live = LiveTransferMode(dependencies.photos, dependencies.batches, dependencies.transferScheduler, messages),
+        live = LiveTransferMode(dependencies.photos, dependencies.batches, dependencies.transferScheduler, messages,
+            dependencies.backupPreferences),
         demo = DemoTransferMode(viewModelScope, dependencies.accountManager, dependencies.repository,
             dependencies.demoImporter, messages) { id -> gallery.current.catalogItems.firstOrNull { it.id == id } },
     )
@@ -146,7 +149,10 @@ class AlbaViewModel(
     val effects: Flow<PendingEffect> = effectQueue.next
 
     val mediaWork: StateFlow<MediaWork> = runner.running
-        .map { running -> MediaWork(busy = running.isNotEmpty(), sharing = running.any { it.action == MediaAction.SHARE }) }
+        .map { running ->
+            MediaWork(busy = running.isNotEmpty(), sharing = running.any { it.action == MediaAction.SHARE },
+                preparingOriginal = running.any { it.action == MediaAction.OPEN_ELSEWHERE })
+        }
         .stateIn(viewModelScope, SharingStarted.Eagerly, MediaWork())
 
     val diagnosticsConsent: StateFlow<DiagnosticsConsent> = diagnostics.enabled
@@ -177,6 +183,7 @@ class AlbaViewModel(
         me.lvca.alba.app.platform.UnlockResult.FAILED -> messages.show(R.string.hidden_unlock_failed)
         me.lvca.alba.app.platform.UnlockResult.CANCELED -> Unit
     }
+    fun editedCopyNotUploaded() = messages.show(R.string.edited_copy_not_uploaded)
 
     fun setDiagnosticsEnabled(enabled: Boolean) = diagnostics.setEnabled(enabled)
 
@@ -189,8 +196,34 @@ class AlbaViewModel(
         if (granted) viewModelScope.launch { sync.deviceLibraryChanged() }
     }
 
+    private val welcome = MutableStateFlow(false)
+
+    /** A saved account was signed out: the root shows the introduction once, then reports it through [welcomeShown]. */
+    val returnToWelcome: StateFlow<Boolean> = welcome.asStateFlow()
+
+    fun signOut() = account.signOut(onSavedAccountRemoved = { welcome.value = true })
+
+    fun welcomeShown() {
+        welcome.value = false
+    }
+
     /** Phone items Alba last asked Android to move to its trash, kept for Undo; null for a restore. In memory only. */
     private var pendingPhoneTrash: List<String>? = null
+
+    /** iCloud items to move to Recently Deleted once Android answers the phone part of a mixed trash. In memory only. */
+    private var pendingCloudTrash: List<String> = emptyList()
+
+    /** The user confirmed trashing phone and iCloud items together; the iCloud part follows Android's answer. */
+    fun mixedTrashRequested(cloudIds: List<String>) {
+        pendingCloudTrash = cloudIds
+    }
+
+    /** Asking Android to trash phone items failed before it could answer. */
+    fun phoneTrashFailed() {
+        pendingPhoneTrash = null
+        pendingCloudTrash = emptyList()
+        localOperationFailed()
+    }
 
     /** Alba is about to ask Android to move [contentUris] to its trash, or to [restore] them from it. */
     fun phoneTrashRequested(contentUris: List<String>, restore: Boolean) {
@@ -203,7 +236,16 @@ class AlbaViewModel(
      */
     fun phoneTrashAnswered(approved: Boolean) {
         val trashed = pendingPhoneTrash
+        val cloud = pendingCloudTrash
         pendingPhoneTrash = null
+        pendingCloudTrash = emptyList()
+        if (cloud.isNotEmpty()) {
+            // The user confirmed the whole move in Alba; Android's prompt covers only the phone items, so the iCloud
+            // items go even when it is declined. One message with one Undo covers both.
+            if (approved) sync.refresh()
+            edits.setCloudTrashed(cloud, trashed = true, alsoOnPhone = trashed.takeIf { approved }.orEmpty())
+            return
+        }
         if (!approved) return
         gallery.clearSelection()
         gallery.closeMedia()

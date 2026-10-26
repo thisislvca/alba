@@ -31,8 +31,8 @@ enum class UploadMediaFormat(val mimeType: String, val extension: String, val ex
                 val length = prefix.take(4).fold(0L) { n, b -> (n shl 8) or (b.toLong() and 255) }
                 if (length in 16..prefix.size.toLong() && length % 4 == 0L) {
                     val brands = listOf(text(8, 4)) + (16 until length.toInt() step 4).map { text(it, 4) }
-                    if (brands.any { it in setOf("avif", "avis") }) throw UnsupportedUploadException()
-                    if (brands.any { it in setOf("msf1", "hevc", "hevx") }) throw UnsupportedUploadException()
+                    if (brands.any { it in setOf("avif", "avis") }) throw UnsupportedUploadException(UnsupportedUploadException.AVIF)
+                    if (brands.any { it in setOf("msf1", "hevc", "hevx") }) throw UnsupportedUploadException(UnsupportedUploadException.IMAGE_SEQUENCE)
                     if (brands.any { it in setOf("heic", "heix") }) return HEIC
                     if ("mif1" in brands) throw UnsupportedUploadException()
                     if ("qt  " in brands) return MOV
@@ -50,5 +50,7 @@ class UnsupportedUploadException(message: String = MESSAGE) : IllegalArgumentExc
         val ANIMATED = StoredMessage.UPLOAD_ANIMATED_UNSUPPORTED.code
         val VIDEO_CODEC = StoredMessage.UPLOAD_UNSUPPORTED_CODEC.code
         val INVALID = StoredMessage.UPLOAD_INVALID_MEDIA.code
+        val AVIF = StoredMessage.UPLOAD_AVIF_UNSUPPORTED.code
+        val IMAGE_SEQUENCE = StoredMessage.UPLOAD_IMAGE_SEQUENCE_UNSUPPORTED.code
     }
 }

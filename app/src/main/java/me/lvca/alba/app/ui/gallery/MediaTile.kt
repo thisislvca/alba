@@ -114,9 +114,13 @@ internal fun MediaTile(
                     modifier = Modifier.fillMaxSize(),
                 )
                 val onMedia = AlbaTheme.colors.onMedia
-                if (media.kind == MediaKind.VIDEO || media.availability == MediaAvailability.ORIGINAL_CACHED)
+                val daysLeft = trashDaysLeftLabel(media)
+                if (media.kind == MediaKind.VIDEO || media.availability == MediaAvailability.ORIGINAL_CACHED || daysLeft != null)
                     MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(GalleryFeel.TILE_SCRIM_HEIGHT))
-                if (media.availability == MediaAvailability.ORIGINAL_CACHED) Icon(
+                // In a trash the time left takes the offline badge's corner, as in Google Photos' trash.
+                if (daysLeft != null) Text(daysLeft, color = onMedia, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).testTag("trash-days-left"))
+                else if (media.availability == MediaAvailability.ORIGINAL_CACHED) Icon(
                     AlbaIcons.DownloadForOffline, contentDescription = stringResource(R.string.available_offline), tint = onMedia,
                     modifier = Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
                 if (media.kind == MediaKind.VIDEO) {
@@ -133,6 +137,8 @@ internal fun MediaTile(
                 if (media.isFavorite && !selecting) FavoriteIcon(true,
                     contentDescription = stringResource(R.string.favorite), tint = onMedia,
                     modifier = Modifier.align(Alignment.TopEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(16.dp))
+                // Backup state, phone items only; a separate slot so other badges can change independently.
+                if (media.origin == MediaOrigin.DEVICE) BackupBadgeOverlay(media.id)
             }
             AnimatedVisibility(selecting, Modifier.align(Alignment.TopEnd).padding(6.dp),
                 enter = if (reducedMotion) EnterTransition.None

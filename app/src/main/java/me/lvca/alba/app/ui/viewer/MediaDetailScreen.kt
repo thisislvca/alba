@@ -64,6 +64,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.app.ui.MediaScreenActions
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.collections.isUserAlbum
@@ -77,6 +78,7 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.sheet
 import me.lvca.alba.app.ui.designsystem.theme.viewerTitle
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
+import me.lvca.alba.app.ui.gallery.trashDaysLeftLabel
 import me.lvca.alba.app.ui.shared.SharedPhotoControls
 import me.lvca.alba.app.ui.timeLabel
 import me.lvca.alba.app.ui.timestampLabel
@@ -320,10 +322,13 @@ internal fun MediaDetailScreen(
                     else ViewerTopBar(media, backLabel, actions::closeMedia,
                         favoriteEnabled = canEdit && !media.isTrashed && !media.isShared && !pager.isScrollInProgress,
                         onFavorite = { actions.setFavorite(media.id, !media.isFavorite) },
-                        onMore = { if (media.kind == MediaKind.VIDEO) videoOptions = true else showDetails(true) },
+                        onMore = { videoOptions = true },
                         videoOptionsOpen = videoOptions, onDismissVideoOptions = { videoOptions = false },
                         videoLoop = videoLoop, onToggleLoop = { videoLoop = !videoLoop; videoOptions = false },
-                        onPlaybackSpeed = { videoOptions = false; videoSpeedSheet = true })
+                        onPlaybackSpeed = { videoOptions = false; videoSpeedSheet = true },
+                        onDetails = { videoOptions = false; showDetails(true) },
+                        externalUseEnabled = !isWorking && !media.isTrashed,
+                        onUseElsewhere = { use -> videoOptions = false; actions.useElsewhere(media, use) })
                 }
                 androidx.compose.animation.AnimatedVisibility(chromeOn && !expanded && !detailsDragging,
                     modifier = Modifier.align(Alignment.BottomCenter).photoChrome().then(chromeAlpha),
@@ -427,6 +432,7 @@ internal fun MediaDetailScreen(
                                 onContinuePastUnresolved = { uploadTransfer?.let { actions.continuePastUnresolved(it.id) } },
                                 onMoveVerifiedPhotoToTrash = { actions.moveVerifiedPhotoToTrash(media.id) },
                                 onOpenAccount = actions::openAccount,
+                                onRetry = { uploadTransfer?.let { actions.retryTransfer(it.id) } },
                             )
                         }
                         Spacer(Modifier.height(24.dp))
@@ -475,6 +481,9 @@ private fun ViewerTopBar(
     videoLoop: Boolean,
     onToggleLoop: () -> Unit,
     onPlaybackSpeed: () -> Unit,
+    onDetails: () -> Unit,
+    externalUseEnabled: Boolean,
+    onUseElsewhere: (ExternalUse) -> Unit,
 ) {
     val colors = viewerColors()
     val ink = colors.secondary
@@ -488,6 +497,8 @@ private fun ViewerTopBar(
                 style = MaterialTheme.typography.viewerTitle)
             Text(timeLabel(media.capturedAtEpochMillis), color = ink,
                 style = MaterialTheme.typography.bodyMedium)
+            trashDaysLeftLabel(media)?.let { Text(it, color = ink, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("viewer-trash-days-left")) }
         }
         Row(Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)) {
             if (!media.isShared && !media.isTrashed && !media.isHidden) IconButton(onClick = onFavorite, enabled = favoriteEnabled,
@@ -499,15 +510,32 @@ private fun ViewerTopBar(
                 IconButton(onClick = onMore, modifier = Modifier.size(48.dp).testTag("viewer-more")) {
                     Icon(Icons.Outlined.MoreVert, stringResource(R.string.more), tint = ink)
                 }
-                DropdownMenu(expanded = media.kind == MediaKind.VIDEO && videoOptionsOpen,
-                    onDismissRequest = onDismissVideoOptions) {
-                    DropdownMenuItem(text = { Text(stringResource(if (videoLoop) R.string.loop_video_on else R.string.loop_video_off)) },
-                        onClick = onToggleLoop)
-                    DropdownMenuItem(text = { Text(stringResource(R.string.playback_speed)) }, onClick = onPlaybackSpeed)
+                DropdownMenu(expanded = videoOptionsOpen, onDismissRequest = onDismissVideoOptions,
+                    modifier = Modifier.testTag("viewer-more-menu")) {
+                    val video = media.kind == MediaKind.VIDEO
+                    if (video) {
+                        DropdownMenuItem(text = { Text(stringResource(if (videoLoop) R.string.loop_video_on else R.string.loop_video_off)) },
+                            onClick = onToggleLoop)
+                        DropdownMenuItem(text = { Text(stringResource(R.string.playback_speed)) }, onClick = onPlaybackSpeed)
+                    } else DropdownMenuItem(text = { Text(stringResource(R.string.details)) }, onClick = onDetails,
+                        modifier = Modifier.testTag("viewer-menu-details"))
+                    // Copies of the original for other apps; an iCloud original downloads first, with progress.
+                    val uses = if (video) listOf(ExternalUse.OPEN_WITH, ExternalUse.EDIT_IN) else ExternalUse.entries
+                    uses.forEach { use ->
+                        DropdownMenuItem(text = { Text(stringResource(use.label)) }, enabled = externalUseEnabled,
+                            onClick = { onUseElsewhere(use) }, modifier = Modifier.testTag("viewer-use-${use.name.lowercase()}"))
+                    }
                 }
             }
         }
     }
+}
+
+private val ExternalUse.label: Int get() = when (this) {
+    ExternalUse.USE_AS -> R.string.viewer_use_as
+    ExternalUse.OPEN_WITH -> R.string.viewer_open_with
+    ExternalUse.EDIT_IN -> R.string.viewer_edit_in
+    ExternalUse.PRINT -> R.string.viewer_print
 }
 
 @Composable

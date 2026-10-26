@@ -57,7 +57,11 @@ internal class LibraryEditsController(
         }
     }
 
-    fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean) {
+    /**
+     * Moves [mediaIds] to or from iCloud Recently Deleted. [alsoOnPhone] lists phone items Android just moved to its
+     * trash in the same step, so one message and one Undo cover both.
+     */
+    fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean, alsoOnPhone: List<String> = emptyList()) {
         if (!trashed) return restoreFromCloudTrash(mediaIds, runner::start, closeViewer = true)
         runner.start(MediaActionKey(MediaAction.CLOUD_TRASH), R.string.cloud_trash_failed) {
             val ids = mediaIds.toSet()
@@ -65,7 +69,12 @@ internal class LibraryEditsController(
             // right away; a failure brings them back and replaces the message.
             gallery.clearSelection()
             gallery.beginRemoval(ids)
-            messages.show(UiMessage.Undoable(UiMessage.quantity(R.plurals.cloud_trash_moved, mediaIds.size), UndoAction.CloudTrash(mediaIds)))
+            messages.show(if (alsoOnPhone.isEmpty()) {
+                UiMessage.Undoable(UiMessage.quantity(R.plurals.cloud_trash_moved, mediaIds.size), UndoAction.CloudTrash(mediaIds))
+            } else {
+                UiMessage.Undoable(UiMessage.quantity(R.plurals.mixed_trash_moved, mediaIds.size + alsoOnPhone.size),
+                    UndoAction.MixedTrash(UndoAction.CloudTrash(mediaIds), UndoAction.PhoneTrash(alsoOnPhone)))
+            })
             try {
                 repository.setCloudTrashed(mediaIds, true)
                 // Show them again only once the catalog has them in the trash, so they never flash back.

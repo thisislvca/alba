@@ -6,15 +6,20 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.testing.GalleryStateActions
 import me.lvca.alba.app.testing.setAlbaContent
+import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.protocol.account.ICloudAccountState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
@@ -43,5 +48,20 @@ class SelectionActionsTest {
         }
         compose.onNodeWithContentDescription("Save to phone gallery").assertHasClickAction()
         compose.onNodeWithContentDescription("Keep offline").assertHasClickAction()
+    }
+
+    @Test fun aSelectionOfPhoneAndICloudItemsCanBeTrashedTogether() {
+        val phone = GalleryMedia("device:1", "PXL_1.jpg", 1_780_000_000_000, 4, 3, MediaOrigin.DEVICE,
+            MediaAvailability.DEVICE_ORIGINAL, previewReference = null, originalReference = "content://media/external/images/media/1",
+            accentStartArgb = 0xFF263238, accentEndArgb = 0xFF455A64)
+        val trashed = mutableListOf<List<String>>()
+        val actions = GalleryStateActions(GalleryState(items = items + phone, selection = setOf(items[0].id, phone.id)),
+            testAlbaActions(confirmMixedTrash = { selected -> trashed += selected.map { it.id } }))
+        compose.setAlbaContent(actions.state, SessionState(accountState = ICloudAccountState.Demo, isRefreshing = false), actions)
+        compose.onNodeWithContentDescription("More").performClick()
+        // Neither single-trash entry fits a mixed selection; the combined one does.
+        compose.onNodeWithText("Move to iCloud trash").assertDoesNotExist()
+        compose.onNodeWithTag("trash-mixed-selection").performClick()
+        assertEquals(listOf(listOf(items[0].id, phone.id)), trashed)
     }
 }
