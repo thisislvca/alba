@@ -137,7 +137,7 @@ internal class SharedAlbumsCatalog(
         created.collection
     }
 
-    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String, caption: String = "") = connection.exclusive {
+    suspend fun contribute(id: String, mediaIds: List<String>, operationId: String, caption: String = ""): Boolean = connection.exclusive {
         transfers.contribute(id, mediaIds, operationId, caption)
     }
 
@@ -146,10 +146,13 @@ internal class SharedAlbumsCatalog(
     }
 
     /** Legacy shared streams have no caption on upload, so [caption] applies to modern albums only. */
-    suspend fun upload(id: String, fileName: String, source: OneShotUploadSource, operationId: String, caption: String = "") = connection.exclusive {
-        if (ids.isLegacyAlbum(id)) transfers.uploadToLegacy(id, fileName, source, operationId)
-        else transfers.uploadToModern(id, fileName, source, caption)
-    }
+    suspend fun upload(id: String, fileName: String, source: OneShotUploadSource, operationId: String, caption: String = ""): Boolean =
+        connection.exclusive {
+            if (ids.isLegacyAlbum(id)) {
+                transfers.uploadToLegacy(id, fileName, source, operationId)
+                caption.isBlank()
+            } else transfers.uploadToModern(id, fileName, source, caption)
+        }
 
     override suspend fun pendingSharedInvitations(): List<SharedInvitation> = connection.exclusive { invitations.pending() }
 
@@ -177,7 +180,7 @@ internal class SharedAlbumsCatalog(
         modern.postPhotos(album, post, ModernSharedAlbums.MAX_POST_PHOTOS).photoIds
     }
 
-    /** The album is discovered once for the whole batch, rather than once per post. */
+    /** The album is discovered once for the whole batch, rather than once per post. Each post reads at most one page. */
     override suspend fun sharedPostPreviews(ids: List<String>): Map<String, SharedPostPreview> = connection.exclusive {
         require(ids.size in 1..SHARED_POST_PREVIEW_BATCH)
         val albumId = this.ids.albumOfPost(ids.first())
@@ -186,7 +189,8 @@ internal class SharedAlbumsCatalog(
         require(!album.isLegacy)
         ids.distinct().associateWith { id ->
             val post = this.ids.postRecordName(album, id)
-            val photos = modern.postPhotos(album, post, ModernSharedAlbums.MAX_POST_PHOTOS)
+            // One small read per post: the photos shown and a few more to count, never the whole post.
+            val photos = modern.postPhotos(album, post, ModernSharedAlbums.PREVIEW_COUNT_PROBE)
             SharedPostPreview(photos.photoIds.take(SHARED_POST_PREVIEW_PHOTOS), photos.photoIds.size, photos.complete, modern.reactionCount(album, post))
         }
     }

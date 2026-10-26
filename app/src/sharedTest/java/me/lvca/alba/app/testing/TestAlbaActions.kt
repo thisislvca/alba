@@ -34,6 +34,8 @@ internal fun testAlbaActions(
     sharedPostPhotos: suspend (String) -> List<String> = { emptyList() },
     sharedPostPreviews: (suspend (List<String>) -> Map<String, SharedPostPreview>)? = null,
     setSharedActivityNotifications: (Boolean) -> Unit = {},
+    sharedNotificationsAsked: () -> Unit = {},
+    consumeSharedOpen: () -> Unit = {},
     pendingSharedInvitations: suspend () -> List<SharedInvitation> = { emptyList() },
     resolveSharedInvitation: suspend (String) -> SharedInvitation = { error("Unavailable") },
     respondSharedInvitation: suspend (String, Boolean) -> Unit = { _, _ -> error("Unavailable") },
@@ -53,6 +55,7 @@ internal fun testAlbaActions(
     // Renamed so the overrides below cannot resolve to themselves.
     val onSharedActivity = sharedActivity; val onSharedPostDiscussion = sharedPostDiscussion; val onSharedPostPhotos = sharedPostPhotos
     val onSharedPostPreviews = sharedPostPreviews; val onSetNotifications = setSharedActivityNotifications
+    val onNotificationsAsked = sharedNotificationsAsked; val onConsumeOpen = consumeSharedOpen
     val onPendingInvitations = pendingSharedInvitations; val onResolveInvitation = resolveSharedInvitation; val onRespondInvitation = respondSharedInvitation
     val onSharedManagement = sharedManagement; val onSharedDiscussion = sharedDiscussion; val onChangeSharedAlbum = changeSharedAlbum
     val onClearLocalMedia = clearLocalMedia; val onCheckConnection = checkConnection; val onSubmitTwoFactor = submitTwoFactor
@@ -65,6 +68,8 @@ internal fun testAlbaActions(
         override suspend fun sharedPostPreviews(postIds: List<String>): Map<String, SharedPostPreview> =
             onSharedPostPreviews?.invoke(postIds) ?: super.sharedPostPreviews(postIds)
         override fun setSharedActivityNotifications(enabled: Boolean) = onSetNotifications(enabled)
+        override fun sharedNotificationsAsked() = onNotificationsAsked()
+        override fun consumeSharedOpen() = onConsumeOpen()
         override suspend fun pendingSharedInvitations() = onPendingInvitations()
         override suspend fun resolveSharedInvitation(url: String) = onResolveInvitation(url)
         override suspend fun respondSharedInvitation(invitationId: String, accept: Boolean) = onRespondInvitation(invitationId, accept)

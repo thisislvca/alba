@@ -41,6 +41,12 @@ interface SharedActions {
 
     /** Turns the Shared Album activity notifications on or off. */
     fun setSharedActivityNotifications(enabled: Boolean) {}
+
+    /** Alba asked Android for notification permission. */
+    fun sharedNotificationsAsked() {}
+
+    /** The gallery opened what a notification asked for. */
+    fun consumeSharedOpen() {}
 }
 
 /** Alba's own storage on this phone. */

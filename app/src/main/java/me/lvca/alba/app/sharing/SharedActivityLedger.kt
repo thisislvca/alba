@@ -2,6 +2,7 @@ package me.lvca.alba.app.sharing
 
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.engine.model.SharedAlbumCount
 
 /**
  * How far a shared album has grown: how many items it holds and when its newest one was added. A later mark with more
@@ -12,6 +13,9 @@ data class SharedAlbumMark(val count: Int, val latestAddedAt: Long) {
         other != null && (count > other.count || latestAddedAt > other.latestAddedAt)
 
     companion object {
+        /** The marks of albums counted directly from Apple. */
+        fun of(counts: List<SharedAlbumCount>): Map<String, SharedAlbumMark> = counts.associate { it.albumId to SharedAlbumMark(it.count, it.latestAddedAt) }
+
         /** The marks of every shared album in [collections], from the catalog's [media]. */
         fun of(collections: List<GalleryCollection>, media: List<GalleryMedia>): Map<String, SharedAlbumMark> {
             val shared = collections.filter { it.shared != null }.map { it.id }.toSet()
@@ -40,6 +44,8 @@ data class SharedActivityLedger(
     /** The pending invitations as last read, for the badge. */
     val pendingInvitations: Set<String> = emptySet(),
     val notificationsEnabled: Boolean = true,
+    /** Whether Alba already asked Android for notification permission on the person's behalf. */
+    val notificationsAsked: Boolean = false,
 ) {
     /**
      * Takes albums seen for the first time as read. An album counts once it holds photos: the catalog can list an album

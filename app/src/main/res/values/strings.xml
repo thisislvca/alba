@@ -791,7 +791,7 @@
     <string name="shared_new_activity">New activity</string>
     <string name="shared_activity_notifications">Shared Album activity notifications</string>
     <string name="shared_activity_notifications_detail">New invitations and new photos, checked a few times a day. Applies to all your shared albums.</string>
-    <string name="shared_notifications_off_in_android">Notifications for Alba are off. Allow them in Android settings to get these.</string>
+    <string name="shared_notifications_off_in_android">Android isn’t allowing Alba’s notifications.</string>
     <string name="shared_added_to_album">Added to %1$s</string>
     <string name="album_sort_recent">Most recent photo</string>
     <string name="album_sort_name">Album name</string>
@@ -828,4 +828,7 @@
     <plurals name="shared_post_items_title"><item quantity="one">Post %d item</item><item quantity="other">Post %d items</item></plurals>
     <plurals name="shared_live_photos_excluded"><item quantity="one">%d Live Photo is not shown: legacy albums can’t keep its motion.</item><item quantity="other">%d Live Photos are not shown: legacy albums can’t keep their motion.</item></plurals>
     <plurals name="shared_reactions"><item quantity="one">%d reaction</item><item quantity="other">%d reactions</item></plurals>
+    <string name="shared_posted_without_caption">Posted without caption. Apple didn’t accept the caption for this album.</string>
+    <string name="shared_notification_public">New Shared Album activity</string>
+    <string name="shared_allow_notifications">Allow notifications</string>
 </resources>

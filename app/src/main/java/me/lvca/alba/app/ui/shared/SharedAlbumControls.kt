@@ -24,7 +24,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.SharedActions
@@ -253,14 +252,21 @@ private fun SharedLinks(state: SharedAlbumManagement, busy: Boolean, share: (Str
 @Composable
 internal fun SharedNotificationsToggle(actions: SharedActions) {
     val enabled = LocalSharedActivity.current.notificationsEnabled
-    val context = LocalContext.current
+    val access = LocalNotificationAccess.current
+    // The switch shows what will actually happen: off while Android does not allow Alba's notifications.
     Column(Modifier.testTag("shared-notifications")) {
-        SharedToggle(stringResource(R.string.shared_activity_notifications), enabled, true) { actions.setSharedActivityNotifications(it) }
+        SharedToggle(stringResource(R.string.shared_activity_notifications), enabled && access.granted, true) { on ->
+            if (!on) actions.setSharedActivityNotifications(false)
+            else if (access.granted) actions.setSharedActivityNotifications(true)
+            else { actions.sharedNotificationsAsked(); access.request() }
+        }
         Text(stringResource(R.string.shared_activity_notifications_detail), color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall)
-        if (enabled && !NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-            Text(stringResource(R.string.shared_notifications_off_in_android), color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall)
+        if (!access.granted) Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.shared_notifications_off_in_android), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = access.openSettings, modifier = Modifier.testTag("shared-allow-notifications")) {
+                Text(stringResource(R.string.shared_allow_notifications))
+            }
         }
     }
 }

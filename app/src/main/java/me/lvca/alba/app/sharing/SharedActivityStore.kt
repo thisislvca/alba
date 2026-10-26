@@ -21,6 +21,15 @@ class SharedActivityStore(private val preferences: SharedPreferences, private va
     private val mutableState = MutableStateFlow(load())
     val state: StateFlow<SharedActivityLedger> = mutableState.asStateFlow()
 
+    /** Counts [clear]s, so a check that started before a sign-out cannot write into the next account's ledger. */
+    @Volatile var generation = 0
+        private set
+
+    /** Applies [change] unless the ledger was cleared since [expected]; returns null when it was. */
+    @Synchronized
+    fun updateIf(expected: Int, change: (SharedActivityLedger) -> SharedActivityLedger): SharedActivityLedger? =
+        if (generation != expected) null else update(change)
+
     @Synchronized
     fun update(change: (SharedActivityLedger) -> SharedActivityLedger): SharedActivityLedger {
         val next = change(mutableState.value)
@@ -42,8 +51,13 @@ class SharedActivityStore(private val preferences: SharedPreferences, private va
     /** The same saved state without starting background work, for tests. */
     fun withoutScheduling() = SharedActivityStore(preferences)
 
-    /** Forgets everything, for example when the account signs out. */
-    fun clear() = update { SharedActivityLedger(notificationsEnabled = it.notificationsEnabled) }
+    /** Forgets everything and stops the background check, for example when the account signs out. */
+    @Synchronized
+    fun clear() {
+        generation++
+        update { SharedActivityLedger(notificationsEnabled = it.notificationsEnabled, notificationsAsked = it.notificationsAsked) }
+        schedule(false)
+    }
 
     private fun load(): SharedActivityLedger =
         preferences.getString(KEY, null)?.let { runCatching { decode(it) }.getOrNull() } ?: SharedActivityLedger()
@@ -59,13 +73,14 @@ class SharedActivityStore(private val preferences: SharedPreferences, private va
             .put("announcedInvitations", JSONArray(ledger.announcedInvitations.toList()))
             .put("pendingInvitations", JSONArray(ledger.pendingInvitations.toList()))
             .put("notifications", ledger.notificationsEnabled)
+            .put("notificationsAsked", ledger.notificationsAsked)
             .toString()
 
         fun decode(value: String): SharedActivityLedger {
             val root = JSONObject(value)
             return SharedActivityLedger(marks(root.getJSONObject("seen")), marks(root.getJSONObject("announced")),
                 strings(root.getJSONArray("seenInvitations")), strings(root.getJSONArray("announcedInvitations")),
-                strings(root.getJSONArray("pendingInvitations")), root.optBoolean("notifications", true))
+                strings(root.getJSONArray("pendingInvitations")), root.optBoolean("notifications", true), root.optBoolean("notificationsAsked", false))
         }
 
         fun marks(values: Map<String, SharedAlbumMark>) = JSONObject().apply {

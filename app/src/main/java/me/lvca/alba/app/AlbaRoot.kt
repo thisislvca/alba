@@ -2,6 +2,7 @@ package me.lvca.alba.app
 
 import android.Manifest
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -67,8 +68,10 @@ import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
 import me.lvca.alba.app.ui.onboarding.WelcomeScreen
+import me.lvca.alba.app.ui.shared.LocalNotificationAccess
 import me.lvca.alba.app.ui.shared.LocalSharedActivity
 import me.lvca.alba.app.ui.shared.SharedInvitations
+import me.lvca.alba.app.ui.shared.rememberNotificationAccess
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
@@ -337,8 +340,18 @@ private fun AlbaMain(
                 val files = items.map { item ->
                     SharedUploadFile(item.name) { output -> requireNotNull(resolver.openInputStream(item.uri)).use { it.copyTo(output) } }
                 }
-                viewModel.sharedAlbums.contributeFilesToSharedAlbum(albumId, files, request.uris.sorted().hashCode().toString(), caption, done)
+                val key = items.map { it.uri.toString() }.sorted().hashCode().toString()
+                viewModel.sharedAlbums.contributeFilesToSharedAlbum(albumId, files, key, caption, done)
             })
+    }
+    (incoming.request as? IncomingRequest.Browser)?.let { request ->
+        LaunchedEffect(request) { openInBrowser(context, request.url); closeIncoming() }
+    }
+    (incoming.request as? IncomingRequest.SharedActivity)?.let { request ->
+        LaunchedEffect(request) {
+            viewModel.sharedAlbums.requestOpen(request.albumId, request.invitations)
+            onIncomingChange(IncomingSession.None)
+        }
     }
     (incoming.request as? IncomingRequest.Invitation)?.takeUnless { incomingSuspended }?.let { request ->
         IncomingInvitation(request.link, session.accountState, actions, ::closeIncoming, ::connectForIncoming)
@@ -375,7 +388,10 @@ private fun AlbaMain(
             }
         }
     }
-    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalSharedActivity provides sharedActivity) {
+    // Once feat/backup (#22) lands, this should ask through its in-context notification request instead of its own launcher.
+    val notificationAccess = rememberNotificationAccess { granted -> viewModel.sharedAlbums.setNotifications(granted) }
+    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalSharedActivity provides sharedActivity,
+        LocalNotificationAccess provides notificationAccess) {
         AlbaApp(
             gallery = gallery,
             session = session,
@@ -408,6 +424,17 @@ private fun AlbaMain(
     }
     transfers.backupSetup?.takeUnless { it.awaitingPermissions }?.let { setup ->
         BackupDisclosure(setup, accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
+    }
+}
+
+/** Hands a web link back to a browser, leaving Alba out of the choice so it cannot loop back here. */
+private fun openInBrowser(context: Context, url: String) {
+    val view = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+    val alba = context.packageManager.queryIntentActivities(view, 0).map { it.activityInfo }
+        .filter { it.packageName == context.packageName }.map { ComponentName(it.packageName, it.name) }
+    runCatching {
+        context.startActivity(Intent.createChooser(view, null).putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, alba.toTypedArray())
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }
 
@@ -575,6 +602,8 @@ private class AlbaRootActions(
     override suspend fun sharedPostPhotos(postId: String) = shared.sharedPostPhotos(postId)
     override suspend fun sharedPostPreviews(postIds: List<String>) = shared.sharedPostPreviews(postIds)
     override fun setSharedActivityNotifications(enabled: Boolean) = shared.setNotifications(enabled)
+    override fun sharedNotificationsAsked() = shared.notificationsAsked()
+    override fun consumeSharedOpen() = shared.consumeOpen()
     override fun markInvitationsRead() = shared.markInvitationsRead()
     override suspend fun sharedManagement(albumId: String) = shared.sharedManagement(albumId)
     override suspend fun sharedDiscussion(id: String) = shared.sharedDiscussion(id)

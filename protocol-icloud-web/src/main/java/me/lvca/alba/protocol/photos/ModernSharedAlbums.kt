@@ -102,11 +102,11 @@ internal class ModernSharedAlbums(
         put("zoneID", album.zoneId()); putJsonArray("records") { add(buildJsonObject { put("recordName", name) }) }
     })["records"]!!.jsonArray.single().jsonObject
 
-    suspend fun modify(album: SharedAlbumRecord, operation: String, record: JsonObject): JsonObject =
+    suspend fun modify(album: SharedAlbumRecord, operation: String, record: JsonObject, recordErrors: Boolean = false): JsonObject =
         connection.ck(album.scope, "records/modify", buildJsonObject {
             put("atomic", true); put("zoneID", album.zoneId())
             putJsonArray("operations") { add(buildJsonObject { put("operationType", operation); put("record", record) }) }
-        }, write = true)
+        }, write = true, recordErrors = recordErrors)
 
     /** Updates the share at the change tag that was read, so a concurrent edit fails instead of being lost. */
     private suspend fun patchShare(album: SharedAlbumRecord, share: JsonObject, properties: JsonObject, fields: JsonObject?) {
@@ -464,6 +464,9 @@ internal class ModernSharedAlbums(
 
         /** The most photos read for one post. */
         const val MAX_POST_PHOTOS = 500
+
+        /** Photos a post preview reads: the four shown, and enough more to say "+N" for most posts. */
+        const val PREVIEW_COUNT_PROBE = 20
         private const val MAX_POST_PAGES = 50
         private const val MAX_COVER_BYTES = 4 * 1024 * 1024
         private val REACTIONS = setOf("", "👍", "❤️", "😍", "🎉", "🔥", "😂")

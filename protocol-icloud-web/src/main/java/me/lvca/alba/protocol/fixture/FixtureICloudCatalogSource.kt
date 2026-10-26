@@ -202,15 +202,16 @@ class FixtureICloudCatalogSource(
             shared = me.lvca.alba.engine.model.SharedAlbumInfo(generation, me.lvca.alba.engine.model.SharedAlbumRole.OWNER, participantCount = 1))
             .also { sharedAlbums += it }
     }
-    override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource, operationId: String, caption: String) {
+    override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource, operationId: String, caption: String): Boolean {
         require(sharedAlbums.first { it.id == albumId }.shared?.canContribute == true)
         val id = "$albumId:$operationId-${source.sha256Hex}"
-        if (extraRecords.containsKey(id)) return
-        importMedia(fileName, source.openOnce(), id, source.byteCount, source.sha256Hex)
+        if (!extraRecords.containsKey(id)) importMedia(fileName, source.openOnce(), id, source.byteCount, source.sha256Hex)
+        return true
     }
-    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String) {
+    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String): Boolean {
         require(sharedAlbums.first { it.id == id }.shared?.canContribute == true)
         mediaIds.forEach { media -> copyMedia(media, "$id:$operationId-${media.hashCode()}") }
+        return true
     }
     private val trashed = mutableSetOf<String>()
     override suspend fun captureSyncToken() = CHANGE_TOKEN

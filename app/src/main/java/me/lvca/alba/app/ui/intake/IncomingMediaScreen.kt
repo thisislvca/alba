@@ -157,7 +157,8 @@ private fun IncomingPanel(request: IncomingRequest.Media, loaded: List<IncomingI
         Text(stringResource(if (demo) R.string.demo_upload_disclosure else R.string.incoming_upload_explanation), style = MaterialTheme.typography.bodySmall)
         val canUpload = (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED || demo
         // Shared albums are offered only before anything was sent, and only when there is one to add to.
-        val canChoose = canUpload && eligible.isNotEmpty() && sharedAlbums.isNotEmpty() && !sent && sharedResult == null
+        val readable = loaded.filter { it.failure == null && it.mime != null }
+        val canChoose = canUpload && sharedAlbums.isNotEmpty() && !sent && sharedResult == null
         if (canChoose) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.incoming_destination), style = MaterialTheme.typography.labelLarge)
             FilterChip(!toShared, { toShared = false }, label = { Text(stringResource(R.string.incoming_destination_library)) },
@@ -166,7 +167,7 @@ private fun IncomingPanel(request: IncomingRequest.Media, loaded: List<IncomingI
                 modifier = Modifier.testTag("incoming-destination-shared"))
         }
         if (toShared && (canChoose || sharedResult != null)) {
-            IncomingSharedDestination(request, eligible, sharedAlbums, sharedResult, { sharedResult = it }, close, addToShared)
+            IncomingSharedDestination(request, readable, sharedAlbums, sharedResult, { sharedResult = it }, close, addToShared)
         } else IncomingLibraryUpload(eligible.isNotEmpty(), sent, demo, canUpload, close, upload)
         if (canChoose) Text(stringResource(R.string.incoming_album_note), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -197,13 +198,15 @@ private fun libraryButtonLabel(sent: Boolean, demo: Boolean, canUpload: Boolean)
 
 /** Choosing a shared album, confirming the post, and where it stands once sent. */
 @Composable
-private fun IncomingSharedDestination(request: IncomingRequest.Media, eligible: List<IncomingItem>, sharedAlbums: List<GalleryCollection>,
+private fun IncomingSharedDestination(request: IncomingRequest.Media, readable: List<IncomingItem>, sharedAlbums: List<GalleryCollection>,
     result: IncomingSharedResult?, changeResult: (IncomingSharedResult) -> Unit, close: () -> Unit, addToShared: AddToSharedAlbum) {
     var target by rememberSaveable(request) { mutableStateOf<String?>(null) }
     var choosing by rememberSaveable(request) { mutableStateOf(false) }
     var posting by rememberSaveable(request) { mutableStateOf(false) }
+    // The name at the time of sending, so the status still reads right if the album leaves the list.
+    var sentTo by rememberSaveable(request) { mutableStateOf("") }
     val album = sharedAlbums.firstOrNull { it.id == target }
-    val items = album?.let { incomingForSharedAlbum(eligible, it) }.orEmpty()
+    val items = album?.let { incomingForSharedAlbum(readable, it) }.orEmpty()
     if (result == null) {
         OutlinedButton(onClick = { choosing = true }, modifier = Modifier.testTag("incoming-choose-shared")) {
             Text(album?.name ?: stringResource(R.string.incoming_choose_shared))
@@ -216,11 +219,11 @@ private fun IncomingSharedDestination(request: IncomingRequest.Media, eligible: 
             IncomingSharedResult.SENDING -> R.string.incoming_adding_to_shared
             IncomingSharedResult.ADDED -> R.string.incoming_sent_shared
             IncomingSharedResult.FAILED -> R.string.incoming_shared_failed
-        }, album?.name.orEmpty()), Modifier.testTag("incoming-shared-status"))
+        }, sentTo.ifBlank { album?.name ?: stringResource(R.string.incoming_destination_shared) }), Modifier.testTag("incoming-shared-status"))
         if (result != IncomingSharedResult.SENDING) TextButton(onClick = close) { Text(stringResource(R.string.incoming_view_library)) }
     }
     if (posting && album != null) SharedPostSheet(items.size, album.shared?.generation == SharedAlbumGeneration.LEGACY, dismiss = { posting = false }) { caption ->
-        posting = false; changeResult(IncomingSharedResult.SENDING)
+        posting = false; sentTo = album.name; changeResult(IncomingSharedResult.SENDING)
         addToShared(album.id, items, caption) { added -> changeResult(if (added) IncomingSharedResult.ADDED else IncomingSharedResult.FAILED) }
     }
     if (choosing) AlbumChooser(sharedAlbums, dismiss = { choosing = false }, create = {}, title = stringResource(R.string.incoming_choose_shared),

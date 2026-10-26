@@ -84,6 +84,9 @@ interface SharedAlbumOperations {
     suspend fun changeSharedAlbum(id: String, command: SharedCommand, operationId: String): Unit = error("Shared album editing is unavailable")
 }
 
+/** How many items a shared album holds and when the newest was added, read for activity checks. */
+data class SharedAlbumCount(val albumId: String, val name: String, val count: Int, val latestAddedAt: Long)
+
 /** How many photos a post preview shows before "+N". */
 const val SHARED_POST_PREVIEW_PHOTOS = 4
 

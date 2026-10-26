@@ -3,6 +3,7 @@ package me.lvca.alba.app.sharing
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -39,6 +40,7 @@ import me.lvca.alba.engine.model.SharedPostPreview
 import me.lvca.alba.engine.model.SharedUploadFile
 import me.lvca.alba.protocol.account.ICloudAccountManager
 import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 import java.util.UUID
 
 /** What the shared-album screens show about new activity: unread albums, unseen invitations and the notification switch. */
@@ -46,7 +48,14 @@ data class SharedActivityState(
     val unreadAlbums: Set<String> = emptySet(),
     val unreadInvitations: Int = 0,
     val notificationsEnabled: Boolean = true,
+    /** Whether Alba has asked Android for notification permission yet. */
+    val notificationsAsked: Boolean = false,
+    /** A notification asked to open this: an album, the invitations inbox, or the Shared Albums page. */
+    val open: SharedOpenRequest? = null,
 )
+
+/** Where a tapped shared-album notification leads. */
+data class SharedOpenRequest(val albumId: String?, val invitations: Boolean)
 
 /**
  * iCloud shared albums: reading activity and discussions, invitations, and changes. Remote writes reuse an operation
@@ -73,12 +82,16 @@ internal class SharedAlbumsController(
         .distinctUntilChanged()
         .stateIn(scope, SharingStarted.Eagerly, emptyMap())
 
-    val activity: StateFlow<SharedActivityState> = combine(marks, ledger.state) { current, record ->
-        SharedActivityState(record.unread(current), record.unreadInvitations.size, record.notificationsEnabled)
+    private val openRequest = MutableStateFlow<SharedOpenRequest?>(null)
+
+    val activity: StateFlow<SharedActivityState> = combine(marks, ledger.state, openRequest) { current, record, open ->
+        SharedActivityState(record.unread(current), record.unreadInvitations.size, record.notificationsEnabled, record.notificationsAsked, open)
     }.stateIn(scope, SharingStarted.Eagerly, SharedActivityState())
 
     init {
-        ledger.applySchedule()
+        // Signing out stops the check; signing in again restarts it if the switch is on.
+        accountManager.state.map { (it as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED }.distinctUntilChanged()
+            .onEach { verified -> if (verified) ledger.applySchedule() }.launchIn(scope)
         marks.onEach { current -> ledger.update { it.observe(current) } }.launchIn(scope)
         // An open shared album is read, including photos that arrive while it is open.
         combine(gallery.state.map { it.query.collectionId }.distinctUntilChanged(), marks) { open, current ->
@@ -98,6 +111,17 @@ internal class SharedAlbumsController(
     fun markInvitationsRead() { ledger.update { it.markInvitationsRead() } }
 
     fun setNotifications(enabled: Boolean) = ledger.setNotifications(enabled)
+
+    /** Records that Alba asked Android for notification permission, so it asks unprompted only once. */
+    fun notificationsAsked() { ledger.update { it.copy(notificationsAsked = true) } }
+
+    /** Opens what a tapped notification is about, once the gallery reads [SharedActivityState.open]. */
+    fun requestOpen(albumId: String?, invitations: Boolean) {
+        // The gallery opens the album only if it lists it, once the catalog has loaded.
+        openRequest.value = SharedOpenRequest(albumId, invitations)
+    }
+
+    fun consumeOpen() { openRequest.value = null }
 
     suspend fun sharedActivity(albumId: String, rank: Int): SharedActivityPage = io { repository.sharedActivity(albumId, rank) }
     suspend fun sharedPostDiscussion(postId: String): SharedDiscussion = io { repository.sharedPostDiscussion(postId) }
@@ -134,27 +158,30 @@ internal class SharedAlbumsController(
 
     fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>, caption: String = "") {
         runner.start(MediaActionKey(MediaAction.SHARED_ALBUM), R.string.shared_contribute_failed) {
-            val key = "shared-contribute:" + albumId + ":" + mediaIds.sorted().hashCode()
-            repository.contributeToSharedAlbum(albumId, mediaIds, operationId(key), caption)
+            val key = "shared-contribute:" + albumId + ":" + mediaIds.sorted().hashCode() + ":" + caption.trim().hashCode()
+            val captionKept = repository.contributeToSharedAlbum(albumId, mediaIds, operationId(key), caption)
             savedState.remove<String>(key)
             refreshAfterOwnPost(albumId)
             gallery.clearSelection()
-            messages.show(R.string.shared_contributed)
+            messages.show(if (captionKept) R.string.shared_contributed else R.string.shared_posted_without_caption)
         }
     }
 
-    /** Adds files another app shared with Alba to a shared album, reporting where they went. */
+    /**
+     * Adds files another app shared with Alba to a shared album, reporting where they went. When another shared-album
+     * action is still running, nothing starts: [done] hears false and the runner says the action is still running.
+     */
     fun contributeFilesToSharedAlbum(albumId: String, files: List<SharedUploadFile>, operationKey: String, caption: String, done: (Boolean) -> Unit) {
-        runner.start(MediaActionKey(MediaAction.SHARED_ALBUM), R.string.shared_contribute_failed) {
-            val key = "shared-files:$albumId:$operationKey"
-            runCatching { repository.contributeFilesToSharedAlbum(albumId, files, operationId(key), caption) }
+        val started = runner.start(MediaActionKey(MediaAction.SHARED_ALBUM), R.string.shared_contribute_failed) {
+            val key = "shared-files:$albumId:$operationKey:${caption.trim().hashCode()}"
+            val captionKept = runCatching { repository.contributeFilesToSharedAlbum(albumId, files, operationId(key), caption) }
                 .onFailure { done(false) }.getOrThrow()
             savedState.remove<String>(key)
             refreshAfterOwnPost(albumId)
-            val name = gallery.current.collections.firstOrNull { it.id == albumId }?.name.orEmpty()
-            messages.show(UiMessage(R.string.shared_added_to_album, listOf(name)))
+            if (!captionKept) messages.show(R.string.shared_posted_without_caption)
             done(true)
         }
+        if (!started) done(false)
     }
 
     /** One's own photos are not news: the album stays read after the refresh that shows them. */

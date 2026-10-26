@@ -94,6 +94,7 @@ import me.lvca.alba.app.ui.localizedTitle
 import me.lvca.alba.app.ui.monthLabel
 import me.lvca.alba.app.ui.navigation.FadeThrough
 import me.lvca.alba.app.ui.shared.CreateSharedAlbumDialog
+import me.lvca.alba.app.ui.shared.SharedActivityEffects
 import me.lvca.alba.app.ui.shared.SharedAlbumActivity
 import me.lvca.alba.app.ui.shared.SharedAlbumControls
 import me.lvca.alba.app.ui.shared.SharedAlbumDetails
@@ -297,6 +298,12 @@ internal fun GalleryHome(
         actions.clearSelection()
         collectionGrid.requestScrollToItem(0)
         actions.changeQuery(GalleryQuery(collectionId = id))
+    }
+    SharedActivityEffects(tab == GalleryTab.COLLECTIONS && collectionsPage == CollectionsPage.SHARED && query.collectionId == null,
+        remember(sharedAlbums) { sharedAlbums.map { it.id }.toSet() }, actions, openAlbum = ::openShared) { invitations ->
+        libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED
+        actions.clearSelection(); actions.changeQuery(GalleryQuery())
+        if (invitations) sheet = GallerySheet.SharedInvitations
     }
     val uiDensity = LocalDensity.current
     BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
