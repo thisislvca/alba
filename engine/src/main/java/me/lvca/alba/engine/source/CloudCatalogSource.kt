@@ -76,13 +76,26 @@ interface HiddenAlbumSource {
     suspend fun setHidden(mediaIds: List<String>, hidden: Boolean): Unit = error("Hiding photos is unavailable")
 }
 
-/** The library's size, which the first full read shows its progress against. */
-interface LibrarySizeSource {
+/** What the first full read needs besides pages: the library's size for its progress, and checking unseen items. */
+interface LibraryScanSource {
     /** How many items the library's main feed holds, when iCloud can say so in one cheap request; null otherwise. */
     suspend fun libraryItemCount(): Int? = null
+
+    /**
+     * Which of these asset record names are still library items, looked up by name rather than by position. A full
+     * read pages by position, so an item can shift past a page boundary while it runs; a row the read did not see is
+     * removed only once this says it is gone. Null when the source cannot look items up and its pages never shift.
+     */
+    suspend fun libraryRecords(assetRecordNames: List<String>): List<RemoteMediaRecord>? = null
 }
 
-interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations, HiddenAlbumSource, LibrarySizeSource {
+/** The source no longer accepts a saved page cursor, as when an iCloud continuation marker expired. */
+class CatalogCursorRejected(message: String) : Exception(message)
+
+/** A full read that cannot finish as it is, such as one whose cursors repeat. It is discarded; its rows stay. */
+class CatalogScanAbandoned(message: String) : IllegalStateException(message)
+
+interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations, HiddenAlbumSource, LibraryScanSource {
     suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource): Unit = error("Shared save is unavailable")
 
     /**

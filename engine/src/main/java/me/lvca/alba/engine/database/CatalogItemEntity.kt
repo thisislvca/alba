@@ -81,4 +81,6 @@ data class CatalogScanEntity(
     val totalCount: Int?,
     val startedAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
+    /** The read already started over once because its saved cursor was refused; it does not again. */
+    @androidx.room.ColumnInfo(defaultValue = "0") val restarted: Boolean = false,
 )

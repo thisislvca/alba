@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 18,
-    "identityHash": "04b063b92d0ff5dfbf5d3f6a0bd1669e",
+    "identityHash": "86be402e2ed411ef3becad521ce12889",
     "entities": [
       {
         "tableName": "catalog_items",
@@ -2593,7 +2593,7 @@
       },
       {
         "tableName": "catalog_scans",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account` TEXT NOT NULL, `scanId` TEXT NOT NULL, `cursor` TEXT, `pagesComplete` INTEGER NOT NULL, `catchUpToken` TEXT, `loadedCount` INTEGER NOT NULL, `totalCount` INTEGER, `startedAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`account`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account` TEXT NOT NULL, `scanId` TEXT NOT NULL, `cursor` TEXT, `pagesComplete` INTEGER NOT NULL, `catchUpToken` TEXT, `loadedCount` INTEGER NOT NULL, `totalCount` INTEGER, `startedAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `restarted` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`account`))",
         "fields": [
           {
             "fieldPath": "account",
@@ -2645,6 +2645,13 @@
             "columnName": "updatedAtEpochMillis",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "restarted",
+            "columnName": "restarted",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -2657,7 +2664,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '04b063b92d0ff5dfbf5d3f6a0bd1669e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '86be402e2ed411ef3becad521ce12889')"
     ]
   }
 }

@@ -13,6 +13,8 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.testing.setAlbaContent
 import me.lvca.alba.engine.model.CatalogScanProgress
+import me.lvca.alba.engine.model.GalleryQuery
+import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import org.junit.Assert.assertEquals
@@ -51,22 +53,33 @@ class CatalogScanProgressTest {
     }
 
     @Test
-    fun aRefreshBeforeTheReadStartsSaysPhotosAreLoadingAndThatItCanTakeAWhile() {
+    fun aRefreshWithoutAReadKeepsThePlainLoadingLine() {
         compose.setAlbaContent(GalleryState(), SessionState(accountState = ICloudAccountState.SignedIn("alex@example.com"), isRefreshing = true))
 
-        compose.onNodeWithTag("catalog-scan-progress").performScrollTo().assertTextEquals(context.getString(R.string.loading_photos))
-        compose.onNodeWithTag("catalog-scan-note").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.loading_photos)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("catalog-scan-note").assertDoesNotExist()
     }
 
     @Test
-    fun anExpiredSignInPausesTheReadAndAsksToSignInAgain() {
+    fun aPausedReadDoesNotLookLikeLoading() {
         compose.setAlbaContent(GalleryState(), SessionState(
             accountState = ICloudAccountState.SignedIn("alex@example.com", SessionStatus.EXPIRED),
             isRefreshing = false, catalogScan = CatalogScanProgress(loadedCount = 3_000, totalCount = 60_000)))
 
+        // An expired sign-in shows the existing sign-in-again state; the read continues after signing in.
         compose.onNodeWithText(context.getString(R.string.sign_in_again_saved_photos_available)).assertIsDisplayed()
-        // The paused read keeps its count in the empty library, without a spinner suggesting it is still running.
-        compose.onNodeWithTag("catalog-scan-progress").performScrollTo().assertTextEquals("3,000 of 60,000 photos loaded")
-        assertEquals(1, compose.onAllNodesWithText("3,000 of 60,000 photos loaded").fetchSemanticsNodes().size)
+        compose.onNodeWithTag("catalog-scan-progress").assertDoesNotExist()
+        compose.onNodeWithText("3,000 of 60,000 photos loaded").assertDoesNotExist()
+    }
+
+    @Test
+    fun trashHiddenAndAlbumsKeepTheirOwnEmptyStatesDuringARead() {
+        val reading = SessionState(accountState = ICloudAccountState.SignedIn("alex@example.com"), isRefreshing = true,
+            catalogScan = CatalogScanProgress(loadedCount = 400, totalCount = 9_000))
+        compose.setAlbaContent(GalleryState(query = GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)), reading)
+
+        compose.onNodeWithText(context.getString(R.string.loading_photos)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("catalog-scan-progress").assertDoesNotExist()
+        compose.onNodeWithTag("catalog-scan-note").assertDoesNotExist()
     }
 }

@@ -63,7 +63,7 @@ abstract class AlbaDatabase : RoomDatabase() {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `catalog_scans` (`account` TEXT NOT NULL, `scanId` TEXT NOT NULL, " +
                     "`cursor` TEXT, `pagesComplete` INTEGER NOT NULL, `catchUpToken` TEXT, `loadedCount` INTEGER NOT NULL, " +
                     "`totalCount` INTEGER, `startedAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, " +
-                    "PRIMARY KEY(`account`))")
+                    "`restarted` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`account`))")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_catalog_items_masterRecordName` ON `catalog_items` (`masterRecordName`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_catalog_items_assetRecordName` ON `catalog_items` (`assetRecordName`)")
             }

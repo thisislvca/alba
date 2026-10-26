@@ -81,6 +81,9 @@ class LiveICloudCatalogSource(
     private val downloads = ConcurrentHashMap<String, DownloadReferences>()
     private val currentRefreshIds = ConcurrentHashMap.newKeySet<String>()
 
+    /** The account whose web access and indexing this process last checked. */
+    @Volatile private var preparedFor: String? = null
+
     override val writeAccountId: String? get() = sessionProvider()?.let(ICloudAccountIdentity::accountId)
     override val accountLabel: String
         get() = sessionProvider()?.let(ICloudAccountIdentity::namespace) ?: "signed-out"
@@ -264,25 +267,23 @@ class LiveICloudCatalogSource(
         val session = requireSession()
         cloudKit.bind(session)
         val pageCursor = PageCursor.decode(cursor)
-        if (cursor == null) {
+        // A read resumed in a new process still checks web access and indexing before its first page.
+        if (cursor == null || preparedFor != session.dsid) {
             preparePhotos(session)
-            currentRefreshIds.clear()
+            preparedFor = session.dsid
         }
+        if (cursor == null) currentRefreshIds.clear()
 
-        val response = cloudKit.send(
-            session = session,
-            request = AppleHttpRequest(
-                method = "POST",
-                url = database.url(session, "records/query"),
-                headers = PersonalLibraryDatabase.HEADERS,
-                body = photoQueryBody(
-                    offset = pageCursor.offset,
-                    limit = limit,
-                    continuationMarker = pageCursor.continuationMarker,
-                ),
+        val response = sendPage(session, AppleHttpRequest(
+            method = "POST",
+            url = database.url(session, "records/query"),
+            headers = PersonalLibraryDatabase.HEADERS,
+            body = photoQueryBody(
+                offset = pageCursor.offset,
+                limit = limit,
+                continuationMarker = pageCursor.continuationMarker,
             ),
-        )
-        response.jsonObjectOrNull()?.let(CloudKitErrors::throttle)?.let { throw it }
+        ), resumed = cursor != null)
         val parsed = parser.parse(response.body)
         val namespace = ICloudAccountIdentity.namespace(session)
         val records = parsed.photos.map { photo -> mapped(photo, namespace).also { currentRefreshIds += it.id } }
@@ -347,6 +348,29 @@ class LiveICloudCatalogSource(
             transport.stream(selectUrl(freshReferences(mediaId)), output)
         }
         cloudKit.persist(session, null)
+    }
+
+    /**
+     * Sends a page query. For a page after the first, a request error CloudKit gives for the query itself (a 4xx other
+     * than sign-in and throttling, or an error in a 200 body) means it no longer accepts the cursor, as when a
+     * continuation marker expired, and the read can start over. A lost connection stays a network error.
+     */
+    private suspend fun sendPage(session: AppleSessionSnapshot, request: AppleHttpRequest, resumed: Boolean): AppleHttpResponse {
+        val raw = cloudKit.exchange(session, request)
+        CloudKitErrors.cursorRejection(raw.code, null, resumed)?.let { throw it }
+        val response = cloudKit.requireSuccess(session, raw)
+        response.jsonObjectOrNull()?.let { root -> CloudKitErrors.throttle(root) ?: CloudKitErrors.cursorRejection(raw.code, root, resumed) }
+            ?.let { throw it }
+        return response
+    }
+
+    /** The library assets among [assetRecordNames], looked up by name; missing, deleted and hidden ones are left out. */
+    override suspend fun libraryRecords(assetRecordNames: List<String>): List<RemoteMediaRecord> {
+        val assets = database.lookup(assetRecordNames).filter { it["serverErrorCode"] == null && !it.isRemovedFromLibrary() }
+        if (assets.isEmpty()) return emptyList()
+        val masters = database.lookup(assets.mapNotNull { it.fieldObject("masterRef")?.recordName() })
+            .filter { it["serverErrorCode"] == null }
+        return parser.parse(buildJsonObject { put("records", JsonArray(assets + masters)) }.toString()).photos.map { mapped(it) }
     }
 
     private suspend fun preparePhotos(session: AppleSessionSnapshot) {

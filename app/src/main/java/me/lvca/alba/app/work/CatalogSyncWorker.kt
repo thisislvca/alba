@@ -21,6 +21,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.diagnostics.DiagnosticAttribute
 import me.lvca.alba.app.diagnostics.DiagnosticOperation
 import me.lvca.alba.app.diagnostics.DiagnosticOutcome
+import me.lvca.alba.engine.source.CatalogScanAbandoned
 import java.util.concurrent.TimeUnit
 
 /** Keeps an unfinished first read of the iCloud library going when Alba is not on screen. */
@@ -72,8 +73,11 @@ class CatalogSyncWorker(context: Context, params: WorkerParameters) : CoroutineW
     override suspend fun doWork(): Result {
         val app = applicationContext as AlbaApplication
         val accounts = app.graph.accountManager
-        // An expired sign-in stops here; signing in again starts a refresh, which continues the read.
-        if (accounts.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE) return Result.success()
+        // An expired sign-in stops here; signing in again starts a refresh, which continues the read. So does a read that
+        // kept failing: the next refresh on screen continues it and schedules this work again.
+        if (accounts.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE || runAttemptCount >= MAX_ATTEMPTS) {
+            return Result.success()
+        }
         val span = app.diagnostics.start(DiagnosticOperation.GALLERY_REFRESH, mapOf(DiagnosticAttribute.REASON to "catalog_scan"))
         val outcome = runCatching { resume(app) }
         val error = outcome.exceptionOrNull()
@@ -84,6 +88,8 @@ class CatalogSyncWorker(context: Context, params: WorkerParameters) : CoroutineW
             }
             error != null -> {
                 span.finish(DiagnosticOutcome.FAILED, error = error)
+                // A read that cannot finish as it is was discarded with its rows kept; trying again would not help.
+                if (error is CatalogScanAbandoned) return Result.success()
                 // A lost connection or throttling tries again later from the saved page; an expired sign-in waits.
                 if (accounts.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE) Result.success() else Result.retry()
             }
@@ -119,6 +125,9 @@ class CatalogSyncWorker(context: Context, params: WorkerParameters) : CoroutineW
 
     private companion object {
         const val CATALOG_NOTIFICATION_ID = 1712
+
+        /** About a day of exponential backoff from 30 seconds, capped by WorkManager at five hours. */
+        const val MAX_ATTEMPTS = 10
         const val SYNC_CHANNEL = "photo-transfers"
     }
 }

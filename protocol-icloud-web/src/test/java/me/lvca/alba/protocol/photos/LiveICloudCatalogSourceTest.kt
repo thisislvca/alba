@@ -116,6 +116,16 @@ class LiveICloudCatalogSourceTest {
         }
     }
 
+    @Test fun aRefusedSavedCursorCanStartTheReadOverButSignInThrottlingAndFirstPagesCannot() {
+        val error = kotlinx.serialization.json.Json.parseToJsonElement("""{"serverErrorCode":"BAD_REQUEST","reason":"marker"}""")
+            as kotlinx.serialization.json.JsonObject
+        assertTrue(CloudKitErrors.cursorRejection(400, null, resumed = true) is me.lvca.alba.engine.source.CatalogCursorRejected)
+        assertTrue(CloudKitErrors.cursorRejection(410, null, resumed = true) is me.lvca.alba.engine.source.CatalogCursorRejected)
+        assertTrue(CloudKitErrors.cursorRejection(200, error, resumed = true) is me.lvca.alba.engine.source.CatalogCursorRejected)
+        for (code in listOf(401, 403, 429, 500, 503)) assertNull("HTTP $code", CloudKitErrors.cursorRejection(code, null, resumed = true))
+        assertNull(CloudKitErrors.cursorRejection(400, error, resumed = false))
+    }
+
     private class ChangesTransport(private val code: Int, private val body: String) : AppleHttpTransport {
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             assertTrue(request.url.contains("/changes/zone"))

@@ -48,6 +48,9 @@ class DefaultGalleryRepository(
     private val sync = database.catalogSyncDao()
     private val library = database.libraryDao()
     private val refreshLock = Mutex()
+
+    /** One library sync at a time; edits never take it. */
+    private val syncLock = Mutex()
     private val editLock = Mutex()
     private val previewPublicationLock = Mutex()
     private val catalogPermits = Semaphore(2)
@@ -431,31 +434,37 @@ class DefaultGalleryRepository(
         scans.firstOrNull { it.account == cloudSource.accountLabel }?.let { CatalogScanProgress(it.loadedCount, it.totalCount) }
     }.distinctUntilChanged()
 
-    override suspend fun resumeCatalogScan(): RefreshSummary? = refreshLock.withLock {
-        if (sync.scan(cloudSource.accountLabel) == null) null else refreshLocked(includeDeviceMedia = false)
+    override suspend fun resumeCatalogScan(): RefreshSummary? = syncLock.withLock {
+        if (sync.scan(cloudSource.accountLabel) == null) null else refreshUnderSyncLock(includeDeviceMedia = false)
     }
 
-    override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary = refreshLock.withLock {
-        refreshLocked(includeDeviceMedia)
+    override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary = syncLock.withLock {
+        refreshUnderSyncLock(includeDeviceMedia)
     }
 
     /**
      * Reads the library into the catalog page by page, never holding it in memory, then replaces what Recently Deleted,
      * Hidden, shared albums and albums list, and removes the rows the read no longer saw.
+     *
+     * Only one refresh runs at a time ([syncLock]). The refresh lock that edits share is taken only to write each page
+     * and to publish, so favorites, trash, phone scans and signing out never wait for a long first read. Publishing
+     * reads what edits change (albums, favorites, Recently Deleted, Hidden) again under that lock, so a page fetched
+     * before an edit cannot undo it for long.
      */
-    private suspend fun refreshLocked(includeDeviceMedia: Boolean): RefreshSummary {
+    private suspend fun refreshUnderSyncLock(includeDeviceMedia: Boolean): RefreshSummary {
         val refreshedAt = now()
-        val deviceRecords = if (includeDeviceMedia && deviceSource != null) {
-            deviceSource.scanImages()
-        } else {
-            emptyList()
+        val deviceRecords = refreshLock.withLock {
+            val records = if (includeDeviceMedia && deviceSource != null) deviceSource.scanImages() else emptyList()
+            if (includeDeviceMedia) exclusiveCatalog { publishDeviceScan(records, refreshedAt) }
+            records
         }
-
-        if (includeDeviceMedia) exclusiveCatalog { publishDeviceScan(deviceRecords, refreshedAt) }
-
         val account = cloudSource.accountLabel
         retainPreviewPaths()
         val libraryRead = syncLibrary(account)
+        return refreshLock.withLock { publishRefresh(account, libraryRead, refreshedAt, deviceRecords.size) }
+    }
+
+    private suspend fun publishRefresh(account: String, libraryRead: LibraryRead, refreshedAt: Long, deviceCount: Int): RefreshSummary {
         val trash = throttled { cloudSource.recentlyDeleted() }
         val hiddenRead = hiddenSnapshot(account)
         val personalCollections = throttled { cloudSource.collections() }
@@ -485,21 +494,20 @@ class DefaultGalleryRepository(
         exclusiveCatalog {
             checkAccount(account, "Account changed before publishing refresh")
             database.withTransaction {
-                // A finished read removes every row it did not see, as a full snapshot always did.
+                // A finished read removes every row it did not see and could not find by name, as a snapshot did.
                 libraryRead.completedScanId?.let { sync.unstampOutsideScan(it) }
                 sync.unstampSnapshots()
                 // Downloads continue during network sync. Read their current paths only once
                 // publication owns the catalog, so refresh cannot discard a finished download.
                 writeRecords(snapshots, libraryRead.stamp)
                 sync.deleteUnstamped()
-                if (libraryRead.changeToken.isNotBlank()) dao.upsertCheckpoint(
-                    CatalogCheckpointEntity(
-                        scope = "icloud:${cloudSource.accountLabel}",
-                        changeToken = libraryRead.changeToken,
-                        refreshedAtEpochMillis = refreshedAt,
-                    ),
-                )
+                val scope = "icloud:$account"
+                // A read without a change token must not leave an older token behind for the next refresh.
+                if (libraryRead.changeToken.isBlank()) sync.deleteCheckpoint(scope)
+                else dao.upsertCheckpoint(CatalogCheckpointEntity(scope, libraryRead.changeToken, refreshedAt))
                 sync.deleteScan(account)
+                // A read under any other account is over: this one replaced its rows.
+                sync.deleteOtherScans(account)
                 library.clearMembers()
                 library.clearCollections()
                 library.putCollections(collections.collections.map { it.toEntity(account) })
@@ -518,7 +526,7 @@ class DefaultGalleryRepository(
 
         return RefreshSummary(
             cloudItemCount = sync.cloudCount(),
-            deviceItemCount = deviceRecords.size,
+            deviceItemCount = deviceCount,
             refreshedAtEpochMillis = refreshedAt,
             sharedAlbumsUnavailable = sharedAlbumsUnavailable,
             hiddenUnavailable = !hiddenRead.complete,
@@ -550,7 +558,6 @@ class DefaultGalleryRepository(
      * starts a full read when there is no token or iCloud no longer accepts it.
      */
     private suspend fun syncLibrary(account: String): LibraryRead {
-        exclusiveCatalog { sync.deleteOtherScans(account) }
         if (sync.scan(account) == null) {
             val checkpoint = dao.checkpoint("icloud:$account")?.changeToken?.takeUnless { it.startsWith("rank:") }
             if (checkpoint != null) {
@@ -562,8 +569,9 @@ class DefaultGalleryRepository(
         return try { readLibrary(account) }
         catch (_: CatalogResetRequired) {
             // The token captured before the read expired while it ran: read once more from the first page.
-            exclusiveCatalog { checkAccount(account, "Account changed during catalog refresh"); sync.deleteScan(account) }
-            readLibrary(account)
+            writeLocked(account) { sync.deleteScan(account) }
+            try { readLibrary(account) }
+            catch (_: CatalogResetRequired) { abandonScan(account, "The library's change token expired twice during one read") }
         }
     }
 
@@ -571,7 +579,7 @@ class DefaultGalleryRepository(
      * The full library read. Each page is written to the catalog in its own transaction together with the cursor that
      * follows it, so a read cut short by process death, a lost connection or the system stopping background work
      * continues from the last page written. Rows already in the catalog stay browsable throughout, and new ones show
-     * up as their pages land; only publishing, once the read is complete, removes rows it did not see.
+     * up as their pages land. Rows it did not see are looked up by name before publishing removes any.
      */
     private suspend fun readLibrary(account: String): LibraryRead {
         var scan = sync.scan(account) ?: startScan(account)
@@ -579,30 +587,42 @@ class DefaultGalleryRepository(
         val visitedCursors = mutableSetOf<String?>()
         while (!scan.pagesComplete) {
             checkAccount(account, "Account changed during catalog refresh")
-            check(visitedCursors.add(scan.cursor)) { "Cloud catalog repeated cursor: ${scan.cursor}" }
+            if (!visitedCursors.add(scan.cursor)) abandonScan(account, "The library repeated a page cursor")
             val page = try { throttled { cloudSource.fetchPage(cursor = scan.cursor, limit = PAGE_SIZE) } }
-            catch (invalid: IllegalArgumentException) {
-                if (!resumed) throw invalid
-                // The source no longer accepts the saved cursor. Read again from the first page; rows stay.
-                resumed = false
-                visitedCursors.clear()
-                scan = scan.copy(cursor = null, loadedCount = 0)
-                continue
-            }
+            catch (rejected: CatalogCursorRejected) { if (resumed && !scan.restarted) null else throw rejected }
+            catch (invalid: IllegalArgumentException) { if (resumed && !scan.restarted) null else throw invalid }
             resumed = false
             val current = scan
-            scan = exclusiveCatalog {
-                checkAccount(account, "Account changed before publishing page")
-                database.withTransaction {
-                    writeRecords(page.records, current.scanId)
-                    current.copy(cursor = page.nextCursor, pagesComplete = page.nextCursor == null,
-                        loadedCount = current.loadedCount + page.records.size, updatedAtEpochMillis = now())
-                        .also { sync.upsertScan(it) }
-                }
+            scan = writeLocked(account) {
+                check(sync.scan(account)?.scanId == current.scanId) { "The library read was discarded" }
+                // A saved cursor the source refuses starts the read over once from the first page; rows stay.
+                val next = if (page == null) current.copy(cursor = null, loadedCount = 0, restarted = true)
+                    else current.copy(cursor = page.nextCursor, pagesComplete = page.nextCursor == null,
+                        loadedCount = current.loadedCount + page.records.size)
+                page?.let { writeRecords(it.records, current.scanId) }
+                next.copy(updatedAtEpochMillis = now()).also { sync.upsertScan(it) }
             }
+            if (page == null) visitedCursors.clear()
         }
         val token = scan.catchUpToken?.let { applyChanges(it, scan.scanId, account) }.orEmpty()
+        keepUnseenRowsThatStillExist(account, scan.scanId)
         return LibraryRead(scan.scanId, scan.scanId, token)
+    }
+
+    /**
+     * Looks up by name the account's library rows the read did not see, and keeps those still in the library. Pages
+     * are read by position, so a photo deleted earlier in the library moves the rest up one place, and the photo that
+     * crossed a page boundary is never on any page. Only rows iCloud no longer has are left for publishing to remove.
+     */
+    private suspend fun keepUnseenRowsThatStillExist(account: String, scanId: String) {
+        var after = ""
+        do {
+            val rows = sync.unseenLibraryRows("icloud:$account:", scanId, after, LOOKUP_CHUNK)
+            after = rows.lastOrNull()?.mediaId ?: after
+            val names = rows.mapNotNull { it.assetRecordName }
+            val existing = if (names.isEmpty()) emptyList() else throttled { cloudSource.libraryRecords(names) }.orEmpty()
+            if (existing.isNotEmpty()) writeLocked(account) { writeRecords(existing, scanId) }
+        } while (rows.size == LOOKUP_CHUNK)
     }
 
     private suspend fun startScan(account: String): CatalogScanEntity {
@@ -615,11 +635,22 @@ class DefaultGalleryRepository(
         val scan = CatalogScanEntity(account = account, scanId = UUID.randomUUID().toString(), cursor = null,
             pagesComplete = false, catchUpToken = token, loadedCount = 0, totalCount = total,
             startedAtEpochMillis = startedAt, updatedAtEpochMillis = startedAt)
-        exclusiveCatalog {
-            checkAccount(account, "Account changed during catalog refresh")
-            sync.upsertScan(scan)
-        }
+        writeLocked(account) { sync.upsertScan(scan) }
         return scan
+    }
+
+    /** Discards the account's unfinished read, keeping every row, so the next refresh starts a fresh one. */
+    private suspend fun abandonScan(account: String, reason: String): Nothing {
+        writeLocked(account) { sync.deleteScan(account) }
+        throw CatalogScanAbandoned(reason)
+    }
+
+    /** Writes to the catalog for [account] in one transaction, in turn with edits, and only while it is signed in. */
+    private suspend fun <T> writeLocked(account: String, block: suspend () -> T): T = refreshLock.withLock {
+        exclusiveCatalog {
+            checkAccount(account, "Account changed before publishing page")
+            database.withTransaction { block() }
+        }
     }
 
     /** Applies library changes since [start] to the catalog a page at a time, and returns the token after them. */
@@ -631,14 +662,11 @@ class DefaultGalleryRepository(
             checkAccount(account, "Account changed during sync")
             check(visited.add(token)) { "Repeated change cursor" }
             val page = throttled { cloudSource.changes(token, known) }
-            exclusiveCatalog {
-                checkAccount(account, "Account changed before publishing changes")
-                database.withTransaction {
-                    page.deletedRecordNames.toList().chunked(SQLITE_BIND_CHUNK_SIZE / 2).forEach { names ->
-                        sync.unstampRecords(names, names)
-                    }
-                    writeRecords(page.upserts, stamp)
+            writeLocked(account) {
+                page.deletedRecordNames.toList().chunked(SQLITE_BIND_CHUNK_SIZE / 2).forEach { names ->
+                    sync.unstampRecords(names, names)
                 }
+                writeRecords(page.upserts, stamp)
             }
             token = page.nextToken
         } while (page.moreComing)
@@ -836,6 +864,7 @@ class DefaultGalleryRepository(
     private companion object {
         const val PAGE_SIZE = 100
         const val CATALOG_WALK_SIZE = 500
+        const val LOOKUP_CHUNK = 200
         const val MAX_CAUSE_DEPTH = 8
         const val MAX_THROTTLE_RETRIES = 5
         const val MIN_THROTTLE_WAIT_MILLIS = 2_000L

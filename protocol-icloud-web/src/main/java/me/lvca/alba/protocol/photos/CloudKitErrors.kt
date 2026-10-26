@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
+import me.lvca.alba.engine.source.CatalogCursorRejected
 import me.lvca.alba.engine.source.CatalogResetRequired
 import me.lvca.alba.protocol.array
 import me.lvca.alba.protocol.auth.AppleProtocolError
@@ -56,6 +57,17 @@ internal object CloudKitErrors {
         check(!rejectedRequest(root)) { "Apple rejected the library request" }
     }
 
+    /**
+     * A refused page cursor, for a [resumed] page query that failed with [httpCode] or whose [root] carries a request
+     * error. Sign-in (401, 403) and throttling (429) failures are not about the cursor and are left to their own handling.
+     */
+    fun cursorRejection(httpCode: Int, root: JsonObject?, resumed: Boolean): CatalogCursorRejected? = when {
+        !resumed -> null
+        httpCode in CLIENT_ERRORS && httpCode !in NOT_ABOUT_THE_CURSOR -> CatalogCursorRejected("Apple refused the saved page (HTTP $httpCode)")
+        root != null && rejectedRequest(root) -> CatalogCursorRejected("Apple refused the saved page (${root.serverErrorCode()})")
+        else -> null
+    }
+
     /** The throttling error in [root], a request CloudKit answered but asked to be sent again later, or null. */
     fun throttle(root: JsonObject): AppleThrottledException? {
         val code = serverErrorCodes(root).firstOrNull { it in THROTTLE_CODES } ?: return null
@@ -76,6 +88,10 @@ internal object CloudKitErrors {
     /** Codes CloudKit Web Services uses for a request it may accept later. */
     private val THROTTLE_CODES = setOf("THROTTLED", "TRY_AGAIN_LATER", "ZONE_BUSY")
     private const val MILLIS_PER_SECOND = 1_000L
+    private val CLIENT_ERRORS = 400..499
+
+    /** Sign-in and throttling statuses, which have their own handling. */
+    private val NOT_ABOUT_THE_CURSOR = setOf(401, 403, 429)
 
     /**
      * True when Apple refused a write because the account's iCloud storage is full. CloudKit Web Services reports this

@@ -6,6 +6,9 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/** A library row a full read did not see, with its iCloud asset record name. */
+data class UnseenRow(val mediaId: String, val assetRecordName: String?)
+
 data class DisplayLink(val cloudId: String, val deviceId: String, val accountId: String)
 
 private const val CATALOG_WITH_CACHE = """
@@ -163,6 +166,18 @@ interface CatalogSyncDao {
     @Query("""SELECT assetRecordName FROM catalog_items WHERE origin = 'ICLOUD' AND masterRecordName = :master
         AND assetRecordName IS NOT NULL AND isTrashed = 0 AND mediaId NOT LIKE 'shared:%'""")
     suspend fun assetRecordNames(master: String): List<String>
+
+    /**
+     * Up to [limit] of the account's library rows after [after] that the read [scanId] has not seen, to check by name
+     * whether they still exist. Recently Deleted and Hidden have their own snapshots.
+     */
+    @Query("""SELECT mediaId, assetRecordName FROM catalog_items WHERE origin = 'ICLOUD'
+        AND substr(mediaId, 1, length(:prefix)) = :prefix AND lastSeenScanId != :scanId AND isTrashed = 0 AND isHidden = 0
+        AND mediaId > :after ORDER BY mediaId LIMIT :limit""")
+    suspend fun unseenLibraryRows(prefix: String, scanId: String, after: String, limit: Int): List<UnseenRow>
+
+    @Query("DELETE FROM catalog_checkpoints WHERE scope = :scope")
+    suspend fun deleteCheckpoint(scope: String)
 
     @Query("SELECT COUNT(*) FROM catalog_items WHERE origin = 'ICLOUD'")
     suspend fun cloudCount(): Int
