@@ -1,0 +1,16 @@
+name: Record screenshot goldens
+description: >-
+  Re-records every Roborazzi golden on this runner and stages the result under app/src/test/screenshots. The pull request
+  update and the manual record-screenshots run both use it, so they cannot record differently. Needs a checkout and the
+  Java, Android SDK and Gradle setup first. Goldens are only ever recorded on Linux CI.
+outputs:
+  changed:
+    description: 'true when the recorded goldens differ from the checked-out ones'
+    value: ${{ steps.record.outputs.changed }}
+runs:
+  using: composite
+  steps:
+    - name: Record goldens
+      id: record
+      shell: bash
+      run: bash scripts/ci_goldens.sh record

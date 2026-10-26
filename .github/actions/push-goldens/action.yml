@@ -1,0 +1,57 @@
+name: Commit and push screenshot goldens
+description: >-
+  Commits the staged goldens as the repository's GitHub App and pushes them to a branch, so that the push starts CI on
+  it (a GITHUB_TOKEN push would not). With a pull request number, also creates or updates the PR's one golden comment
+  before pushing: the push starts a new run that cancels the current one. The App token is minted here and used only
+  by the push step; the checkout keeps no credentials.
+inputs:
+  app-id:
+    description: The GitHub App's ID (secret ALBA_BOT_APP_ID)
+    required: true
+  private-key:
+    description: The GitHub App's private key (secret ALBA_BOT_PRIVATE_KEY)
+    required: true
+  branch:
+    description: The branch to push to; never main
+    required: true
+  pr-number:
+    description: The pull request to comment on; empty for none
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Create the GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        # The secret holds the App ID, which the action still accepts alongside the newer client ID.
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        permission-contents: write
+    - name: Commit the goldens as the App
+      id: commit
+      shell: bash
+      env:
+        # Reading the bot user's public id, for its commit email, needs no App permission.
+        GH_TOKEN: ${{ github.token }}
+        APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+      run: bash scripts/ci_goldens.sh commit
+    - name: Comment on the pull request
+      if: ${{ inputs.pr-number != '' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        COMMIT_SHA: ${{ steps.commit.outputs.sha }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+      run: bash scripts/ci_goldens.sh comment "$PR_NUMBER"
+    - name: Push the goldens as the App
+      shell: bash
+      env:
+        APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        REPO: ${{ github.repository }}
+        BRANCH: ${{ inputs.branch }}
+      run: |
+        bash scripts/ci_goldens.sh push "$BRANCH"
+        echo "Committed new goldens to $BRANCH as the GitHub App. The push starts CI on the branch." >> "$GITHUB_STEP_SUMMARY"
