@@ -30,11 +30,15 @@ Notes for coding agents and contributors. Product direction is in [VISION.md](VI
 
 Goldens are recorded and compared on Linux in CI, with a zero-pixel threshold. A local run renders them but doesn't compare.
 
-When a change alters how a screen looks on purpose:
+When a change alters how a screen looks on purpose, push it:
 
-1. Push. CI's JVM job fails, and its `screenshots` artifact shows the new images and the differences.
-2. Check the differences are the ones you meant.
-3. In GitHub, open Actions > CI > Run workflow, pick the branch and tick "record-screenshots". That run commits the new goldens to the branch as the repository's GitHub App, and the push starts CI. Without the `ALBA_BOT_APP_ID` and `ALBA_BOT_PRIVATE_KEY` secrets the run fails and names the missing one.
+1. CI's JVM job fails on the differing screens. If those are the only failures (no other test, build, lint, detekt or ktlint failure), an "Update screenshot goldens" job records every golden on Linux, commits the changed images under `app/src/test/screenshots` to your branch as the repository's GitHub App (`test: update screenshot goldens`), and comments on the pull request with the changed, new and removed screens by variant. The push starts a fresh run, which replaces the old one.
+2. Open the pull request's Files changed, look at the images and check they're the differences you meant.
+3. Merge once the new run is green. Merging accepts the images.
+
+Goldens left over from a removed screenshot test are deleted the same way. This works for branches of this repository only. For a fork, or a branch without a pull request, open Actions > CI > Run workflow, pick the branch and tick "record-screenshots": it records and pushes the same way. If the head commit is already a bot golden update and the screenshots still differ, rendering isn't deterministic: CI fails instead of committing again, so fix what varies.
+
+Both paths push with the App's token, because a push with the default `GITHUB_TOKEN` starts no CI. The App's ID and private key are the repository secrets `ALBA_BOT_APP_ID` and `ALBA_BOT_PRIVATE_KEY`. Without them the update fails and names the missing one; there is no fallback. To create them, register a GitHub App with Contents: read and write on this repository, install it there, and store its ID and a generated private key (the whole `.pem` file) as those two secrets.
 
 Never commit goldens recorded on a Mac.
 

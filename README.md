@@ -110,7 +110,7 @@ Add `#methodName` to a class to run one test, or pass `-Pandroid.testInstrumenta
 - **Every pull request and push to `main`:** one job builds everything, runs every JVM test, verifies the screenshot goldens, and runs lint, detekt and ktlint. Another runs every app, engine and protocol device test on a Pixel 9 emulator (API 36). Failed device tests are retried once; a test that passes only on the retry is listed as flaky in the job summary. Fix it at the root.
 - **Nightly:** the JVM job and the `@Smoke` device tests on API 30 (the minimum) and on a compact phone. Manual runs do both and the full Pixel 9 suite.
 
-"Android checks" passes only when the JVM job and every device job pass.
+"Android checks" passes only when the JVM job and every device job pass. The exception is a pull request whose goldens CI just updated: that commit is replaced by the pushed one, whose own run decides.
 
 A device test that does not need a device is in the wrong layer. Mark a new device test `@Smoke` when it is the quickest check of an area of device-only behaviour; CI runs every device test on pull requests either way.
 
@@ -118,7 +118,13 @@ A device test that does not need a device is in the wrong layer. Mark a new devi
 
 Text rendering differs between macOS and Linux, so goldens are recorded and verified on Linux, in CI. A local `testDebugUnitTest` renders every state but neither writes nor compares images.
 
-When a change alters how a screen looks, CI's JVM job fails and its `screenshots` artifact holds the new images and their differences from the goldens. Review them, then record the new goldens on your branch: in GitHub, open Actions > CI > Run workflow, pick the branch and tick "record-screenshots". That run records every golden and pushes them to the branch as the repository's GitHub App, so the push starts CI on the branch like any other. The App's ID and private key are the repository secrets `ALBA_BOT_APP_ID` and `ALBA_BOT_PRIVATE_KEY`; without them the run fails and names the missing secret.
+When a change alters how a screen looks, push it and let CI update the goldens:
+
+1. CI's JVM job fails on the differing screens. When those are the only failures, the "Update screenshot goldens" job records every golden on Linux, commits the changed images to the branch as the repository's GitHub App, and comments on the pull request with the changed, new and removed screens by variant. The push starts a new run that replaces the old one. Goldens of removed screenshot tests are deleted the same way.
+2. Review the images in the pull request's Files changed.
+3. Merge when the new run is green: merging accepts the images.
+
+Any other failure (another test, the build, lint, detekt, ktlint) fails the job as usual and nothing is committed. Branches from forks aren't updated automatically; run Actions > CI > Run workflow on the branch with "record-screenshots" ticked instead, which records and pushes the same way. If a bot update is already the head commit and the screenshots still differ, CI fails rather than committing again, because rendering isn't deterministic. The App's ID and private key are the repository secrets `ALBA_BOT_APP_ID` and `ALBA_BOT_PRIVATE_KEY`; without them the update fails and names the missing secret, and the push is never made with `GITHUB_TOKEN`, which would start no CI.
 
 To look at the images locally, `./gradlew :app:testDebugUnitTest --tests '*Screenshots' -Proborazzi.test.record=true` writes them to `app/src/test/screenshots`. Do not commit images recorded on a Mac.
 
