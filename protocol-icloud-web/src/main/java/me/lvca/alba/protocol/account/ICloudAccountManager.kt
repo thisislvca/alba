@@ -115,6 +115,7 @@ class ICloudAccountManager(
                         appleId = result.appleId,
                         delivery = result.delivery,
                         destinationHint = result.destinationHint,
+                        smsAvailable = result.smsAvailable,
                     )
                     telemetry.record(AccountOperation.SIGN_IN, AccountOutcome.TWO_FACTOR_REQUIRED, elapsedSince(started))
                 }
@@ -156,6 +157,22 @@ class ICloudAccountManager(
             mutableState.value = mutableSession.value?.let {
                 ICloudAccountState.SignedIn(it.accountName, SessionStatus.OFFLINE)
             } ?: ICloudAccountState.SignedOut
+            throw error
+        }
+    }
+
+    /** Asks Apple to text the code to the trusted phone number instead of a trusted device. */
+    suspend fun sendCodeBySms() = accountOperation {
+        val started = System.nanoTime()
+        check(mutableState.value is ICloudAccountState.AwaitingTwoFactor) {
+            "No Apple verification challenge is active"
+        }
+        try {
+            val result = authentication.sendCodeBySms()
+            mutableState.value = ICloudAccountState.AwaitingTwoFactor(result.appleId, result.delivery, result.destinationHint)
+            telemetry.record(AccountOperation.RESEND_TWO_FACTOR, AccountOutcome.SUCCESS, elapsedSince(started))
+        } catch (error: Throwable) {
+            telemetry.record(AccountOperation.RESEND_TWO_FACTOR, error.accountOutcome(), elapsedSince(started))
             throw error
         }
     }
@@ -243,7 +260,10 @@ internal fun Throwable.accountOutcome(): AccountOutcome =
             me.lvca.alba.protocol.auth.AppleProtocolError.INVALID_TWO_FACTOR_CODE -> AccountOutcome.INVALID_CODE
             me.lvca.alba.protocol.auth.AppleProtocolError.SESSION_EXPIRED -> AccountOutcome.EXPIRED
             me.lvca.alba.protocol.auth.AppleProtocolError.TERMS_UPDATE_REQUIRED -> AccountOutcome.TERMS_REQUIRED
-            me.lvca.alba.protocol.auth.AppleProtocolError.UNSUPPORTED_TWO_FACTOR -> AccountOutcome.UNSUPPORTED
+            me.lvca.alba.protocol.auth.AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
+            me.lvca.alba.protocol.auth.AppleProtocolError.SECURITY_KEY_REQUIRED,
+            me.lvca.alba.protocol.auth.AppleProtocolError.WEB_ACCESS_DISABLED -> AccountOutcome.UNSUPPORTED
+            me.lvca.alba.protocol.auth.AppleProtocolError.TOO_MANY_ATTEMPTS -> AccountOutcome.FAILED
             me.lvca.alba.protocol.auth.AppleProtocolError.NETWORK -> AccountOutcome.NETWORK_ERROR
             me.lvca.alba.protocol.auth.AppleProtocolError.MALFORMED_RESPONSE,
             me.lvca.alba.protocol.auth.AppleProtocolError.PHOTOS_UNAVAILABLE -> AccountOutcome.MALFORMED_RESPONSE

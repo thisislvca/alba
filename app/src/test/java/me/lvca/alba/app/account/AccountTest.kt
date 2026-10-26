@@ -44,7 +44,11 @@ class AccountTest {
         compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).assertIsDisplayed()
     }
 
-    @Test fun accountDraftAndDestinationRestoreButPasswordDoesNot() {
+    /**
+     * Rotation keeps both fields. The password survives only because the view model holds it in memory
+     * ([SignInDraft]); it is never written to saved state, so process death still forgets it.
+     */
+    @Test fun accountDraftAndPasswordSurviveRotation() {
         openSignIn()
         compose.onNodeWithText(app.string(R.string.apple_account)).performTextInput("local-restoration@example.invalid")
         compose.onNodeWithText(app.string(R.string.password)).performTextInput("never-persist-this")
@@ -56,8 +60,8 @@ class AccountTest {
         compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).performScrollTo().assertIsEnabled()
         app.recreate()
         compose.onNodeWithText("local-restoration@example.invalid").assertIsDisplayed()
-        assertEquals("The password must not be restored", 0, passwordLength())
-        compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).performScrollTo().assertIsNotEnabled()
+        assertEquals("never-persist-this".length, passwordLength())
+        compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).performScrollTo().assertIsEnabled()
     }
 
     @Test fun demoProfileShowsTheDemoBadgeAndStorageAcrossRecreation() {

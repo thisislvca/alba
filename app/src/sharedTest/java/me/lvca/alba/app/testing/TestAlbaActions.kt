@@ -1,10 +1,12 @@
 package me.lvca.alba.app.testing
 
 import me.lvca.alba.app.AlbaDependencies
+import me.lvca.alba.app.account.SignInDraft
 import me.lvca.alba.app.di.AlbaGraph
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.transfers.TransferScheduler
 import me.lvca.alba.app.ui.AlbaActions
+import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.GalleryMedia
@@ -53,6 +55,10 @@ internal fun testAlbaActions(
     setBackupSettings: (BackupSettings) -> Unit = {},
     openBackup: () -> Unit = {},
     retryAfterStorageFull: () -> Unit = {},
+    signOut: () -> Unit = {},
+    sendCodeBySms: () -> Unit = {},
+    confirmMixedTrash: (List<GalleryMedia>) -> Unit = {},
+    useElsewhere: (GalleryMedia, ExternalUse) -> Unit = { _, _ -> },
 ): AlbaActions {
     // Renamed so the overrides below cannot resolve to themselves.
     val onSharedActivity = sharedActivity; val onSharedPostDiscussion = sharedPostDiscussion; val onSharedPostPhotos = sharedPostPhotos
@@ -63,6 +69,8 @@ internal fun testAlbaActions(
     val onMoveVerifiedPhotoToTrash = moveVerifiedPhotoToTrash; val onOpenAccount = openAccount; val onStartDemo = startDemo
     val onRetry = retryTransfer; val onRetryAll = retryAllTransfers; val onCancelUploads = cancelUploads; val onFreeUp = freeUpSpace
     val onSettings = setBackupSettings; val onOpenBackup = openBackup; val onRetryStorage = retryAfterStorageFull
+    val onSignOut = signOut; val onSendCodeBySms = sendCodeBySms; val onConfirmMixedTrash = confirmMixedTrash
+    val onUseElsewhere = useElsewhere
     return object : AlbaActions {
         override fun retryTransfer(transferId: TransferId) = onRetry(transferId)
         override fun retryAllTransfers() = onRetryAll()
@@ -137,7 +145,12 @@ internal fun testAlbaActions(
         override fun closeAccount() = Unit
         override fun signIn(appleId: String, password: String) = Unit
         override fun resendTwoFactor() = Unit
-        override fun signOut() = Unit
+        override fun sendCodeBySms() = onSendCodeBySms()
+        override fun clearSignInProblem() = Unit
+        override val signInDraft = SignInDraft()
+        override fun confirmMixedTrash(items: List<GalleryMedia>) = onConfirmMixedTrash(items)
+        override fun useElsewhere(media: GalleryMedia, use: ExternalUse) = onUseElsewhere(media, use)
+        override fun signOut() = onSignOut()
         override fun retryRestore() = Unit
         override fun enableAutomaticBackup() = Unit
         override fun disableAutomaticBackup() = Unit

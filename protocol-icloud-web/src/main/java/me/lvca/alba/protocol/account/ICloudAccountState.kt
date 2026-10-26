@@ -15,6 +15,8 @@ sealed interface ICloudAccountState {
         val appleId: String,
         val delivery: TwoFactorDelivery,
         val destinationHint: String? = null,
+        /** Apple offered a trusted phone number, so the code can be sent by text message instead. */
+        val smsAvailable: Boolean = false,
     ) : ICloudAccountState
 
     data class SignedIn(
@@ -37,6 +39,7 @@ sealed interface AppleSignInResult {
         val appleId: String,
         val delivery: TwoFactorDelivery,
         val destinationHint: String? = null,
+        val smsAvailable: Boolean = false,
     ) : AppleSignInResult
 }
 

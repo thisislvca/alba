@@ -187,6 +187,7 @@ internal fun GalleryHome(
     var sheet by rememberSaveable(stateSaver = GallerySheet.Saver) { mutableStateOf(null) }
     val scope = rememberCoroutineScope()
     var permissionDismissed by rememberSaveable { mutableStateOf(false) }
+    var limitedNoteDismissed by rememberSaveable { mutableStateOf(false) }
     var owner by rememberSaveable { mutableStateOf(identity) }
     LaunchedEffect(identity) {
         if (identity != null) {
@@ -287,7 +288,9 @@ internal fun GalleryHome(
     val showSharedStrip = tab == GalleryTab.LIBRARY && query.collectionId == null &&
         query.fromDate == null && query.throughDate == null && !query.offlineOnly && !query.trashOnly
     val leadingItems = if (hero || showSharedStrip) 1 else 0
-    val permissionPrompt = tab == GalleryTab.LIBRARY && !gallery.deviceMediaAccess && !permissionDismissed
+    // Android 14's partial access: a small note in the prompt's place says how many photos Alba sees, with Change.
+    val limitedNote = tab == GalleryTab.LIBRARY && gallery.deviceMediaAccess && gallery.limitedPhotoAccess && !limitedNoteDismissed
+    val permissionPrompt = (tab == GalleryTab.LIBRARY && !gallery.deviceMediaAccess && !permissionDismissed) || limitedNote
     fun openShared(id: String) {
         libraryQuery = gallery.query
         tab = GalleryTab.COLLECTIONS
@@ -327,8 +330,8 @@ internal fun GalleryHome(
             } else MaterialTheme.colorScheme.background,
             animationSpec = if (reducedMotion) snap() else tween(250, easing = galleryColorEase), label = "gallery-header-surface")
         val sections = gallery.sections
-        val monthOffsets = remember(sections, gallery.deviceMediaAccess, permissionDismissed, leadingItems, visibleLevel, query.date) {
-            galleryMonthOffsets(sections, !gallery.deviceMediaAccess && !permissionDismissed, visibleLevel.dayHeaders, query.date, leadingItems)
+        val monthOffsets = remember(sections, permissionPrompt, leadingItems, visibleLevel, query.date) {
+            galleryMonthOffsets(sections, permissionPrompt, visibleLevel.dayHeaders, query.date, leadingItems)
         }
         val headerClearance = with(uiDensity) { GalleryFeel.STICKY_DATE_HEADER_CLEARANCE.toPx() }
         val visibleMonth by remember(libraryGrid, sections, monthOffsets, headerClearance) {
@@ -480,7 +483,7 @@ internal fun GalleryHome(
                             unfiltered = unfiltered,
                             connectPrompt = connectPrompt,
                             isRefreshing = session.isRefreshing,
-                            counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount),
+                            counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount, limitedAccess = limitedNote),
                             previewRetryVersion = previewRetryVersion,
                             grid = when (shown.tab) {
                                 GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid
@@ -492,7 +495,7 @@ internal fun GalleryHome(
                             onLevelChange = changeLevel,
                             bottomSpace = bottomSpace,
                             showPermissionPrompt = permissionPrompt,
-                            onDismissPermissionPrompt = { permissionDismissed = true },
+                            onDismissPermissionPrompt = { if (limitedNote) limitedNoteDismissed = true else permissionDismissed = true },
                             actions = actions,
                             flat = hero,
                             onAddMedia = if (hero && collection?.shared?.canContribute == true && canEdit) ({ sheet = GallerySheet.SharedPicker }) else null,
@@ -637,8 +640,11 @@ internal sealed interface GallerySheet {
     }
 }
 
-/** The library's totals, shown under the grid. */
-internal data class PhotoCounts(val cloud: Int, val device: Int)
+/**
+ * The library's totals, shown under the grid. [limitedAccess] marks Android 14's partial access, where [device] counts
+ * only the photos the user selected for Alba.
+ */
+internal data class PhotoCounts(val cloud: Int, val device: Int, val limitedAccess: Boolean = false)
 
 /**
  * A grid of photos grouped by month, and by day from the [GridLevel.DAY] level up. Takes the lists it shows rather
@@ -733,7 +739,10 @@ private fun PhotoGrid(
     /** The grid's items at [shown]; [incoming] marks the next level laid out underneath during a pinch. */
     fun LazyGridScope.photoItems(shown: GridLevel, incoming: Boolean) {
         val posed = { key: Any -> Modifier.pinchPose(pinch, key, incoming) }
-        if (showPermissionPrompt) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
+        if (showPermissionPrompt && counts.limitedAccess) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
+            LimitedAccessNote(counts.device, change = actions::requestDevicePhotos, dismiss = onDismissPermissionPrompt,
+                modifier = posed("permission"))
+        } else if (showPermissionPrompt) item(key = "permission", span = { GridItemSpan(maxLineSpan) }) {
             AlbaCard(posed("permission").padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
                 color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

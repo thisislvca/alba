@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -40,6 +41,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
@@ -47,6 +49,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.print.PrintHelper
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import me.lvca.alba.app.intake.IncomingRequest
@@ -57,17 +60,22 @@ import me.lvca.alba.app.platform.ExportDocument
 import me.lvca.alba.app.platform.MobileDataChoice
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PendingExport
+import me.lvca.alba.app.platform.PhotoPromptPreferences
 import me.lvca.alba.app.platform.UploadTarget
+import me.lvca.alba.app.platform.appSettingsIntent
 import me.lvca.alba.app.platform.deviceLibraryChanges
+import me.lvca.alba.app.platform.externalUseIntent
 import me.lvca.alba.app.platform.hasDevicePhotoAccess
 import me.lvca.alba.app.platform.hasLimitedPhotoAccess
 import me.lvca.alba.app.platform.notBackedUpCount
 import me.lvca.alba.app.platform.phoneTrashUris
+import me.lvca.alba.app.platform.photoPromptBlocked
 import me.lvca.alba.app.platform.requestedDevicePhotoPermissions
 import me.lvca.alba.app.platform.uploadNeedsMediaLocationPermission
 import me.lvca.alba.app.transfers.BackupSetup
 import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.app.ui.AlbaApp
+import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.app.ui.InvitationActions
 import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -84,6 +92,7 @@ import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
+import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SystemConsentCallback
@@ -101,6 +110,12 @@ internal sealed interface RootDialog {
     /** Moving phone items to Android's trash when some of them are not backed up to iCloud. */
     data class ConfirmPhoneTrash(val mediaIds: List<String>, val notBackedUp: Int) : RootDialog
 
+    /** One confirmation for phone and iCloud items trashed together; each goes to its own trash. */
+    data class ConfirmMixedTrash(val cloudIds: List<String>, val phoneIds: List<String>) : RootDialog
+
+    /** Explains photo location access before Android asks for it, ahead of an upload. */
+    data class MediaLocation(val upload: UploadTarget) : RootDialog
+
     companion object {
         val Saver = Saver<RootDialog?, List<Any>>(
             save = { dialog ->
@@ -109,6 +124,11 @@ internal sealed interface RootDialog {
                     is ConfirmCloudTrash -> listOf("cloud-trash", dialog.trashed, ArrayList(dialog.mediaIds))
                     is ConfirmRemoveFromAlbum -> listOf("remove-from-album", dialog.albumId, ArrayList(dialog.mediaIds))
                     is ConfirmPhoneTrash -> listOf("phone-trash", dialog.notBackedUp, ArrayList(dialog.mediaIds))
+                    is ConfirmMixedTrash -> listOf("mixed-trash", ArrayList(dialog.cloudIds), ArrayList(dialog.phoneIds))
+                    is MediaLocation -> listOf("media-location", when (val target = dialog.upload) {
+                        UploadTarget.Selection -> ""
+                        is UploadTarget.Media -> target.mediaId
+                    })
                     null -> null
                 }
             },
@@ -119,6 +139,9 @@ internal sealed interface RootDialog {
                     "cloud-trash" -> ConfirmCloudTrash(saved[2] as List<String>, saved[1] as Boolean)
                     "remove-from-album" -> ConfirmRemoveFromAlbum(saved[1] as String, saved[2] as List<String>)
                     "phone-trash" -> ConfirmPhoneTrash(saved[2] as List<String>, saved[1] as Int)
+                    "mixed-trash" -> ConfirmMixedTrash(saved[1] as List<String>, saved[2] as List<String>)
+                    "media-location" -> MediaLocation((saved[1] as String).takeIf(String::isNotEmpty)
+                        ?.let(UploadTarget::Media) ?: UploadTarget.Selection)
                     else -> null
                 }
             },
@@ -135,6 +158,8 @@ private val PendingExportSaver = Saver<PendingExport?, List<Any>>(
     save = { export -> export?.let { listOf(it.mediaId, it.livePair) } },
     restore = { saved -> PendingExport(saved[0] as String, saved[1] as Boolean) },
 )
+
+private const val PERMISSION_GRANT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 
 private fun Context.granted(permission: String) =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
@@ -154,6 +179,15 @@ internal fun AlbaRoot(
     var showWelcome by rememberSaveable { mutableStateOf(!onboarding.completed) }
     // Sign-in opened from the introduction: leaving it without an account returns there, not to an empty library.
     var connectingFromWelcome by rememberSaveable { mutableStateOf(false) }
+    // Signing out returns to the introduction's choices rather than dropping silently into an empty library.
+    val returnToWelcome by viewModel.returnToWelcome.collectAsStateWithLifecycle()
+    LaunchedEffect(returnToWelcome) {
+        if (returnToWelcome) {
+            connectingFromWelcome = false
+            showWelcome = true
+            viewModel.welcomeShown()
+        }
+    }
     // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
     AlbaTheme(darkTheme = isSystemInDarkTheme()) {
         if (showWelcome && incoming.request == null) {
@@ -186,6 +220,10 @@ private fun AlbaMain(
     onAccountClosed: () -> Unit,
 ) {
     val context = LocalContext.current
+    val photoPrompt = remember(context) { PhotoPromptPreferences(context) }
+    val useAsTitle = stringResource(R.string.viewer_use_as)
+    val openWithTitle = stringResource(R.string.viewer_open_with)
+    val editInTitle = stringResource(R.string.viewer_edit_in)
     val activity = LocalActivity.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val gallery by viewModel.gallery.state.collectAsStateWithLifecycle()
@@ -227,8 +265,11 @@ private fun AlbaMain(
         viewModel.setDeviceMediaAccess(hasDevicePhotoAccess, hasLimitedPhotoAccess(Build.VERSION.SDK_INT, context::granted))
     }
 
-    val devicePhotoPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+    val devicePhotoPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
         recheckDevicePhotoAccess()
+        val requested = requestedDevicePhotoPermissions(Build.VERSION.SDK_INT).first()
+        photoPrompt.blocked = photoPromptBlocked(anyGranted = results.values.any { it } || hasDevicePhotoAccess,
+            showRationale = activity?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, requested) } ?: true)
     }
     val backupPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         viewModel.transfers.backupPermissionsAnswered()
@@ -270,8 +311,14 @@ private fun AlbaMain(
 
     val platform = remember(viewModel, context) {
         object : PlatformRequests {
-            override fun requestDevicePhotos() =
-                devicePhotoPermissions.launch(requestedDevicePhotoPermissions(Build.VERSION.SDK_INT).toTypedArray())
+            override fun requestDevicePhotos() {
+                // Android no longer shows its prompt after two denials; its settings page is the only way left.
+                if (photoPrompt.blocked && !hasDevicePhotoAccess(Build.VERSION.SDK_INT, context::granted)) {
+                    runCatching { context.startActivity(appSettingsIntent(context.packageName)) }
+                        .onSuccess { Toast.makeText(context, R.string.phone_photo_settings_hint, Toast.LENGTH_LONG).show() }
+                        .onFailure { viewModel.localOperationFailed() }
+                } else devicePhotoPermissions.launch(requestedDevicePhotoPermissions(Build.VERSION.SDK_INT).toTypedArray())
+            }
 
             override fun pickUpload() {
                 if (viewModel.account.state.value.accountState == ICloudAccountState.Demo) dialog = RootDialog.DemoUpload
@@ -329,14 +376,13 @@ private fun AlbaMain(
             override fun upload(target: UploadTarget) {
                 val accountState = viewModel.account.state.value.accountState
                 if (uploadNeedsMediaLocationPermission(accountState, context.granted(Manifest.permission.ACCESS_MEDIA_LOCATION))) {
-                    pendingUpload = target
-                    mediaLocationPermission.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
+                    dialog = RootDialog.MediaLocation(target)
                 } else startUpload(viewModel, target)
             }
 
             override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) {
                 if (items.isEmpty()) return
-                val uris = phoneTrashUris(items) ?: return viewModel.localOperationFailed()
+                val uris = phoneTrashUris(items) ?: return viewModel.phoneTrashFailed()
                 // Say so before Android's own request when some of these exist only on this phone.
                 val notBackedUp = if (restore) 0 else notBackedUpCount(items, viewModel.transfers.state.value.uploadsByMediaId)
                 if (notBackedUp > 0) dialog = RootDialog.ConfirmPhoneTrash(items.map { it.id }, notBackedUp)
@@ -345,8 +391,8 @@ private fun AlbaMain(
 
             override fun confirmPhoneTrash(mediaIds: List<String>) {
                 val items = viewModel.gallery.current.catalogItems.filter { it.id in mediaIds }
-                if (items.size != mediaIds.size) return viewModel.localOperationFailed()
-                requestPhoneTrash(phoneTrashUris(items) ?: return viewModel.localOperationFailed(), restore = false)
+                if (items.size != mediaIds.size) return viewModel.phoneTrashFailed()
+                requestPhoneTrash(phoneTrashUris(items) ?: return viewModel.phoneTrashFailed(), restore = false)
             }
 
             override fun restoreOnPhone(contentUris: List<String>) = requestPhoneTrash(contentUris, restore = true)
@@ -357,7 +403,7 @@ private fun AlbaMain(
                 runCatching {
                     val request = MediaStore.createTrashRequest(context.contentResolver, contentUris.map(Uri::parse), !restore)
                     phoneTrash.launch(IntentSenderRequest.Builder(request.intentSender).build())
-                }.onFailure { viewModel.localOperationFailed() }
+                }.onFailure { viewModel.phoneTrashFailed() }
             }
 
             override fun exportDocument(media: GalleryMedia, livePair: Boolean) {
@@ -389,6 +435,17 @@ private fun AlbaMain(
                         }.onFailure { viewModel.exports.shareFailed() }
                         is AlbaEffect.ConfirmVerifiedTrash -> verifiedTrash.launch(IntentSenderRequest.Builder(effect.request).build())
                         is AlbaEffect.RequestBackupPermissions -> backupPermissions.launch(effect.permissions.toTypedArray())
+                        is AlbaEffect.UseElsewhere -> runCatching {
+                            val intent = externalUseIntent(effect.use, effect.uri, effect.mimeType)
+                            if (intent == null) {
+                                PrintHelper(requireNotNull(activity)).apply { scaleMode = PrintHelper.SCALE_MODE_FIT }
+                                    .printBitmap(effect.name, effect.uri)
+                            } else context.startActivity(Intent.createChooser(intent, when (effect.use) {
+                                ExternalUse.USE_AS -> useAsTitle
+                                ExternalUse.EDIT_IN -> editInTitle
+                                else -> openWithTitle
+                            }).addFlags(intent.flags and PERMISSION_GRANT_FLAGS))
+                        }.onFailure { viewModel.exports.useElsewhereFailed(effect.use) }
                     }
                 } finally {
                     viewModel.effectHandled(pending)
@@ -495,6 +552,42 @@ private fun AlbaMain(
                 modifier = Modifier.testTag("confirm-unbacked-phone-trash")) { Text(stringResource(R.string.trash_phone_copy)) } },
             dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.cancel)) } },
             modifier = Modifier.testTag("unbacked-phone-trash"),
+        )
+        is RootDialog.ConfirmMixedTrash -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(stringResource(R.string.mixed_trash_title)) },
+            text = {
+                // The phone items' own warning joins this one, so the user confirms once, knowing what isn't backed up.
+                val notBackedUp = notBackedUpCount(gallery.catalogItems.filter { it.id in current.phoneIds }, transfers.uploadsByMediaId)
+                Text(listOfNotNull(
+                    pluralStringResource(R.plurals.mixed_trash_cloud, current.cloudIds.size, current.cloudIds.size),
+                    pluralStringResource(R.plurals.mixed_trash_phone, current.phoneIds.size, current.phoneIds.size),
+                    notBackedUp.takeIf { it > 0 }?.let {
+                        pluralStringResource(R.plurals.phone_trash_some_not_backed_up, current.phoneIds.size, it, current.phoneIds.size)
+                    },
+                ).joinToString("\n\n"))
+            },
+            confirmButton = { TextButton(onClick = {
+                dialog = null
+                val phoneItems = gallery.catalogItems.filter { it.id in current.phoneIds }
+                if (phoneItems.size == current.phoneIds.size) {
+                    viewModel.mixedTrashRequested(current.cloudIds)
+                    // Already confirmed here, including any items that aren't backed up: no second dialog.
+                    platform.confirmPhoneTrash(current.phoneIds)
+                } else viewModel.phoneTrashFailed()
+            }) { Text(stringResource(R.string.mixed_trash_action)) } },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+        is RootDialog.MediaLocation -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(stringResource(R.string.media_location_title)) },
+            text = { Text(stringResource(R.string.media_location_body)) },
+            confirmButton = { TextButton(onClick = {
+                dialog = null
+                pendingUpload = current.upload
+                mediaLocationPermission.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
+            }) { Text(stringResource(R.string.welcome_continue)) } },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.not_now)) } },
         )
         RootDialog.DemoUpload, null -> Unit
     }
@@ -641,6 +734,10 @@ private class AlbaRootActions(
     override fun undo(action: UndoAction) = when (action) {
         is UndoAction.CloudTrash -> edits.undoCloudTrash(action.mediaIds)
         is UndoAction.PhoneTrash -> platform.restoreOnPhone(action.contentUris)
+        is UndoAction.MixedTrash -> {
+            edits.undoCloudTrash(action.cloud.mediaIds)
+            platform.restoreOnPhone(action.phone.contentUris)
+        }
     }
 
     override fun changeQuery(query: GalleryQuery) = gallery.setQuery(query)
@@ -669,6 +766,15 @@ private class AlbaRootActions(
     override fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean) =
         if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmCloudTrash(mediaIds.toList(), trashed)) else Unit
     override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) = platform.trashOnPhone(items, restore)
+    override fun confirmMixedTrash(items: List<GalleryMedia>) {
+        val cloudIds = items.filter { it.origin == MediaOrigin.ICLOUD }.map { it.id }
+        val phoneIds = items.filter { it.origin == MediaOrigin.DEVICE }.map { it.id }
+        when {
+            phoneIds.isEmpty() -> confirmCloudTrash(cloudIds, trashed = true)
+            cloudIds.isEmpty() -> platform.trashOnPhone(items, restore = false)
+            else -> platform.confirm(RootDialog.ConfirmMixedTrash(cloudIds, phoneIds))
+        }
+    }
     override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>) = shared.contributeToSharedAlbum(albumId, mediaIds)
     override fun createSharedAlbum(name: String, generation: SharedAlbumGeneration) = shared.createSharedAlbum(name, generation)
 
@@ -700,12 +806,16 @@ private class AlbaRootActions(
     override fun removeCachedOriginal(mediaId: String) = transfers.removeCachedOriginal(mediaId)
     override fun cancelOfflineDownload() = transfers.cancelOfflineDownload()
     override fun moveVerifiedPhotoToTrash(mediaId: String) = transfers.requestVerifiedTrash(mediaId)
+    override fun useElsewhere(media: GalleryMedia, use: ExternalUse) = viewModel.exports.useElsewhere(media, use)
 
     override fun closeAccount() { account.closeAccount(); onAccountClosed() }
     override fun signIn(appleId: String, password: String) = account.signIn(appleId, password)
     override fun submitTwoFactor(code: String) = account.submitTwoFactor(code)
     override fun resendTwoFactor() = account.resendTwoFactor()
-    override fun signOut() = account.signOut()
+    override fun sendCodeBySms() = account.sendCodeBySms()
+    override fun clearSignInProblem() = account.clearSignInProblem()
+    override val signInDraft get() = account.signInDraft
+    override fun signOut() = viewModel.signOut()
     override fun checkConnection() = account.checkConnection()
     override fun retryRestore() = viewModel.sync.refresh()
     override fun enableAutomaticBackup() = transfers.beginAutomaticBackup()

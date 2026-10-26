@@ -148,6 +148,10 @@ internal fun ProfileOverview(
             }
         }
     }
+    if (session.webAccessOff && signedIn != null) {
+        Spacer(Modifier.height(AlbaSpacing.xl))
+        WebAccessOffCard()
+    }
     Spacer(Modifier.height(AlbaSpacing.xl))
     ProfileStorage(session, demo, signedIn != null, onCheckConnection)
     Spacer(Modifier.height(AlbaSpacing.xl))
@@ -183,8 +187,11 @@ internal fun ProfileOverview(
     if (signedIn != null) {
         Spacer(Modifier.height(AlbaSpacing.xxl))
         AlbaCard {
-            TextButton(onClick = onSignOut, enabled = !busy, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                Text(stringResource(R.string.sign_out_and_use_demo_library), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+            ConfirmSignOutButton(onSignOut = onSignOut) { onClick ->
+                TextButton(onClick = onClick, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("profile-sign-out")) {
+                    Text(stringResource(R.string.sign_out_and_use_demo_library), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                }
             }
         }
     }
