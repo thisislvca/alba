@@ -1127,4 +1127,14 @@
         <item quantity="one">1 day left</item>
         <item quantity="other">%1$d days left</item>
     </plurals>
+    <string name="catalog_scan_large_library">This can take a while for large libraries.</string>
+    <string name="catalog_scan_notification">Loading your iCloud library</string>
+    <plurals name="catalog_scan_progress">
+        <item quantity="one">%1$s photo loaded</item>
+        <item quantity="other">%1$s photos loaded</item>
+    </plurals>
+    <plurals name="catalog_scan_progress_of_total">
+        <item quantity="one">%1$s of %2$s photo loaded</item>
+        <item quantity="other">%1$s of %2$s photos loaded</item>
+    </plurals>
 </resources>

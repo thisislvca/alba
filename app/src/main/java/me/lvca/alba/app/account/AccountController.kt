@@ -27,6 +27,7 @@ import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.engine.model.AccountChangeResult
+import me.lvca.alba.engine.model.CatalogScanProgress
 import me.lvca.alba.engine.model.CloudAccountProfile
 import me.lvca.alba.engine.model.CloudStorageUsage
 import me.lvca.alba.engine.model.GalleryRepository
@@ -65,6 +66,8 @@ data class SessionState(
     val signInProblem: SignInProblem? = null,
     /** The last refresh found "Access iCloud Data on the Web" off for this account. */
     val webAccessOff: Boolean = false,
+    /** The first full read of the iCloud library, while it is unfinished: how many photos it has loaded. */
+    val catalogScan: CatalogScanProgress? = null,
 ) {
     val cloudSourceLabel: String
         get() = if (accountState != ICloudAccountState.Demo) "iCloud Personal Library" else "Demo iCloud library"
@@ -126,6 +129,8 @@ internal class AccountController(
             requestedPage = flags.page,
             signInProblem = flags.problem,
             webAccessOff = sync.webAccessOff,
+            // Only an iCloud library is large enough to read for a while; the demo and signed-out reads are instant.
+            catalogScan = sync.catalogScan.takeIf { account is ICloudAccountState.SignedIn },
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), SessionState())
 

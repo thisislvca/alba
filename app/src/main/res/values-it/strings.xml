@@ -1159,4 +1159,16 @@
         <item quantity="many">%1$d giorni rimasti</item>
         <item quantity="other">%1$d giorni rimasti</item>
     </plurals>
+    <string name="catalog_scan_large_library">Con le librerie grandi può volerci un po\'.</string>
+    <string name="catalog_scan_notification">Caricamento della libreria di iCloud</string>
+    <plurals name="catalog_scan_progress">
+        <item quantity="one">%1$s foto caricata</item>
+        <item quantity="other">%1$s foto caricate</item>
+        <item quantity="many">%1$s foto caricate</item>
+    </plurals>
+    <plurals name="catalog_scan_progress_of_total">
+        <item quantity="one">%1$s di %2$s foto caricata</item>
+        <item quantity="other">%1$s di %2$s foto caricate</item>
+        <item quantity="many">%1$s di %2$s foto caricate</item>
+    </plurals>
 </resources>

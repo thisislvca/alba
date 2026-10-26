@@ -36,7 +36,7 @@ class FixtureICloudCatalogSourceTest {
         source.setHidden(listOf(photo), true)
         assertTrue(source.fetchPage(null, 100).records.none { it.id == photo })
         assertTrue(source.hiddenMedia().any { it.id == photo && it.isHidden })
-        assertTrue(source.changes(source.captureSyncToken(), emptyList()).upserts.single { it.id == photo }.isHidden)
+        assertTrue(source.changes(source.captureSyncToken(), me.lvca.alba.engine.source.KnownCloudRecords.NONE).upserts.single { it.id == photo }.isHidden)
         source.setHidden(listOf(photo), false)
         assertTrue(source.fetchPage(null, 100).records.any { it.id == photo && !it.isHidden })
     }

@@ -216,14 +216,19 @@ class FixtureICloudCatalogSource(
         return true
     }
     private val trashed = mutableSetOf<String>()
+
+    /** Every library item the demo has listed, so a change page can report the ones that left. */
+    private val listed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     override suspend fun captureSyncToken() = CHANGE_TOKEN
-    override suspend fun changes(token: String, known: List<RemoteMediaRecord>): me.lvca.alba.engine.source.CloudChanges {
+    override suspend fun changes(token: String, known: me.lvca.alba.engine.source.KnownCloudRecords): me.lvca.alba.engine.source.CloudChanges {
         if (token != CHANGE_TOKEN) throw me.lvca.alba.engine.source.CatalogResetRequired()
-        val records = personalRecords()
-        val current = records.map { it.id }.toSet()
-        return me.lvca.alba.engine.source.CloudChanges(records.filterNot { it.id in trashed },
-            trashed + known.map { it.id }.filterNot { it in current }, CHANGE_TOKEN, false)
+        // The demo lists every item on each change page, and reports as deleted what it listed before and no longer has.
+        val current = personalRecords().filterNot { it.id in trashed }
+        val left = listed - current.map { it.id }.toSet()
+        listed += current.map { it.id }
+        return me.lvca.alba.engine.source.CloudChanges(current, trashed + left, CHANGE_TOKEN, false)
     }
+    override suspend fun libraryItemCount() = personalRecords().count { !it.isHidden }
     private val albums = mutableListOf(
         me.lvca.alba.engine.model.GalleryCollection("demo:journeys", "Journeys", isFolder = true),
         me.lvca.alba.engine.model.GalleryCollection("demo:coast", "By the sea", "demo:journeys"),
@@ -316,8 +321,9 @@ class FixtureICloudCatalogSource(
         val offset = cursor?.toIntOrNull() ?: 0
         // Like iCloud's main feed, the library pages leave Hidden out.
         val all = personalRecords().filterNot { it.isHidden }
-        require(offset in 0..all.size) { "Invalid fixture cursor: $cursor" }
+        if (offset !in 0..all.size) throw me.lvca.alba.engine.source.CatalogCursorRejected("Invalid fixture cursor: $cursor")
         val page = all.drop(offset).take(limit)
+        listed += page.map { it.id }
         val nextOffset = offset + page.size
         return CloudCatalogPage(
             records = page.filterNot { it.id in trashed },

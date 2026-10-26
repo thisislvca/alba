@@ -1,0 +1,443 @@
+package me.lvca.alba.engine.repository
+
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import me.lvca.alba.engine.cache.MediaFileCache
+import me.lvca.alba.engine.database.AlbaDatabase
+import me.lvca.alba.engine.model.CatalogScanProgress
+import me.lvca.alba.engine.model.MediaAvailability
+import me.lvca.alba.engine.source.CatalogCursorRejected
+import me.lvca.alba.engine.source.CatalogResetRequired
+import me.lvca.alba.engine.source.CatalogScanAbandoned
+import me.lvca.alba.engine.source.CloudCatalogPage
+import me.lvca.alba.engine.source.CloudCatalogSource
+import me.lvca.alba.engine.source.CloudChanges
+import me.lvca.alba.engine.source.KnownCloudRecords
+import me.lvca.alba.engine.source.LibraryLookup
+import me.lvca.alba.engine.source.RemoteMediaRecord
+import me.lvca.alba.engine.source.ThrottledFailure
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.IOException
+import java.io.OutputStream
+import java.lang.ref.WeakReference
+
+/** The first full library read: written page by page, resumable, fenced to one account, and patient with throttling. */
+@RunWith(AndroidJUnit4::class)
+class ResumableCatalogSyncTest {
+    private lateinit var context: Context
+    private lateinit var database: AlbaDatabase
+    private lateinit var cache: MediaFileCache
+    private val pauses = mutableListOf<Long>()
+
+    @Before
+    fun setUp() {
+        context = ApplicationProvider.getApplicationContext()
+        database = Room.inMemoryDatabaseBuilder(context, AlbaDatabase::class.java).build()
+        cache = MediaFileCache(context, availableBytes = { Long.MAX_VALUE }).also { runBlocking { it.clearAll() } }
+    }
+
+    @After
+    fun tearDown() {
+        runBlocking { cache.clearAll() }
+        database.close()
+    }
+
+    /** A new repository on the same database, as after the process was killed. */
+    private fun repository(source: CloudCatalogSource) = DefaultGalleryRepository(database, source, null, cache, pause = { pauses += it })
+
+    @Test
+    fun aReadCutShortResumesFromTheSavedCursorAfterTheProcessDies() = runBlocking {
+        val source = PagedSource(count = 50).apply { failAt = "30" }
+        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is IOException)
+
+        // Every page that landed is browsable and the read knows where it stopped; nothing is published as complete.
+        assertEquals(30, repository(source).observeGallery().first().size)
+        assertEquals(CatalogScanProgress(loadedCount = 30, totalCount = 50), repository(source).observeCatalogScan().first())
+        assertNull(database.catalogDao().checkpoint("icloud:account-a"))
+
+        source.requested.clear()
+        val summary = repository(source).refresh(false)
+
+        assertEquals(listOf<String?>("30", "40"), source.requested)
+        assertEquals(50, summary.cloudItemCount)
+        assertEquals("token-after", database.catalogDao().checkpoint("icloud:account-a")?.changeToken)
+        assertNull(database.catalogSyncDao().scan("account-a"))
+        assertNull(repository(source).observeCatalogScan().first())
+        // The next refresh is incremental: no page is read again.
+        source.requested.clear()
+        repository(source).refresh(false)
+        assertTrue(source.requested.isEmpty())
+    }
+
+    @Test
+    fun anAccountChangeDuringTheReadDiscardsThePartialRead() = runBlocking {
+        val source = PagedSource(count = 30)
+        source.onFetch = { cursor -> if (cursor == "10") source.accountLabel = "account-b" }
+        assertTrue(runCatching { repository(source).refresh(false) }.isFailure)
+        // The page fetched after the switch was refused; only the first account's first page is in the catalog.
+        assertEquals(10, database.catalogSyncDao().cloudCount())
+
+        source.onFetch = {}
+        source.requested.clear()
+        repository(source).refresh(false)
+
+        assertNull(source.requested.first())
+        assertNull(database.catalogSyncDao().scan("account-a"))
+        val ids = repository(source).observeGallery().first().map { it.id }
+        assertEquals(30, ids.size)
+        assertTrue(ids.all { it.startsWith("icloud:account-b:") })
+    }
+
+    @Test
+    fun rowsTheReadDidNotSeeAreRemovedOnlyOnceItCompletes() = runBlocking {
+        val source = PagedSource(count = 30)
+        source.hidden = listOf(source.record(900).copy(isHidden = true))
+        val first = repository(source)
+        first.refresh(false)
+        first.ensurePreview(source.id(5))
+        // An update that needs every photo again, like schema 17, forgets the change token.
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.items = (0 until 20).toMutableList()
+        source.hidden = emptyList()
+        source.failAt = "10"
+
+        assertTrue(runCatching { repository(source).refresh(false) }.isFailure)
+        // The last complete catalog stays browsable while the read is unfinished, Hidden included.
+        assertEquals(31, database.catalogSyncDao().cloudCount())
+        assertNotNull(database.catalogDao().findById(source.id(25)))
+
+        repository(source).refresh(false)
+
+        val ids = repository(source).observeGallery().first().map { it.id }.toSet()
+        assertEquals((0 until 20).map(source::id).toSet(), ids)
+        assertEquals(MediaAvailability.PREVIEW_CACHED, repository(source).findMedia(source.id(5))?.availability)
+    }
+
+    @Test
+    fun changesApplyToTheCatalogAndTrashKeepsItsCachedFiles() = runBlocking {
+        val source = PagedSource(count = 10)
+        val repository = repository(source)
+        repository.refresh(false)
+        repository.ensurePreview(source.id(4))
+        source.changes = CloudChanges(listOf(source.record(99)), setOf("asset-3", "asset-4"), "token-later", false)
+        source.trash = listOf(source.record(4).copy(isTrashed = true))
+
+        repository.refresh(false)
+
+        val items = repository.observeGallery().first().associateBy { it.id }
+        assertFalse(source.id(3) in items)
+        assertTrue(source.id(99) in items)
+        assertTrue(items.getValue(source.id(4)).isTrashed)
+        assertEquals(MediaAvailability.PREVIEW_CACHED, items.getValue(source.id(4)).availability)
+        assertEquals("token-later", database.catalogDao().checkpoint("icloud:account-a")?.changeToken)
+    }
+
+    @Test
+    fun aLibraryLargerThanTheOldLimitLoadsWithoutHoldingEarlierPages() = runBlocking {
+        val source = PagedSource(count = 120_000, pageSize = 4_000)
+        // A record from each page; the read must not keep any of them, or the page list, once its page is written.
+        val pages = mutableListOf<List<WeakReference<Any>>>()
+        var heldEarlierPage = false
+        source.onPage = { records ->
+            // Two pages back is out of the read's hands: the repository keeps no list of what it has read.
+            pages.getOrNull(pages.size - 2)?.let { refs -> if (!refs.all(::collected)) heldEarlierPage = true }
+            pages += listOf<WeakReference<Any>>(WeakReference(records), WeakReference(records.first()), WeakReference(records.last()))
+        }
+
+        val summary = repository(source).refresh(false)
+
+        assertEquals(120_000, summary.cloudItemCount)
+        assertFalse("A page read earlier was still reachable during the read", heldEarlierPage)
+    }
+
+    @Test
+    fun throttlingWaitsAsLongAsICloudAsksThenBacksOffOnItsOwn() = runBlocking {
+        val source = PagedSource(count = 20)
+        source.throttles = ArrayDeque(listOf(5_000L, null, null))
+
+        repository(source).refresh(false)
+
+        // Waits as asked, and without an answer doubles from two seconds by attempt.
+        assertEquals(listOf(5_000L, 4_000L, 8_000L), pauses)
+        assertEquals(20, database.catalogSyncDao().cloudCount())
+    }
+
+    @Test
+    fun aLongerWaitThanARefreshKeepsOpenEndsItAndKeepsTheReadForLater() = runBlocking {
+        val source = PagedSource(count = 20)
+        source.throttles = ArrayDeque(listOf(null, 600_000L))
+
+        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is ThrottledFailure)
+        assertEquals(listOf(2_000L), pauses)
+        assertNotNull(database.catalogSyncDao().scan("account-a"))
+    }
+
+    @Test
+    fun anExpiredCursorStartsTheReadOverOnceKeepingItsRows() = runBlocking {
+        val source = PagedSource(count = 30).apply { failAt = "10" }
+        assertTrue(runCatching { repository(source).refresh(false) }.isFailure)
+        source.rejectCursor = "10"
+        source.requested.clear()
+
+        // The saved cursor is refused: the read starts over from the first page, once, and keeps what it had.
+        val error = runCatching { repository(source).refresh(false) }.exceptionOrNull()
+
+        assertTrue(error is CatalogCursorRejected)
+        assertEquals(listOf<String?>("10", null, "10"), source.requested)
+        assertTrue(requireNotNull(database.catalogSyncDao().scan("account-a")).restarted)
+        assertEquals(10, database.catalogSyncDao().cloudCount())
+        // Refused again after the restart, the read is dropped, keeping its rows, rather than failing every refresh.
+        source.requested.clear()
+        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is CatalogScanAbandoned)
+        assertEquals(listOf<String?>("10"), source.requested)
+        assertNull(database.catalogSyncDao().scan("account-a"))
+        assertEquals(10, database.catalogSyncDao().cloudCount())
+
+        // The next refresh starts a fresh read from the first page.
+        source.rejectCursor = null
+        source.requested.clear()
+        repository(source).refresh(false)
+        assertEquals(listOf<String?>(null, "10", "20"), source.requested)
+        assertEquals(30, database.catalogSyncDao().cloudCount())
+        assertNull(database.catalogSyncDao().scan("account-a"))
+    }
+
+    @Test
+    fun aPhotoThatShiftsPastAPageWhileTheReadRunsIsKept() = runBlocking {
+        val source = PagedSource(count = 30)
+        val first = repository(source)
+        first.refresh(false)
+        first.keepOriginalOffline(source.id(10))
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        // Photo 2 is deleted after the first page: every later photo moves up one place, so photo 10 crosses from the
+        // second page into the first and no page lists it.
+        // The catch-up from the token captured before the read reports the deletion itself.
+        source.onFetch = { cursor ->
+            if (cursor == "10") {
+                source.items.remove(2)
+                source.changes = CloudChanges(emptyList(), setOf("asset-2"), "token-after", false)
+            }
+        }
+
+        repository(source).refresh(false)
+
+        val items = repository(source).observeGallery().first().associateBy { it.id }
+        assertFalse(source.id(2) in items)
+        assertEquals(29, items.size)
+        assertEquals(MediaAvailability.ORIGINAL_CACHED, items.getValue(source.id(10)).availability)
+    }
+
+    @Test
+    fun uncertainLookupsKeepRowsAndOnlyCertainAnswersRemoveThem() = runBlocking {
+        val source = PagedSource(count = 30)
+        val first = repository(source)
+        first.refresh(false)
+        first.keepOriginalOffline(source.id(25))
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        // Photos 20 to 29 were deleted elsewhere; only the lookup by name can tell.
+        source.items = (0 until 20).toMutableList()
+
+        // A per-item error such as THROTTLED or ZONE_BUSY is not an answer: every row stays.
+        source.lookup = Lookup.ERRORS
+        repository(source).refresh(false)
+        assertEquals(30, database.catalogSyncDao().cloudCount())
+        assertEquals(MediaAvailability.ORIGINAL_CACHED, repository(source).findMedia(source.id(25))?.availability)
+
+        // A lookup that fails publishes nothing, and the read is still there to finish.
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.lookup = Lookup.THROWS
+        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is IOException)
+        assertEquals(30, database.catalogSyncDao().cloudCount())
+        assertNotNull(database.catalogSyncDao().scan("account-a"))
+
+        // A partial answer removes only the photos it named as gone.
+        source.lookup = Lookup.PARTIAL
+        repository(source).refresh(false)
+        assertEquals((0 until 20).map(source::id).toSet() + (25 until 30).map(source::id),
+            repository(source).observeGallery().first().map { it.id }.toSet())
+
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.lookup = Lookup.ANSWERS
+        repository(source).refresh(false)
+        assertEquals(20, database.catalogSyncDao().cloudCount())
+    }
+
+    @Test
+    fun aRowWithoutARecordNameIsRemovedOnlyWhenAChangeReportsIt() = runBlocking {
+        val source = PagedSource(count = 10).apply { unnamed = setOf(5) }
+        repository(source).refresh(false)
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.items.remove(5)
+
+        // It cannot be looked up, and photos move between pages, so not being listed is not enough.
+        repository(source).refresh(false)
+        assertNotNull(database.catalogDao().findById(source.id(5)))
+
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.changes = CloudChanges(emptyList(), setOf(source.id(5)), "token-after", false)
+        repository(source).refresh(false)
+        assertNull(database.catalogDao().findById(source.id(5)))
+    }
+
+    @Test
+    fun aReadWhoseCursorsRepeatIsDiscardedKeepingItsRows() = runBlocking {
+        val source = PagedSource(count = 30).apply { loopAt = "10" }
+
+        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is CatalogScanAbandoned)
+
+        assertNull(database.catalogSyncDao().scan("account-a"))
+        assertEquals(20, database.catalogSyncDao().cloudCount())
+    }
+
+    @Test
+    fun aReadWithoutAChangeTokenForgetsTheOldOne() = runBlocking {
+        val source = PagedSource(count = 10)
+        repository(source).refresh(false)
+        assertEquals("token-after", database.catalogDao().checkpoint("icloud:account-a")?.changeToken)
+        source.resetChanges = true
+        source.token = null
+
+        repository(source).refresh(false)
+
+        assertNull(database.catalogDao().checkpoint("icloud:account-a"))
+    }
+
+    @Test
+    fun editsDoNotWaitForALongRead() = runBlocking {
+        val source = PagedSource(count = 30)
+        val reached = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val repository = repository(source)
+        repository.refresh(false)
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.onFetch = { cursor -> if (cursor == "10") { reached.complete(Unit); runBlocking { release.await() } } }
+        val read = async(Dispatchers.IO) { repository.refresh(false) }
+        try {
+            withTimeout(5_000) { reached.await() }
+            withTimeout(5_000) { repository.setFavorite(source.id(1), true) }
+            assertEquals(listOf(source.id(1)), source.favorites)
+        } finally { release.complete(Unit) }
+        assertEquals(30, read.await().cloudItemCount)
+    }
+
+    @Test
+    fun phoneScansRunAlongsideLibraryRefreshesWithoutDeadlock() = runBlocking {
+        // Each library refresh walks the catalog for preview paths while a phone scan publishes. Both take the whole
+        // catalog; done one permit at a time outside the shared lock, each could hold one permit and wait for the other.
+        val phone = object : me.lvca.alba.engine.source.DeviceCatalogSource {
+            override suspend fun scanImages() = (0 until 50).map {
+                me.lvca.alba.engine.source.DeviceMediaRecord("device:external:$it", "IMG_$it.JPG", it.toLong(), 10, 10,
+                    "content://media/external/images/media/$it", "1")
+            }
+            override suspend fun writeOriginal(contentUri: String, output: OutputStream) = error("Not used")
+        }
+        val source = PagedSource(count = 1_200, pageSize = 100)
+        val repository = DefaultGalleryRepository(database, source, phone, cache, pause = { pauses += it })
+        repository.refresh(false)
+        withTimeout(60_000) {
+            repeat(REFRESH_ROUNDS) {
+                kotlinx.coroutines.coroutineScope {
+                    launch(Dispatchers.Default) { repository.refresh(false) }
+                    repeat(PHONE_SCANS) { launch(Dispatchers.Default) { repository.refreshDevice() } }
+                }
+            }
+        }
+        assertEquals(1_250, database.catalogDao().observeAll().first().size)
+    }
+
+    /** Whether [ref]'s list could be collected, after asking the collector to run. */
+    private fun collected(ref: WeakReference<*>): Boolean {
+        repeat(GC_ATTEMPTS) {
+            if (ref.get() == null) return true
+            System.gc()
+        }
+        return ref.get() == null
+    }
+
+    private class Throttled(override val retryAfterMillis: Long?) : IOException("Throttled"), ThrottledFailure
+
+    /** How the fake answers a lookup by name: fully, with only temporary per-item errors, half the names, or not at all. */
+    private enum class Lookup { ANSWERS, ERRORS, PARTIAL, THROWS }
+
+    /** A library of [count] items in pages of [pageSize]; cursors are offsets into [items], as iCloud's start ranks are. */
+    private class PagedSource(count: Int, private val pageSize: Int = 10) : CloudCatalogSource {
+        override var accountLabel = "account-a"
+        var items = (0 until count).toMutableList()
+        var rejectCursor: String? = null
+        var loopAt: String? = null
+        var token: String? = "token-before"
+        var resetChanges = false
+        val favorites = mutableListOf<String>()
+        var lookup = Lookup.ANSWERS
+        var unnamed = emptySet<Int>()
+        val requested = mutableListOf<String?>()
+        var failAt: String? = null
+        var onFetch: (String?) -> Unit = {}
+        var onPage: (List<RemoteMediaRecord>) -> Unit = {}
+        var throttles = ArrayDeque<Long?>()
+        var hidden = emptyList<RemoteMediaRecord>()
+        var trash = emptyList<RemoteMediaRecord>()
+        var changes = CloudChanges(emptyList(), emptySet(), "token-after", false)
+
+        fun id(index: Int) = "icloud:$accountLabel:asset-$index"
+        fun record(index: Int) = RemoteMediaRecord(id(index), "IMG_$index.JPG", index.toLong(), 10, 10, "rev-$index", 0, 0,
+            masterRecordName = "master-$index", assetRecordName = "asset-$index".takeUnless { index in unnamed })
+
+        override suspend fun captureSyncToken() = token
+        override suspend fun libraryItemCount() = items.size
+        override suspend fun libraryRecords(assetRecordNames: List<String>): LibraryLookup {
+            val answered = when (lookup) {
+                Lookup.ANSWERS -> assetRecordNames
+                Lookup.ERRORS -> emptyList()
+                Lookup.PARTIAL -> assetRecordNames.take(assetRecordNames.size / 2)
+                Lookup.THROWS -> throw IOException("offline")
+            }
+            val present = items.filter { "asset-$it" in answered }.map(::record)
+            return LibraryLookup(present, answered.toSet() - present.mapNotNull { it.assetRecordName }.toSet())
+        }
+        override suspend fun setFavorite(mediaId: String, favorite: Boolean) { favorites += mediaId }
+        override suspend fun fetchPage(cursor: String?, limit: Int): CloudCatalogPage {
+            requested += cursor
+            if (throttles.isNotEmpty()) throw Throttled(throttles.removeFirst())
+            if (cursor != null && cursor == failAt) { failAt = null; throw IOException("offline") }
+            if (cursor != null && cursor == rejectCursor) throw CatalogCursorRejected("expired marker")
+            onFetch(cursor)
+            val offset = cursor?.toInt() ?: 0
+            val records = items.drop(offset).take(pageSize).map(::record)
+            onPage(records)
+            val next = if (cursor != null && cursor == loopAt) cursor else (offset + pageSize).takeIf { it < items.size }?.toString()
+            return CloudCatalogPage(records, next, "rank:$offset")
+        }
+        override suspend fun changes(token: String, known: KnownCloudRecords): CloudChanges {
+            if (resetChanges) throw CatalogResetRequired()
+            return changes
+        }
+        override suspend fun hiddenMedia() = hidden
+        override suspend fun recentlyDeleted() = trash
+        override suspend fun writePreview(mediaId: String, output: OutputStream) = output.write(byteArrayOf(1))
+        override suspend fun writeOriginal(mediaId: String, output: OutputStream) = output.write(byteArrayOf(1, 2))
+    }
+
+    private companion object {
+        const val GC_ATTEMPTS = 10
+        const val REFRESH_ROUNDS = 20
+        const val PHONE_SCANS = 4
+    }
+}

@@ -3,6 +3,7 @@ package me.lvca.alba.protocol.photos
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
+import me.lvca.alba.protocol.auth.AppleThrottledException
 import me.lvca.alba.protocol.network.AppleClientProfile.addWebClientBuild
 import me.lvca.alba.protocol.network.AppleEndpointPolicy
 import me.lvca.alba.protocol.network.AppleHttpRequest
@@ -95,7 +96,7 @@ internal class CloudKitClient(
     ): AppleHttpResponse {
         if (response.code in 200..299) return response
         if (failures.rejectsSession(response.code)) onSessionRejected(session)
-        throw failures.error(response.code)
+        throw failures.error(response.code, CloudKitErrors.retryAfterMillis(response))
     }
 
     suspend fun send(
@@ -141,8 +142,12 @@ internal enum class CloudKitFailures {
 
     fun rejectsSession(code: Int): Boolean = code == 401 || (this == LIBRARY && code == 403)
 
-    fun error(code: Int): AppleProtocolException = when (this) {
-        LIBRARY -> AppleProtocolException(
+    fun error(code: Int, retryAfterMillis: Long? = null): AppleProtocolException = when {
+        this == LIBRARY && code in THROTTLING_STATUSES -> AppleThrottledException(
+            if (code == 429) "Apple is limiting Photos requests. Wait a moment and refresh." else "Apple Photos returned HTTP $code.",
+            retryAfterMillis,
+        )
+        this == LIBRARY -> AppleProtocolException(
             if (rejectsSession(code)) AppleProtocolError.SESSION_EXPIRED else AppleProtocolError.NETWORK,
             when {
                 rejectsSession(code) -> "The iCloud session expired. Sign in again."
@@ -150,9 +155,14 @@ internal enum class CloudKitFailures {
                 else -> "Apple Photos returned HTTP $code."
             },
         )
-        SHARED_ALBUMS -> AppleProtocolException(
+        else -> AppleProtocolException(
             if (rejectsSession(code)) AppleProtocolError.SESSION_EXPIRED else AppleProtocolError.PHOTOS_UNAVAILABLE,
             "Shared albums returned HTTP $code. Refresh to check access.",
         )
+    }
+
+    private companion object {
+        /** Too Many Requests and Service Unavailable: iCloud is shedding load, so the request can be tried again later. */
+        val THROTTLING_STATUSES = setOf(429, 503)
     }
 }
