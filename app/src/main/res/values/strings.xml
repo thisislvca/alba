@@ -839,7 +839,6 @@
     <string name="backup_camera_folder">%1$s (camera)</string>
     <string name="free_up_space_intro">These photos and videos have an exact copy in iCloud. Alba checks each one again before Android asks you to move them to its trash, where they stay for 30 days.</string>
     <string name="free_up_space_nothing">Nothing to free up yet. Backed-up photos and videos on this phone will appear here.</string>
-    <string name="free_up_space_limit">Up to %1$d items at a time.</string>
     <string name="free_up_space_checking">Checking %1$d of %2$d</string>
     <string name="free_up_space_button">Free up %1$s</string>
     <string name="free_up_space_confirm">Alba re-checks each item against its iCloud copy, then Android asks you to confirm. Items that no longer match stay on this phone.</string>
@@ -905,5 +904,20 @@
     <plurals name="free_up_space_summary">
         <item quantity="one">%1$d item · %2$s</item>
         <item quantity="other">%1$d items · %2$s</item>
+    </plurals>
+    <string name="free_up_space_needs_wifi">You chose to wait for Wi-Fi. Free up space checks each original in iCloud, so connect to Wi-Fi first.</string>
+    <string name="could_not_reach_icloud_to_check">Couldn’t reach iCloud to check. Nothing was removed.</string>
+    <string name="the_phone_file_changed_after_its_check">The phone file changed after its check, so it stays on this phone.</string>
+    <plurals name="free_up_space_changed">
+        <item quantity="one">%d item changed on the phone after its check and stays.</item>
+        <item quantity="other">%d items changed on the phone after their check and stay.</item>
+    </plurals>
+    <plurals name="free_up_space_unreachable">
+        <item quantity="one">Couldn’t reach iCloud to check %d item. It stays on this phone.</item>
+        <item quantity="other">Couldn’t reach iCloud to check %d items. They stay on this phone.</item>
+    </plurals>
+    <plurals name="free_up_space_more_remain">
+        <item quantity="one">%d more item can be freed next time.</item>
+        <item quantity="other">%d more items can be freed next time.</item>
     </plurals>
 </resources>

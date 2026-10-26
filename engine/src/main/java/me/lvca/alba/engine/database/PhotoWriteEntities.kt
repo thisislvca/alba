@@ -380,6 +380,16 @@ data class UploadPauseEntity(
     val retryAtEpochMillis: Long,
 )
 
+/** An item automatic backup failed to stage, and how often, so a file that never reads is skipped, not retried forever. */
+@Entity(tableName = "discovery_failures", primaryKeys = ["accountId", "mediaId"])
+data class DiscoveryFailureEntity(
+    val accountId: String,
+    val mediaId: String,
+    val failures: Int,
+    val lastReason: String,
+    val updatedAtEpochMillis: Long,
+)
+
 @Entity(
     tableName = "trash_obligations",
     primaryKeys = ["trashAttemptId", "mediaId"],

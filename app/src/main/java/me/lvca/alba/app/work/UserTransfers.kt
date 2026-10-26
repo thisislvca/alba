@@ -45,7 +45,11 @@ internal class UserTransferScheduler(private val context: Context) {
                 "Could not start transfers. Open Alba and try again."
             }
         } else {
-            WorkManager.getInstance(context).enqueueUniqueWork(TRANSFER_WORK, ExistingWorkPolicy.APPEND_OR_REPLACE,
+            val workManager = WorkManager.getInstance(context)
+            // A run still waiting for its network is replaced, so a new answer to "Use mobile data?" takes effect
+            // instead of queueing behind a Wi-Fi-only request. A running transfer is appended to, never cut short.
+            val waiting = workManager.getWorkInfosForUniqueWork(TRANSFER_WORK).get().any { it.state == WorkInfo.State.ENQUEUED }
+            workManager.enqueueUniqueWork(TRANSFER_WORK, if (waiting) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE,
                 OneTimeWorkRequestBuilder<UserTransferWorker>()
                     .setConstraints(Constraints.Builder()
                         .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED).build()).build())

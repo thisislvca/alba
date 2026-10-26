@@ -43,11 +43,17 @@ internal object BackupFolders {
         BackupScope.CAMERA_MEDIA -> chosen
     }
 
-    /** A SQL predicate and its arguments selecting the camera folder and the chosen [folders]. */
-    fun selection(folders: Set<String>): Pair<String, List<String>> {
-        val camera = "LOWER(${MediaStore.MediaColumns.RELATIVE_PATH}) IN (${CAMERA_PATHS.joinToString { "?" }})"
+    /** Camera paths [scope] covers. An older JPEG-only consent named DCIM/Camera alone, so it keeps exactly that. */
+    fun cameraPaths(scope: BackupScope): List<String> = when (scope) {
+        BackupScope.CAMERA_JPEGS -> listOf(CAMERA_PATHS.first())
+        BackupScope.CAMERA_MEDIA -> CAMERA_PATHS
+    }
+
+    /** A SQL predicate and its arguments selecting [cameraPaths] and the chosen [folders]. */
+    fun selection(folders: Set<String>, cameraPaths: List<String> = CAMERA_PATHS): Pair<String, List<String>> {
+        val camera = "LOWER(${MediaStore.MediaColumns.RELATIVE_PATH}) IN (${cameraPaths.joinToString { "?" }})"
         val chosen = folders.mapNotNull(::parse)
-        val args = CAMERA_PATHS + chosen.flatMap { (volume, bucket) -> listOf(volume, bucket) }
+        val args = cameraPaths + chosen.flatMap { (volume, bucket) -> listOf(volume, bucket) }
         val extra = chosen.joinToString(separator = "") {
             " OR (${MediaStore.MediaColumns.VOLUME_NAME} = ? AND ${MediaStore.MediaColumns.BUCKET_ID} = ?)"
         }

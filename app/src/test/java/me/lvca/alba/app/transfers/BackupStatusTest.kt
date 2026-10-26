@@ -71,7 +71,9 @@ class BackupStatusTest {
             transfer("done", TransferViewState.VERIFIED), transfer("skipped", TransferViewState.SKIPPED),
         ).associateBy { requireNotNull(it.mediaId) }
         assertEquals(mapOf("queued" to BackupBadge.QUEUED, "failed" to BackupBadge.FAILED, "done" to BackupBadge.DONE),
-            backupBadges(backupEnabled = true, uploads))
+            backupBadges(backupEnabled = true, uploads, now = 10_000))
+        assertEquals("Long-verified items carry no badge", mapOf("queued" to BackupBadge.QUEUED, "failed" to BackupBadge.FAILED),
+            backupBadges(backupEnabled = true, uploads, now = 10_000_000))
         assertEquals(emptyMap<String, BackupBadge>(), backupBadges(backupEnabled = false, uploads))
     }
 

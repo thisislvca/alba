@@ -81,9 +81,12 @@ data class TransferState(
 data class FreeUpSpaceState(
     val candidates: FreeUpSpaceCandidates? = null,
     val loading: Boolean = false,
+    /** A run is under way: checking a chunk, or waiting for Android's answer for one. */
     val checking: Boolean = false,
     val checked: Int = 0,
     val total: Int = 0,
+    /** Android is asking the user about the checked chunk. */
+    val awaitingConsent: Boolean = false,
 )
 
 /** What backup adds to [TransferState] beyond the queue and the enrollment. */
@@ -264,6 +267,8 @@ internal class TransferController(
                     // Only when the user has not dismissed the disclosure while acceptance was in flight. Backup is
                     // when a notification helps (paused, storage full), so Android asks for it here, once.
                     val permissions = effect.permissions + backup.notificationPermission()
+                    // Asked here, with backup, so the first manual transfer does not ask again.
+                    if (permissions.size > effect.permissions.size) backup.notificationsAsked()
                     backupSetup.awaitPermissions(current, permissions)
                     effects.send(AlbaEffect.RequestBackupPermissions(permissions))
                 }
@@ -344,7 +349,7 @@ internal class TransferController(
         scope.launch {
             runCatching { photos.recordTrashResult(TrashAttemptId(attempt), result) }
                 .onSuccess {
-                    if (result == SystemConsentCallback.APPROVED) backup.loadFreeUpSpace()
+                    backup.freeUpChunkAnswered(result == SystemConsentCallback.APPROVED)
                     messages.show(if (result == SystemConsentCallback.APPROVED) {
                         R.string.message_android_approved_the_trash_request_alba_is_checking_the_phone_item_its_icloud_copy_remains_veri
                     } else {

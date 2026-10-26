@@ -35,6 +35,7 @@ class BackupFoldersTest {
         assertEquals(listOf("image/jpeg", "image/jpg"), BackupFolders.mimeTypes(BackupScope.CAMERA_JPEGS))
         assertNull(BackupFolders.mimeTypes(BackupScope.CAMERA_MEDIA))
         assertTrue(BackupFolders.extraFolders(BackupScope.CAMERA_JPEGS, setOf("device-folder:a:b")).isEmpty())
+        assertEquals(listOf("dcim/camera/"), BackupFolders.cameraPaths(BackupScope.CAMERA_JPEGS))
         assertEquals(setOf("device-folder:a:b"), BackupFolders.extraFolders(BackupScope.CAMERA_MEDIA, setOf("device-folder:a:b")))
     }
 

@@ -851,7 +851,6 @@
     <string name="backup_camera_folder">%1$s (fotocamera)</string>
     <string name="free_up_space_intro">Queste foto e questi video hanno una copia identica su iCloud. Alba li ricontrolla uno per uno prima che Android ti chieda di spostarli nel cestino, dove restano per 30 giorni.</string>
     <string name="free_up_space_nothing">Ancora niente da liberare. Qui compariranno le foto e i video di questo telefono già salvati.</string>
-    <string name="free_up_space_limit">Fino a %1$d elementi alla volta.</string>
     <string name="free_up_space_checking">Controllo %1$d di %2$d</string>
     <string name="free_up_space_button">Libera %1$s</string>
     <string name="free_up_space_confirm">Alba ricontrolla ogni elemento con la sua copia su iCloud, poi Android ti chiede di confermare. Gli elementi che non corrispondono più restano su questo telefono.</string>
@@ -930,5 +929,23 @@
         <item quantity="one">%1$d elemento · %2$s</item>
         <item quantity="other">%1$d elementi · %2$s</item>
         <item quantity="many">%1$d elementi · %2$s</item>
+    </plurals>
+    <string name="free_up_space_needs_wifi">Hai scelto di attendere il Wi-Fi. Libera spazio controlla ogni originale su iCloud, quindi connettiti prima al Wi-Fi.</string>
+    <string name="could_not_reach_icloud_to_check">Impossibile raggiungere iCloud per il controllo. Non è stato rimosso nulla.</string>
+    <string name="the_phone_file_changed_after_its_check">Il file sul telefono è cambiato dopo il controllo, quindi resta su questo telefono.</string>
+    <plurals name="free_up_space_changed">
+        <item quantity="one">%d elemento è cambiato sul telefono dopo il controllo e resta.</item>
+        <item quantity="other">%d elementi sono cambiati sul telefono dopo il controllo e restano.</item>
+        <item quantity="many">%d elementi sono cambiati sul telefono dopo il controllo e restano.</item>
+    </plurals>
+    <plurals name="free_up_space_unreachable">
+        <item quantity="one">Impossibile raggiungere iCloud per controllare %d elemento. Resta su questo telefono.</item>
+        <item quantity="other">Impossibile raggiungere iCloud per controllare %d elementi. Restano su questo telefono.</item>
+        <item quantity="many">Impossibile raggiungere iCloud per controllare %d elementi. Restano su questo telefono.</item>
+    </plurals>
+    <plurals name="free_up_space_more_remain">
+        <item quantity="one">Un altro elemento (%d) potrà essere liberato la prossima volta.</item>
+        <item quantity="other">Altri %d elementi potranno essere liberati la prossima volta.</item>
+        <item quantity="many">Altri %d elementi potranno essere liberati la prossima volta.</item>
     </plurals>
 </resources>

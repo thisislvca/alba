@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -26,9 +27,13 @@ import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.PhotoCompanion
+import me.lvca.alba.engine.model.StoredMessage
 
 /** Saved so Android's answer to a verified trash request reaches its attempt after recreation. */
 internal const val TRASH_ATTEMPT_KEY = "verifiedTrashAttempt"
+
+/** "Free up space" items not yet checked in this run, saved so a run continues after recreation. */
+private const val FREE_UP_REMAINING = "freeUpRemaining"
 
 /**
  * Backup status, settings and "Free up space" for the Backup page, and what Alba asks before a manual transfer:
@@ -47,6 +52,7 @@ internal class BackupController(
     private val progress = MutableStateFlow<BackupProgress?>(null)
     private val folders = MutableStateFlow<List<DeviceFolder>?>(null)
     private val freeUp = MutableStateFlow(FreeUpSpaceState())
+    private var freeUpJob: Job? = null
 
     val extras: Flow<BackupExtras> = combine(preferences.settings, progress, folders, freeUp, ::BackupExtras)
 
@@ -139,36 +145,93 @@ internal class BackupController(
     }
 
     /**
-     * Re-checks [mediaIds] against freshly read phone and iCloud bytes as one batch, with progress, then asks Android
-     * to move the items that still match to its trash. Items that no longer match stay on the phone. At most
-     * [PHONE_TRASH_LIMIT] go in one request.
+     * Starts "Free up space" for [mediaIds] unless the user chose to wait for Wi-Fi and the phone is on mobile data:
+     * the check downloads every original from iCloud.
+     */
+    fun startFreeUpSpace(mediaIds: List<String>, onMobileData: Boolean) {
+        if (onMobileData && preferences.manualTransfersWaitForWifi) messages.show(R.string.free_up_space_needs_wifi)
+        else freeUpSpace(mediaIds)
+    }
+
+    /**
+     * Re-checks [mediaIds] against freshly read phone and iCloud bytes, then asks Android to move the items that still
+     * match to its trash, one chunk at a time: each chunk is checked and handed to Android inside the consent window,
+     * so no check is ever older than the window when the user is asked. Items that no longer match stay on the phone.
+     * At most [PHONE_TRASH_LIMIT] go in one run.
      */
     fun freeUpSpace(mediaIds: List<String>) {
         if (isDemo() || mediaIds.isEmpty() || freeUp.value.checking) return
-        val ids = mediaIds.distinct().take(PHONE_TRASH_LIMIT).toSet()
-        scope.launch {
-            freeUp.update { it.copy(checking = true, checked = 0, total = ids.size) }
+        val ids = mediaIds.distinct().take(PHONE_TRASH_LIMIT)
+        savedState[FREE_UP_REMAINING] = ArrayList(ids)
+        freeUp.update { it.copy(checking = true, checked = 0, total = ids.size, awaitingConsent = false) }
+        nextFreeUpChunk()
+    }
+
+    /** Android answered for a chunk: an approval continues with the next chunk, anything else stops the run. */
+    fun freeUpChunkAnswered(approved: Boolean) {
+        val remaining = savedState.get<ArrayList<String>>(FREE_UP_REMAINING).orEmpty()
+        if (approved && remaining.isNotEmpty()) nextFreeUpChunk() else finishFreeUp()
+    }
+
+    /** Stops the run. Nothing leaves the phone without Android's own request, so stopping here removes nothing. */
+    fun cancelFreeUp() {
+        freeUpJob?.cancel()
+        finishFreeUp()
+    }
+
+    private fun finishFreeUp() {
+        savedState.remove<ArrayList<String>>(FREE_UP_REMAINING)
+        freeUp.update { it.copy(checking = false, awaitingConsent = false) }
+        loadFreeUpSpace()
+    }
+
+    private fun nextFreeUpChunk() {
+        val remaining = savedState.get<ArrayList<String>>(FREE_UP_REMAINING).orEmpty()
+        if (remaining.isEmpty()) return finishFreeUp()
+        // After recreation the counts are gone; the remaining items are the whole run from here.
+        val total = freeUp.value.total.takeIf { it >= remaining.size } ?: remaining.size
+        val offset = total - remaining.size
+        freeUp.update { it.copy(checking = true, total = total, checked = offset, awaitingConsent = false) }
+        freeUpJob = scope.launch {
             try {
                 val proposal = withContext(Dispatchers.IO) {
-                    photos.prepareTrash(ids, allowPartial = true) { checked, _ -> freeUp.update { it.copy(checked = checked) } }
+                    photos.prepareTrash(remaining.toSet(), allowPartial = true) { checked, _ ->
+                        freeUp.update { it.copy(checked = offset + checked) }
+                    }
                 }
-                proposal.blockedReason?.let { reason ->
-                    messages.show(localizedStoredMessage(reason))
-                    return@launch
+                savedState[FREE_UP_REMAINING] = ArrayList(proposal.unchecked)
+                reportLeftOut(proposal.refusals.values)
+                if (proposal.blockedReason != null) {
+                    if (proposal.refusals.isEmpty()) messages.show(localizedStoredMessage(proposal.blockedReason))
+                    // Nothing in this chunk matched. When iCloud is out of reach the rest would fail too, so stop.
+                    val unreachable = StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code in proposal.refusals.values
+                    return@launch if (unreachable || proposal.unchecked.isEmpty()) finishFreeUp() else nextFreeUpChunk()
                 }
-                val leftOut = ids.size - proposal.eligibleMediaIds.size
-                if (leftOut > 0) messages.show(UiMessage.quantity(R.plurals.free_up_space_left_out, leftOut))
                 val handoff = withContext(Dispatchers.IO) { photos.beginTrash(proposal.id) }
+                val changed = proposal.eligibleMediaIds.size - handoff.mediaIds.size
+                if (handoff.mediaIds.isNotEmpty() && changed > 0) {
+                    messages.show(UiMessage.quantity(R.plurals.free_up_space_changed, changed))
+                }
                 // Saved, so Android's answer still reaches the attempt after the activity or process is recreated.
                 savedState[TRASH_ATTEMPT_KEY] = handoff.attemptId.value
+                freeUp.update { it.copy(awaitingConsent = true) }
                 effects.send(AlbaEffect.ConfirmVerifiedTrash(handoff.intentSender))
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (expected: Exception) {
                 messages.show(expected.toUserMessage(R.string.message_could_not_prepare_this_photo_for_android_trash))
-            } finally {
-                freeUp.update { it.copy(checking = false) }
+                finishFreeUp()
             }
+        }
+    }
+
+    /** Says why items stay: iCloud could not be reached, or the copies no longer match. */
+    private fun reportLeftOut(refusals: Collection<String>) {
+        val unreachable = refusals.count { it == StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code }
+        val mismatched = refusals.size - unreachable
+        when {
+            unreachable > 0 -> messages.show(UiMessage.quantity(R.plurals.free_up_space_unreachable, unreachable))
+            mismatched > 0 -> messages.show(UiMessage.quantity(R.plurals.free_up_space_left_out, mismatched))
         }
     }
 

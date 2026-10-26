@@ -473,6 +473,15 @@ interface TransferDao {
     )
     fun observeActiveUploadPause(): Flow<UploadPauseEntity?>
 
+    @Query("SELECT * FROM discovery_failures WHERE accountId = :accountId AND mediaId = :mediaId")
+    suspend fun findDiscoveryFailure(accountId: String, mediaId: String): DiscoveryFailureEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDiscoveryFailure(failure: DiscoveryFailureEntity)
+
+    @Query("DELETE FROM discovery_failures WHERE accountId = :accountId AND mediaId = :mediaId")
+    suspend fun clearDiscoveryFailure(accountId: String, mediaId: String): Int
+
     @Query("DELETE FROM upload_pauses WHERE accountId = :accountId")
     suspend fun clearUploadPause(accountId: String): Int
 }

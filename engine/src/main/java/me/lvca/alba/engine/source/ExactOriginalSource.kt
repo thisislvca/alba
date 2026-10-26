@@ -92,6 +92,12 @@ interface ExactOriginalSource {
     /** Stable during a device boot; null means reboot cannot be proved. */
     fun bootSessionId(): String? = null
 
+    /**
+     * The MediaStore revision (generation and size) of [contentUri] now, or null when this source cannot tell. Checked
+     * again right before Android's trash request, so a file edited after its proof check is never trashed.
+     */
+    suspend fun currentRevision(contentUri: String): String? = null
+
     fun createTrashRequest(contentUris: List<String>): IntentSender
 
     suspend fun readTrashState(contentUri: String): LocalTrashState?

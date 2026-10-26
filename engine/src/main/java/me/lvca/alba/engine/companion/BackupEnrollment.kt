@@ -39,7 +39,8 @@ internal class BackupEnrollment(
         backupDao.observeBackup(),
         transferDao.observeActiveUploadPause(),
     ) { row, pause ->
-        val storageFullSince = pause?.takeIf { it.reason == StoredMessage.ICLOUD_STORAGE_FULL.code }?.pausedAtEpochMillis
+        val storageFullSince = pause?.takeIf { it.reason == StoredMessage.ICLOUD_STORAGE_FULL.code && it.retryAtEpochMillis > now() }
+            ?.pausedAtEpochMillis
         if (row == null) {
             BackupView(enabled = false, storageFullSinceEpochMillis = storageFullSince)
         } else {
@@ -129,6 +130,11 @@ internal class BackupEnrollment(
                 )
                 val current = backupDao.findBackupEnrollment(active.accountId)
                 refuseUnless(backupDao.completeBackupDraft(draft.value) == 1, StoredMessage.THIS_BACKUP_SETUP_WAS_ALREADY_COMPLETED)
+                // Agreeing to a wider disclosure while backup is on keeps where it started, so items taken since then,
+                // which the old scope had not reached yet, are still backed up. Turning backup on again starts afresh.
+                val continuing = current?.takeIf { it.enabled && it.authorizedAuthEpoch == active.authEpoch }
+                val baselineVersion = if (continuing != null) continuing.discoveryBaselineVersion else discoveryBaseline?.volumeVersion
+                val baselineGeneration = if (continuing != null) continuing.discoveryBaselineGeneration else discoveryBaseline?.generationModified
                 val enrollment = BackupEnrollmentEntity(
                     enrollmentId = current?.enrollmentId ?: UUID.randomUUID().toString(),
                     accountId = active.accountId,
@@ -136,8 +142,8 @@ internal class BackupEnrollment(
                     revision = (current?.revision ?: 0L) + 1L,
                     operationFence = (current?.operationFence ?: 0L) + 1L,
                     scope = row.scope,
-                    discoveryBaselineVersion = discoveryBaseline?.volumeVersion,
-                    discoveryBaselineGeneration = discoveryBaseline?.generationModified,
+                    discoveryBaselineVersion = baselineVersion,
+                    discoveryBaselineGeneration = baselineGeneration,
                     disclosureRevision = row.disclosureRevision,
                     consentedAtEpochMillis = requireNotNull(row.acceptedAtEpochMillis),
                     permissionFingerprint = originals.permissionFingerprint(),

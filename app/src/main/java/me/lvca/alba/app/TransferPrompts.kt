@@ -3,8 +3,10 @@ package me.lvca.alba.app
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.platform.MobileDataChoice
 import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.platform.UploadTarget
+import me.lvca.alba.app.transfers.FreeUpSpaceState
 import me.lvca.alba.engine.companion.BatchAction
 
 /** A manual upload or download the user started, held while Alba asks about notifications or mobile data first. */
@@ -31,6 +34,9 @@ internal sealed interface PendingTransfer {
     data class KeepOffline(val mediaId: String) : PendingTransfer
     data class Retry(val transferId: String) : PendingTransfer
     data object RetryAll : PendingTransfer
+
+    /** "Free up space" downloads each original from iCloud to check it, so it asks about mobile data too. */
+    data class FreeUp(val mediaIds: List<String>) : PendingTransfer
 
     companion object {
         val Saver = Saver<PendingTransfer?, List<String>>(
@@ -45,6 +51,7 @@ internal sealed interface PendingTransfer {
                     is KeepOffline -> listOf("offline", pending.mediaId)
                     is Retry -> listOf("retry", pending.transferId)
                     RetryAll -> listOf("retry-all")
+                    is FreeUp -> listOf("free-up") + pending.mediaIds
                     null -> null
                 }
             },
@@ -57,6 +64,7 @@ internal sealed interface PendingTransfer {
                     "offline" -> KeepOffline(saved[1])
                     "retry" -> Retry(saved[1])
                     "retry-all" -> RetryAll
+                    "free-up" -> FreeUp(saved.drop(1))
                     else -> null
                 }
             },
@@ -97,6 +105,26 @@ internal fun NotificationsRationale(allow: () -> Unit, notNow: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = notNow) { Text(stringResource(R.string.not_now)) } },
         modifier = Modifier.testTag("notifications-rationale"),
+    )
+}
+
+/** "Free up space" checking its items, with Cancel. Nothing leaves the phone before Android's own request. */
+@Composable
+internal fun FreeUpSpaceProgress(run: FreeUpSpaceState, cancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text(stringResource(R.string.free_up_space_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.free_up_space_checking, run.checked, run.total))
+                LinearProgressIndicator(
+                    progress = { if (run.total == 0) 0f else run.checked.toFloat() / run.total },
+                    modifier = Modifier.fillMaxWidth().testTag("free-up-space-progress"),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = cancel, modifier = Modifier.testTag("free-up-space-cancel")) { Text(stringResource(R.string.cancel)) } },
+        modifier = Modifier.testTag("free-up-space-running"),
     )
 }
 

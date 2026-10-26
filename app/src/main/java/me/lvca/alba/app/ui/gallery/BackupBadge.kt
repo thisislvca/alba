@@ -47,18 +47,30 @@ enum class BackupBadge { QUEUED, FAILED, DONE }
  */
 internal val LocalBackupBadges = staticCompositionLocalOf<State<Map<String, BackupBadge>>> { mutableStateOf(emptyMap()) }
 
-/** Badges for phone items while backup is on: waiting or uploading, failed, and verified (shown only briefly). */
-internal fun backupBadges(backupEnabled: Boolean, uploadsByMediaId: Map<String, TransferView>): Map<String, BackupBadge> {
+/**
+ * Badges for phone items while backup is on: waiting or uploading, failed, and verified only if it finished in the last
+ * [RECENT_DONE_MILLIS] (a tile shows that briefly). Older verified items carry no badge and no map entry.
+ */
+internal fun backupBadges(
+    backupEnabled: Boolean,
+    uploadsByMediaId: Map<String, TransferView>,
+    now: Long = System.currentTimeMillis(),
+): Map<String, BackupBadge> {
     if (!backupEnabled) return emptyMap()
     return uploadsByMediaId.mapNotNull { (mediaId, transfer) ->
         when (transfer.state) {
             TransferViewState.WAITING, TransferViewState.UPLOADING, TransferViewState.CHECKING_ICLOUD -> mediaId to BackupBadge.QUEUED
             TransferViewState.NEEDS_ATTENTION, TransferViewState.UNSUPPORTED, TransferViewState.UNRESOLVED -> mediaId to BackupBadge.FAILED
-            TransferViewState.VERIFIED -> mediaId to BackupBadge.DONE
+            TransferViewState.VERIFIED -> (mediaId to BackupBadge.DONE).takeIf {
+                (transfer.verifiedAtEpochMillis ?: 0L) >= now - RECENT_DONE_MILLIS
+            }
             else -> null
         }
     }.toMap()
 }
+
+/** How recently an upload must have finished for its tile to still get the brief cloud-done glyph. */
+private const val RECENT_DONE_MILLIS = 60_000L
 
 /** How long a just-finished upload shows its cloud-done glyph before the tile goes back to no badge. */
 private const val DONE_BADGE_MILLIS = 3_000L

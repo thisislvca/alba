@@ -153,7 +153,9 @@ class DefaultPhotoCompanion(
 
         if (binding == null || !protocol.isWriteAuthorized()) return@withLock WakeSummary(recovered, 0, 0, 0, false)
         var reconciled = reconciler.reconcileOne(binding)
-        val stagedAutomatic = if (allowAutomatic && transferDao.findWriteSlot(binding.accountId) == null) {
+        // Nothing new is staged while iCloud is full: it could not upload anyway.
+        val stagedAutomatic = if (allowAutomatic && transferDao.findWriteSlot(binding.accountId) == null &&
+            !invoker.isStoragePaused(binding.accountId)) {
             intake.discoverAndStageAutomatic(binding)
         } else {
             0

@@ -43,27 +43,37 @@ internal class VerifiedPhotoTrash(
         val binding = accounts.requireActive()
         val proposalId = UUID.randomUUID().toString()
         val checked = mutableListOf<ReclaimProposalItemEntity>()
-        var firstRefusal: String? = null
+        val refusals = linkedMapOf<String, String>()
+        val ordered = items.toList()
+        // The consent window runs from the first check: no item's check is older than it when Android asks.
+        val firstCheckAt = now()
+        var reached = 0
 
-        for ((index, mediaId) in items.withIndex()) {
-            onProgress(index, items.size)
+        while (reached < ordered.size) {
+            // A partial batch stops early enough that Android can still ask inside the window; the rest waits.
+            val chunkFull = now() - firstCheckAt >= CHECK_BUDGET_MILLIS || checked.size >= MAX_CHUNK
+            if (allowPartial && reached > 0 && chunkFull) break
+            val mediaId = ordered[reached]
+            onProgress(reached, ordered.size)
             val refusal = if (!allowPartial) checkExact(binding, proposalId, mediaId) { checked += it } else {
                 // One unreadable item stays on the phone; the rest of the batch is still checked.
-                runSuspendCatching { checkExact(binding, proposalId, mediaId) { checked += it } }.getOrElse { error ->
-                    StoredMessage.decode(error.message)?.code ?: StoredMessage.THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH.code
-                }
+                runSuspendCatching { checkExact(binding, proposalId, mediaId) { checked += it } }.getOrElse(::refusalFor)
             }
+            reached += 1
             if (refusal != null) {
                 if (!allowPartial) return blockedProposal(proposalId, refusal)
-                firstRefusal = firstRefusal ?: refusal
+                refusals[mediaId] = refusal
             }
         }
-        onProgress(items.size, items.size)
-        if (checked.isEmpty()) return blockedProposal(proposalId, firstRefusal ?: StoredMessage.SELECT_AT_LEAST_ONE_VERIFIED_PHOTO.code)
+        onProgress(reached, ordered.size)
+        val unchecked = ordered.drop(reached)
+        if (checked.isEmpty()) {
+            return blockedProposal(proposalId, refusals.values.firstOrNull() ?: StoredMessage.SELECT_AT_LEAST_ONE_VERIFIED_PHOTO.code)
+                .copy(refusals = refusals, unchecked = unchecked)
+        }
 
-        // The consent window runs from the last check, so a long batch does not expire before Android asks the user.
         val checkedAt = now()
-        val expiresAt = checkedAt + RECLAIM_PROPOSAL_LIFETIME_MILLIS
+        val expiresAt = firstCheckAt + RECLAIM_PROPOSAL_LIFETIME_MILLIS
         database.withTransaction {
             val active = requireNotNull(accountDao.findActiveAccount())
             refuseUnless(active.toBinding() == binding, StoredMessage.THE_ACCOUNT_CHANGED_DURING_THE_FINAL_ICLOUD_CHECK)
@@ -81,8 +91,16 @@ internal class VerifiedPhotoTrash(
             )
             trashDao.insertReclaimProposalItems(checked)
         }
-        return ReclaimProposal(ReclaimProposalId(proposalId), checked.map { it.mediaId }.toSet(), expiresAt)
+        return ReclaimProposal(ReclaimProposalId(proposalId), checked.map { it.mediaId }.toSet(), expiresAt,
+            refusals = refusals, unchecked = unchecked)
     }
+
+    /**
+     * Why a check failed when it threw. Phone reads fail with Alba's own reasons; anything else is an iCloud read that
+     * did not complete, which says nothing about whether the copies match.
+     */
+    private fun refusalFor(error: Throwable): String =
+        StoredMessage.decode(error.message)?.code ?: StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code
 
     /**
      * Re-reads [mediaId]'s phone and iCloud originals and compares both with its proof. Hands the checked item to
@@ -129,14 +147,15 @@ internal class VerifiedPhotoTrash(
     /** Phone items with a current proof, oldest first, and the bytes they hold on the phone. */
     suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates {
         val rows = verificationDao.findReclaimableOnPhone()
-        return FreeUpSpaceCandidates(rows.map { it.mediaId }, rows.sumOf { it.byteCount })
+        return FreeUpSpaceCandidates(rows.map { it.mediaId }, rows.sumOf { it.byteCount }, rows.map { it.byteCount })
     }
 
     suspend fun beginTrash(proposal: ReclaimProposalId): TrashHandoff {
         val row = refuseIfNull(trashDao.findReclaimProposal(proposal.value), StoredMessage.TRASH_PROPOSAL_EXPIRED)
         refuseUnless(row.state == "READY" && row.expiresAtEpochMillis > now(), StoredMessage.TRASH_PROPOSAL_EXPIRED)
-        val items = trashDao.findReclaimProposalItems(proposal.value)
-        refuseUnless(items.isNotEmpty(), StoredMessage.TRASH_PROPOSAL_HAS_NO_PHOTOS)
+        // A phone file edited since its check is left out: only the exact bytes that were verified may be trashed.
+        val items = trashDao.findReclaimProposalItems(proposal.value).filter { unchangedSinceCheck(it) }
+        refuseUnless(items.isNotEmpty(), StoredMessage.THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK)
         val binding = accounts.requireActive()
         refuseUnless(row.accountId == binding.accountId && row.authEpoch == binding.authEpoch &&
             row.operationFence == binding.operationFence,
@@ -180,8 +199,15 @@ internal class VerifiedPhotoTrash(
                     )
                 })
             }
-            TrashHandoff(TrashAttemptId(attemptId), intentSender)
+            TrashHandoff(TrashAttemptId(attemptId), intentSender, items.map { it.mediaId }.toSet())
         }
+    }
+
+    /** Whether [item]'s phone file still has the generation and size its proof verified. */
+    private suspend fun unchangedSinceCheck(item: ReclaimProposalItemEntity): Boolean {
+        val proof = verificationDao.findProof(item.proofId) ?: return false
+        val current = runSuspendCatching { originals.currentRevision(item.contentUri) }.getOrElse { return false }
+        return current == null || current == proof.sourceRevision
     }
 
     suspend fun recordTrashResult(attempt: TrashAttemptId, result: SystemConsentCallback) {
@@ -254,5 +280,11 @@ internal class VerifiedPhotoTrash(
 
     private companion object {
         const val RECLAIM_PROPOSAL_LIFETIME_MILLIS = 2 * 60 * 1_000L
+
+        /** A partial batch stops checking after this long, so Android asks well inside the consent window. */
+        const val CHECK_BUDGET_MILLIS = 60 * 1_000L
+
+        /** The most items one Android trash request takes. */
+        const val MAX_CHUNK = 2_000
     }
 }

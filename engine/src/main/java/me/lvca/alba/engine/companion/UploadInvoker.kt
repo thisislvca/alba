@@ -308,6 +308,8 @@ internal class UploadInvoker(
     private suspend fun send(prepared: PreparedICloudUpload, transferId: String, attemptId: String) {
         val acceptance = prepared.startOnce(attemptId)
         database.withTransaction {
+            // Apple accepted an upload, so iCloud has space again: lift a storage pause.
+            transferDao.findTransfer(transferId)?.let { transferDao.clearUploadPause(it.accountId) }
             transferDao.insertAcceptance(acceptance.toEntity(attemptId, now()))
             fenceHolds(
                 transferDao.markReconciling(
@@ -334,12 +336,18 @@ internal class UploadInvoker(
         transferDao.findStagedSource(transfer.stagedSourceId)?.isVideo == true
 
     /** Whether iCloud refused an upload for storage and neither the user nor the retry time has lifted the pause. */
-    suspend fun isStoragePaused(accountId: String): Boolean =
-        transferDao.findUploadPause(accountId)?.let { it.retryAtEpochMillis > now() } == true
+    suspend fun isStoragePaused(accountId: String): Boolean {
+        val pause = transferDao.findUploadPause(accountId) ?: return false
+        if (pause.retryAtEpochMillis > now()) return true
+        // The retry time passed: the next upload tries again, and the status stops saying iCloud is full.
+        transferDao.clearUploadPause(accountId)
+        return false
+    }
 
     /**
-     * Apple refused [attempt] for lack of storage. Before any byte was sent the attempt stays resumable; after, it goes
-     * to verification. Either way every upload waits rather than failing one by one.
+     * Apple refused [attempt] for lack of storage. A refused reservation comes before any byte is sent, so the attempt
+     * stays resumable; a refused registration comes after the bytes, so that attempt goes to verification. Either way
+     * every upload waits rather than failing one by one.
      */
     private suspend fun storageRefused(binding: AccountBinding, attempt: UploadAttemptEntity, full: ICloudStorageFullException) {
         if (!protocol.canResume(binding, attempt.attemptId)) recordUnknown(attempt, full::class.java.simpleName)

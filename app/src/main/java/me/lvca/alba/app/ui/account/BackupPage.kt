@@ -349,20 +349,18 @@ internal fun FreeUpSpacePage(transfers: TransferState, actions: AccountScreenAct
                 candidates.mediaIds.isEmpty() -> Text(stringResource(R.string.free_up_space_nothing), style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.testTag("free-up-space-empty"))
                 else -> {
-                    val bytes = Formatter.formatShortFileSize(context, candidates.byteCount)
-                    Text(pluralStringResource(R.plurals.free_up_space_summary, candidates.mediaIds.size, candidates.mediaIds.size, bytes),
+                    // One run frees at most PHONE_TRASH_LIMIT items: show what this run frees, and say when more remain.
+                    val now = candidates.mediaIds.size.coerceAtMost(PHONE_TRASH_LIMIT)
+                    val bytes = Formatter.formatShortFileSize(context,
+                        candidates.byteCounts.take(now).sum().takeIf { candidates.byteCounts.isNotEmpty() } ?: candidates.byteCount)
+                    Text(pluralStringResource(R.plurals.free_up_space_summary, now, now, bytes),
                         style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("free-up-space-summary"))
-                    if (candidates.mediaIds.size > PHONE_TRASH_LIMIT) {
-                        Text(stringResource(R.string.free_up_space_limit, PHONE_TRASH_LIMIT), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val more = candidates.mediaIds.size - now
+                    if (more > 0) {
+                        Text(pluralStringResource(R.plurals.free_up_space_more_remain, more, more), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("free-up-space-more"))
                     }
-                    if (state.checking) {
-                        Text(stringResource(R.string.free_up_space_checking, state.checked, state.total), style = MaterialTheme.typography.bodyMedium)
-                        LinearProgressIndicator(
-                            progress = { if (state.total == 0) 0f else state.checked.toFloat() / state.total },
-                            modifier = Modifier.fillMaxWidth().testTag("free-up-space-progress"),
-                        )
-                    } else {
+                    if (!state.checking) {
                         var confirm by remember { mutableStateOf(false) }
                         Button(onClick = { confirm = true }, modifier = Modifier.fillMaxWidth().testTag("free-up-space-start")) {
                             Text(stringResource(R.string.free_up_space_button, bytes))

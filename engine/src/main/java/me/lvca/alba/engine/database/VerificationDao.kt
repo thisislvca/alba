@@ -40,6 +40,9 @@ interface VerificationDao {
     )
     suspend fun findCurrentProof(mediaId: String, accountId: String): VerificationProofEntity?
 
+    @Query("SELECT * FROM verification_proofs WHERE proofId = :proofId")
+    suspend fun findProof(proofId: String): VerificationProofEntity?
+
     @Query("SELECT * FROM remote_asset_pairs WHERE remotePairId = :pairId")
     suspend fun findRemotePair(pairId: String): RemoteAssetPairEntity?
 

@@ -36,7 +36,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TrashAttemptEntity::class,
         TrashObligationEntity::class,
         CollectionEntity::class, CollectionMemberEntity::class, BatchItemEntity::class, UploadCheckpointEntity::class,
-        UploadPauseEntity::class,
+        UploadPauseEntity::class, DiscoveryFailureEntity::class,
     ],
     version = 16,
     exportSchema = true,

@@ -255,11 +255,12 @@ private fun AlbaMain(
     val uploadPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_INCOMING_ITEMS)) { uris ->
         uploadPicked(context, viewModel, uris)
     }
-    // Whatever Android answers, the transfer the user started goes ahead; only the next question waits for it.
-    var afterNotifications by remember { mutableStateOf<(() -> Unit)?>(null) }
+    // Whatever Android answers, the transfer the user started goes ahead. Saved, with the held transfer, so the answer
+    // still starts it after a rotation or process death during Android's dialog.
+    var awaitingNotificationAnswer by rememberSaveable { mutableStateOf(false) }
+    var notificationAnswered by remember { mutableStateOf(false) }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        afterNotifications?.invoke()
-        afterNotifications = null
+        if (awaitingNotificationAnswer) notificationAnswered = true
     }
     val mediaLocationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val target = pendingUpload
@@ -306,12 +307,12 @@ private fun AlbaMain(
                 run(pending)
             }
 
-            override fun requestNotifications(then: () -> Unit) {
+            override fun requestNotifications() {
                 viewModel.transfers.backup.notificationsAsked()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    afterNotifications = then
+                    awaitingNotificationAnswer = true
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else then()
+                } else askNext(TransferPrompt.NOTIFICATIONS)
             }
 
             private fun run(pending: PendingTransfer) = when (pending) {
@@ -321,6 +322,8 @@ private fun AlbaMain(
                 is PendingTransfer.KeepOffline -> viewModel.transfers.keepOriginalOffline(pending.mediaId)
                 is PendingTransfer.Retry -> viewModel.transfers.retryTransfer(TransferId(pending.transferId))
                 PendingTransfer.RetryAll -> viewModel.transfers.retryAllTransfers()
+                is PendingTransfer.FreeUp -> viewModel.transfers.backup.startFreeUpSpace(pending.mediaIds,
+                    onMobileData = viewModel.account.state.value.network?.let { it.online && it.metered } == true)
             }
 
             override fun upload(target: UploadTarget) {
@@ -499,9 +502,19 @@ private fun AlbaMain(
         BackupDisclosure(setup, storageFull = session.accountInfo.storage?.let { !it.isDemo && it.usedBytes >= it.totalBytes } == true,
             accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
     }
+    LaunchedEffect(notificationAnswered) {
+        if (!notificationAnswered) return@LaunchedEffect
+        notificationAnswered = false
+        awaitingNotificationAnswer = false
+        platform.askNext(TransferPrompt.NOTIFICATIONS)
+    }
+    // Wherever "Free up space" started, its progress and Cancel show here.
+    transfers.freeUpSpace.takeIf { it.checking && !it.awaitingConsent }?.let { run ->
+        FreeUpSpaceProgress(run, cancel = viewModel.transfers.backup::cancelFreeUp)
+    }
     when (transferPrompt) {
         TransferPrompt.NOTIFICATIONS -> NotificationsRationale(
-            allow = { transferPrompt = null; platform.requestNotifications { platform.askNext(TransferPrompt.NOTIFICATIONS) } },
+            allow = { transferPrompt = null; platform.requestNotifications() },
             notNow = { viewModel.transfers.backup.notificationsAsked(); platform.askNext(TransferPrompt.NOTIFICATIONS) },
         )
         TransferPrompt.MOBILE_DATA -> MobileDataPrompt(
@@ -595,8 +608,8 @@ internal interface PlatformRequests {
     /** Asks the question after [after], or starts the held transfer when there is none. */
     fun askNext(after: TransferPrompt?)
 
-    /** Asks Android for notifications, then calls [then] whatever the answer. */
-    fun requestNotifications(then: () -> Unit)
+    /** Asks Android for notifications, then asks the next question whatever the answer. */
+    fun requestNotifications()
     fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean)
 
     /** The user confirmed moving items that are not all backed up to Android's trash. */
@@ -670,7 +683,7 @@ private class AlbaRootActions(
     override fun retryTransfer(transferId: TransferId) = platform.beforeTransfer(PendingTransfer.Retry(transferId.value))
     override fun retryAllTransfers() = platform.beforeTransfer(PendingTransfer.RetryAll)
     override fun cancelUploads() = transfers.backup.cancelUploads()
-    override fun freeUpSpace(mediaIds: List<String>) = transfers.backup.freeUpSpace(mediaIds)
+    override fun freeUpSpace(mediaIds: List<String>) = if (mediaIds.isNotEmpty()) platform.beforeTransfer(PendingTransfer.FreeUp(mediaIds)) else Unit
     override fun share(items: List<GalleryMedia>) = viewModel.exports.share(items)
     override fun cancelShare() = viewModel.exports.cancelShare()
 

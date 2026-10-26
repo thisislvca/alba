@@ -1,9 +1,11 @@
 package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
+import me.lvca.alba.engine.cache.InsufficientStorageException
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.BackupEnrollmentEntity
+import me.lvca.alba.engine.database.DiscoveryFailureEntity
 import me.lvca.alba.engine.database.LocalAssetEntity
 import me.lvca.alba.engine.database.MediaStoreCheckpointEntity
 import me.lvca.alba.engine.database.StagedSourceEntity
@@ -131,8 +133,10 @@ internal class TransferIntake(
         }
         // Cached rows can belong to an older enrollment; use only the scoped page.
         for (item in page.items) {
-            val queued = stageDiscovered(binding, enrollment, item)
-            // Failed staging throws before this line, so it never advances past the item.
+            val queued = runSuspendCatching { stageDiscovered(binding, enrollment, item) }
+                .getOrElse { error -> skipAfterRepeatedFailures(binding, enrollment, item, error) }
+            transferDao.clearDiscoveryFailure(binding.accountId, item.id)
+            // A failure that may still pass throws before this line, so it never advances past the item.
             saveCheckpoint(LocalDiscoveryCheckpoint(page.checkpoint.volumeName, page.checkpoint.volumeVersion,
                 item.generationModified, item.mediaStoreId))
             if (queued) {
@@ -177,6 +181,26 @@ internal class TransferIntake(
         }
     }
 
+    /**
+     * Counts a staging failure for [item]. Below [MAX_ITEM_FAILURES] it rethrows, so the next pass tries the same item
+     * again; at the limit it records the item as skipped with its reason, so one unreadable file cannot stall backup.
+     * A full phone, an account change or another refusal of Alba's own is never the item's fault and always rethrows.
+     */
+    private suspend fun skipAfterRepeatedFailures(
+        binding: AccountBinding,
+        enrollment: BackupEnrollmentEntity,
+        item: DeviceMediaRecord,
+        error: Throwable,
+    ): Boolean {
+        if (error is InsufficientStorageException || error.isFinalRefusal()) throw error
+        val reason = StoredMessage.decode(error.message)?.code ?: StoredMessage.UPLOAD_STAGE_FAILED.code
+        val failures = (transferDao.findDiscoveryFailure(binding.accountId, item.id)?.failures ?: 0) + 1
+        transferDao.upsertDiscoveryFailure(DiscoveryFailureEntity(binding.accountId, item.id, failures, reason, now()))
+        if (failures < MAX_ITEM_FAILURES) throw error
+        recordSkipped(binding, enrollment, item, reason)
+        return false
+    }
+
     /** Ids of everything automatic backup covers on the phone, and how many of them are verified in iCloud. */
     suspend fun backupProgress(binding: AccountBinding): BackupProgress {
         val enrollment = backupDao.findEnabledBackupEnrollment(binding.accountId) ?: return BackupProgress(0, 0)
@@ -206,11 +230,15 @@ internal class TransferIntake(
             StoredMessage.THE_ICLOUD_ACCOUNT_CHANGED_BEFORE_UPLOAD_SELECT_THIS_PHOTO_AGAIN_FOR_THE_NEW_ACCOUNT,
         )
         val fromMediaStore = source.contentUri.startsWith(MEDIA_STORE_PREFIX)
+        // A backup item stays a backup item, so the user's network settings still apply; it needs a current consent.
+        val enrollment = if (row.authorityType == AUTHORITY_AUTOMATIC) {
+            refuseIfNull(authority.currentEnrollment(binding), StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED)
+        } else null
         return createTransfer(
             binding = binding,
-            authorityType = AUTHORITY_MANUAL,
-            authorityId = "retry:${UUID.randomUUID()}",
-            enrollment = null,
+            authorityType = if (enrollment != null) AUTHORITY_AUTOMATIC else AUTHORITY_MANUAL,
+            authorityId = enrollment?.let { "enrollment:${it.enrollmentId}:${it.revision}" } ?: "retry:${UUID.randomUUID()}",
+            enrollment = enrollment,
             mediaId = row.mediaId,
             contentUri = source.contentUri,
             replaces = row,
@@ -434,6 +462,9 @@ internal class TransferIntake(
         /** Items checked per discovery pass; at most one of them is staged. */
         const val AUTO_DISCOVERY_PAGE_SIZE = 20
         const val MEDIA_STORE_PREFIX = "content://media/"
+
+        /** Staging failures after which an item is reported as skipped instead of tried again. */
+        const val MAX_ITEM_FAILURES = 3
 
         /** Enough of the coverage digest to tell folder sets apart in a checkpoint id. */
         const val COVERAGE_KEY_BYTES = 8

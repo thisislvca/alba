@@ -234,7 +234,7 @@ class AndroidMediaStoreSource(
         } else {
             "${MediaStore.MediaColumns.DATE_ADDED} > ?"
         }
-        val (folderSelection, folderArgs) = BackupFolders.selection(BackupFolders.extraFolders(scope, folders))
+        val (folderSelection, folderArgs) = BackupFolders.selection(BackupFolders.extraFolders(scope, folders), BackupFolders.cameraPaths(scope))
         val mimeTypes = BackupFolders.mimeTypes(scope)
         val mimeSelection = mimeTypes?.let { types -> "AND ${MediaStore.MediaColumns.MIME_TYPE} IN (${types.joinToString { "?" }})" }.orEmpty()
         val mediaTypes = if (mimeTypes == null && hasVideoAccess()) MEDIA_TYPES.toList() else listOf(MEDIA_TYPES.first())
@@ -260,6 +260,10 @@ class AndroidMediaStoreSource(
     override fun bootSessionId(): String? = runCatching {
         Settings.Global.getInt(resolver, Settings.Global.BOOT_COUNT).toString()
     }.getOrNull()
+
+    override suspend fun currentRevision(contentUri: String): String = withContext(Dispatchers.IO) {
+        readSourceMetadata(contentUri.toUri(), displayNameHint = null).revision
+    }
 
     override fun createTrashRequest(contentUris: List<String>): IntentSender {
         require(contentUris.isNotEmpty()) { StoredMessage.SELECT_AT_LEAST_ONE_PHOTO_TO_MOVE_TO_TRASH.code }

@@ -60,6 +60,7 @@ class BackupJournalTest {
     private lateinit var staging: UploadStagingStore
     private val source by lazy { FakeSource(context) }
     private val protocol = FakeProtocol()
+    private var clock = NOW
     private var network = BackupNetwork.UNMETERED
     private var settings = BackupSettings()
     private val policy = object : AutomaticBackupPolicy {
@@ -209,6 +210,80 @@ class BackupJournalTest {
     }
 
     @Test
+    fun aLongBatchIsSplitSoNoCheckIsOlderThanTheConsentWindow() = runBlocking {
+        (1L..3L).forEach { source.items += item(it, "$it.jpg", "image/jpeg") }
+        val photos = enrolled()
+        repeat(3) { photos.syncNow() }
+        source.items.forEach { record -> database.catalogDao().upsertItems(listOf(catalogRow(record))) }
+        // Each check takes 40 s, so the third would start after the batch's checking budget.
+        source.onHash = { clock += 40_000 }
+        val started = clock
+
+        val first = photos.prepareTrash(source.items.map { it.id }.toSet(), allowPartial = true)
+        assertEquals(source.items.take(2).map { it.id }.toSet(), first.eligibleMediaIds)
+        assertEquals(listOf(source.items[2].id), first.unchecked)
+        assertEquals("The window runs from the first check", started + 120_000, first.expiresAtEpochMillis)
+
+        clock = started + 121_000
+        try {
+            photos.beginTrash(first.id)
+            fail("A check older than the consent window must not reach Android")
+        } catch (refused: PhotoCompanionException.Refused) {
+            assertEquals(StoredMessage.TRASH_PROPOSAL_EXPIRED, refused.reason)
+        }
+    }
+
+    @Test
+    fun aPhoneFileEditedAfterItsCheckIsLeftOutOfTheTrashRequest() = runBlocking {
+        source.items += item(1, "one.jpg", "image/jpeg")
+        source.items += item(2, "two.jpg", "image/jpeg")
+        val photos = enrolled()
+        photos.syncNow()
+        photos.syncNow()
+        source.items.forEach { record -> database.catalogDao().upsertItems(listOf(catalogRow(record))) }
+        val proposal = photos.prepareTrash(source.items.map { it.id }.toSet(), allowPartial = true)
+        assertEquals(2, proposal.eligibleMediaIds.size)
+
+        source.editedAfterCheck += source.items[1].contentUri
+        val handoff = photos.beginTrash(proposal.id)
+        assertEquals(setOf(source.items[0].id), handoff.mediaIds)
+    }
+
+    @Test
+    fun aFileThatNeverReadsIsSkippedAfterRepeatedFailures() = runBlocking {
+        source.items += item(1, "broken.jpg", "image/jpeg")
+        source.items += item(2, "fine.jpg", "image/jpeg")
+        source.unreadable += source.items[0].contentUri
+        val photos = enrolled()
+
+        repeat(2) { runCatching { photos.syncNow() } }
+        assertTrue("Early failures retry the same item", photos.observeTransfers().first().isEmpty())
+        runCatching { photos.syncNow() }
+        photos.syncNow()
+
+        val rows = photos.observeTransfers().first().associateBy { it.displayName }
+        assertEquals(TransferViewState.UNSUPPORTED, rows.getValue("broken.jpg").state)
+        assertEquals(StoredMessage.UPLOAD_STAGE_FAILED.code, rows.getValue("broken.jpg").message)
+        assertEquals(TransferViewState.VERIFIED, rows.getValue("fine.jpg").state)
+    }
+
+    @Test
+    fun aRetriedBackupItemStaysUnderTheNetworkSettings() = runBlocking {
+        source.items += item(1, "late.webp", "image/webp", refuse = UnsupportedUploadException.ANIMATED)
+        val photos = enrolled()
+        photos.syncNow()
+        val skipped = photos.observeTransfers().first().single()
+        source.refusals.clear()
+        network = BackupNetwork.METERED
+
+        photos.backup.retryTransfer(skipped.id)
+        photos.syncNow()
+        val retried = photos.observeTransfers().first().single()
+        assertTrue(retried.automatic)
+        assertEquals("Mobile data is still off for backup", 0, protocol.uploadStarts)
+    }
+
+    @Test
     fun progressCountsVerifiedItemsAgainstEverythingBackupCovers() = runBlocking {
         source.items += item(1, "one.jpg", "image/jpeg")
         source.items += item(2, "two.jpg", "image/jpeg")
@@ -237,7 +312,7 @@ class BackupJournalTest {
         protocol = protocol,
         scheduler = NoOpScheduler,
         automaticBackupPolicy = policy,
-        now = { NOW },
+        now = { clock },
     )
 
     private fun item(id: Long, name: String, mime: String, refuse: String? = null) = DeviceMediaRecord(
@@ -266,6 +341,9 @@ class BackupJournalTest {
         val items = mutableListOf<DeviceMediaRecord>()
         val refusals = mutableMapOf<String, String>()
         val changed = mutableSetOf<String>()
+        val unreadable = mutableSetOf<String>()
+        val editedAfterCheck = mutableSetOf<String>()
+        var onHash: () -> Unit = {}
         var lastScope: BackupScope? = null
 
         override fun permissionFingerprint() = "full:unredacted:test"
@@ -296,11 +374,16 @@ class BackupJournalTest {
 
         override suspend fun copyMediaStoreItem(contentUri: String, expectedRevision: String, output: OutputStream): ExactOriginalEvidence {
             refusals[contentUri]?.let { throw UnsupportedUploadException(it) }
+            check(contentUri !in unreadable) { "unreadable" }
             return evidence(contentUri, items.firstOrNull { it.contentUri == contentUri }?.fileName ?: "camera.jpg", output)
         }
 
-        override suspend fun hashMediaStoreItem(contentUri: String, expectedRevision: String) =
-            evidence(contentUri, "camera.jpg", null, if (contentUri in changed) byteArrayOf(-1, -40, -1, 9) else null)
+        override suspend fun hashMediaStoreItem(contentUri: String, expectedRevision: String): ExactOriginalEvidence {
+            onHash()
+            return evidence(contentUri, "camera.jpg", null, if (contentUri in changed) byteArrayOf(-1, -40, -1, 9) else null)
+        }
+
+        override suspend fun currentRevision(contentUri: String) = if (contentUri in editedAfterCheck) "edited" else "rev"
 
         override fun createTrashRequest(contentUris: List<String>): IntentSender = PendingIntent.getActivity(
             context, 44, Intent("me.lvca.alba.TEST_TRASH").setPackage(context.packageName), PendingIntent.FLAG_IMMUTABLE,

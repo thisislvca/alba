@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 16,
-    "identityHash": "885e6ec198a5731f2becd5ce0609aafd",
+    "identityHash": "8a21c55482a7a54767e59d28cd7a0262",
     "entities": [
       {
         "tableName": "catalog_items",
@@ -2487,11 +2487,54 @@
             "accountId"
           ]
         }
+      },
+      {
+        "tableName": "discovery_failures",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `failures` INTEGER NOT NULL, `lastReason` TEXT NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountId`, `mediaId`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failures",
+            "columnName": "failures",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastReason",
+            "columnName": "lastReason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "mediaId"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '885e6ec198a5731f2becd5ce0609aafd')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8a21c55482a7a54767e59d28cd7a0262')"
     ]
   }
 }

@@ -100,6 +100,8 @@ data class BackupProgress(
 data class FreeUpSpaceCandidates(
     val mediaIds: List<String>,
     val byteCount: Long,
+    /** Each item's bytes, in [mediaIds] order. */
+    val byteCounts: List<Long> = emptyList(),
 )
 
 /** A folder on the phone that automatic backup can include. [id] is stable across scans. */
@@ -126,11 +128,17 @@ data class ReclaimProposal(
     val eligibleMediaIds: Set<String>,
     val expiresAtEpochMillis: Long,
     val blockedReason: String? = null,
+    /** Why each left-out item stays on the phone, as stored message codes. */
+    val refusals: Map<String, String> = emptyMap(),
+    /** Items not checked yet because the consent window would close first; check them in a later proposal. */
+    val unchecked: List<String> = emptyList(),
 )
 
 data class TrashHandoff(
     val attemptId: TrashAttemptId,
     val intentSender: IntentSender,
+    /** Items in Android's request; any whose phone file changed since its check are left out. */
+    val mediaIds: Set<String> = emptySet(),
 )
 
 enum class SystemConsentCallback {
@@ -190,7 +198,7 @@ interface PhotoCompanion {
 
 /** What the Backup page and the transfer runner need beyond uploading: status, settings, retry and free space. */
 interface BackupControls {
-    /** Phone items backed up with a current proof, for "Free up space". */
+    /** Phone items backed up with a current proof, for "Free up space", oldest first. */
     suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates
 
     /** Stages an item again whose earlier try sent nothing to Apple. Uncertain uploads are never retried here. */
