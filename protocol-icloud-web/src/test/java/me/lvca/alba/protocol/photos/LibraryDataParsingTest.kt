@@ -35,6 +35,8 @@ class LibraryDataParsingTest {
         assertEquals("Sydney è", other["name"])
         assertNull(BinaryPlist.parse("bplist00".toByteArray()))
         assertNull(BinaryPlist.parse(ByteArray(64) { 0x7F }))
+        // An array claiming a million entries in a 47-byte file is refused before anything is allocated.
+        assertNull(BinaryPlist.parse(Base64.getDecoder().decode("YnBsaXN0MDCvEgAQAAAIAAAAAAAAAQEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAA4=")))
     }
 
     @Test fun captionsLocationTimeZoneAndBurstAreDecoded() {

@@ -3,19 +3,23 @@ package me.lvca.alba.app.gallery
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
 import me.lvca.alba.app.diagnostics.DiagnosticOperation
 import me.lvca.alba.app.diagnostics.measure
+import me.lvca.alba.engine.model.BurstIndex
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.GalleryDate
 import me.lvca.alba.engine.model.GalleryMedia
@@ -40,11 +44,23 @@ data class GalleryState(
     val deviceCount: Int = 0,
     val deviceMediaAccess: Boolean = false,
     val limitedPhotoAccess: Boolean = false,
-    /** How many photos each stacked burst holds, by burst id. */
-    val burstSizes: Map<String, Int> = emptyMap(),
+    /** Every burst in the library: its photos and key photo. */
+    val bursts: BurstIndex = BurstIndex.EMPTY,
     /** Bursts the user opened, shown photo by photo. */
     val expandedBursts: Set<String> = emptySet(),
 )
+
+/**
+ * [ids] with every photo of each stacked burst among them, in place: a hide, trash, favorite or album action on a
+ * burst's photo acts on the whole burst, as in Photos. An opened burst's photos act one by one.
+ */
+internal fun GalleryState.withBurstFrames(ids: Collection<String>): List<String> {
+    val stacked = items.filter { it.burstCount > 1 && it.id in ids }.associateBy { it.id }
+    if (stacked.isEmpty()) return ids.distinct()
+    return ids.flatMap { id ->
+        stacked[id]?.details?.burstId?.takeIf { it !in expandedBursts }?.let { bursts.members[it] } ?: listOf(id)
+    }.distinct()
+}
 
 private data class DeviceAccess(val granted: Boolean = false, val limited: Boolean = false)
 
@@ -83,9 +99,18 @@ internal class GalleryBrowser(
     val hasDeviceAccess: Boolean get() = deviceAccess.value.granted
 
     private val projection = GalleryProjection()
+    private var lastProjected: GalleryQuery? = null
+
+    /** The query to project. Typing in Search waits for a short pause; every other change applies at once. */
+    @OptIn(FlowPreview::class)
+    private val projectedQuery = query.debounce { next ->
+        val previous = lastProjected
+        if (previous != null && previous.filename != next.filename && previous.copy(filename = next.filename) == next) SEARCH_DEBOUNCE_MILLIS else 0L
+    }.onEach { lastProjected = it }
+
     private val projected = combine(
         repository.observeGallery(),
-        query,
+        projectedQuery,
         deviceAccess.map { it.granted }.distinctUntilChanged(),
         accountManager.state,
         combine(removing, expandedBursts, ::Pair),
@@ -119,7 +144,7 @@ internal class GalleryBrowser(
             deviceCount = projected.catalog.deviceCount,
             deviceMediaAccess = browsing.access.granted,
             limitedPhotoAccess = browsing.access.limited,
-            burstSizes = projected.burstSizes,
+            bursts = projected.catalog.bursts,
             expandedBursts = browsing.expandedBursts,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), GalleryState())
@@ -241,6 +266,7 @@ internal class GalleryBrowser(
     }
 
     private companion object {
+        const val SEARCH_DEBOUNCE_MILLIS = 150L
         const val MEDIA = "media"
         const val SELECTION = "selection"
         const val ACCOUNT = "accountIdentity"

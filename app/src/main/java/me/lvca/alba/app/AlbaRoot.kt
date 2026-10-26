@@ -43,12 +43,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
+import me.lvca.alba.app.gallery.withBurstFrames
 import me.lvca.alba.app.intake.IncomingRequest
 import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.platform.ExportDocument
 import me.lvca.alba.app.platform.HiddenLock
+import me.lvca.alba.app.platform.HiddenScreenGuard
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PendingExport
 import me.lvca.alba.app.platform.UploadTarget
@@ -200,7 +202,11 @@ private fun AlbaMain(
         }
     }
     // Hidden locks again whenever Alba leaves the screen, as on iOS.
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.gallery.lockHidden() }
+    // A rotation stops the activity too; that is not leaving Alba.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { if (activity?.isChangingConfigurations != true) viewModel.gallery.lockHidden() }
+    // Locking on stop comes after Android's Recents snapshot, so hidden photos are kept out of it, and out of
+    // screenshots and recordings, while they are on screen.
+    HiddenScreenGuard(activity, gallery.query.collectionId == GalleryQuery.HIDDEN || gallery.selectedMedia?.isHidden == true)
     val unlockTitle = stringResource(R.string.hidden_unlock_title)
     val unlockSubtitle = stringResource(R.string.hidden_unlock_subtitle)
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -520,18 +526,23 @@ private class AlbaRootActions(
     override fun openHidden() = platform.unlockHidden()
     override fun expandBurst(burstId: String, expanded: Boolean) = gallery.expandBurst(burstId, expanded)
 
-    override fun setFavorite(mediaId: String, favorite: Boolean) = edits.setFavorite(mediaId, favorite)
-    override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = edits.setFavorites(mediaIds, favorite)
+    /** Every photo of each stacked burst among [ids], so an edit on a burst's photo edits the whole burst. */
+    private fun frames(ids: List<String>) = gallery.current.withBurstFrames(ids)
+
+    override fun setFavorite(mediaId: String, favorite: Boolean) = frames(listOf(mediaId)).let { ids ->
+        if (ids.size == 1) edits.setFavorite(mediaId, favorite) else edits.setFavorites(ids, favorite)
+    }
+    override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = edits.setFavorites(frames(mediaIds), favorite)
     override fun createAlbum(name: String) = edits.createAlbum(name)
-    override fun createAlbumWithPhotos(name: String, mediaIds: List<String>) = edits.createAlbumWithPhotos(name, mediaIds)
+    override fun createAlbumWithPhotos(name: String, mediaIds: List<String>) = edits.createAlbumWithPhotos(name, frames(mediaIds))
     override fun renameAlbum(albumId: String, name: String) = edits.renameAlbum(albumId, name)
     override fun deleteAlbum(albumId: String) = edits.deleteAlbum(albumId)
-    override fun addToAlbum(albumId: String, mediaIds: List<String>) = edits.addToAlbum(albumId, mediaIds)
+    override fun addToAlbum(albumId: String, mediaIds: List<String>) = edits.addToAlbum(albumId, frames(mediaIds))
     override fun confirmRemoveFromAlbum(albumId: String, mediaIds: List<String>) =
-        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmRemoveFromAlbum(albumId, mediaIds.toList())) else Unit
-    override fun setHidden(mediaIds: List<String>, hidden: Boolean) = edits.setHidden(mediaIds, hidden)
+        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmRemoveFromAlbum(albumId, frames(mediaIds))) else Unit
+    override fun setHidden(mediaIds: List<String>, hidden: Boolean) = edits.setHidden(frames(mediaIds), hidden)
     override fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean) =
-        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmCloudTrash(mediaIds.toList(), trashed)) else Unit
+        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmCloudTrash(frames(mediaIds), trashed)) else Unit
     override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) = platform.trashOnPhone(items, restore)
     override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>) = shared.contributeToSharedAlbum(albumId, mediaIds)
     override fun createSharedAlbum(name: String, generation: SharedAlbumGeneration) = shared.createSharedAlbum(name, generation)

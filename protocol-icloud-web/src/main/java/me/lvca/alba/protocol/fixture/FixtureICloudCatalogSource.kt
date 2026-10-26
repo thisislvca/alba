@@ -280,7 +280,7 @@ class FixtureICloudCatalogSource(
         mediaIds.forEach(::record)
         if (trashed) this.trashed.addAll(mediaIds) else this.trashed.removeAll(mediaIds.toSet())
     }
-    override suspend fun recentlyDeleted() = personalRecords().filter { it.id in trashed && it.id !in hidden }.map { it.copy(isTrashed = true) }
+    override suspend fun recentlyDeleted() = personalRecords().filter { it.id in trashed }.map { it.copy(isTrashed = true) }
     override suspend fun hiddenMedia() = personalRecords().filter { it.id in hidden && it.id !in trashed }
     override suspend fun setHidden(mediaIds: List<String>, hidden: Boolean) {
         mediaIds.forEach(::record)

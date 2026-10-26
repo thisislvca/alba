@@ -177,7 +177,7 @@ internal enum class TileBadge { BURST, PANORAMA, SLO_MO, TIME_LAPSE, RAW }
 
 /** The type badge for [media], or null for an ordinary photo or video. Live Photos have their own Live pill. */
 internal fun tileBadge(media: GalleryMedia): TileBadge? = when {
-    media.details.burstId != null -> TileBadge.BURST
+    media.burstCount > 1 -> TileBadge.BURST
     SmartCollection.PANORAMAS.id in media.collectionIds -> TileBadge.PANORAMA
     SmartCollection.SLO_MO.id in media.collectionIds -> TileBadge.SLO_MO
     SmartCollection.TIME_LAPSE.id in media.collectionIds -> TileBadge.TIME_LAPSE

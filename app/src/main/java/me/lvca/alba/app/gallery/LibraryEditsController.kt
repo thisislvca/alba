@@ -106,13 +106,12 @@ internal class LibraryEditsController(
             require(ids.size in 1..MAX_EDIT_ITEMS)
             val moved = ids.toSet()
             gallery.clearSelection()
-            if (!undo) {
-                gallery.beginRemoval(moved)
-                messages.show(UiMessage.Undoable(UiMessage.quantity(if (hidden) R.plurals.hidden_moved else R.plurals.unhidden_moved, ids.size),
-                    UndoAction.Hidden(ids, hidden)))
-            }
+            if (!undo) gallery.beginRemoval(moved)
             try {
                 repository.setHidden(ids, hidden)
+                // Undo is offered only once iCloud confirmed the move.
+                if (!undo) messages.show(UiMessage.Undoable(UiMessage.quantity(if (hidden) R.plurals.hidden_moved else R.plurals.unhidden_moved,
+                    ids.size), UndoAction.Hidden(ids, hidden)))
                 withTimeoutOrNull(CATALOG_CATCH_UP_MILLIS) {
                     repository.observeGallery().first { items -> items.none { it.id in moved && it.isHidden != hidden } }
                 }

@@ -79,7 +79,8 @@ class LibraryDataTest {
         val items = base.items.mapIndexed { index, item ->
             when (index) {
                 0 -> item.copy(collectionIds = setOf(SmartCollection.PANORAMAS.id))
-                1 -> item.copy(details = MediaDetails(burstId = "burst"))
+                1 -> item.copy(details = MediaDetails(burstId = "burst"), burstCount = 3)
+                3 -> item.copy(details = MediaDetails(burstId = "opened"))
                 2 -> item.copy(mimeType = "image/x-adobe-dng")
                 else -> item
             }

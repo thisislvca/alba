@@ -260,7 +260,7 @@ fun AlbaApp(
                                                 it.action == BatchAction.KEEP_OFFLINE.name && it.status.isPending }
                                             val stagingUpload = transfers.batches.any { it.mediaId == media.id &&
                                                 it.action == BatchAction.UPLOAD.name && it.status.isPending }
-                                            val burst = ViewerBurst(media.details.burstId?.let(gallery.burstSizes::get) ?: 0,
+                                            val burst = ViewerBurst(media.burstCount,
                                                 media.details.burstId in gallery.expandedBursts)
                                             CompositionLocalProvider(LocalViewerBurst provides burst) { MediaDetailScreen(
                                                 media = media,

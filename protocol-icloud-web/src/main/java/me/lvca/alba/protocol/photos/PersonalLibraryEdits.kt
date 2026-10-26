@@ -210,7 +210,8 @@ internal class PersonalLibraryEdits(
         val records = database.lookup(names)
         check(records.mapNotNull { it.recordName() }.toSet() == names.toSet() && records.size == names.size)
         val operations = records.mapNotNull { record ->
-            check(record.isTrashable()) { "This photo is no longer available. Refresh the library." }
+            // A hidden photo can come back from Recently Deleted (into Hidden); only moving to the trash needs it visible.
+            check(record.isTrashable(requireVisible = trashed)) { "This photo is no longer available. Refresh the library." }
             if (record.fieldFlag("isDeleted") == trashed) return@mapNotNull null
             operation("update", buildJsonObject {
                 put("recordName", record.recordName()!!); put("recordType", "CPLAsset"); put("recordChangeTag", checkNotNull(record.text("recordChangeTag")?.takeIf { it.isNotBlank() }))

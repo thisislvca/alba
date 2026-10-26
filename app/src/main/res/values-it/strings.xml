@@ -806,6 +806,7 @@
     <string name="hidden_empty">Qui compaiono le foto che nascondi su iCloud.</string>
     <string name="hide">Nascondi</string>
     <string name="unhide">Mostra</string>
+    <string name="hidden_refresh_unavailable">Impossibile controllare Nascosti. Mostra quello che Alba ha visto l\'ultima volta.</string>
     <string name="hidden_change_failed">Impossibile confermare la modifica a Nascosti. Aggiorna prima di riprovare.</string>
     <plurals name="hidden_moved">
         <item quantity="one">Spostata in Nascosti</item>
@@ -819,7 +820,7 @@
     </plurals>
     <!-- Search -->
     <string name="search_your_photos">Cerca nelle tue foto</string>
-    <string name="search_landing_body">Cerca nomi dei file, titoli, didascalie e album, oppure prova un mese, un anno o un tipo come \"video 2024\" o \"june\".</string>
+    <string name="search_landing_body">Cerca nomi dei file, titoli, didascalie e album, oppure prova un mese, un anno o un tipo come \"video 2024\" o \"giugno\".</string>
     <string name="search_matching_albums">Album</string>
     <!-- Photo types and bursts -->
     <string name="raw_badge">RAW</string>

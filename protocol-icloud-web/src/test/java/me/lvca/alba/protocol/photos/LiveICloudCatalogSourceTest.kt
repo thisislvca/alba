@@ -139,6 +139,13 @@ class LiveICloudCatalogSourceTest {
         assertTrue(transport.photoQueries.single().contains("CPLAssetAndMasterDeletedByExpungedDate"))
     }
 
+    @Test fun hiddenPhotosDeletedElsewhereStayInRecentlyDeleted() = runBlocking {
+        val page = PHOTO_PAGE.replace("\"assetDate\":", "\"isDeleted\":{\"value\":1},\"isHidden\":{\"value\":1},\"assetDate\":")
+        val source = LiveICloudCatalogSource(FakePhotosTransport(firstPage = page), { SESSION }, isAuthorized = { true })
+        val deleted = source.recentlyDeleted().single()
+        assertTrue(deleted.isTrashed && deleted.isHidden)
+    }
+
     @Test fun incompleteRecentlyDeletedDoesNotSilentlyEraseTheCachedTrash() = runBlocking {
         val transport = FakePhotosTransport(firstPage = PHOTO_PAGE.replace("\"master-1\",", "\"missing-master\","))
         val source = LiveICloudCatalogSource(transport, { SESSION }, isAuthorized = { true })

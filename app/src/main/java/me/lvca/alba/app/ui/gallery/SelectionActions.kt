@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.gallery.withBurstFrames
+import me.lvca.alba.app.platform.HIDE_EDITS_ENABLED
 import me.lvca.alba.app.ui.GalleryScreenActions
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.collections.isUserAlbum
@@ -55,7 +57,10 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
             val hasCloud = selectedItems.any { it.origin == MediaOrigin.ICLOUD }
             val hasShared = selectedItems.any { it.isShared }
             val hasPhone = selectedItems.any { it.origin == MediaOrigin.DEVICE }
-            val withinLimit = selectedItems.size <= MAX_SELECTION_ACTION_ITEMS
+            // A stacked burst counts as all of its photos, which every edit acts on.
+            val withinLimit = gallery.withBurstFrames(gallery.selection).size <= MAX_SELECTION_ACTION_ITEMS
+            // iCloud refuses favorites, albums and the trash for hidden photos; Hidden offers only what works there.
+            val inHidden = query.collectionId == GalleryQuery.HIDDEN
             var more by remember { mutableStateOf(false) }
             // Icons with short labels share the width evenly, so every action fits; the full name is for accessibility.
             Row(Modifier.fillMaxWidth()) {
@@ -76,7 +81,7 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
                     SelectionAction(Icons.Outlined.MoreVert, stringResource(R.string.more), stringResource(R.string.more),
                         modifier = Modifier.fillMaxWidth()) { more = true }
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
-                        if (!query.trashOnly && !hasShared) {
+                        if (!query.trashOnly && !hasShared && !inHidden) {
                             val canFavorite = !session.accountBusy && !mediaBusy && (!hasCloud || editable) && withinLimit
                             DropdownMenuItem(text = { Text(stringResource(R.string.favorite)) }, enabled = canFavorite,
                                 onClick = { more = false; actions.setFavorites(selectedItems.map { it.id }, true) })
@@ -86,21 +91,20 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
                         if (hasPhone && !hasCloud) DropdownMenuItem(
                             text = { Text(stringResource(if (query.trashOnly) R.string.restore_photo else R.string.trash_phone_copy)) },
                             onClick = { more = false; actions.trashOnPhone(selectedItems, query.trashOnly) })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.add_to_album)) }, enabled = editable && !hasShared && !query.trashOnly && hasCloud && !hasPhone && withinLimit,
+                        if (!inHidden) DropdownMenuItem(text = { Text(stringResource(R.string.add_to_album)) }, enabled = editable && !hasShared && !query.trashOnly && hasCloud && !hasPhone && withinLimit,
                             onClick = { more = false; addingToAlbum = true })
                         val album = gallery.collections.firstOrNull { it.id == query.collectionId && it.isUserAlbum }
                         if (album != null && !query.trashOnly) DropdownMenuItem(text = { Text(stringResource(R.string.remove_from_album)) },
                             enabled = editable && hasCloud && !hasPhone && withinLimit,
                             onClick = { more = false; actions.confirmRemoveFromAlbum(album.id, selectedItems.map { it.id }) })
-                        if (hasCloud && !hasPhone && !hasShared) DropdownMenuItem(text = { Text(stringResource(if (query.trashOnly) R.string.restore_from_icloud else R.string.trash_in_icloud)) },
+                        val hideable = hasCloud && !hasPhone && !hasShared
+                        if (hideable && !inHidden) DropdownMenuItem(text = { Text(stringResource(if (query.trashOnly) R.string.restore_from_icloud else R.string.trash_in_icloud)) },
                             enabled = editable && withinLimit,
                             onClick = { more = false; actions.confirmCloudTrash(selectedItems.map { it.id }, !query.trashOnly) })
-                        val hideable = hasCloud && !hasPhone && !hasShared
-                        if (hideable && !query.trashOnly) {
-                            val unhide = query.collectionId == GalleryQuery.HIDDEN
-                            DropdownMenuItem(text = { Text(stringResource(if (unhide) R.string.unhide else R.string.hide)) },
+                        if (HIDE_EDITS_ENABLED && hideable && !query.trashOnly) {
+                            DropdownMenuItem(text = { Text(stringResource(if (inHidden) R.string.unhide else R.string.hide)) },
                                 enabled = editable && withinLimit, modifier = Modifier.testTag("selection-hide"),
-                                onClick = { more = false; actions.setHidden(selectedItems.map { it.id }, !unhide) })
+                                onClick = { more = false; actions.setHidden(selectedItems.map { it.id }, !inHidden) })
                         }
                         DropdownMenuItem(text = { Text(stringResource(R.string.remove_offline_copies)) }, enabled = hasCloud,
                             onClick = { more = false; actions.runBatch(BatchAction.REMOVE_CACHE) })

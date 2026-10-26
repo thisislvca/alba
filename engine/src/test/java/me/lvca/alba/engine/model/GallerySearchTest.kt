@@ -9,15 +9,15 @@ import java.time.ZoneOffset
 
 class GallerySearchTest {
     @Test fun monthsAndYearsAreRecognisedInEnglishAndItalian() {
-        assertEquals(GallerySearch(months = setOf(6), years = setOf(2023)), GallerySearch.parse("June 2023"))
-        assertEquals(GallerySearch(months = setOf(6)), GallerySearch.parse("giugno"))
-        assertEquals(GallerySearch(months = setOf(6, 7)), GallerySearch.parse("jun, luglio"))
-        assertEquals(GallerySearch(years = setOf(2023)), GallerySearch.parse("2023"))
-        assertEquals(GallerySearch(months = setOf(12)), GallerySearch.parse("Dicembre"))
+        GallerySearch.parse("June 2023").let { assertEquals(setOf(6), it.months); assertEquals(setOf(2023), it.years); assertTrue(it.words.isEmpty()) }
+        assertEquals(setOf(6), GallerySearch.parse("giugno").months)
+        assertEquals(setOf(6, 7), GallerySearch.parse("jun, luglio").months)
+        assertEquals(setOf(2023), GallerySearch.parse("2023").years)
+        assertEquals(setOf(12), GallerySearch.parse("Dicembre").months)
         // Numbers that are not plausible years stay text, so file numbers still match.
-        assertEquals(GallerySearch(words = listOf("8421")), GallerySearch.parse("8421"))
+        GallerySearch.parse("8421").let { assertTrue(it.years.isEmpty()); assertEquals(listOf("8421"), it.words) }
         // Italian abbreviations that are English words stay text.
-        assertEquals(GallerySearch(words = listOf("ago")), GallerySearch.parse("ago"))
+        GallerySearch.parse("ago").let { assertTrue(it.months.isEmpty()); assertEquals(listOf("ago"), it.words) }
     }
 
     @Test fun mediaTypeWordsMapToSmartCollectionsInBothLanguages() {
@@ -30,11 +30,22 @@ class GallerySearchTest {
             "time lapse" to SmartCollection.TIME_LAPSE.id, "timelapse" to SmartCollection.TIME_LAPSE.id,
             "preferiti" to GalleryQuery.FAVORITES, "favourites" to GalleryQuery.FAVORITES,
         )
-        for ((text, collection) in cases) assertEquals(text, GallerySearch(collections = setOf(collection)), GallerySearch.parse(text))
-        assertEquals(GallerySearch(collections = setOf(SmartCollection.VIDEOS.id), years = setOf(2024), words = listOf("mare")),
-            GallerySearch.parse("video mare 2024"))
-        assertEquals(GallerySearch(raw = true), GallerySearch.parse("RAW"))
+        for ((text, collection) in cases) {
+            val search = GallerySearch.parse(text)
+            assertEquals(text, setOf(collection), search.collections)
+            assertTrue(text, search.words.isEmpty())
+        }
+        GallerySearch.parse("video mare 2024").let {
+            assertEquals(setOf(SmartCollection.VIDEOS.id), it.collections); assertEquals(setOf(2024), it.years); assertEquals(listOf("mare"), it.words)
+        }
+        assertTrue(GallerySearch.parse("RAW").raw)
         assertTrue(GallerySearch.parse("  ").isEmpty)
+    }
+
+    @Test fun fillerWordsAreIgnored() {
+        assertEquals(listOf("mare"), GallerySearch.parse("foto del mare").words)
+        assertEquals(listOf("beach"), GallerySearch.parse("photos of the beach").words)
+        assertTrue(GallerySearch.parse("pictures").isEmpty)
     }
 
     @Test fun wordsMatchFileNamesTitlesAndCaptionsIgnoringCaseAndAccents() {
@@ -50,6 +61,15 @@ class GallerySearchTest {
         assertFalse(matches("luglio"))
         assertFalse(matches("beach"))
         assertFalse(matches("videos"))
+    }
+
+    @Test fun typeAndMonthWordsAlsoMatchAsText() {
+        val concert = media("IMG_1.JPG", "2024-01-01T00:00:00Z").copy(details = MediaDetails(caption = "Live music in March"))
+        fun matches(text: String) = GallerySearch.parse(text).matches(concert, concert.capturedAtEpochMillis, ZoneOffset.UTC)
+        assertTrue(matches("live music"))
+        assertTrue(matches("march"))
+        assertFalse(matches("may"))
+        assertFalse(matches("raw"))
     }
 
     @Test fun typeWordsMatchByIcloudMembershipOrKind() {
@@ -68,20 +88,23 @@ class GallerySearchTest {
     @Test fun albumsMatchOnTheirNameAlone() {
         assertTrue(GallerySearch.parse("vacanze").matchesAlbum("Vacanze al mare"))
         assertTrue(GallerySearch.parse("Città").matchesAlbum("citta vecchia"))
-        assertFalse(GallerySearch.parse("2023").matchesAlbum("Summer 2023"))
+        assertTrue(GallerySearch.parse("2023").matchesAlbum("Summer 2023"))
         assertFalse(GallerySearch.parse("beach").matchesAlbum("Mountains"))
+        assertFalse(GallerySearch.parse("").matchesAlbum("Mountains"))
     }
 
-    @Test fun hiddenPhotosAppearOnlyInHidden() {
+    @Test fun hiddenPhotosAppearOnlyInHiddenAndOnceDeletedInRecentlyDeleted() {
         val visible = media("visible.jpg", "2024-01-01T00:00:00Z").copy(collectionIds = setOf("album"), isFavorite = true)
         val hidden = media("hidden.jpg", "2024-01-02T00:00:00Z").copy(id = "hidden", collectionIds = setOf("album"),
             isFavorite = true, isHidden = true)
-        val items = listOf(visible, hidden)
+        val deletedHidden = hidden.copy(id = "deleted-hidden", fileName = "deleted.jpg", isTrashed = true)
+        val items = listOf(visible, hidden, deletedHidden)
         for (query in listOf(GalleryQuery(), GalleryQuery(collectionId = "album"), GalleryQuery(collectionId = GalleryQuery.FAVORITES),
             GalleryQuery(filename = "jpg"), GalleryQuery(origin = MediaOrigin.ICLOUD))) {
             assertEquals(query.toString(), listOf("visible.jpg"), query.apply(items, ZoneOffset.UTC).map { it.fileName })
         }
         assertEquals(listOf("hidden.jpg"), GalleryQuery(collectionId = GalleryQuery.HIDDEN).apply(items, ZoneOffset.UTC).map { it.fileName })
+        assertEquals(listOf("deleted.jpg"), GalleryQuery(trashOnly = true).apply(items, ZoneOffset.UTC).map { it.fileName })
     }
 
     @Test fun formatLabelsNameRawOriginals() {
@@ -93,6 +116,8 @@ class GallerySearchTest {
         assertEquals("MP4", mediaFormatLabel("video/mp4"))
         assertTrue(isRawFormat("image/x-sony-arw"))
         assertFalse(isRawFormat("image/heic"))
+        // RAW originals cannot go to a legacy Shared Album, which takes only the formats it can show.
+        assertFalse(supportsLegacySharedUpload(MediaKind.PHOTO, "image/x-adobe-dng"))
     }
 
     private fun media(name: String, time: String) = GalleryMedia(name, name, Instant.parse(time).toEpochMilli(), 10, 10,

@@ -794,6 +794,7 @@
     <string name="hidden_empty">Photos you hide in iCloud appear here.</string>
     <string name="hide">Hide</string>
     <string name="unhide">Unhide</string>
+    <string name="hidden_refresh_unavailable">Hidden couldn\'t be checked. It shows what Alba last saw.</string>
     <string name="hidden_change_failed">Couldn\'t confirm the change to Hidden. Refresh before retrying.</string>
     <plurals name="hidden_moved">
         <item quantity="one">Moved to Hidden</item>
@@ -805,7 +806,7 @@
     </plurals>
     <!-- Search -->
     <string name="search_your_photos">Search your photos</string>
-    <string name="search_landing_body">Search file names, titles, captions and albums, or try a month, a year or a type like \"videos 2024\" or \"giugno\".</string>
+    <string name="search_landing_body">Search file names, titles, captions and albums, or try a month, a year or a type like \"videos 2024\" or \"june\".</string>
     <string name="search_matching_albums">Albums</string>
     <!-- Photo types and bursts -->
     <string name="raw_badge">RAW</string>

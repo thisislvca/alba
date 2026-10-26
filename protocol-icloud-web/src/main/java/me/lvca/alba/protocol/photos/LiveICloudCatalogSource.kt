@@ -115,7 +115,8 @@ class LiveICloudCatalogSource(
             val record = element.jsonObject
             val name = record.recordName() ?: throw CatalogResetRequired()
             val type = record.recordType()
-            if (record.isRemovedFromLibrary()) { deleted += name; continue }
+            // A newly hidden asset is still in the library: hydrate it and flag it, rather than removing it.
+            if (record.isRemovedFromLibrary() && !record.isHiddenAsset()) { deleted += name; continue }
             when (type) {
                 "CPLAsset" -> changedAssets += name
                 "CPLMaster" -> {
@@ -193,9 +194,9 @@ class LiveICloudCatalogSource(
         val records = database.queryAll("CPLAssetAndMasterDeletedByExpungedDate", ranked = true)
         database.requireUnchanged(session)
         check(records.all { it["serverErrorCode"] == null })
-        val parsed = parser.parse(buildJsonObject { put("records", JsonArray(records)) }.toString(), includeTrashed = true).photos
-        val expected = records.count { it.recordType() == "CPLAsset" &&
-            !it.fieldFlag("isHidden") && !it.fieldFlag("isExpunged") }
+        // Hidden photos deleted elsewhere are listed too, as in Photos.
+        val parsed = parser.parse(buildJsonObject { put("records", JsonArray(records)) }.toString(), includeTrashed = true, includeHidden = true).photos
+        val expected = records.count { it.recordType() == "CPLAsset" && !it.fieldFlag("isExpunged") }
         check(parsed.size == expected) { "Recently Deleted was incomplete. Refresh to try again." }
         return parsed.filter { it.isTrashed }.map(::mapped)
     }
@@ -209,7 +210,7 @@ class LiveICloudCatalogSource(
         val parsed = parser.parse(buildJsonObject { put("records", JsonArray(records)) }.toString(), includeHidden = true).photos
         val expected = records.count { it.recordType() == "CPLAsset" && it.fieldFlag("isHidden") &&
             !it.fieldFlag("isDeleted") && !it.fieldFlag("isExpunged") }
-        check(parsed.count { it.isHidden } == expected) { "Hidden was incomplete. Refresh to try again." }
+        check(parsed.count { it.isHidden } == expected) { HIDDEN_INCOMPLETE }
         return parsed.filter { it.isHidden && !it.isTrashed }.map(::mapped)
     }
 
@@ -477,6 +478,7 @@ class LiveICloudCatalogSource(
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         const val PHOTO_LIST_RECORD_TYPE = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"
         const val HIDDEN_LIST_RECORD_TYPE = "CPLAssetAndMasterHiddenByAssetDate"
+        const val HIDDEN_INCOMPLETE = "Hidden was incomplete. Refresh to try again."
         const val RECORDS_PER_PHOTO = 2
         val PHOTO_DESIRED_KEYS = listOf(
             "resOriginalVidComplRes", "resOriginalVidComplFileType", "resOriginalVidComplFingerprint",
@@ -516,3 +518,7 @@ class LiveICloudCatalogSource(
         )
     }
 }
+
+/** A hidden asset that is otherwise live: [isRemovedFromLibrary] counts it as removed, but it belongs in Hidden. */
+private fun JsonObject.isHiddenAsset(): Boolean = recordType() == "CPLAsset" && fieldFlag("isHidden") &&
+    this["deleted"]?.jsonPrimitive?.booleanOrNull != true && !fieldFlag("isDeleted") && !fieldFlag("isExpunged")

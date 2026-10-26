@@ -20,8 +20,12 @@ internal object MediaDetailsParser {
     private const val MAX_TEXT = 2_000
     private const val MAX_BURST_ID = 200
 
+    /** A location plist is a few hundred bytes; anything far larger is not one. */
+    private const val MAX_LOCATION_BASE64 = 4_096
+
     fun parse(asset: JsonObject): MediaDetails {
-        val location = asset.fieldText("locationEnc")?.let(::decodeBase64)?.let(BinaryPlist::parse) as? Map<*, *>
+        val location = asset.fieldText("locationEnc")?.takeIf { it.length <= MAX_LOCATION_BASE64 }
+            ?.let(::decodeBase64)?.let(BinaryPlist::parse) as? Map<*, *>
         val latitude = (location?.get("lat") as? Number)?.toDouble()
         val longitude = (location?.get("lon") as? Number)?.toDouble()
         val valid = MediaDetails.validLocation(latitude, longitude)

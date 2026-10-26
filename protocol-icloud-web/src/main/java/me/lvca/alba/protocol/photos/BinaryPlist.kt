@@ -30,6 +30,9 @@ internal object BinaryPlist {
             require(offsetTable >= MAGIC.size && offsetTable.toLong() + objectCount.toLong() * offsetSize <= trailer)
         }
 
+        /** Objects read so far; a malformed list could otherwise reference the same objects without end. */
+        private var nodes = 0
+
         fun root(): Any? = read(topObject, 0)
 
         private fun byte(at: Int): Int = bytes[at].toInt() and BYTE_MASK
@@ -60,7 +63,7 @@ internal object BinaryPlist {
         }
 
         private fun read(ref: Int, depth: Int): Any? {
-            require(depth < MAX_DEPTH)
+            require(depth < MAX_DEPTH && ++nodes <= MAX_NODES)
             val at = offsetOf(ref)
             val marker = byte(at)
             val low = marker and NIBBLE
@@ -77,10 +80,18 @@ internal object BinaryPlist {
                 TYPE_DATA -> count(at, low).let { (size, start) -> slice(start, size) }
                 TYPE_ASCII -> count(at, low).let { (size, start) -> String(slice(start, size), Charsets.US_ASCII) }
                 TYPE_UTF16 -> count(at, low).let { (size, start) -> String(slice(start, size * 2), Charsets.UTF_16BE) }
-                TYPE_ARRAY -> count(at, low).let { (size, start) -> List(size) { read(ref(start + it * refSize), depth + 1) } }
-                TYPE_DICT -> count(at, low).let { (size, start) -> dictionary(size, start, depth) }
+                TYPE_ARRAY -> count(at, low).let { (size, start) ->
+                    requireRefs(start, size)
+                    List(size) { read(ref(start + it * refSize), depth + 1) }
+                }
+                TYPE_DICT -> count(at, low).let { (size, start) -> requireRefs(start, size * 2); dictionary(size, start, depth) }
                 else -> null
             }
+        }
+
+        /** [size] references fit in the bytes after [start], so a forged count cannot allocate past the input. */
+        private fun requireRefs(start: Int, size: Int) {
+            require(size >= 0 && size.toLong() * refSize <= (bytes.size - start).toLong())
         }
 
         private fun dictionary(size: Int, start: Int, depth: Int): Map<String, Any?> = buildMap {
@@ -109,6 +120,7 @@ private const val BYTE_MASK = 0xFF
 private const val NIBBLE = 0xF
 private const val NIBBLE_BITS = 4
 private const val MAX_DEPTH = 16
+private const val MAX_NODES = 10_000
 private const val FALSE = 0x08
 private const val TRUE = 0x09
 private const val TYPE_SIMPLE = 0x0

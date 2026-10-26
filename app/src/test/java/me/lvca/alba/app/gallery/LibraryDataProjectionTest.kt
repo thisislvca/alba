@@ -17,6 +17,7 @@ import me.lvca.alba.engine.model.SmartCollection
 import me.lvca.alba.protocol.account.ICloudAccountState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import java.time.ZoneOffset
@@ -31,11 +32,36 @@ class LibraryDataProjectionTest {
         val projection = GalleryProjection()
         val stacked = projection.apply(items, GalleryQuery(), true, account, ZoneOffset.UTC)
         assertEquals(listOf("icloud:x:a", "icloud:x:b"), stacked.items.map { it.id })
-        assertEquals(mapOf("burst" to 3), stacked.burstSizes)
+        assertEquals(3, stacked.items[1].burstCount)
+        assertEquals(listOf("icloud:x:b", "icloud:x:c", "icloud:x:d"), stacked.catalog.bursts.members["burst"])
         val expanded = projection.apply(items, GalleryQuery(), true, account, ZoneOffset.UTC, expandedBursts = setOf("burst"))
         assertEquals(4, expanded.items.size)
         val trash = items.map { it.copy(isTrashed = true) }
         assertEquals(4, GalleryProjection().apply(trash, GalleryQuery(trashOnly = true), true, account, ZoneOffset.UTC).items.size)
+    }
+
+    @Test fun anActionOnAStackedBurstActsOnEveryPhotoInIt() {
+        val items = listOf(photo("a", "2026-01-04"), photo("b", "2026-01-03", "burst"), photo("c", "2026-01-02", "burst"),
+            photo("d", "2026-01-01", "burst"))
+        val projected = GalleryProjection().apply(items, GalleryQuery(), true, account, ZoneOffset.UTC)
+        val state = GalleryState(items = projected.items, bursts = projected.catalog.bursts)
+        assertEquals(listOf("icloud:x:a", "icloud:x:b", "icloud:x:c", "icloud:x:d"),
+            state.withBurstFrames(listOf("icloud:x:a", "icloud:x:b")))
+        assertEquals(listOf("icloud:x:a"), state.withBurstFrames(listOf("icloud:x:a")))
+        // Once the burst is opened, each photo acts on its own.
+        val opened = GalleryProjection().apply(items, GalleryQuery(), true, account, ZoneOffset.UTC, expandedBursts = setOf("burst"))
+        assertEquals(listOf("icloud:x:c"), GalleryState(items = opened.items, bursts = opened.catalog.bursts,
+            expandedBursts = setOf("burst")).withBurstFrames(listOf("icloud:x:c")))
+    }
+
+    @Test fun aPhoneCopyOfAHiddenPhotoIsHiddenToo() {
+        val hidden = photo("a", "2026-01-02").copy(isHidden = true, linkedDeviceId = "device:1")
+        val phone = GalleryMedia("device:1", "a.jpg", hidden.capturedAtEpochMillis, 10, 10, MediaOrigin.DEVICE,
+            MediaAvailability.DEVICE_ORIGINAL, "content://a", "content://a", 0, 0)
+        val visible = GalleryProjection().apply(listOf(hidden, phone), GalleryQuery(), true, account, ZoneOffset.UTC).items
+        assertTrue(visible.isEmpty())
+        assertTrue(GalleryProjection().apply(listOf(hidden, phone), GalleryQuery(origin = MediaOrigin.DEVICE), true, account, ZoneOffset.UTC)
+            .items.isEmpty())
     }
 
     @Test fun hiddenPhotosStayOutOfTheLibraryButFillHidden() {
@@ -47,7 +73,9 @@ class LibraryDataProjectionTest {
 
     @Test fun tileBadgesFollowIcloudTypes() {
         val base = photo("a", "2026-01-01")
-        assertEquals(TileBadge.BURST, tileBadge(base.copy(details = MediaDetails(burstId = "b"))))
+        assertEquals(TileBadge.BURST, tileBadge(base.copy(details = MediaDetails(burstId = "b"), burstCount = 3)))
+        // An opened burst's photos, or a burst of one, carry no badge.
+        assertNull(tileBadge(base.copy(details = MediaDetails(burstId = "b"))))
         assertEquals(TileBadge.PANORAMA, tileBadge(base.copy(collectionIds = setOf(SmartCollection.PANORAMAS.id))))
         assertEquals(TileBadge.SLO_MO, tileBadge(base.copy(kind = MediaKind.VIDEO, collectionIds = setOf(SmartCollection.SLO_MO.id))))
         assertEquals(TileBadge.TIME_LAPSE, tileBadge(base.copy(collectionIds = setOf(SmartCollection.TIME_LAPSE.id))))

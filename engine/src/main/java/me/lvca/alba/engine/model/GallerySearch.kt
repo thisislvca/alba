@@ -6,8 +6,9 @@ import java.time.ZoneId
 
 /**
  * A parsed search: what the user typed, split into the parts Alba understands. Words that name a month, a year or a
- * kind of photo, in English or Italian, become filters; every other word must appear in the file name, title or
- * caption. Everything runs locally over the catalog already on the phone.
+ * kind of photo, in English or Italian, are filters, but a photo whose text contains the word matches too, so "live
+ * music" or a caption saying "march" still find what they say. Every other word must appear in the file name, title or
+ * caption. Filler words such as "photos" or "di" are ignored. Everything runs locally over the catalog on the phone.
  */
 data class GallerySearch(
     /** Months, 1 to 12. A photo matches any of them. */
@@ -20,25 +21,33 @@ data class GallerySearch(
     val raw: Boolean = false,
     /** Normalized words that must each appear in the photo's text. */
     val words: List<String> = emptyList(),
+    /** The normalized words behind the filters above; a photo whose text contains one of a filter's words also matches it. */
+    val filterWords: Map<Filter, Set<String>> = emptyMap(),
 ) {
+    enum class Filter { MONTH, YEAR, TYPE, RAW }
+
     val isEmpty: Boolean get() = months.isEmpty() && years.isEmpty() && collections.isEmpty() && !raw && words.isEmpty()
 
     /** Whether [media], dated [epochMillis] in [zone], matches every part of this search. */
-    fun matches(media: GalleryMedia, epochMillis: Long, zone: ZoneId): Boolean =
-        isEmpty || (matchesDate(epochMillis, zone) &&
-            (collections.isEmpty() || collections.any { it in media.collectionIds || matchesKind(media, it) }) &&
-            (!raw || isRawFormat(media.mimeType)) && matchesWords(media.fileName + " " + media.details.searchableText))
-
-    private fun matchesDate(epochMillis: Long, zone: ZoneId): Boolean {
-        if (months.isEmpty() && years.isEmpty()) return true
-        val date = Instant.ofEpochMilli(epochMillis).atZone(zone)
-        return (months.isEmpty() || date.monthValue in months) && (years.isEmpty() || date.year in years)
+    fun matches(media: GalleryMedia, epochMillis: Long, zone: ZoneId): Boolean {
+        if (isEmpty) return true
+        val text = media.searchHaystack
+        fun saidIn(filter: Filter) = filterWords[filter].orEmpty().any { it in text }
+        val date by lazy(LazyThreadSafetyMode.NONE) { Instant.ofEpochMilli(epochMillis).atZone(zone) }
+        return (months.isEmpty() || date.monthValue in months || saidIn(Filter.MONTH)) &&
+            (years.isEmpty() || date.year in years || saidIn(Filter.YEAR)) &&
+            (collections.isEmpty() || collections.any { it in media.collectionIds || matchesKind(media, it) } || saidIn(Filter.TYPE)) &&
+            (!raw || isRawFormat(media.mimeType) || saidIn(Filter.RAW)) &&
+            words.all { it in text }
     }
 
-    private fun matchesWords(text: String): Boolean = words.isEmpty() || normalize(text).let { normalized -> words.all { it in normalized } }
-
-    /** Whether an album called [name] matches the typed words. Albums match on their name alone. */
-    fun matchesAlbum(name: String): Boolean = words.isNotEmpty() && matchesWords(name)
+    /** Whether an album called [name] matches. Albums match on their name alone, by every word typed. */
+    fun matchesAlbum(name: String): Boolean {
+        val all = words + filterWords.values.flatten()
+        if (all.isEmpty()) return false
+        val album = normalize(name)
+        return all.all { it in album }
+    }
 
     companion object {
         /** Parses [text]. Recognised words are filters; the rest are matched as text. */
@@ -48,7 +57,9 @@ data class GallerySearch(
             val collections = mutableSetOf<String>()
             var raw = false
             val words = mutableListOf<String>()
-            val tokens = normalize(text).split(SEPARATORS).filter(String::isNotEmpty)
+            val filterWords = mutableMapOf<Filter, MutableSet<String>>()
+            fun said(filter: Filter, word: String) { filterWords.getOrPut(filter, ::mutableSetOf) += word }
+            val tokens = normalize(text).split(SEPARATORS).filter { it.isNotEmpty() && it !in FILLER }
             var index = 0
             while (index < tokens.size) {
                 val token = tokens[index]
@@ -56,16 +67,18 @@ data class GallerySearch(
                 val pair = tokens.getOrNull(index + 1)?.let { "$token $it" }
                 val pairType = pair?.let(TYPE_WORDS::get)
                 when {
-                    pairType != null -> { collections += pairType; index++ }
-                    token in TYPE_WORDS -> collections += TYPE_WORDS.getValue(token)
-                    token in MONTH_WORDS -> months += MONTH_WORDS.getValue(token)
-                    token.length == YEAR_DIGITS && token.all(Char::isDigit) && token.toInt() in YEARS -> years += token.toInt()
-                    token == "raw" -> raw = true
+                    pairType != null -> { collections += pairType; said(Filter.TYPE, pair); index++ }
+                    token in TYPE_WORDS -> { collections += TYPE_WORDS.getValue(token); said(Filter.TYPE, token) }
+                    token in MONTH_WORDS -> { months += MONTH_WORDS.getValue(token); said(Filter.MONTH, token) }
+                    token.length == YEAR_DIGITS && token.all(Char::isDigit) && token.toInt() in YEARS -> {
+                        years += token.toInt(); said(Filter.YEAR, token)
+                    }
+                    token == "raw" -> { raw = true; said(Filter.RAW, token) }
                     else -> words += token
                 }
                 index++
             }
-            return GallerySearch(months, years, collections, raw, words)
+            return GallerySearch(months, years, collections, raw, words, filterWords)
         }
 
         /** Lower case without accents, so "Città" and "citta" match. */
@@ -83,6 +96,10 @@ data class GallerySearch(
         private val DIACRITICS = Regex("\\p{Mn}+")
         private val YEARS = 1900..2100
         private const val YEAR_DIGITS = 4
+
+        /** Words that say nothing about which photo is meant, in English and Italian. */
+        private val FILLER = setOf("photo", "photos", "picture", "pictures", "pic", "pics", "image", "images", "foto",
+            "immagine", "immagini", "of", "the", "from", "in", "di", "del", "della", "dei", "delle", "da", "a")
 
         private val MONTH_WORDS: Map<String, Int> = buildMap {
             val english = listOf("january", "february", "march", "april", "may", "june", "july", "august", "september",

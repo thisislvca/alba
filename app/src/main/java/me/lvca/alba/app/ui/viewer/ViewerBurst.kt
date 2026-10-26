@@ -8,6 +8,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import me.lvca.alba.app.R
+import me.lvca.alba.app.platform.HIDE_EDITS_ENABLED
 import me.lvca.alba.app.ui.MediaScreenActions
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
@@ -22,6 +23,7 @@ internal val LocalViewerBurst = staticCompositionLocalOf { ViewerBurst() }
 /** Moves the photo into Hidden, or back to the library when it is hidden. */
 @Composable
 internal fun HideAction(media: GalleryMedia, enabled: Boolean, actions: MediaScreenActions) {
+    if (!HIDE_EDITS_ENABLED) return
     DetailAction(stringResource(if (media.isHidden) R.string.unhide else R.string.hide), enabled,
         { actions.setHidden(listOf(media.id), !media.isHidden) },
         { Icon(if (media.isHidden) AlbaIcons.Visibility else AlbaIcons.VisibilityOff, null) })

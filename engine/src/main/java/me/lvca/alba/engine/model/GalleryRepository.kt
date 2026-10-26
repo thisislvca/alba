@@ -8,6 +8,8 @@ data class RefreshSummary(
     val deviceItemCount: Int,
     val refreshedAtEpochMillis: Long,
     val sharedAlbumsUnavailable: Boolean = false,
+    /** Hidden could not be read completely; the last hidden photos are kept until a later refresh succeeds. */
+    val hiddenUnavailable: Boolean = false,
 )
 
 /** Reading the catalog does not imply permission to edit or export originals. */

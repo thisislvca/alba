@@ -411,7 +411,8 @@ class DefaultGalleryRepository(
             if (checkpoint == null) bootstrap(account) else applyChanges(oldItems.filterNot { it.isTrashed || SharedMediaIdentity.isShared(it.mediaId) }.map(::toRemote), checkpoint, account)
         } catch (_: CatalogResetRequired) { bootstrap(account) }
         val trash = cloudSource.recentlyDeleted()
-        val hidden = hiddenSnapshot(account, oldItems)
+        val hiddenRead = hiddenSnapshot(account, oldItems)
+        val hidden = hiddenRead.records
         val personalCollections = cloudSource.collections()
         var sharedAlbumsUnavailable = false
         val shared = try { cloudSource.sharedAlbums() }
@@ -480,16 +481,22 @@ class DefaultGalleryRepository(
             deviceItemCount = deviceRecords.size,
             refreshedAtEpochMillis = refreshedAt,
             sharedAlbumsUnavailable = sharedAlbumsUnavailable,
+            hiddenUnavailable = !hiddenRead.complete,
         )
     }
 
-    /** The Hidden album. It is optional: an incomplete read keeps the last hidden rows rather than failing the refresh. */
-    private suspend fun hiddenSnapshot(account: String, oldItems: List<CatalogItemEntity>): List<RemoteMediaRecord> =
-        try { cloudSource.hiddenMedia() }
+    private class HiddenRead(val records: List<RemoteMediaRecord>, val complete: Boolean)
+
+    /**
+     * The Hidden album. An incomplete read keeps the last hidden rows rather than failing the whole refresh, and is
+     * reported in the refresh summary so the user hears about it.
+     */
+    private suspend fun hiddenSnapshot(account: String, oldItems: List<CatalogItemEntity>): HiddenRead =
+        try { HiddenRead(cloudSource.hiddenMedia(), complete = true) }
         catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
         catch (_: Exception) {
             checkAccount(account, "Account changed during hidden refresh")
-            oldItems.filter { it.isHidden && !it.isTrashed && it.mediaId.startsWith("icloud:$account:") }.map(::toRemote)
+            HiddenRead(oldItems.filter { it.isHidden && !it.isTrashed && it.mediaId.startsWith("icloud:$account:") }.map(::toRemote), false)
         }
 
     override suspend fun ensureViewer(mediaId: String) = withMediaLock(mediaId) {
