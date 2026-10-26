@@ -86,9 +86,9 @@ Tests run at the lowest layer that can show the behaviour:
 | Layer | Where | What belongs there |
 | --- | --- | --- |
 | Plain JVM | `*/src/test` | Logic, state machines, gesture and layout maths, protocol and catalog code. |
-| Robolectric UI | `app/src/test` | A screen or component rendered from fixed state with `setAlbaContent` / `testAlbaActions`: what it shows, what each control calls, dialogs, sheets and restoration. A few tests (`AccountTest`, `AppSurfacesTest`) run the whole app through `AlbaAppRule`. |
+| Robolectric UI | `app/src/test` | A screen or component rendered from fixed state with `setAlbaContent` / `testAlbaActions`: what it shows, what each control calls, dialogs, sheets and restoration. Whole-app journeys (navigation, the viewer's gestures, albums, shared albums, the demo's uploads and backup) run the real app through `AlbaAppRule`, with the demo catalog loaded before the test starts. |
 | Screenshot goldens | `app/src/test/.../screenshots`, images in `app/src/test/screenshots` | How the main states look on a standard and a compact phone, a wide window, dark theme and font scale 1.3 (Roborazzi). |
-| Device | `*/src/androidTest` | What only a device shows: video decoding, MediaStore and the system trash dialog, intents, WorkManager and jobs, the Keystore, real system bars and rendering, and the whole-app journeys. |
+| Device | `*/src/androidTest` | What only a device shows: video decoding, MediaStore and the system trash dialog, intents and link routing, WorkManager and jobs, the Keystore, locale changes, real system bars and rendering. |
 
 Before you push, run the JVM layers and the checks. They take a few minutes with a warm Gradle daemon:
 
@@ -103,22 +103,22 @@ ALBA_AVD_NAME=your_avd scripts/run_android_tests.sh :app:connectedDebugAndroidTe
   -Pandroid.testInstrumentationRunnerArguments.class=me.lvca.alba.app.viewer.ViewerTest,me.lvca.alba.app.albums.AlbumsTest
 ```
 
-Add `#methodName` to a class to run one test, or pass `-Pandroid.testInstrumentationRunnerArguments.annotation=me.lvca.alba.app.testing.Smoke` for the smoke tests. With no arguments, the script runs every suite. On a Mac, it requires and checks hardware graphics.
+Add `#methodName` to a class to run one test, or pass `-Pandroid.testInstrumentationRunnerArguments.annotation=me.lvca.alba.app.testing.Smoke` for the smoke tests, a fast subset with one test per area of device-only behaviour. With no arguments, the script runs every suite. On a Mac, it requires and checks hardware graphics.
 
 ### What CI runs
 
-- **Every pull request:** one job builds everything, runs every JVM test, verifies the screenshot goldens, and runs lint, detekt and ktlint. Another runs the device tests marked `@Smoke` on a Pixel 9 emulator (API 36), plus the engine and protocol device tests. Failed device tests are retried once; a test that passes only on the retry is listed as flaky in the job summary. Fix or quarantine it.
-- **Pushes to `main`, nightly and manual runs:** the same JVM job, every device test on the Pixel 9 (API 36), and the smoke tests on API 30 (the minimum) and on a compact phone.
+- **Every pull request and push to `main`:** one job builds everything, runs every JVM test, verifies the screenshot goldens, and runs lint, detekt and ktlint. Another runs every app, engine and protocol device test on a Pixel 9 emulator (API 36). Failed device tests are retried once; a test that passes only on the retry is listed as flaky in the job summary. Fix it at the root.
+- **Nightly and manual runs:** the same two jobs, plus the `@Smoke` device tests on API 30 (the minimum) and on a compact phone.
 
 "Android checks" passes only when the JVM job and every device job pass.
 
-A device test that does not need a device is in the wrong layer. When you write one, mark it `@Smoke` only if pull requests must run it; everything else still runs on `main` and nightly.
+A device test that does not need a device is in the wrong layer. Mark a new device test `@Smoke` when it is the quickest check of an area of device-only behaviour; CI runs every device test on pull requests either way.
 
 ### Screenshot goldens
 
 Text rendering differs between macOS and Linux, so goldens are recorded and verified on Linux, in CI. A local `testDebugUnitTest` renders every state but neither writes nor compares images.
 
-When a change alters how a screen looks, CI's JVM job fails and its `screenshots` artifact holds the new images and their differences from the goldens. Review them, then record the new goldens on your branch: in GitHub, open Actions > CI > Run workflow, pick the branch and tick "record-screenshots". That run records every golden and commits them to the branch. Commits made by Actions do not start CI, so push again or re-run the checks afterwards.
+When a change alters how a screen looks, CI's JVM job fails and its `screenshots` artifact holds the new images and their differences from the goldens. Review them, then record the new goldens on your branch: in GitHub, open Actions > CI > Run workflow, pick the branch and tick "record-screenshots". That run records every golden and pushes them to the branch as the repository's GitHub App, so the push starts CI on the branch like any other. The App's ID and private key are the repository secrets `ALBA_BOT_APP_ID` and `ALBA_BOT_PRIVATE_KEY`; without them the run fails and names the missing secret.
 
 To look at the images locally, `./gradlew :app:testDebugUnitTest --tests '*Screenshots' -Proborazzi.test.record=true` writes them to `app/src/test/screenshots`. Do not commit images recorded on a Mac.
 
