@@ -33,7 +33,7 @@ internal class DemoBackup(
         val id = BackupDraftId(PREFIX + UUID.randomUUID())
         pending = id
         accepted = false
-        return BackupDraft(id, "Demo", "")
+        return BackupDraft(id, "Demo", BackupScope.CURRENT, revision = "demo")
     }
 
     fun accept(id: BackupDraftId): Boolean {
@@ -47,7 +47,7 @@ internal class DemoBackup(
         pending = null
         accepted = false
         job?.cancel()
-        backupState.value = BackupView(true, "Demo", BackupScope.CAMERA_JPEGS)
+        backupState.value = BackupView(true, "Demo", BackupScope.CURRENT)
         transferState.value = listOf("Sample coast.jpg", "Sample garden.jpg", "Sample city.jpg").mapIndexed { index, name ->
             TransferView(TransferId("demo-backup:$index"), null, name, TransferViewState.WAITING,
                 240_000L + index * 80_000L, now())
@@ -87,6 +87,13 @@ internal class DemoBackup(
     fun retry(id: TransferId) {
         if (!backupState.value.enabled || transferState.value.none { it.id == id && it.message in setOf("demo-interrupted", "demo-wifi") }) return
         resume()
+    }
+
+    /** Resumes the walkthrough when a sample is interrupted. Returns how many samples it continues. */
+    fun retryAll(): Int {
+        val waiting = transferState.value.filter { it.message in setOf("demo-interrupted", "demo-wifi") }
+        waiting.firstOrNull()?.let { retry(it.id) }
+        return waiting.size
     }
 
     fun cleanUpSamples() {

@@ -424,6 +424,7 @@ internal fun MediaDetailScreen(
                                 onContinuePastUnresolved = { uploadTransfer?.let { actions.continuePastUnresolved(it.id) } },
                                 onMoveVerifiedPhotoToTrash = { actions.moveVerifiedPhotoToTrash(media.id) },
                                 onOpenAccount = actions::openAccount,
+                                onRetry = { uploadTransfer?.let { actions.retryTransfer(it.id) } },
                             )
                         }
                         Spacer(Modifier.height(24.dp))

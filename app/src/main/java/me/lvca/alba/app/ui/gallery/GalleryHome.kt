@@ -428,6 +428,8 @@ internal fun GalleryHome(
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = actions::openAccount))
                         }
+                        val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
+                        if (libraryHeader && gallery.selection.isEmpty()) BackupStatusChip(session, transfers, actions::openBackup)
                         if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions)
                         else if (filterRow) {
@@ -555,9 +557,18 @@ internal fun GalleryHome(
         AlbaSheetBody(stringResource(R.string.activity), dismiss = { sheet = null }, subtitle = stringResource(R.string.uploads_downloads_and_backup)) {
             Button(onClick = if (canUpload) actions::pickUpload else { { sheet = null; actions.openAccount() } },
                 modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) { Icon(AlbaIcons.CloudUpload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.upload_photos)) }
-            OutlinedButton(onClick = { sheet = null; actions.openAccount() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_storage_and_backup)) }
+            OutlinedButton(onClick = { sheet = null; actions.openBackup() }, modifier = Modifier.fillMaxWidth().testTag("activity-open-backup")) {
+                Text(stringResource(R.string.account_storage_and_backup))
+            }
+            if (transfers.queue.any { !it.automatic && it.state in setOf(TransferViewState.WAITING, TransferViewState.UPLOADING) } &&
+                session.accountState != ICloudAccountState.Demo) {
+                OutlinedButton(onClick = actions::cancelUploads, modifier = Modifier.fillMaxWidth().testTag("cancel-uploads")) {
+                    Text(stringResource(R.string.cancel_uploads))
+                }
+            }
             if (transfers.queue.isEmpty() && transfers.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
-            if (transfers.queue.isNotEmpty()) TransferQueueCard(transfers.queue, actions::continuePastUnresolved, demo = session.accountState == ICloudAccountState.Demo)
+            if (transfers.queue.isNotEmpty()) TransferQueueCard(transfers.queue, actions::continuePastUnresolved,
+                demo = session.accountState == ICloudAccountState.Demo, onRetry = actions::retryTransfer)
             BatchProgress(transfers.batches, gallery.items, actions::retryBatch, actions::cancelDownloadBatch)
         }
     }

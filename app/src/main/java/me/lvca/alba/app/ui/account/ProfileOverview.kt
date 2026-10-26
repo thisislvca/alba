@@ -52,13 +52,22 @@ import me.lvca.alba.protocol.account.SessionStatus
 import java.time.Instant
 import java.util.Locale
 
-internal enum class ProfilePage(val title: Int) {
+enum class ProfilePage(val title: Int) {
     OVERVIEW(R.string.profile_title),
     ACTIVATION(R.string.how_to_activate_icloud_photos),
     SIGN_IN(R.string.icloud_account),
     BACKUP(R.string.backup_title),
+    BACKUP_FOLDERS(R.string.backup_device_folders),
+    FREE_UP_SPACE(R.string.free_up_space_title),
     PHONE(R.string.phone_storage_title),
     ABOUT(R.string.about_title),
+    ;
+
+    /** The page Back returns to: Backup's own pages return to Backup, the rest to the overview. */
+    val parent: ProfilePage get() = when (this) {
+        BACKUP_FOLDERS, FREE_UP_SPACE -> BACKUP
+        else -> OVERVIEW
+    }
 }
 
 @Composable
@@ -151,7 +160,7 @@ internal fun ProfileOverview(
     Text(stringResource(R.string.profile_library_section), Modifier.padding(start = AlbaSpacing.lg, bottom = AlbaSpacing.sm),
         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     AlbaCard {
-        ProfileRow(stringResource(R.string.automatic_jpeg_backup),
+        ProfileRow(stringResource(R.string.backup_title),
             stringResource(if (demo) R.string.demo_backup_preview else if (backup.enabled) R.string.profile_backup_on else R.string.profile_backup_off),
             AlbaIcons.CloudUpload, profileColors.backupTile, "profile-backup",
             onClick = { onNavigate(ProfilePage.BACKUP) })

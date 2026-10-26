@@ -120,9 +120,16 @@ fun ICloudAccountScreen(
     LaunchedEffect(page) {
         if (page == ProfilePage.OVERVIEW) actions.checkPhoneStorage()
     }
+    // A notification or the gallery asked for a page, such as Backup.
+    LaunchedEffect(session.requestedPage) {
+        session.requestedPage?.let { requested ->
+            page = requested
+            actions.accountPageShown()
+        }
+    }
     val back = {
         if (page == ProfilePage.OVERVIEW) actions.closeAccount() else {
-            page = ProfilePage.OVERVIEW
+            page = page.parent
             draft.password = ""
             verificationCode = ""
             actions.clearSignInProblem()
@@ -131,14 +138,14 @@ fun ICloudAccountScreen(
     val reduceMotion = reduceGalleryMotion()
     val pageBack = remember { PredictiveBackState() }
     val (pageState, pageTransition) = rememberNavigationTransition(page, pageBack, reduceMotion, label = "account-pages")
-    PredictiveBackNavigation(pageState, pageBack, previous = ProfilePage.OVERVIEW.takeIf { page != ProfilePage.OVERVIEW },
+    PredictiveBackNavigation(pageState, pageBack, previous = page.parent.takeIf { page != ProfilePage.OVERVIEW },
         key = { it }, reduceMotion = reduceMotion) { back() }
     val slide = with(LocalDensity.current) { NavigationMotion.SHARED_AXIS_DP.dp.roundToPx() }
     pageTransition.AnimatedContent(
         transitionSpec = {
             val direction = when {
-                targetState == ProfilePage.OVERVIEW -> NavigationDirection.BACK
-                initialState == ProfilePage.OVERVIEW -> NavigationDirection.FORWARD
+                targetState == ProfilePage.OVERVIEW || targetState == initialState.parent -> NavigationDirection.BACK
+                initialState == ProfilePage.OVERVIEW || initialState == targetState.parent -> NavigationDirection.FORWARD
                 else -> NavigationDirection.LATERAL
             }
             navigationTransform(direction, slide, gesture = pageBack.phase != BackPhase.IDLE, reduceMotion = reduceMotion)
@@ -226,12 +233,9 @@ private fun AccountPage(
                     { actions.signIn(appleId.ifBlank { signedIn?.appleId.orEmpty() }, password) },
                 )
             }
-            page == ProfilePage.BACKUP -> BackupSettings(
-                connected = signedIn?.status == SessionStatus.VERIFIED,
-                demo = state == ICloudAccountState.Demo,
-                appleId = signedIn?.appleId.orEmpty(), backup = transfers.backup,
-                session = session, transferQueue = transfers.queue, actions = actions,
-            )
+            page == ProfilePage.BACKUP -> BackupPage(session, transfers, actions, onNavigate)
+            page == ProfilePage.BACKUP_FOLDERS -> DeviceFoldersPage(transfers, actions)
+            page == ProfilePage.FREE_UP_SPACE -> FreeUpSpacePage(transfers, actions)
             page == ProfilePage.PHONE -> PhoneStorageDetails(phoneStorage, busy = mediaBusy || busy, actions)
             page == ProfilePage.ACTIVATION && signedIn != null -> PhotosNotEnabledAccount(
                 signedIn.appleId, session.accountInfo.checking || busy, actions::checkConnection, actions::signOut,
@@ -550,90 +554,5 @@ private fun ProgressState(title: String, detail: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-@Composable
-private fun BackupSettings(
-    connected: Boolean,
-    demo: Boolean,
-    appleId: String,
-    backup: BackupView,
-    session: SessionState,
-    transferQueue: List<TransferView>,
-    actions: AccountActions,
-) {
-    if (demo) {
-        Text(stringResource(R.string.demo_backup_title), style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.demo_backup_disclosure), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(18.dp))
-    }
-    ProfileStorage(session, demo = demo, hasAccount = connected,
-        check = actions::checkConnection, labelRes = R.string.cloud_storage)
-    Spacer(Modifier.height(22.dp))
-    AlbaCard {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Text(stringResource(R.string.automatic_jpeg_backup), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                if (demo) {
-                    stringResource(if (backup.enabled) R.string.demo_backup_running else R.string.demo_backup_off)
-                } else if (backup.enabled) {
-                    stringResource(R.string.backup_on_for, backup.destinationLabel ?: appleId)
-                } else {
-                    stringResource(R.string.off_you_can_still_upload_one_photo_at_a_time_from_the_system_photo_picker)
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            backup.message?.let { Text(localizedStoredMessage(it).localized()) }
-            Spacer(Modifier.height(14.dp))
-            if (backup.enabled) {
-                OutlinedButton(
-                    onClick = actions::disableAutomaticBackup,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.turn_off_automatic_backup)) }
-            } else {
-                Button(
-                    enabled = connected || demo,
-                    onClick = actions::enableAutomaticBackup,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(if (demo) R.string.demo_backup_start else R.string.set_up_automatic_backup)) }
-            }
-        }
-    }
-    if (demo) {
-        Spacer(Modifier.height(18.dp))
-        Text(stringResource(R.string.demo_sync_description), style = MaterialTheme.typography.bodyMedium)
-        session.lastRefreshedAt?.let {
-            Text(stringResource(R.string.library_refreshed_at, timestampLabel(it)),
-                style = MaterialTheme.typography.bodySmall)
-        }
-        OutlinedButton(onClick = actions::checkConnection, enabled = !session.isRefreshing,
-            modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.demo_sync_refresh)) }
-    }
-    if (demo && backup.enabled) {
-        var confirmCleanup by remember { mutableStateOf(false) }
-        OutlinedButton(onClick = { actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_INTERRUPT)) }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.demo_backup_interrupt))
-        }
-        OutlinedButton(onClick = { actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_WIFI)) }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.demo_backup_pause_wifi))
-        }
-        OutlinedButton(onClick = { confirmCleanup = true }, modifier = Modifier.fillMaxWidth(),
-            enabled = transferQueue.isNotEmpty() && transferQueue.all { row -> row.state == TransferViewState.VERIFIED }) {
-            Text(stringResource(R.string.demo_cleanup_preview))
-        }
-        if (confirmCleanup) AlertDialog(onDismissRequest = { confirmCleanup = false },
-            title = { Text(stringResource(R.string.demo_cleanup_preview)) },
-            text = { Text(stringResource(R.string.demo_cleanup_disclosure)) },
-            confirmButton = { TextButton(onClick = { confirmCleanup = false; actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_CLEANUP)) }) { Text(stringResource(R.string.welcome_continue)) } },
-            dismissButton = { TextButton(onClick = { confirmCleanup = false }) { Text(stringResource(R.string.not_now)) } })
-    }
-    if (demo && transferQueue.isNotEmpty()) {
-        Spacer(Modifier.height(18.dp))
-        TransferQueueCard(transferQueue, actions::demoBackupAction, demo = true)
     }
 }

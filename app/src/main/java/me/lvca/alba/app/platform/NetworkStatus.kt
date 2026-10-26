@@ -8,7 +8,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-data class NetworkStatus(val online: Boolean, val metered: Boolean)
+data class NetworkStatus(val online: Boolean, val metered: Boolean, val roaming: Boolean = false)
 
 /** The default network's status now. No network, or no capabilities, counts as offline and metered. */
 internal fun ConnectivityManager.currentNetworkStatus(): NetworkStatus {
@@ -16,6 +16,7 @@ internal fun ConnectivityManager.currentNetworkStatus(): NetworkStatus {
     return NetworkStatus(
         online = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
         metered = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true,
+        roaming = capabilities != null && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING),
     )
 }
 

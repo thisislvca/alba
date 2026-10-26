@@ -100,7 +100,19 @@ enum class StoredMessage(val code: String, val legacyText: String) {
     ACCOUNT_CHANGED_DURING_REFRESH("account_changed_during_refresh", "Account changed during refresh"),
     SHARE_UP_TO_2_GB_AT_A_TIME_TRY_FEWER_ITEMS("share_up_to_2_gb_at_a_time_try_fewer_items", "Share up to 2 GB at a time. Try fewer items."),
     NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS("not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items", "Not enough space to prepare this share. Try fewer or smaller items."),
-    UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT("upload_canceled_select_the_file_again_to_upload_it", "Upload canceled. Select the file again to upload it.");
+    UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT("upload_canceled_select_the_file_again_to_upload_it", "Upload canceled. Select the file again to upload it."),
+    UPLOAD_AVIF_UNSUPPORTED("upload_avif_unsupported", "AVIF images can't be uploaded to iCloud yet."),
+    UPLOAD_IMAGE_SEQUENCE_UNSUPPORTED("upload_image_sequence_unsupported", "HEIF image sequences, such as bursts or animations, can't be uploaded yet."),
+    ICLOUD_STORAGE_FULL("icloud_storage_full", "iCloud storage is full. Backup is paused until there is space."),
+    AUTOMATIC_BACKUP_IS_ON("automatic_backup_is_on", "Backup is on."),
+    ONLY_ITEMS_THAT_SENT_NOTHING_CAN_BE_RETRIED(
+        "only_items_that_sent_nothing_can_be_retried",
+        "This item may have reached iCloud, so Alba checks it instead of sending it again.",
+    ),
+    THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE("this_item_is_no_longer_in_the_queue", "This item is no longer in the queue."),
+    COULD_NOT_REACH_ICLOUD_TO_CHECK("could_not_reach_icloud_to_check", "Couldn't reach iCloud to check. Nothing was removed."),
+    THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK("the_phone_file_changed_after_its_check", "The phone file changed after its check, so it stays."),
+    COULD_NOT_READ_THIS_FILE_ON_THE_PHONE("could_not_read_this_file_on_the_phone", "Alba could not read this file on the phone, so it stays.");
 
     companion object {
         private val byCode = entries.associateBy { it.code }

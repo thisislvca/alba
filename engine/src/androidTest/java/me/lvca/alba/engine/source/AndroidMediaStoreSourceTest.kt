@@ -126,9 +126,55 @@ class AndroidMediaStoreSourceTest {
             insert("alba-new-camera.jpg", "DCIM/Camera/")
             // An edit after enrollment must not make an older original eligible.
             resolver.update(old, ContentValues().apply { put(MediaStore.Images.Media.DISPLAY_NAME, "alba-edited-old-camera.jpg") }, null, null)
-            val page = AndroidMediaStoreSource(context).discoverEligibleJpegs(null, 200, BackupScope.CAMERA_JPEGS, enrolledAt, baseline)
+            val page = AndroidMediaStoreSource(context).discoverEligibleMedia(null, 200, BackupScope.CAMERA_JPEGS, emptySet(), enrolledAt, baseline)
             assertEquals(listOf("alba-new-camera.jpg"), page.items.map { it.fileName })
             assertEquals(MediaStore.VOLUME_EXTERNAL_PRIMARY, page.items.single().volumeName)
+        } finally {
+            inserted.forEach { resolver.delete(it, null, null) }
+        }
+    }
+
+    @Test
+    fun discoveryCoversEveryCameraFormatAndOnlyTheFoldersTheUserAdded() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        grantImageAccess(context)
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .grantRuntimePermission(context.packageName, Manifest.permission.ACCESS_MEDIA_LOCATION)
+        val resolver = context.contentResolver
+        val inserted = mutableListOf<android.net.Uri>()
+        fun insert(name: String, mime: String, directory: String, format: Bitmap.CompressFormat) {
+            val uri = requireNotNull(resolver.insert(
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                    put(MediaStore.Images.Media.MIME_TYPE, mime)
+                    put(MediaStore.Images.Media.RELATIVE_PATH, directory)
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                },
+            ))
+            inserted += uri
+            requireNotNull(resolver.openOutputStream(uri)).use { output ->
+                Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888).compress(format, 90, output)
+            }
+            resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+        }
+        try {
+            val enrolledAt = System.currentTimeMillis()
+            val source = AndroidMediaStoreSource(context)
+            val baseline = source.captureEnrollmentBaseline()
+            insert("alba-camera.png", "image/png", "DCIM/Camera/", Bitmap.CompressFormat.PNG)
+            insert("alba-camera.jpg", "image/jpeg", "DCIM/Camera/", Bitmap.CompressFormat.JPEG)
+            insert("alba-screenshot.png", "image/png", "Pictures/Screenshots/", Bitmap.CompressFormat.PNG)
+
+            val camera = source.discoverEligibleMedia(null, 200, BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline)
+            assertEquals(setOf("alba-camera.png", "alba-camera.jpg"), camera.items.map { it.fileName }.toSet())
+            val legacy = source.discoverEligibleMedia(null, 200, BackupScope.CAMERA_JPEGS, emptySet(), enrolledAt, baseline)
+            assertEquals(listOf("alba-camera.jpg"), legacy.items.map { it.fileName })
+
+            val screenshots = source.deviceFolders().single { it.relativePath == "Pictures/Screenshots/" && it.itemCount > 0 }
+            val withFolder = source.discoverEligibleMedia(null, 200, BackupScope.CAMERA_MEDIA, setOf(screenshots.id), enrolledAt, baseline)
+            assertEquals(setOf("alba-camera.png", "alba-camera.jpg", "alba-screenshot.png"), withFolder.items.map { it.fileName }.toSet())
+            assertEquals(3, source.eligibleMediaIds(BackupScope.CAMERA_MEDIA, setOf(screenshots.id), enrolledAt, baseline).size)
         } finally {
             inserted.forEach { resolver.delete(it, null, null) }
         }

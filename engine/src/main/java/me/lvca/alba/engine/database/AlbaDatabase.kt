@@ -36,10 +36,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TrashAttemptEntity::class,
         TrashObligationEntity::class,
         CollectionEntity::class, CollectionMemberEntity::class, BatchItemEntity::class, UploadCheckpointEntity::class,
+        UploadPauseEntity::class, DiscoveryFailureEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15)],
+    autoMigrations = [AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15), AutoMigration(from = 15, to = 16)],
 )
 abstract class AlbaDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao

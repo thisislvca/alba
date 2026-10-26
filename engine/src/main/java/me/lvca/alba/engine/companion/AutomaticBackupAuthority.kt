@@ -4,6 +4,7 @@ import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.BackupEnrollmentEntity
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
+import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.source.ExactOriginalSource
 
 /** Decides whether automatic backup may discover, stage or upload for an account right now. */
@@ -14,10 +15,19 @@ internal class AutomaticBackupAuthority(
 ) {
     private val backupDao = database.backupDao()
 
-    fun isUnmetered(): Boolean = policy.isUnmetered()
+    val settings: BackupSettings get() = policy.settings()
 
-    /** Automatic transfers wait for an unmetered network; user selections never do. */
-    fun waitsForNetwork(authorityType: String): Boolean = authorityType == AUTHORITY_AUTOMATIC && !policy.isUnmetered()
+    /** Whether automatic backup may upload a photo, or a video when [video], on the current network. */
+    fun allows(video: Boolean): Boolean = policy.settings().allows(policy.network(), video)
+
+    /** Whether any automatic work may use the current network. */
+    fun mayUseNetwork(): Boolean = policy.settings().allowsAny(policy.network())
+
+    /**
+     * Automatic transfers wait for a network the user's settings allow for their media type; user selections never
+     * do. [video] is the transfer's staged media type.
+     */
+    fun waitsForNetwork(authorityType: String, video: Boolean): Boolean = authorityType == AUTHORITY_AUTOMATIC && !allows(video)
 
     /**
      * Whether [enrollment] still authorizes automatic uploads for [binding]: enabled, consented under the same
@@ -38,6 +48,6 @@ internal class AutomaticBackupAuthority(
     suspend fun stillAuthorizes(enrollmentId: String?, enrollmentRevision: Long?, binding: AccountBinding): Boolean =
         currentEnrollment(binding)?.let { it.enrollmentId == enrollmentId && it.revision == enrollmentRevision } == true
 
-    /** Whether queued automatic transfers may run for [binding] now. */
-    suspend fun canRun(binding: AccountBinding): Boolean = policy.isUnmetered() && currentEnrollment(binding) != null
+    /** Whether queued automatic photos, or videos when [video], may run for [binding] now. */
+    suspend fun canRun(binding: AccountBinding, video: Boolean): Boolean = allows(video) && currentEnrollment(binding) != null
 }

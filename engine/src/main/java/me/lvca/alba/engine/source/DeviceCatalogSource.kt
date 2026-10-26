@@ -35,3 +35,7 @@ interface DeviceCatalogSource {
 
     suspend fun writeOriginal(contentUri: String, output: OutputStream): DeviceOriginalEvidence
 }
+
+/** The id of a MediaStore row. The gallery, uploads and verification proofs all name a phone item by it. */
+internal fun deviceMediaId(video: Boolean, volume: String, id: Long): String =
+    if (video) "device:video:$volume:$id" else "device:$volume:$id"
