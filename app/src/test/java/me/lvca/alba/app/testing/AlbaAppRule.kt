@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import androidx.work.WorkManager
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.MainActivity
 import org.junit.rules.RuleChain
@@ -37,6 +38,26 @@ class AlbaAppRule(private val onboarded: Boolean = true) : TestRule {
 
     override fun apply(base: Statement, description: Description): Statement {
         val chain = RuleChain.outerRule(onboarding)
-        return (if (onboarded) chain.around(DemoCatalogRule(compose)) else chain).around(compose).apply(base, description)
+        val test = (if (onboarded) chain.around(DemoCatalogRule(compose)) else chain).around(compose).apply(base, description)
+        return object : Statement() {
+            override fun evaluate() {
+                try {
+                    test.evaluate()
+                } finally {
+                    stopBackgroundWork()
+                }
+            }
+        }
+    }
+
+    /**
+     * The activity is gone by now and its view model scopes are cancelled, but WorkManager's executors and Room's query
+     * threads belong to the application and outlive the test. Left running, they keep reading and writing files and
+     * bitmaps while the next test (and the JVM's shutdown) tears the Robolectric environment down. Best effort: a
+     * failure here must not hide the test's own.
+     */
+    private fun stopBackgroundWork() {
+        runCatching { WorkManager.getInstance(application).cancelAllWork() }
+        runCatching { application.graph.database.close() }
     }
 }
