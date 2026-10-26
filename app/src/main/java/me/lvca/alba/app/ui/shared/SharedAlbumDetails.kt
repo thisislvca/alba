@@ -7,7 +7,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,9 +22,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaBottomSheet
@@ -29,7 +36,9 @@ import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaSheetBody
 import me.lvca.alba.app.ui.designsystem.AlbaSheetHeading
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
+import me.lvca.alba.app.ui.designsystem.MediaPill
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
+import me.lvca.alba.app.ui.gallery.mediaDuration
 import me.lvca.alba.engine.model.*
 
 @Composable
@@ -71,17 +80,33 @@ internal fun SharedAlbumDetails(album: GalleryCollection, dismiss: () -> Unit) {
     }
 }
 
+/**
+ * What a shared album accepts from [items]: library copies, or, for legacy albums and phone files, single files in a
+ * supported format. Also counts the Live Photos left out, so the picker can say why they are missing.
+ */
+internal fun sharedContributionCandidates(items: List<GalleryMedia>, generation: SharedAlbumGeneration): Pair<List<GalleryMedia>, Int> {
+    val personal = items.filter { !it.isShared && !it.isTrashed }
+    val accepted = personal.filter {
+        if (generation == SharedAlbumGeneration.LEGACY || it.origin == MediaOrigin.DEVICE) supportsLegacySharedUpload(it.kind, it.mimeType) else true
+    }
+    return accepted to (personal - accepted.toSet()).count { it.kind == MediaKind.LIVE_PHOTO }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SharedContributionPicker(items: List<GalleryMedia>, preview: (String) -> Unit, dismiss: () -> Unit, contribute: (List<String>) -> Unit, legacy: Boolean = false, requestPhotos: () -> Unit = {}) {
+internal fun SharedContributionPicker(items: List<GalleryMedia>, preview: (String) -> Unit, dismiss: () -> Unit,
+    contribute: (List<String>, String) -> Unit, legacy: Boolean = false, requestPhotos: () -> Unit = {}, excludedLivePhotos: Int = 0) {
     var selected by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var phone by rememberSaveable { mutableStateOf(false) }
+    var posting by rememberSaveable { mutableStateOf(false) }
     val shown = items.filter { (it.origin == MediaOrigin.DEVICE) == phone }
     AlbaBottomSheet(onDismissRequest = dismiss, modifier = Modifier.testTag("shared-contribution-picker")) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.85f).padding(horizontal = AlbaSpacing.xl)) {
             AlbaSheetHeading(stringResource(R.string.shared_add_photos), dismiss = dismiss)
             Text(stringResource(R.string.shared_add_explanation), Modifier.padding(vertical = AlbaSpacing.md))
             if (legacy) Text(stringResource(R.string.shared_legacy_formats), Modifier.padding(bottom = AlbaSpacing.md), style = MaterialTheme.typography.bodySmall)
+            if (legacy && excludedLivePhotos > 0) Text(pluralStringResource(R.plurals.shared_live_photos_excluded, excludedLivePhotos, excludedLivePhotos),
+                Modifier.padding(bottom = AlbaSpacing.md).testTag("shared-live-photos-excluded"), style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
                 FilterChip(!phone, { phone = false }, label = { Text(stringResource(R.string.icloud)) })
                 FilterChip(phone, { phone = true }, label = { Text(stringResource(R.string.shared_this_phone)) })
@@ -98,16 +123,43 @@ internal fun SharedContributionPicker(items: List<GalleryMedia>, preview: (Strin
                             MediaThumbnail(media.previewReference ?: media.viewerReference, media.accentStartArgb, media.accentEndArgb,
                                 media.fileName, Modifier.fillMaxSize(), sourceRevision = media.sourceRevision)
                             Checkbox(checked = media.id in selected, onCheckedChange = null, modifier = Modifier.align(Alignment.TopEnd))
+                            if (media.kind == MediaKind.VIDEO) MediaPill(Modifier.align(Alignment.BottomStart).padding(AlbaSpacing.xs)) {
+                                Icon(Icons.Filled.PlayArrow, null, Modifier.size(14.dp))
+                                mediaDuration(media.durationMillis)?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+                            }
                         }
                     }
                 }
             }
-            Button(onClick = { contribute(selected) }, enabled = selected.isNotEmpty(), modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = AlbaSpacing.lg)) {
+            Button(onClick = { posting = true }, enabled = selected.isNotEmpty(), modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = AlbaSpacing.lg)) {
                 Text(pluralStringResource(R.plurals.shared_add_selected, selected.size, selected.size))
             }
         }
     }
+    if (posting) SharedPostSheet(selected.size, legacy, dismiss = { posting = false }) { caption -> posting = false; contribute(selected, caption) }
 }
+
+/** Confirms a post before anything is sent: how many items, and an optional caption where the album keeps one. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SharedPostSheet(count: Int, legacy: Boolean, dismiss: () -> Unit, post: (String) -> Unit) {
+    var caption by rememberSaveable { mutableStateOf("") }
+    AlbaBottomSheet(onDismissRequest = dismiss, modifier = Modifier.testTag("shared-post-sheet")) {
+        AlbaSheetBody(pluralStringResource(R.plurals.shared_post_items_title, count, count), dismiss) {
+            if (legacy) Text(stringResource(R.string.shared_caption_legacy), style = MaterialTheme.typography.bodyMedium)
+            else {
+                OutlinedTextField(caption, { caption = it.take(MAX_CAPTION) }, label = { Text(stringResource(R.string.shared_caption)) },
+                    modifier = Modifier.fillMaxWidth().testTag("shared-caption"))
+                Text(stringResource(R.string.shared_caption_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button(onClick = { post(if (legacy) "" else caption.trim()) }, modifier = Modifier.fillMaxWidth().testTag("shared-post-confirm")) {
+                Text(pluralStringResource(R.plurals.shared_post_items_title, count, count))
+            }
+        }
+    }
+}
+
+private const val MAX_CAPTION = 1000
 
 @Composable
 internal fun CreateSharedAlbumDialog(dismiss: () -> Unit, create: (String, SharedAlbumGeneration) -> Unit) {
@@ -127,4 +179,27 @@ internal fun CreateSharedAlbumDialog(dismiss: () -> Unit, create: (String, Share
         }
     }, confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { create(name.trim(), generation) }) { Text(stringResource(R.string.save)) } },
         dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } })
+}
+
+/** What an empty shared album offers: adding the first photos and inviting people, as far as the role allows. */
+@Composable
+internal fun SharedAlbumEmptyState(addPhotos: (() -> Unit)?, invite: (() -> Unit)?) {
+    val addLabel = stringResource(R.string.shared_add_photos)
+    Column(Modifier.fillMaxWidth().testTag("shared-empty-state"), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+        Icon(painterResource(R.drawable.icloud_shared_albums), null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+        Text(stringResource(R.string.shared_empty_title), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.shared_empty_body), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        addPhotos?.let {
+            Button(onClick = it, modifier = Modifier.semantics { contentDescription = addLabel }.testTag("shared-empty-add")) {
+                Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.sm)); Text(addLabel)
+            }
+        }
+        invite?.let {
+            OutlinedButton(onClick = it, modifier = Modifier.testTag("shared-empty-invite")) {
+                Icon(Icons.Outlined.Person, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.sm)); Text(stringResource(R.string.shared_invite_people))
+            }
+        }
+    }
 }

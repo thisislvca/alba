@@ -72,6 +72,8 @@
                 <data android:host="icloud.com.cn" />
                 <data android:pathPrefix="/shared/album/" />
                 <data android:pathPrefix="/photos/" />
+                <!-- New shared albums also link as /photos#/sharedalbums/sc,…, where the fragment is not part of the path. -->
+                <data android:path="/photos" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

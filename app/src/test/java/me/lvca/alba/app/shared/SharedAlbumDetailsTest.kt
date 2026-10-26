@@ -13,6 +13,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.shared.SharedAlbumBadge
 import me.lvca.alba.app.ui.shared.SharedAlbumDetails
+import me.lvca.alba.app.ui.shared.SharedAlbumEmptyState
 import me.lvca.alba.app.ui.shared.SharedContributionPicker
 import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
@@ -49,7 +50,7 @@ class SharedAlbumDetailsTest {
             var picker by remember { mutableStateOf(false) }
             AlbaTheme(darkTheme = true) {
                 if(!picker) SharedAlbumDetails(album) { picker = true }
-                else SharedContributionPicker(listOf(media), {}, {}, { picked = it })
+                else SharedContributionPicker(listOf(media), {}, {}, { ids, _ -> picked = ids })
             }
         }
         compose.onNodeWithText(label(R.string.shared_new_title)).assertIsDisplayed()
@@ -57,6 +58,41 @@ class SharedAlbumDetailsTest {
         compose.onNodeWithText(label(R.string.shared_understood)).performScrollTo().performClick()
         compose.onNodeWithTag("shared-select-fixture:test").performClick()
         compose.onNodeWithText(context.resources.getQuantityString(R.plurals.shared_add_selected, 1, 1)).performClick()
+        compose.runOnIdle { assertNull(picked) }
+        compose.onNodeWithTag("shared-post-confirm").performClick()
         compose.runOnIdle { assertEquals(listOf(media.id), picked) }
+    }
+
+    @Test fun postSheetSendsTheCaptionOnlyWhereTheAlbumKeepsOne() {
+        val media = GalleryMedia("fixture:test", "Family.jpg", 1, 10, 10, MediaOrigin.ICLOUD, MediaAvailability.CLOUD_ONLY, null, null, 0xff294e63, 0xff497187)
+        val posts = mutableListOf<Pair<List<String>, String>>()
+        var legacy by mutableStateOf(false)
+        compose.setContent { AlbaTheme(darkTheme = false) { key(legacy) {
+            SharedContributionPicker(listOf(media), {}, {}, { ids, caption -> posts += ids to caption }, legacy = legacy, excludedLivePhotos = if (legacy) 2 else 0)
+        } } }
+        compose.onNodeWithTag("shared-select-fixture:test").performClick()
+        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.shared_add_selected, 1, 1)).performClick()
+        compose.onAllNodesWithText(context.resources.getQuantityString(R.plurals.shared_post_items_title, 1, 1)).onFirst().assertExists()
+        compose.onNodeWithTag("shared-caption").performTextInput("Beach day")
+        compose.onNodeWithTag("shared-post-confirm").performClick()
+        compose.runOnIdle { assertEquals(listOf(listOf(media.id) to "Beach day"), posts) }
+
+        legacy = true
+        compose.onNodeWithTag("shared-live-photos-excluded").assertTextEquals(context.resources.getQuantityString(R.plurals.shared_live_photos_excluded, 2, 2))
+        compose.onNodeWithTag("shared-select-fixture:test").performClick()
+        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.shared_add_selected, 1, 1)).performClick()
+        compose.onNodeWithTag("shared-caption").assertDoesNotExist()
+        compose.onNodeWithText(label(R.string.shared_caption_legacy)).assertIsDisplayed()
+        compose.onNodeWithTag("shared-post-confirm").performClick()
+        compose.runOnIdle { assertEquals(listOf(media.id) to "", posts.last()) }
+    }
+
+    @Test fun emptySharedAlbumOffersAddingPhotosAndInvitingPeople() {
+        var added = 0; var invited = 0
+        compose.setContent { AlbaTheme(darkTheme = false) { SharedAlbumEmptyState({ added++ }, { invited++ }) } }
+        compose.onNodeWithText(label(R.string.shared_empty_title)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(label(R.string.shared_add_photos)).performClick()
+        compose.onNodeWithText(label(R.string.shared_invite_people)).performClick()
+        compose.runOnIdle { assertEquals(1, added); assertEquals(1, invited) }
     }
 }

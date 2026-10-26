@@ -626,7 +626,7 @@
     <string name="shared_cover">Usa come copertina</string>
     <string name="shared_remove_photo">Rimuovi dall’album condiviso</string>
     <string name="shared_confirm_title">Conferma modifica all’album</string>
-    <string name="shared_confirm_delete">L’album e i suoi contenuti saranno eliminati per tutti i partecipanti. Gli elementi già salvati nelle librerie personali rimangono. Non è possibile annullare.</string>
+    <string name="shared_confirm_delete">Anche tutte le persone con cui hai condiviso l’album lo perderanno. L’album viene eliminato con foto, video e commenti per ogni partecipante. Gli elementi già salvati nelle librerie personali rimangono. Non è possibile annullare.</string>
     <string name="shared_confirm_leave">Perderai l’accesso a questo album. Le copie già salvate nella tua libreria personale rimangono.</string>
     <string name="shared_confirm_remove">La copia condivisa sarà rimossa per tutti i partecipanti. L’originale nella libreria personale non sarà eliminato.</string>
     <string name="shared_confirm_access">Questa modifica cambia chi può accedere all’album o cosa possono fare i partecipanti. Conferma solo se sono i permessi desiderati.</string>
@@ -645,7 +645,7 @@
     <string name="shared_person_contributor">Collaboratore</string>
     <string name="shared_person_viewer">Visualizzatore</string>
     <string name="shared_invitations">Inviti agli album condivisi</string>
-    <string name="shared_invitation_help">Accetta o rifiuta gli inviti agli album legacy. Per un nuovo album, incolla il suo link di Foto di iCloud per visualizzarlo prima di partecipare. Gli altri link di invito si possono aprire in iCloud.</string>
+    <string name="shared_invitation_help">Gli inviti agli album tradizionali compaiono qui per partecipare o rifiutare. Un invito a un nuovo album condiviso arriva come link: aprilo dall’email o da Messaggi e scegli Alba, oppure incollalo qui sotto per vedere l’album prima di partecipare.</string>
     <string name="shared_invitation_link">Link del nuovo album</string>
     <string name="shared_invitation_preview">Visualizza invito</string>
     <string name="shared_accept">Partecipa</string>
@@ -798,4 +798,46 @@
     <string name="demo_import_requested">Importazione demo richiesta</string>
     <string name="label_with_detail">%1$s · %2$s</string>
     <string name="month_span">%1$s – %2$s</string>
+    <string name="shared_notification_channel">Album condivisi</string>
+    <string name="shared_notification_new_photos">Nuove foto in %1$s</string>
+    <string name="shared_new_activity">Nuove attività</string>
+    <string name="shared_activity_notifications">Notifiche di attività degli album condivisi</string>
+    <string name="shared_activity_notifications_detail">Nuovi inviti e nuove foto, controllati alcune volte al giorno. Vale per tutti i tuoi album condivisi.</string>
+    <string name="shared_notifications_off_in_android">Le notifiche di Alba sono disattivate. Consentile nelle impostazioni di Android per riceverle.</string>
+    <string name="shared_added_to_album">Aggiunto a %1$s</string>
+    <string name="album_sort_recent">Foto più recente</string>
+    <string name="album_sort_name">Nome album</string>
+    <string name="album_sort_oldest">Foto meno recente</string>
+    <string name="shared_caption">Didascalia (facoltativa)</string>
+    <string name="shared_caption_legacy">Gli album condivisi tradizionali non supportano le didascalie.</string>
+    <string name="shared_caption_note">Tutti i partecipanti vedono la didascalia insieme a questi elementi.</string>
+    <string name="shared_more_photos">+%1$d</string>
+    <string name="shared_post_open">Apri post</string>
+    <string name="shared_section_link">Link</string>
+    <string name="shared_section_settings">Impostazioni</string>
+    <string name="shared_share_link">Condividi link</string>
+    <string name="shared_share_invite_link">Condividi link di invito %1$d</string>
+    <string name="shared_add_people">Scegli dai contatti</string>
+    <string name="shared_contact_failed">Impossibile leggere un indirizzo email da quel contatto.</string>
+    <string name="shared_block">Blocca</string>
+    <string name="shared_confirm_block">La persona viene rimossa dall’album e non potrà più chiedere l’accesso. Puoi annullare il blocco in Persone rifiutate.</string>
+    <string name="shared_empty_title">Il tuo album condiviso è pronto</string>
+    <string name="shared_empty_body">Aggiungi foto e video, poi invita altre persone a vederli e ad aggiungere i loro.</string>
+    <string name="shared_invite_people">Invita persone</string>
+    <string name="incoming_destination">Aggiungi a</string>
+    <string name="incoming_destination_library">Libreria iCloud</string>
+    <string name="incoming_destination_shared">Album condiviso</string>
+    <string name="incoming_choose_shared">Scegli un album condiviso</string>
+    <string name="incoming_no_shared_albums">Non ci sono album condivisi a cui puoi aggiungere elementi.</string>
+    <string name="incoming_album_note">Per aggiungerli a uno dei tuoi album, caricali prima nella libreria, poi usa Aggiungi all’album.</string>
+    <string name="incoming_add_to_shared">Aggiungi a %1$s</string>
+    <string name="incoming_adding_to_shared">Aggiunta a %1$s…</string>
+    <string name="incoming_sent_library">Inviati alla tua libreria iCloud. Segui l’avanzamento nei trasferimenti.</string>
+    <string name="incoming_sent_shared">Aggiunti a %1$s.</string>
+    <string name="incoming_shared_failed">Impossibile confermare l’aggiunta a %1$s. Controlla l’album prima di riprovare.</string>
+    <plurals name="shared_notification_invitations"><item quantity="one">Nuovo invito a un album condiviso</item><item quantity="other">%d nuovi inviti ad album condivisi</item></plurals>
+    <plurals name="shared_notification_new_items"><item quantity="one">%d nuova foto o video</item><item quantity="other">%d nuove foto e video</item></plurals>
+    <plurals name="shared_post_items_title"><item quantity="one">Pubblica %d elemento</item><item quantity="other">Pubblica %d elementi</item></plurals>
+    <plurals name="shared_live_photos_excluded"><item quantity="one">%d Live Photo non è mostrata: gli album tradizionali non possono conservarne il movimento.</item><item quantity="other">%d Live Photo non sono mostrate: gli album tradizionali non possono conservarne il movimento.</item></plurals>
+    <plurals name="shared_reactions"><item quantity="one">%d reazione</item><item quantity="other">%d reazioni</item></plurals>
 </resources>

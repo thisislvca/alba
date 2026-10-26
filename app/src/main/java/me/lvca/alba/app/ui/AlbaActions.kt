@@ -11,6 +11,8 @@ import me.lvca.alba.engine.model.SharedAlbumManagement
 import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SharedDiscussion
 import me.lvca.alba.engine.model.SharedInvitation
+import me.lvca.alba.engine.model.SharedPostPreview
+import me.lvca.alba.engine.model.SHARED_POST_PREVIEW_PHOTOS
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.source.MediaRead
 
@@ -19,6 +21,9 @@ interface InvitationActions {
     suspend fun pendingSharedInvitations(): List<SharedInvitation>
     suspend fun resolveSharedInvitation(url: String): SharedInvitation
     suspend fun respondSharedInvitation(invitationId: String, accept: Boolean)
+
+    /** The person has looked at their pending invitations, which clears the badge. */
+    fun markInvitationsRead() {}
 }
 
 /** Reading and changing a shared album. */
@@ -26,9 +31,16 @@ interface SharedActions {
     suspend fun sharedActivity(albumId: String, rank: Int): SharedActivityPage
     suspend fun sharedPostDiscussion(postId: String): SharedDiscussion
     suspend fun sharedPostPhotos(postId: String): List<String>
+
+    /** Previews of a page of posts in one read. */
+    suspend fun sharedPostPreviews(postIds: List<String>): Map<String, SharedPostPreview> =
+        postIds.associateWith { id -> sharedPostPhotos(id).let { SharedPostPreview(it.take(SHARED_POST_PREVIEW_PHOTOS), it.size) } }
     suspend fun sharedManagement(albumId: String): SharedAlbumManagement
     suspend fun sharedDiscussion(id: String): SharedDiscussion
     suspend fun changeSharedAlbum(albumId: String, command: SharedCommand)
+
+    /** Turns the Shared Album activity notifications on or off. */
+    fun setSharedActivityNotifications(enabled: Boolean) {}
 }
 
 /** Alba's own storage on this phone. */
@@ -69,7 +81,8 @@ interface LibraryEditActions {
 
     /** Asks Android to move phone copies to its trash, or to restore them from it. */
     fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean)
-    fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>)
+    /** Posts [mediaIds] to a shared album, with [caption] where the album supports captions. */
+    fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>, caption: String = "")
     fun createSharedAlbum(name: String, generation: SharedAlbumGeneration)
 }
 

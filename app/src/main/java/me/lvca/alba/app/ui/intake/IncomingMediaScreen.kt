@@ -33,17 +33,36 @@ import me.lvca.alba.app.intake.IncomingItem
 import me.lvca.alba.app.intake.IncomingRequest
 import me.lvca.alba.app.intake.inspectIncoming
 import me.lvca.alba.app.messages.UiMessage
+import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.shared.SharedPostSheet
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.viewer.VideoPlayer
+import me.lvca.alba.engine.model.GalleryCollection
+import me.lvca.alba.engine.model.MediaKind
+import me.lvca.alba.engine.model.SharedAlbumGeneration
+import me.lvca.alba.engine.model.supportsLegacySharedUpload
 import me.lvca.alba.engine.source.UploadMediaFormat
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 
+/** Where adding incoming items to a shared album stands. */
+internal enum class IncomingSharedResult { SENDING, ADDED, FAILED }
+
+/** The incoming items [album] accepts: legacy albums take single JPEG, PNG, HEIC, MP4 or MOV files only. */
+internal fun incomingForSharedAlbum(items: List<IncomingItem>, album: GalleryCollection): List<IncomingItem> =
+    if (album.shared?.generation != SharedAlbumGeneration.LEGACY) items
+    else items.filter { item ->
+        val mime = item.mime.orEmpty()
+        supportsLegacySharedUpload(if (mime.startsWith("video/")) MediaKind.VIDEO else MediaKind.PHOTO, mime)
+    }
+
 @Composable
 internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: ICloudAccountState, message: UiMessage?,
-    close: () -> Unit, connect: () -> Unit, upload: (List<Uri>) -> Unit) {
+    close: () -> Unit, connect: () -> Unit, upload: (List<Uri>) -> Unit,
+    sharedAlbums: List<GalleryCollection> = emptyList(),
+    addToShared: (albumId: String, items: List<IncomingItem>, caption: String, done: (Boolean) -> Unit) -> Unit = { _, _, _, _ -> }) {
     val context = LocalContext.current
     val shareLabel = stringResource(R.string.share)
     val demo = accountState == ICloudAccountState.Demo
@@ -55,6 +74,13 @@ internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: I
     val pager = rememberPagerState { items?.size ?: 0 }
     var zoomed by remember(request, pager.currentPage) { mutableStateOf(false) }
     var shareFailed by remember(request) { mutableStateOf(false) }
+    // Where the items go: the iCloud library by default, or a shared album the person can add to.
+    var toShared by rememberSaveable(request) { mutableStateOf(false) }
+    var target by rememberSaveable(request) { mutableStateOf<String?>(null) }
+    var choosing by rememberSaveable(request) { mutableStateOf(false) }
+    var posting by rememberSaveable(request) { mutableStateOf(false) }
+    var sharedResult by rememberSaveable(request) { mutableStateOf<IncomingSharedResult?>(null) }
+    val targetAlbum = sharedAlbums.firstOrNull { it.id == target }
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val view = LocalView.current
         DisposableEffect(view) {
@@ -105,10 +131,48 @@ internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: I
                             if (!request.savedCopy && loaded.any { it.failure == null && it.mime != null }) {
                                 Text(stringResource(if (demo) R.string.demo_upload_disclosure else R.string.incoming_upload_explanation), style = MaterialTheme.typography.bodySmall)
                                 val signedIn = (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED
-                                if (eligible.isNotEmpty()) Button(modifier = Modifier.testTag("queue-incoming-upload"), enabled = !sent, onClick = { if (signedIn || demo) confirm = true else connect() }) {
-                                    Text(stringResource(if (sent && demo) R.string.demo_import_requested else if (sent) R.string.incoming_upload_queued else if (demo) R.string.demo_upload_title else if (signedIn) R.string.upload_phone_jpegs else R.string.incoming_connect))
+                                val canChoose = (signedIn || demo) && eligible.isNotEmpty() && sharedAlbums.isNotEmpty() && !sent && sharedResult == null
+                                if (canChoose) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(stringResource(R.string.incoming_destination), style = MaterialTheme.typography.labelLarge)
+                                    FilterChip(!toShared, { toShared = false }, label = { Text(stringResource(R.string.incoming_destination_library)) },
+                                        modifier = Modifier.testTag("incoming-destination-library"))
+                                    FilterChip(toShared, { toShared = true }, label = { Text(stringResource(R.string.incoming_destination_shared)) },
+                                        modifier = Modifier.testTag("incoming-destination-shared"))
                                 }
-                                if (sent) TextButton(onClick = close) { Text(stringResource(R.string.incoming_view_library)) }
+                                if (toShared && (canChoose || sharedResult != null)) {
+                                    val sharedItems = targetAlbum?.let { incomingForSharedAlbum(eligible, it) }.orEmpty()
+                                    if (sharedResult == null) {
+                                        OutlinedButton(onClick = { choosing = true }, modifier = Modifier.testTag("incoming-choose-shared")) {
+                                            Text(targetAlbum?.name ?: stringResource(R.string.incoming_choose_shared))
+                                        }
+                                        if (targetAlbum != null) Button(onClick = { posting = true }, enabled = sharedItems.isNotEmpty(),
+                                            modifier = Modifier.testTag("incoming-add-to-shared")) { Text(stringResource(R.string.incoming_add_to_shared, targetAlbum.name)) }
+                                    }
+                                    sharedResult?.let { result ->
+                                        val albumName = targetAlbum?.name.orEmpty()
+                                        Text(stringResource(when (result) {
+                                            IncomingSharedResult.SENDING -> R.string.incoming_adding_to_shared
+                                            IncomingSharedResult.ADDED -> R.string.incoming_sent_shared
+                                            IncomingSharedResult.FAILED -> R.string.incoming_shared_failed
+                                        }, albumName), Modifier.testTag("incoming-shared-status"))
+                                        if (result != IncomingSharedResult.SENDING) TextButton(onClick = close) { Text(stringResource(R.string.incoming_view_library)) }
+                                    }
+                                    if (posting && targetAlbum != null) SharedPostSheet(sharedItems.size, targetAlbum.shared?.generation == SharedAlbumGeneration.LEGACY,
+                                        dismiss = { posting = false }) { caption ->
+                                        posting = false; sharedResult = IncomingSharedResult.SENDING
+                                        addToShared(targetAlbum.id, sharedItems, caption) { added -> sharedResult = if (added) IncomingSharedResult.ADDED else IncomingSharedResult.FAILED }
+                                    }
+                                    if (choosing) AlbumChooser(sharedAlbums, dismiss = { choosing = false }, create = {}, title = stringResource(R.string.incoming_choose_shared),
+                                        canCreate = false, shared = true) { id -> target = id; choosing = false }
+                                } else {
+                                    if (eligible.isNotEmpty()) Button(modifier = Modifier.testTag("queue-incoming-upload"), enabled = !sent, onClick = { if (signedIn || demo) confirm = true else connect() }) {
+                                        Text(stringResource(if (sent && demo) R.string.demo_import_requested else if (sent) R.string.incoming_upload_queued else if (demo) R.string.demo_upload_title else if (signedIn) R.string.upload_phone_jpegs else R.string.incoming_connect))
+                                    }
+                                    if (sent && !demo) Text(stringResource(R.string.incoming_sent_library), style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("incoming-library-status"))
+                                    if (sent) TextButton(onClick = close) { Text(stringResource(R.string.incoming_view_library)) }
+                                }
+                                if (canChoose) Text(stringResource(R.string.incoming_album_note), style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 message?.let { Text(it.localized(), style = MaterialTheme.typography.bodySmall) }
                             }
                         }

@@ -72,6 +72,7 @@ class SharedAlbumsFlowTest {
             compose.onNodeWithContentDescription(label(R.string.shared_add_photos)).performClick()
             compose.onNodeWithTag("shared-select-fixture:icloud:${if (generation == SharedAlbumGeneration.LEGACY) "0019" else "0020"}").performClick()
             compose.onNodeWithText(compose.activity.resources.getQuantityString(R.plurals.shared_add_selected, 1, 1)).performClick()
+            compose.onNodeWithTag("shared-post-confirm").performClick()
             var contributedId: String? = null
             compose.waitUntil(UI_WAIT) {
                 runBlocking {

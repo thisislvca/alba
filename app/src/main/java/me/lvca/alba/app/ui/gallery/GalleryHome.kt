@@ -97,7 +97,9 @@ import me.lvca.alba.app.ui.shared.CreateSharedAlbumDialog
 import me.lvca.alba.app.ui.shared.SharedAlbumActivity
 import me.lvca.alba.app.ui.shared.SharedAlbumControls
 import me.lvca.alba.app.ui.shared.SharedAlbumDetails
+import me.lvca.alba.app.ui.shared.SharedAlbumEmptyState
 import me.lvca.alba.app.ui.shared.SharedContributionPicker
+import me.lvca.alba.app.ui.shared.sharedContributionCandidates
 import me.lvca.alba.app.ui.shared.SharedInvitations
 import me.lvca.alba.app.ui.transfers.BatchProgress
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
@@ -494,6 +496,7 @@ internal fun GalleryHome(
                             actions = actions,
                             flat = hero,
                             onAddMedia = if (hero && collection?.shared?.canContribute == true && canEdit) ({ sheet = GallerySheet.SharedPicker }) else null,
+                            onInvite = if (hero && collection?.shared?.canManage == true && canEdit) ({ sheet = GallerySheet.SharedManage }) else null,
                             leading = if (hero) ({
                                 AlbumHero(requireNotNull(collection), summaries[collection.id], previewRetryVersion, actions::requestPreview,
                                     activity = if (collection.shared?.generation == SharedAlbumGeneration.MODERN) ({ sheet = GallerySheet.SharedActivity }) else null,
@@ -558,11 +561,13 @@ internal fun GalleryHome(
             BatchProgress(transfers.batches, gallery.items, actions::retryBatch, actions::cancelDownloadBatch)
         }
     }
-    if (sheet == GallerySheet.SharedPicker && collection?.shared != null) SharedContributionPicker(gallery.catalogItems.filter {
-        !it.isShared && !it.isTrashed &&
-            (if (collection.shared?.generation == SharedAlbumGeneration.LEGACY || it.origin == MediaOrigin.DEVICE) supportsLegacySharedUpload(it.kind, it.mimeType) else true) },
-        preview = actions::requestPreview, dismiss = { sheet = null }, contribute = { ids -> actions.contributeToSharedAlbum(collection.id, ids); sheet = null },
-        legacy = collection.shared?.generation == SharedAlbumGeneration.LEGACY, requestPhotos = actions::requestDevicePhotos)
+    if (sheet == GallerySheet.SharedPicker && collection?.shared != null) {
+        val generation = requireNotNull(collection.shared).generation
+        val (candidates, livePhotos) = remember(gallery.catalogItems, generation) { sharedContributionCandidates(gallery.catalogItems, generation) }
+        SharedContributionPicker(candidates, preview = actions::requestPreview, dismiss = { sheet = null },
+            contribute = { ids, caption -> actions.contributeToSharedAlbum(collection.id, ids, caption); sheet = null },
+            legacy = generation == SharedAlbumGeneration.LEGACY, requestPhotos = actions::requestDevicePhotos, excludedLivePhotos = livePhotos)
+    }
     if (sheet == GallerySheet.SharedInvitations) SharedInvitations(actions, dismiss = { sheet = null }, demo = session.accountState == ICloudAccountState.Demo)
     if (sheet == GallerySheet.SharedActivity && collection?.shared?.generation == SharedAlbumGeneration.MODERN) SharedAlbumActivity(collection, gallery.catalogItems, actions, actions::requestPreview, open = { sheet = null; actions.openMedia(it) }, dismiss = { sheet = null })
     if (sheet == GallerySheet.SharedManage && collection?.shared != null) SharedAlbumControls(collection, actions) { sheet = null }
@@ -656,6 +661,7 @@ private fun PhotoGrid(
     leading: (@Composable () -> Unit)? = null,
     flat: Boolean = false,
     onAddMedia: (() -> Unit)? = null,
+    onInvite: (() -> Unit)? = null,
 ) {
     val leadingItems = if (leading != null) 1 else 0
     val date = query.date
@@ -742,7 +748,10 @@ private fun PhotoGrid(
         if (items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
-                else if (query.collectionId?.startsWith("shared:") == true) Text(stringResource(R.string.shared_album_empty))
+                else if (query.collectionId?.startsWith("shared:") == true) {
+                    if (onAddMedia != null || onInvite != null) SharedAlbumEmptyState(onAddMedia, onInvite)
+                    else Text(stringResource(R.string.shared_album_empty))
+                }
                 else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
                 else if (connectPrompt) ConnectLibrary(connect = actions::openAccount, demo = actions::startDemo)
                 else {
@@ -793,7 +802,7 @@ private fun PhotoGrid(
             }
             }
         }
-        if (onAddMedia != null) item(key = "add-media") {
+        if (onAddMedia != null && items.isNotEmpty()) item(key = "add-media") {
             Surface(onClick = onAddMedia, modifier = posed("add-media").aspectRatio(1f).testTag("album-add-media"),
                 shape = MaterialTheme.shapes.tile, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }

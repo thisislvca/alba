@@ -159,4 +159,72 @@ class SharedAlbumControlsTest {
         assertEquals(one.id, writes.single().subject)
         compose.onNodeWithText(label(R.string.shared_save_library)).assertDoesNotExist()
     }
+
+    @Test fun blockingAParticipantNeedsConfirmationAndIsOnlyForNewAlbums() {
+        val guest = SharedParticipant("guest", "Guest test", SharedAlbumRole.CONTRIBUTOR)
+        var state = SharedAlbumManagement(album, listOf(SharedParticipant("owner", "You", SharedAlbumRole.OWNER, isCurrentUser = true), guest))
+        val commands = mutableListOf<SharedCommand>()
+        compose.setContent { MaterialTheme { SharedAlbumControls(album, testAlbaActions(sharedManagement = { state }, changeSharedAlbum = { _, c ->
+            commands += c; state = state.copy(participants = state.participants - guest, blocked = listOf(SharedAccessRequest("guest-identity", guest.name)))
+        }), {}) } }
+        compose.waitUntil { compose.onAllNodesWithTag("shared-block-guest").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("shared-block-guest").performScrollTo().performClick()
+        compose.onNodeWithText(label(R.string.shared_confirm_block)).assertIsDisplayed()
+        assertTrue(commands.isEmpty())
+        compose.onNodeWithText(label(R.string.shared_confirm)).performClick()
+        compose.waitUntil { compose.onAllNodesWithText(label(R.string.shared_unblock)).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(SharedCommand(SharedAction.BLOCK, "guest"), commands.single())
+    }
+
+    @Test fun legacyAlbumsOfferNoBlock() {
+        val legacy = album.copy(id = "shared:test:legacy:owner:album", shared = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, SharedAlbumRole.OWNER))
+        val state = SharedAlbumManagement(legacy, listOf(SharedParticipant("owner", "You", SharedAlbumRole.OWNER, isCurrentUser = true),
+            SharedParticipant("guest", "Guest test", SharedAlbumRole.CONTRIBUTOR)))
+        compose.setContent { MaterialTheme { SharedAlbumControls(legacy, testAlbaActions(sharedManagement = { state }), {}) } }
+        compose.waitUntil { compose.onAllNodesWithText("Guest test").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(label(R.string.shared_remove_person)).assertExists()
+        compose.onNodeWithTag("shared-block-guest").assertDoesNotExist()
+    }
+
+    @Test fun controlsAreGroupedAndTheLinkCanBeSharedAndNotificationsToggled() {
+        val state = SharedAlbumManagement(album, listOf(SharedParticipant("owner", "You", SharedAlbumRole.OWNER, isCurrentUser = true)),
+            publicAccess = true, publicUrl = "https://www.icloud.com/sharedalbum/#test")
+        val toggles = mutableListOf<Boolean>()
+        compose.setContent { MaterialTheme { SharedAlbumControls(album, testAlbaActions(sharedManagement = { state },
+            setSharedActivityNotifications = { toggles += it }), {}) } }
+        compose.waitUntil { compose.onAllNodesWithTag("shared-share-link").fetchSemanticsNodes().isNotEmpty() }
+        // The sheet body is one column, laid out whole: section order is the order of their positions.
+        val sections = listOf("shared-section-people", "shared-section-link", "shared-section-settings").map { tag ->
+            compose.onNodeWithTag(tag).fetchSemanticsNode().positionInRoot.y
+        }
+        assertEquals(sections.sorted(), sections)
+        compose.onNodeWithText(label(R.string.shared_add_people)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(label(R.string.shared_activity_notifications)).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(listOf(false), toggles) }
+    }
+
+    @Test fun deletingSaysEveryoneElseLosesTheAlbum() {
+        compose.setContent { MaterialTheme { SharedAlbumControls(album, testAlbaActions(sharedManagement = { SharedAlbumManagement(album, emptyList()) }), {}) } }
+        compose.waitUntil { compose.onAllNodesWithText(label(R.string.shared_delete_album)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(label(R.string.shared_delete_album)).performScrollTo().performClick()
+        compose.onNodeWithText(label(R.string.shared_confirm_delete)).assertIsDisplayed()
+        compose.onNodeWithText(label(R.string.shared_cancel)).performClick()
+    }
+
+    @Test fun activityLoadsPreviewsOncePerPageAndShowsMoreCountReactionsAndPostPhotos() {
+        val posts = (1..3).map { SharedPost("post:${album.id}:p$it", "Owner", true, 1790205441441, "Post $it") }
+        val previewCalls = mutableListOf<List<String>>()
+        val photos = (1..6).map { "${album.id}:photo$it" }
+        val actions = testAlbaActions(sharedActivity = { _, _ -> SharedActivityPage(posts, null) },
+            sharedPostPreviews = { ids -> previewCalls += ids; ids.associateWith { SharedPostPreview(photos.take(4), 6, reactions = 2) } },
+            sharedPostPhotos = { photos })
+        compose.setContent { MaterialTheme { SharedAlbumActivity(album, emptyList(), actions, {}, {}, {}) } }
+        compose.waitUntil { compose.onAllNodesWithTag("shared-post-more", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(listOf(posts.map { it.id }), previewCalls)
+        compose.onAllNodesWithTag("shared-post-more", useUnmergedTree = true)[0].assertTextEquals("+2")
+        compose.onAllNodesWithText(context.resources.getQuantityString(R.plurals.shared_reactions, 2, 2))[0].assertExists()
+        compose.onAllNodesWithText(label(R.string.shared_post_open))[0].performScrollTo().performClick()
+        compose.waitUntil { compose.onAllNodesWithTag("shared-post-photos").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.item_count, 6, 6)).assertExists()
+    }
 }

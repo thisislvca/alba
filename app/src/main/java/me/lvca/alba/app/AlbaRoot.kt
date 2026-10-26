@@ -67,6 +67,7 @@ import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
 import me.lvca.alba.app.ui.onboarding.WelcomeScreen
+import me.lvca.alba.app.ui.shared.LocalSharedActivity
 import me.lvca.alba.app.ui.shared.SharedInvitations
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
@@ -74,6 +75,7 @@ import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedCommand
+import me.lvca.alba.engine.model.SharedUploadFile
 import me.lvca.alba.engine.model.SystemConsentCallback
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -180,6 +182,7 @@ private fun AlbaMain(
     val previewStorageLow by viewModel.previews.storageLow.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnosticsConsent.collectAsStateWithLifecycle()
+    val sharedActivity by viewModel.sharedAlbums.activity.collectAsStateWithLifecycle()
     val currentIncoming by rememberUpdatedState(incoming)
     val shareTitle by rememberUpdatedState(stringResource(R.string.share))
 
@@ -326,6 +329,15 @@ private fun AlbaMain(
             upload = { uris ->
                 onIncomingChange(currentIncoming.copy(returnToCaller = false))
                 uploadPicked(context, viewModel, uris)
+            },
+            sharedAlbums = gallery.collections.filter { it.shared?.canContribute == true },
+            addToShared = { albumId, items, caption, done ->
+                onIncomingChange(currentIncoming.copy(returnToCaller = false))
+                val resolver = context.contentResolver
+                val files = items.map { item ->
+                    SharedUploadFile(item.name) { output -> requireNotNull(resolver.openInputStream(item.uri)).use { it.copyTo(output) } }
+                }
+                viewModel.sharedAlbums.contributeFilesToSharedAlbum(albumId, files, request.uris.sorted().hashCode().toString(), caption, done)
             })
     }
     (incoming.request as? IncomingRequest.Invitation)?.takeUnless { incomingSuspended }?.let { request ->
@@ -363,7 +375,7 @@ private fun AlbaMain(
             }
         }
     }
-    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow) {
+    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalSharedActivity provides sharedActivity) {
         AlbaApp(
             gallery = gallery,
             session = session,
@@ -519,7 +531,7 @@ private class AlbaRootActions(
     override fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean) =
         if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmCloudTrash(mediaIds.toList(), trashed)) else Unit
     override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) = platform.trashOnPhone(items, restore)
-    override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>) = shared.contributeToSharedAlbum(albumId, mediaIds)
+    override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>, caption: String) = shared.contributeToSharedAlbum(albumId, mediaIds, caption)
     override fun createSharedAlbum(name: String, generation: SharedAlbumGeneration) = shared.createSharedAlbum(name, generation)
 
     override fun runBatch(action: BatchAction) =
@@ -561,6 +573,9 @@ private class AlbaRootActions(
     override suspend fun sharedActivity(albumId: String, rank: Int) = shared.sharedActivity(albumId, rank)
     override suspend fun sharedPostDiscussion(postId: String) = shared.sharedPostDiscussion(postId)
     override suspend fun sharedPostPhotos(postId: String) = shared.sharedPostPhotos(postId)
+    override suspend fun sharedPostPreviews(postIds: List<String>) = shared.sharedPostPreviews(postIds)
+    override fun setSharedActivityNotifications(enabled: Boolean) = shared.setNotifications(enabled)
+    override fun markInvitationsRead() = shared.markInvitationsRead()
     override suspend fun sharedManagement(albumId: String) = shared.sharedManagement(albumId)
     override suspend fun sharedDiscussion(id: String) = shared.sharedDiscussion(id)
     override suspend fun changeSharedAlbum(albumId: String, command: SharedCommand) = shared.changeSharedAlbum(albumId, command)

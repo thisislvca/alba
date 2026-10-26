@@ -1,6 +1,11 @@
 package me.lvca.alba.app.ui.shared
 
+import android.content.Intent
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
@@ -9,12 +14,16 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.core.app.NotificationManagerCompat
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
@@ -47,10 +56,27 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
     var busy by remember { mutableStateOf(false) }
     var name by rememberSaveable(album.id) { mutableStateOf(album.name) }
     var email by rememberSaveable(album.id) { mutableStateOf("") }
+    var contactFailed by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<SharedCommand?>(null) }
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val shareTitle = stringResource(R.string.share)
+    fun shareLink(link: String) {
+        runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(Intent.EXTRA_SUBJECT, album.name).putExtra(Intent.EXTRA_TEXT, link), shareTitle)) }
+    }
+    // The contacts app returns one email row and grants read access to it alone: no contacts permission is needed.
+    val contactPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val uri = result.data?.data ?: return@rememberLauncherForActivityResult
+        val picked = runCatching {
+            context.contentResolver.query(uri, arrayOf(ContactsContract.CommonDataKinds.Email.ADDRESS), null, null, null)
+                ?.use { if (it.moveToFirst()) it.getString(0) else null }
+        }.getOrNull()
+        contactFailed = picked.isNullOrBlank()
+        if (!picked.isNullOrBlank()) email = picked.trim()
+    }
     AlbaBottomSheet(onDismissRequest = { if (!busy) dismiss() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), modifier = Modifier.testTag("shared-management")) {
         AlbaSheetBody(stringResource(R.string.shared_manage), dismiss, subtitle = album.name, dismissEnabled = !busy) {
             if (isDemoSharedId(album.id)) Text(stringResource(R.string.demo_shared_notice))
@@ -58,49 +84,35 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
                 onReload = management::reload, reloadEnabled = !busy)
             data?.let { state ->
                 val info = requireNotNull(state.album.shared)
+                val modern = info.generation == SharedAlbumGeneration.MODERN
                 Text(sharedRole(info.role))
                 if (info.canManage) {
-                    AlbaCard {
-                        Column(Modifier.padding(AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            OutlinedTextField(name, { name = it.take(255) }, label = { Text(stringResource(R.string.album_name)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())
-                            TextButton(onClick = { pending = SharedCommand(SharedAction.RENAME, value = name.trim()) }, enabled = !busy && name.isNotBlank() && name != state.album.name) { Text(stringResource(R.string.rename_album)) }
-                            OutlinedTextField(email, { email = it }, label = { Text(stringResource(R.string.shared_invite_email)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("shared-invite-email"))
+                    OutlinedTextField(name, { name = it.take(255) }, label = { Text(stringResource(R.string.album_name)) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    TextButton(onClick = { pending = SharedCommand(SharedAction.RENAME, value = name.trim()) }, enabled = !busy && name.isNotBlank() && name != state.album.name) { Text(stringResource(R.string.rename_album)) }
+                }
+
+                SectionTitle(stringResource(R.string.shared_people), "shared-section-people")
+                if (info.canManage) AlbaCard {
+                    Column(Modifier.padding(AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(email, { email = it; contactFailed = false }, label = { Text(stringResource(R.string.shared_invite_email)) }, enabled = !busy, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth().testTag("shared-invite-email"))
+                        if (contactFailed) Text(stringResource(R.string.shared_contact_failed), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
                             OutlinedButton(onClick = { pending = SharedCommand(SharedAction.INVITE, value = email.trim()) }, enabled = !busy && email.contains('@')) { Text(stringResource(R.string.shared_invite)) }
-                            SharedToggle(stringResource(R.string.shared_public), state.publicAccess, !busy) { pending = SharedCommand(SharedAction.PUBLIC_ACCESS, enabled = it) }
-                            if (info.generation == SharedAlbumGeneration.LEGACY) {
-                                SharedToggle(stringResource(R.string.shared_allow_posts), state.allowContributions, !busy) { pending = SharedCommand(SharedAction.CONTRIBUTIONS, enabled = it) }
-                            } else {
-                                SharedToggle(stringResource(R.string.shared_access_requests), state.allowAccessRequests, !busy) { pending = SharedCommand(SharedAction.ACCESS_REQUESTS, enabled = it) }
-                                SharedToggle(stringResource(R.string.shared_temporary), state.temporary, !busy) { pending = SharedCommand(SharedAction.TEMPORARY, enabled = it) }
-                            }
+                            TextButton(onClick = {
+                                contactFailed = false
+                                runCatching { contactPicker.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Email.CONTENT_URI)) }
+                                    .onFailure { contactFailed = true }
+                            }, enabled = !busy, modifier = Modifier.testTag("shared-add-from-contacts")) { Text(stringResource(R.string.shared_add_people)) }
                         }
                     }
                 }
-                if (info.canManage && info.generation == SharedAlbumGeneration.MODERN && !state.publicAccess) {
-                    OutlinedButton(onClick = { pending = SharedCommand(SharedAction.CREATE_INVITE_LINK) }, enabled = !busy) { Text(stringResource(R.string.shared_create_link)) }
-                    state.invitationLinks.forEachIndexed { index, link ->
-                        TextButton(onClick = { clipboard.setText(AnnotatedString(link)) }, enabled = !busy) { Text(stringResource(R.string.shared_copy_invite_link, index + 1)) }
-                    }
-                    if (state.invitationLinks.isNotEmpty()) TextButton(onClick = { pending = SharedCommand(SharedAction.REVOKE_INVITE_LINKS) }, enabled = !busy) { Text(stringResource(R.string.shared_revoke_links)) }
-                }
-                state.publicUrl?.let { url ->
-                    OutlinedButton(onClick = { clipboard.setText(AnnotatedString(url)) }, enabled = !busy) { Text(stringResource(R.string.shared_copy_link)) }
-                }
-                HorizontalDivider()
-                Text(stringResource(R.string.shared_people), style = MaterialTheme.typography.titleMedium)
                 if (state.participants.isEmpty()) Text(stringResource(R.string.shared_no_people))
                 if (info.canManage) state.requests.forEach { request ->
                     Text(request.name)
                     Row {
                         TextButton(onClick = { pending = SharedCommand(SharedAction.APPROVE_REQUEST, request.id) }, enabled = !busy) { Text(stringResource(R.string.shared_approve)) }
                         TextButton(onClick = { pending = SharedCommand(SharedAction.DENY_REQUEST, request.id) }, enabled = !busy) { Text(stringResource(R.string.shared_deny)) }
-                    }
-                }
-                if (info.canManage && state.blocked.isNotEmpty()) {
-                    Text(stringResource(R.string.shared_blocked), style = MaterialTheme.typography.titleMedium)
-                    state.blocked.forEach { person ->
-                        Text(person.name)
-                        TextButton(onClick = { pending = SharedCommand(SharedAction.UNBLOCK, person.id) }, enabled = !busy) { Text(stringResource(R.string.shared_unblock)) }
                     }
                 }
                 state.participants.forEach { p ->
@@ -110,16 +122,63 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
                             Text(if (p.pending) stringResource(R.string.label_with_detail, sharedRole(p.role), stringResource(R.string.shared_invited)) else sharedRole(p.role),
                                 style = MaterialTheme.typography.bodySmall)
                             if (info.canManage && p.role != SharedAlbumRole.OWNER && !p.isCurrentUser) {
-                                if (info.generation == SharedAlbumGeneration.MODERN) {
+                                if (modern) FlowRow {
                                     listOf("contributor" to SharedAlbumRole.CONTRIBUTOR, "commenter" to SharedAlbumRole.COMMENTER, "manager" to SharedAlbumRole.MANAGER).forEach { (wire, role) ->
                                         TextButton(onClick = { pending = SharedCommand(SharedAction.ROLE, p.id, wire) }, enabled = !busy && p.role != role) { Text(sharedRole(role)) }
                                     }
                                 }
-                                TextButton(onClick = { pending = SharedCommand(SharedAction.REMOVE_PARTICIPANT, p.id) }, enabled = !busy) { Text(stringResource(R.string.shared_remove_person)) }
+                                FlowRow {
+                                    TextButton(onClick = { pending = SharedCommand(SharedAction.REMOVE_PARTICIPANT, p.id) }, enabled = !busy) { Text(stringResource(R.string.shared_remove_person)) }
+                                    // Blocking needs an Apple identity, so it is offered once the person has joined.
+                                    if (modern && !p.pending) TextButton(onClick = { pending = SharedCommand(SharedAction.BLOCK, p.id) }, enabled = !busy,
+                                        modifier = Modifier.testTag("shared-block-${p.id}")) { Text(stringResource(R.string.shared_block), color = MaterialTheme.colorScheme.error) }
+                                }
                             }
                         }
                     }
                 }
+                if (info.canManage && state.blocked.isNotEmpty()) {
+                    Text(stringResource(R.string.shared_blocked), style = MaterialTheme.typography.titleSmall)
+                    state.blocked.forEach { person ->
+                        Text(person.name)
+                        TextButton(onClick = { pending = SharedCommand(SharedAction.UNBLOCK, person.id) }, enabled = !busy) { Text(stringResource(R.string.shared_unblock)) }
+                    }
+                }
+
+                val inviteLinks = info.canManage && modern && !state.publicAccess
+                if (info.canManage || state.publicUrl != null) {
+                    SectionTitle(stringResource(R.string.shared_section_link), "shared-section-link")
+                    if (info.canManage) SharedToggle(stringResource(R.string.shared_public), state.publicAccess, !busy) { pending = SharedCommand(SharedAction.PUBLIC_ACCESS, enabled = it) }
+                    state.publicUrl?.let { url ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
+                            Button(onClick = { shareLink(url) }, enabled = !busy, modifier = Modifier.testTag("shared-share-link")) { Text(stringResource(R.string.shared_share_link)) }
+                            OutlinedButton(onClick = { clipboard.setText(AnnotatedString(url)) }, enabled = !busy) { Text(stringResource(R.string.shared_copy_link)) }
+                        }
+                    }
+                }
+                if (inviteLinks) {
+                    OutlinedButton(onClick = { pending = SharedCommand(SharedAction.CREATE_INVITE_LINK) }, enabled = !busy) { Text(stringResource(R.string.shared_create_link)) }
+                    state.invitationLinks.forEachIndexed { index, link ->
+                        FlowRow {
+                            TextButton(onClick = { shareLink(link) }, enabled = !busy) { Text(stringResource(R.string.shared_share_invite_link, index + 1)) }
+                            TextButton(onClick = { clipboard.setText(AnnotatedString(link)) }, enabled = !busy) { Text(stringResource(R.string.shared_copy_invite_link, index + 1)) }
+                        }
+                    }
+                    if (state.invitationLinks.isNotEmpty()) TextButton(onClick = { pending = SharedCommand(SharedAction.REVOKE_INVITE_LINKS) }, enabled = !busy) { Text(stringResource(R.string.shared_revoke_links)) }
+                }
+
+                SectionTitle(stringResource(R.string.shared_section_settings), "shared-section-settings")
+                if (info.canManage) {
+                    if (!modern) {
+                        SharedToggle(stringResource(R.string.shared_allow_posts), state.allowContributions, !busy) { pending = SharedCommand(SharedAction.CONTRIBUTIONS, enabled = it) }
+                    } else {
+                        SharedToggle(stringResource(R.string.shared_access_requests), state.allowAccessRequests, !busy) { pending = SharedCommand(SharedAction.ACCESS_REQUESTS, enabled = it) }
+                        SharedToggle(stringResource(R.string.shared_temporary), state.temporary, !busy) { pending = SharedCommand(SharedAction.TEMPORARY, enabled = it) }
+                    }
+                }
+                SharedNotificationsToggle(actions)
+
+                HorizontalDivider()
                 if (info.role == SharedAlbumRole.OWNER) {
                     OutlinedButton(onClick = { pending = SharedCommand(SharedAction.DELETE_ALBUM) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shared_delete_album), color = MaterialTheme.colorScheme.error) }
                 } else {
@@ -144,6 +203,25 @@ internal fun SharedAlbumControls(album: GalleryCollection, actions: SharedAction
             } finally { busy = false }
         }
     } }
+}
+
+@Composable
+private fun SectionTitle(title: String, tag: String) {
+    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = AlbaSpacing.sm).testTag(tag))
+}
+
+/** The switch for Shared Album activity notifications, which applies to every shared album. */
+@Composable
+internal fun SharedNotificationsToggle(actions: SharedActions) {
+    val enabled = LocalSharedActivity.current.notificationsEnabled
+    val context = LocalContext.current
+    Column(Modifier.testTag("shared-notifications")) {
+        SharedToggle(stringResource(R.string.shared_activity_notifications), enabled, true) { actions.setSharedActivityNotifications(it) }
+        Text(stringResource(R.string.shared_activity_notifications_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (enabled && !NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            Text(stringResource(R.string.shared_notifications_off_in_android), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+    }
 }
 
 @Composable
@@ -243,6 +321,7 @@ private fun SharedChangeConfirmation(command: SharedCommand, target: String? = n
         SharedAction.REMOVE_MEDIA -> R.string.shared_confirm_remove
         SharedAction.DENY_REQUEST -> R.string.shared_confirm_deny
         SharedAction.UNBLOCK -> R.string.shared_confirm_unblock
+        SharedAction.BLOCK -> R.string.shared_confirm_block
         SharedAction.APPROVE_REQUEST, SharedAction.INVITE, SharedAction.ROLE, SharedAction.PUBLIC_ACCESS, SharedAction.ACCESS_REQUESTS, SharedAction.CONTRIBUTIONS -> R.string.shared_confirm_access
         SharedAction.TEMPORARY -> if (command.enabled) R.string.shared_confirm_expire else R.string.shared_confirm_change
         SharedAction.SAVE_TO_LIBRARY -> R.string.shared_confirm_save
@@ -256,6 +335,8 @@ private fun SharedChangeConfirmation(command: SharedCommand, target: String? = n
                 SharedAction.APPROVE_REQUEST -> R.string.shared_approve
                 SharedAction.DENY_REQUEST -> R.string.shared_deny
                 SharedAction.REMOVE_PARTICIPANT -> R.string.shared_remove_person
+                SharedAction.BLOCK -> R.string.shared_block
+                SharedAction.DELETE_ALBUM -> R.string.shared_delete_album
                 SharedAction.PUBLIC_ACCESS -> R.string.shared_public
                 SharedAction.ACCESS_REQUESTS -> R.string.shared_access_requests
                 SharedAction.CONTRIBUTIONS -> R.string.shared_allow_posts
@@ -277,6 +358,8 @@ private fun SharedChangeConfirmation(command: SharedCommand, target: String? = n
             if (command.action == SharedAction.PUBLIC_ACCESS && command.enabled) Text(stringResource(R.string.shared_public_warning))
             if (command.value.isNotBlank() && command.action in setOf(SharedAction.INVITE, SharedAction.RENAME)) Text(command.value)
         }
-    }, confirmButton = { TextButton(onClick = confirm) { Text(stringResource(R.string.shared_confirm)) } },
-        dismissButton = { TextButton(onClick = cancel) { Text(stringResource(R.string.shared_cancel)) } })
+    }, confirmButton = { TextButton(onClick = confirm, modifier = Modifier.testTag("shared-confirm")) {
+        val destructive = command.action in setOf(SharedAction.DELETE_ALBUM, SharedAction.BLOCK, SharedAction.REMOVE_MEDIA)
+        Text(stringResource(R.string.shared_confirm), color = if (destructive) MaterialTheme.colorScheme.error else Color.Unspecified)
+    } }, dismissButton = { TextButton(onClick = cancel) { Text(stringResource(R.string.shared_cancel)) } })
 }

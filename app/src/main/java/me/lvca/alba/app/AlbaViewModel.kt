@@ -113,8 +113,9 @@ class AlbaViewModel(
 
     internal val edits: LibraryEditsController = LibraryEditsController(dependencies.repository, runner, messages, gallery)
 
-    internal val sharedAlbums: SharedAlbumsController = SharedAlbumsController(savedState, dependencies.repository, dependencies.accountManager,
-        dependencies.diagnostics, runner, messages, gallery)
+    internal val sharedAlbums: SharedAlbumsController = SharedAlbumsController(viewModelScope, savedState, dependencies.repository,
+        dependencies.accountManager, dependencies.diagnostics, runner, messages, gallery, dependencies.sharedActivity,
+        dependencies.scheduleSharedActivity, sync.state.map { it.lastRefreshedAt })
 
     internal val phoneStorage: PhoneStorageController = PhoneStorageController(viewModelScope, dependencies.repository, transfers, previews, runner, messages)
 
