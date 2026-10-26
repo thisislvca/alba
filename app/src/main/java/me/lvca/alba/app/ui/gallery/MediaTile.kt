@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,17 +52,21 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.collections.coverReference
+import me.lvca.alba.app.ui.collections.icon
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.FavoriteIcon
 import me.lvca.alba.app.ui.designsystem.MediaPill
 import me.lvca.alba.app.ui.designsystem.MediaScrim
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.label
+import me.lvca.alba.app.ui.localizedTitle
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaKind
 import me.lvca.alba.engine.model.MediaOrigin
+import me.lvca.alba.engine.model.SmartCollection
+import me.lvca.alba.engine.model.isRawFormat
 
 @Composable
 internal fun MediaTile(
@@ -124,7 +129,7 @@ internal fun MediaTile(
                 if (media.kind == MediaKind.LIVE_PHOTO) MediaPill(Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET)) {
                     Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp))
                     Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
-                }
+                } else tileBadge(media)?.let { badge -> TypeBadge(badge, Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET)) }
                 if (media.isFavorite && !selecting) FavoriteIcon(true,
                     contentDescription = stringResource(R.string.favorite), tint = onMedia,
                     modifier = Modifier.align(Alignment.TopEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(16.dp))
@@ -166,6 +171,35 @@ private fun Modifier.selectedInset(selected: Boolean, selecting: Boolean, reduce
 }
 
 private const val MIN_SCALE = .01f
+
+/** The one photo type a tile names in its corner, as Google Photos marks panoramas, slow motion and bursts. */
+internal enum class TileBadge { BURST, PANORAMA, SLO_MO, TIME_LAPSE, RAW }
+
+/** The type badge for [media], or null for an ordinary photo or video. Live Photos have their own Live pill. */
+internal fun tileBadge(media: GalleryMedia): TileBadge? = when {
+    media.details.burstId != null -> TileBadge.BURST
+    SmartCollection.PANORAMAS.id in media.collectionIds -> TileBadge.PANORAMA
+    SmartCollection.SLO_MO.id in media.collectionIds -> TileBadge.SLO_MO
+    SmartCollection.TIME_LAPSE.id in media.collectionIds -> TileBadge.TIME_LAPSE
+    isRawFormat(media.mimeType) -> TileBadge.RAW
+    else -> null
+}
+
+@Composable
+private fun TypeBadge(badge: TileBadge, modifier: Modifier) {
+    val smart = when (badge) {
+        TileBadge.BURST -> SmartCollection.BURSTS
+        TileBadge.PANORAMA -> SmartCollection.PANORAMAS
+        TileBadge.SLO_MO -> SmartCollection.SLO_MO
+        TileBadge.TIME_LAPSE -> SmartCollection.TIME_LAPSE
+        TileBadge.RAW -> null
+    }
+    if (smart == null) MediaPill(modifier.testTag("tile-badge-raw")) {
+        Text(stringResource(R.string.raw_badge), style = MaterialTheme.typography.labelSmall)
+    } else MediaPill(modifier.testTag("tile-badge-${badge.name.lowercase()}"), contentPadding = PaddingValues(3.dp)) {
+        Icon(painterResource(smart.icon()), smart.localizedTitle(), Modifier.size(GalleryFeel.TILE_TYPE_ICON))
+    }
+}
 
 /** An unselected tile's corner radius, matching the tile shape. */
 private val TileCorner = 2.dp

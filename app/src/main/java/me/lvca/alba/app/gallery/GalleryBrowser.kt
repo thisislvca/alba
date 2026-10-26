@@ -40,6 +40,10 @@ data class GalleryState(
     val deviceCount: Int = 0,
     val deviceMediaAccess: Boolean = false,
     val limitedPhotoAccess: Boolean = false,
+    /** How many photos each stacked burst holds, by burst id. */
+    val burstSizes: Map<String, Int> = emptyMap(),
+    /** Bursts the user opened, shown photo by photo. */
+    val expandedBursts: Set<String> = emptySet(),
 )
 
 private data class DeviceAccess(val granted: Boolean = false, val limited: Boolean = false)
@@ -49,6 +53,7 @@ private data class Browsing(
     val selection: Set<String>,
     val selectedMediaId: String?,
     val access: DeviceAccess,
+    val expandedBursts: Set<String>,
 )
 
 /**
@@ -67,6 +72,10 @@ internal class GalleryBrowser(
     private val selection = MutableStateFlow(savedState.get<ArrayList<String>>(SELECTION)?.toSet() ?: emptySet())
     private val deviceAccess = MutableStateFlow(DeviceAccess())
     private val removing = MutableStateFlow<Set<String>>(emptySet())
+    private val expandedBursts = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Set only by [openUnlockedHidden], after the user unlocked; any other query locks Hidden again. */
+    private var hiddenUnlocked = false
     val selectedMediaId: StateFlow<String?> = savedState.getStateFlow(MEDIA, null)
 
     /** The selection as the user last changed it, ahead of [state]. */
@@ -79,9 +88,10 @@ internal class GalleryBrowser(
         query,
         deviceAccess.map { it.granted }.distinctUntilChanged(),
         accountManager.state,
-        removing,
-    ) { items, query, granted, account, removing ->
-        projection.apply(if (removing.isEmpty()) items else items.filterNot { it.id in removing }, query, granted, account)
+        combine(removing, expandedBursts, ::Pair),
+    ) { items, query, granted, account, (removing, expanded) ->
+        projection.apply(if (removing.isEmpty()) items else items.filterNot { it.id in removing }, query, granted, account,
+            expandedBursts = expanded)
     }
         .flowOn(Dispatchers.Default)
         .shareIn(scope, SharingStarted.WhileSubscribed(5_000), replay = 1)
@@ -92,7 +102,7 @@ internal class GalleryBrowser(
     ) { collections, (account, folders) -> visibleCollections(collections, account, folders) }
         .flowOn(Dispatchers.Default)
 
-    private val browsing = combine(query, selection, selectedMediaId, deviceAccess, ::Browsing)
+    private val browsing = combine(query, selection, selectedMediaId, deviceAccess, expandedBursts, ::Browsing)
 
     val state: StateFlow<GalleryState> = combine(projected, collections, browsing) { projected, collections, browsing ->
         GalleryState(
@@ -102,11 +112,15 @@ internal class GalleryBrowser(
             catalogItems = projected.catalog.items,
             sections = projected.sections,
             collections = collections,
-            selectedMedia = browsing.selectedMediaId?.let(projected.catalog.byId::get),
+            // A hidden photo shows only while Hidden is open, never after a restore into another view.
+            selectedMedia = browsing.selectedMediaId?.let(projected.catalog.byId::get)
+                ?.takeUnless { it.isHidden && browsing.query.collectionId != GalleryQuery.HIDDEN },
             cloudCount = projected.catalog.cloudCount,
             deviceCount = projected.catalog.deviceCount,
             deviceMediaAccess = browsing.access.granted,
             limitedPhotoAccess = browsing.access.limited,
+            burstSizes = projected.burstSizes,
+            expandedBursts = browsing.expandedBursts,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), GalleryState())
 
@@ -128,11 +142,15 @@ internal class GalleryBrowser(
         }
     }
 
-    fun setQuery(value: GalleryQuery) {
+    fun setQuery(requested: GalleryQuery) {
+        // Hidden opens only through openUnlockedHidden; a restored or remembered query never reopens it.
+        val value = if (requested.collectionId == GalleryQuery.HIDDEN && !hiddenUnlocked) GalleryQuery() else requested
+        if (value.collectionId != GalleryQuery.HIDDEN) hiddenUnlocked = false
+        if (value != query.value) expandedBursts.value = emptySet()
         savedState[QUERY_ORIGIN] = value.origin?.name
         savedState[LEGACY_FILTER] = LEGACY_FILTER_ALL
         savedState[FILENAME] = value.filename
-        savedState[COLLECTION] = value.collectionId
+        savedState[COLLECTION] = value.collectionId?.takeIf { it != GalleryQuery.HIDDEN }
         savedState[FROM_DATE] = value.fromDate?.toString()
         savedState[THROUGH_DATE] = value.throughDate?.toString()
         savedState[DATE_BASIS] = value.date.name
@@ -144,6 +162,23 @@ internal class GalleryBrowser(
     }
 
     fun currentQuery(): GalleryQuery = query.value
+
+    /** Opens Hidden once the user has unlocked it. */
+    fun openUnlockedHidden() {
+        hiddenUnlocked = true
+        setQuery(GalleryQuery(collectionId = GalleryQuery.HIDDEN))
+    }
+
+    /** Locks Hidden again, as when Alba leaves the screen: an open Hidden album or photo in it closes. */
+    fun lockHidden() {
+        if (query.value.collectionId != GalleryQuery.HIDDEN) return
+        closeMedia()
+        setQuery(GalleryQuery())
+    }
+
+    fun expandBurst(burstId: String, expanded: Boolean) {
+        expandedBursts.value = if (expanded) expandedBursts.value + burstId else expandedBursts.value - burstId
+    }
 
     fun selectItems(ids: Set<String>, selected: Boolean) =
         updateSelection(if (selected) selection.value + ids else selection.value - ids)
@@ -231,7 +266,7 @@ internal class GalleryBrowser(
                     else -> null
                 },
             filename = savedState[FILENAME] ?: "",
-            collectionId = savedState[COLLECTION],
+            collectionId = savedState.get<String>(COLLECTION)?.takeIf { it != GalleryQuery.HIDDEN },
             fromDate = savedState.get<String>(FROM_DATE)?.let(LocalDate::parse),
             throughDate = savedState.get<String>(THROUGH_DATE)?.let(LocalDate::parse),
             sort = savedState.get<String>(SORT)?.let(GallerySort::valueOf) ?: GallerySort.NEWEST,

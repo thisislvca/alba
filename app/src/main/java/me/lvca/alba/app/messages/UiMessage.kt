@@ -32,4 +32,7 @@ sealed interface UndoAction {
 
     /** Phone items moved to Android's trash: ask Android to restore these content URIs. */
     data class PhoneTrash(val contentUris: List<String>) : UndoAction
+
+    /** iCloud photos moved into ([hidden]) or out of Hidden: move them back. */
+    data class Hidden(val mediaIds: List<String>, val hidden: Boolean) : UndoAction
 }

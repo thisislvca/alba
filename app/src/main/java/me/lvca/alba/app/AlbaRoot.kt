@@ -48,6 +48,7 @@ import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.platform.ExportDocument
+import me.lvca.alba.app.platform.HiddenLock
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PendingExport
 import me.lvca.alba.app.platform.UploadTarget
@@ -198,6 +199,10 @@ private fun AlbaMain(
             deviceLibraryChanges(context.contentResolver).debounce(350).collect { viewModel.sync.deviceLibraryChanged() }
         }
     }
+    // Hidden locks again whenever Alba leaves the screen, as on iOS.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.gallery.lockHidden() }
+    val unlockTitle = stringResource(R.string.hidden_unlock_title)
+    val unlockSubtitle = stringResource(R.string.hidden_unlock_subtitle)
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         recheckDevicePhotoAccess()
         viewModel.setDeviceMediaAccess(hasDevicePhotoAccess, hasLimitedPhotoAccess(Build.VERSION.SDK_INT, context::granted))
@@ -284,6 +289,8 @@ private fun AlbaMain(
                     putExtra(Intent.EXTRA_TITLE, document.title)
                 })
             }
+
+            override fun unlockHidden() = HiddenLock.unlock(context, unlockTitle, unlockSubtitle, viewModel::hiddenUnlockAnswered)
 
             override fun edit(media: GalleryMedia) { editingId = media.id }
             override fun confirm(next: RootDialog) { dialog = next }
@@ -471,6 +478,9 @@ internal interface PlatformRequests {
     /** Asks Android to restore phone items that Alba moved to its trash. */
     fun restoreOnPhone(contentUris: List<String>)
     fun exportDocument(media: GalleryMedia, livePair: Boolean)
+
+    /** Asks the user to unlock with the phone's biometrics or screen lock before Hidden opens. */
+    fun unlockHidden()
     fun edit(media: GalleryMedia)
     fun confirm(next: RootDialog)
 }
@@ -492,6 +502,7 @@ private class AlbaRootActions(
     override fun undo(action: UndoAction) = when (action) {
         is UndoAction.CloudTrash -> edits.undoCloudTrash(action.mediaIds)
         is UndoAction.PhoneTrash -> platform.restoreOnPhone(action.contentUris)
+        is UndoAction.Hidden -> edits.undoHidden(action.mediaIds, action.hidden)
     }
 
     override fun changeQuery(query: GalleryQuery) = gallery.setQuery(query)
@@ -506,6 +517,8 @@ private class AlbaRootActions(
     override fun requestDevicePhotos() = platform.requestDevicePhotos()
     override fun openAccount() = account.openAccount()
     override fun startDemo() = account.startDemo()
+    override fun openHidden() = platform.unlockHidden()
+    override fun expandBurst(burstId: String, expanded: Boolean) = gallery.expandBurst(burstId, expanded)
 
     override fun setFavorite(mediaId: String, favorite: Boolean) = edits.setFavorite(mediaId, favorite)
     override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = edits.setFavorites(mediaIds, favorite)
@@ -516,6 +529,7 @@ private class AlbaRootActions(
     override fun addToAlbum(albumId: String, mediaIds: List<String>) = edits.addToAlbum(albumId, mediaIds)
     override fun confirmRemoveFromAlbum(albumId: String, mediaIds: List<String>) =
         if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmRemoveFromAlbum(albumId, mediaIds.toList())) else Unit
+    override fun setHidden(mediaIds: List<String>, hidden: Boolean) = edits.setHidden(mediaIds, hidden)
     override fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean) =
         if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmCloudTrash(mediaIds.toList(), trashed)) else Unit
     override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) = platform.trashOnPhone(items, restore)
@@ -539,6 +553,8 @@ private class AlbaRootActions(
     override fun saveToGallery(media: GalleryMedia) = viewModel.exports.saveToGallery(media)
     override fun exportOriginal(media: GalleryMedia) = platform.exportDocument(media, livePair = false)
     override fun exportLivePhoto(media: GalleryMedia) = platform.exportDocument(media, livePair = true)
+    override fun shareLiveVideo(media: GalleryMedia) = viewModel.exports.shareLiveVideo(media)
+    override fun saveLiveVideo(media: GalleryMedia) = viewModel.exports.saveLiveVideo(media)
     override fun keepOriginalOffline(mediaId: String) = transfers.keepOriginalOffline(mediaId)
     override fun removeCachedOriginal(mediaId: String) = transfers.removeCachedOriginal(mediaId)
     override fun cancelOfflineDownload() = transfers.cancelOfflineDownload()

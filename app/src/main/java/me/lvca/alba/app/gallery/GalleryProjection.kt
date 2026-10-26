@@ -1,5 +1,6 @@
 package me.lvca.alba.app.gallery
 
+import me.lvca.alba.engine.model.BurstStacks
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.GalleryDate
 import me.lvca.alba.engine.model.GalleryMedia
@@ -37,6 +38,8 @@ internal data class ProjectedGallery(
     val items: List<GalleryMedia>,
     val sections: List<GallerySection>,
     val accountState: ICloudAccountState,
+    /** How many photos each stacked burst holds, by burst id. */
+    val burstSizes: Map<String, Int> = emptyMap(),
 )
 
 internal data class TransferContent(
@@ -60,7 +63,7 @@ internal fun projectGalleryCatalog(
         if (!hasDeviceAccess && media.origin == MediaOrigin.DEVICE) return@forEach
 
         when (media.origin) {
-            MediaOrigin.ICLOUD -> if (!media.isShared) cloudCount += 1
+            MediaOrigin.ICLOUD -> if (!media.isShared && !media.isHidden) cloudCount += 1
             MediaOrigin.DEVICE -> deviceCount += 1
         }
         val visibleMedia = if (hasDeviceAccess) media else media.copy(linkedDeviceId = null, linkedDeviceReference = null)
@@ -86,14 +89,18 @@ internal class GalleryProjection {
         hasDeviceAccess: Boolean,
         accountState: ICloudAccountState,
         zone: ZoneId = ZoneId.systemDefault(),
+        expandedBursts: Set<String> = emptySet(),
     ): ProjectedGallery {
         val catalog = projectGalleryCatalog(allItems, hasDeviceAccess, accountState)
         val matching = queryProjection.apply(catalog.items, query)
         // The unfiltered library shows a backed-up phone photo once, as its iCloud copy.
         val linked = if (query.origin == null && query.collectionId == null && hasDeviceAccess)
             matching.mapNotNull { it.linkedDeviceId }.toSet() else emptySet()
-        val visible = if (linked.isEmpty()) matching else matching.filterNot { it.id in linked }
-        return ProjectedGallery(catalog, visible, sectionProjection.apply(visible, query.date, zone), accountState)
+        val unlinked = if (linked.isEmpty()) matching else matching.filterNot { it.id in linked }
+        // Like Photos, a burst shows as its key photo; Recently Deleted lists each deleted frame.
+        val stacks = if (query.trashOnly) BurstStacks(unlinked, emptyMap()) else BurstStacks.stack(unlinked, expandedBursts)
+        val visible = stacks.items
+        return ProjectedGallery(catalog, visible, sectionProjection.apply(visible, query.date, zone), accountState, stacks.sizes)
     }
 }
 

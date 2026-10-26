@@ -45,6 +45,9 @@ internal fun testAlbaActions(
     moveVerifiedPhotoToTrash: (String) -> Unit = {},
     openAccount: () -> Unit = {},
     startDemo: () -> Unit = {},
+    openHidden: () -> Unit = {},
+    setHidden: (List<String>, Boolean) -> Unit = { _, _ -> },
+    expandBurst: (String, Boolean) -> Unit = { _, _ -> },
 ): AlbaActions {
     // Renamed so the overrides below cannot resolve to themselves.
     val onSharedActivity = sharedActivity; val onSharedPostDiscussion = sharedPostDiscussion; val onSharedPostPhotos = sharedPostPhotos
@@ -53,6 +56,7 @@ internal fun testAlbaActions(
     val onClearLocalMedia = clearLocalMedia; val onCheckConnection = checkConnection; val onSubmitTwoFactor = submitTwoFactor
     val onRequestDevicePhotos = requestDevicePhotos; val onPickUpload = pickUpload; val onContinue = continuePastUnresolved
     val onMoveVerifiedPhotoToTrash = moveVerifiedPhotoToTrash; val onOpenAccount = openAccount; val onStartDemo = startDemo
+    val onOpenHidden = openHidden; val onSetHidden = setHidden; val onExpandBurst = expandBurst
     return object : AlbaActions {
         override suspend fun sharedActivity(albumId: String, rank: Int) = onSharedActivity(albumId, rank)
         override suspend fun sharedPostDiscussion(postId: String) = onSharedPostDiscussion(postId)
@@ -85,6 +89,9 @@ internal fun testAlbaActions(
         override fun refresh() = Unit
         override fun openAccount() = onOpenAccount()
         override fun startDemo() = onStartDemo()
+        override fun openHidden() = onOpenHidden()
+        override fun expandBurst(burstId: String, expanded: Boolean) = onExpandBurst(burstId, expanded)
+        override fun setHidden(mediaIds: List<String>, hidden: Boolean) = onSetHidden(mediaIds, hidden)
         override fun setFavorite(mediaId: String, favorite: Boolean) = Unit
         override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = Unit
         override fun createAlbum(name: String) = Unit
@@ -110,6 +117,8 @@ internal fun testAlbaActions(
         override fun saveToGallery(media: GalleryMedia) = Unit
         override fun exportOriginal(media: GalleryMedia) = Unit
         override fun exportLivePhoto(media: GalleryMedia) = Unit
+        override fun shareLiveVideo(media: GalleryMedia) = Unit
+        override fun saveLiveVideo(media: GalleryMedia) = Unit
         override fun keepOriginalOffline(mediaId: String) = Unit
         override fun removeCachedOriginal(mediaId: String) = Unit
         override fun cancelOfflineDownload() = Unit

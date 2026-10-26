@@ -206,7 +206,9 @@ internal fun GalleryHome(
     val collectionAnchor = rememberSaveable(saver = GridAnchor.Saver) { GridAnchor() }
     val searchAnchor = rememberSaveable(saver = GridAnchor.Saver) { GridAnchor() }
     val collectionScroll = rememberLazyGridState()
-    val summaries = key(identity) { rememberCollectionPreviews(gallery.catalogItems, gallery.collections) }
+    // Hidden photos never appear in album covers or counts.
+    val unhidden = remember(gallery.catalogItems) { gallery.catalogItems.filterNot { it.isHidden } }
+    val summaries = key(identity) { rememberCollectionPreviews(unhidden, gallery.collections) }
     val sharedAlbums = remember(gallery.collections) { gallery.collections.filter { it.shared != null } }
     fun switchTab(next: GalleryTab) {
         if (next == tab) return
@@ -245,6 +247,7 @@ internal fun GalleryHome(
         query.trashOnly -> stringResource(if (query.origin == MediaOrigin.ICLOUD) R.string.icloud_recently_deleted else R.string.phone_trash)
         query.offlineOnly -> stringResource(R.string.offline)
         query.collectionId == GalleryQuery.FAVORITES -> stringResource(R.string.favorites)
+        query.collectionId == GalleryQuery.HIDDEN -> stringResource(R.string.hidden)
         else -> collection?.localizedName() ?: SmartCollection.entries.firstOrNull { it.id == query.collectionId }?.localizedTitle() ?: stringResource(R.string.collection)
     }
     fun backInCollections() {
@@ -286,12 +289,19 @@ internal fun GalleryHome(
     // Reserve the leading grid item before the catalog arrives, so lazy-key anchoring cannot hide it.
     val showSharedStrip = tab == GalleryTab.LIBRARY && query.collectionId == null &&
         query.fromDate == null && query.throughDate == null && !query.offlineOnly && !query.trashOnly
-    val leadingItems = if (hero || showSharedStrip) 1 else 0
+    val searchAlbums = remember(gallery.collections, query.filename, tab) {
+        if (tab == GalleryTab.SEARCH && query.filename.isNotBlank()) matchingAlbums(gallery.collections, query.filename) else emptyList()
+    }
+    val leadingItems = if (hero || showSharedStrip || searchAlbums.isNotEmpty()) 1 else 0
     val permissionPrompt = tab == GalleryTab.LIBRARY && !gallery.deviceMediaAccess && !permissionDismissed
-    fun openShared(id: String) {
-        libraryQuery = gallery.query
+    fun openShared(id: String, page: CollectionsPage = CollectionsPage.SHARED) {
+        when (tab) {
+            GalleryTab.LIBRARY -> libraryQuery = gallery.query
+            GalleryTab.SEARCH -> searchQuery = gallery.query
+            GalleryTab.COLLECTIONS -> Unit
+        }
         tab = GalleryTab.COLLECTIONS
-        collectionsPage = CollectionsPage.SHARED
+        collectionsPage = page
         actions.clearSelection()
         collectionGrid.requestScrollToItem(0)
         actions.changeQuery(GalleryQuery(collectionId = id))
@@ -431,7 +441,11 @@ internal fun GalleryHome(
                             if (tab == GalleryTab.SEARCH) GallerySearchBar(query.filename, { actions.changeQuery(query.copy(filename = it)) },
                                 Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                val filterName = query.collectionId?.let { id -> if (id == GalleryQuery.FAVORITES) stringResource(R.string.favorites) else SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle() }
+                                val filterName = query.collectionId?.let { id -> when (id) {
+                                    GalleryQuery.FAVORITES -> stringResource(R.string.favorites)
+                                    GalleryQuery.HIDDEN -> stringResource(R.string.hidden)
+                                    else -> SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle()
+                                } }
                                 Text(listOfNotNull(query.origin?.let { if (it == MediaOrigin.DEVICE) stringResource(R.string.this_phone) else stringResource(R.string.icloud) } ?: stringResource(R.string.all_photos), filterName,
                                     if (query.fromDate != null || query.throughDate != null) stringResource(R.string.date_range) else null,
                                     if (query.date == GalleryDate.ADDED) stringResource(R.string.date_added) else null).joinToString(" · "),
@@ -462,11 +476,13 @@ internal fun GalleryHome(
                             openFolder = { folder = it }, openCollection = { collectionGrid.requestScrollToItem(0); actions.changeQuery(GalleryQuery(collectionId = it)) },
                             openOffline = { actions.changeQuery(GalleryQuery(offlineOnly = true)) }, openTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.DEVICE, trashOnly = true)) },
                             openCloudTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)) }, createAlbum = { sheet = GallerySheet.CreateAlbum },
+                            openHidden = { collectionGrid.requestScrollToItem(0); actions.openHidden() },
                             createSharedAlbum = { sheet = GallerySheet.CreateSharedAlbum }, openSharedInvitations = { sheet = GallerySheet.SharedInvitations },
                             requestPhotos = actions::requestDevicePhotos, bottomSpace = bottomSpace)
                     }
                     else if (shown.tab == GalleryTab.SEARCH && query.isBlankSearch) {
-                        SearchLanding(bottomSpace = bottomSpace, onDates = { sheet = GallerySheet.Filters }, choose = { actions.changeQuery(query.copy(collectionId = it)) })
+                        SearchLanding(summaries, bottomSpace = bottomSpace, onDates = { sheet = GallerySheet.Filters },
+                            choose = { actions.changeQuery(query.copy(collectionId = it)) })
                     } else {
                         // Like Google Photos, the photo grid stretches at its edges instead of pulling to refresh:
                         // the library refreshes on resume and from Filter and sort.
@@ -499,6 +515,10 @@ internal fun GalleryHome(
                                     activity = if (collection.shared?.generation == SharedAlbumGeneration.MODERN) ({ sheet = GallerySheet.SharedActivity }) else null,
                                     view = gallery.items.firstOrNull()?.let { first -> { actions.openMedia(first.id) } },
                                     info = if (collection.shared != null) ({ sheet = GallerySheet.SharedInfo }) else null)
+                            }) else if (searchAlbums.isNotEmpty()) ({
+                                MatchingAlbums(searchAlbums, summaries, previewRetryVersion, actions::requestPreview) { album ->
+                                    openShared(album.id, if (album.shared != null) CollectionsPage.SHARED else CollectionsPage.ALBUMS)
+                                }
                             }) else if (showSharedStrip) ({
                                 SharedAlbumsStrip(sharedAlbums, summaries, previewRetryVersion, actions::requestPreview, ::openShared,
                                     seeAll = { libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED; actions.clearSelection(); actions.changeQuery(GalleryQuery()) })
@@ -559,7 +579,7 @@ internal fun GalleryHome(
         }
     }
     if (sheet == GallerySheet.SharedPicker && collection?.shared != null) SharedContributionPicker(gallery.catalogItems.filter {
-        !it.isShared && !it.isTrashed &&
+        !it.isShared && !it.isTrashed && !it.isHidden &&
             (if (collection.shared?.generation == SharedAlbumGeneration.LEGACY || it.origin == MediaOrigin.DEVICE) supportsLegacySharedUpload(it.kind, it.mimeType) else true) },
         preview = actions::requestPreview, dismiss = { sheet = null }, contribute = { ids -> actions.contributeToSharedAlbum(collection.id, ids); sheet = null },
         legacy = collection.shared?.generation == SharedAlbumGeneration.LEGACY, requestPhotos = actions::requestDevicePhotos)
@@ -744,6 +764,7 @@ private fun PhotoGrid(
                 if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
                 else if (query.collectionId?.startsWith("shared:") == true) Text(stringResource(R.string.shared_album_empty))
                 else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
+                else if (query.collectionId == GalleryQuery.HIDDEN) Text(stringResource(R.string.hidden_empty))
                 else if (connectPrompt) ConnectLibrary(connect = actions::openAccount, demo = actions::startDemo)
                 else {
                     EmptyLibrary()
@@ -868,15 +889,23 @@ private fun PhotoGrid(
 }
 
 @Composable
-private fun SearchLanding(bottomSpace: Dp, onDates: () -> Unit, choose: (String) -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp).padding(bottom = bottomSpace)) {
-        Text(stringResource(R.string.find_a_moment), style = MaterialTheme.typography.titleLarge)
+private fun SearchLanding(summaries: Map<String, me.lvca.alba.app.ui.collections.CollectionPreview>, bottomSpace: Dp,
+    onDates: () -> Unit, choose: (String) -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 20.dp).padding(bottom = bottomSpace)) {
+        Column(Modifier.padding(horizontal = 20.dp)) {
+            Text(stringResource(R.string.find_a_moment), style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.search_landing_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(20.dp))
+        Text(stringResource(R.string.media_types), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp))
         Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.search_by_filename_or_narrow_your_library_by_date_and_media_type), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(24.dp))
-        CollectionRow(stringResource(R.string.capture_date), stringResource(R.string.choose_a_date_range), icon = { Icon(Icons.Outlined.DateRange, null) }, onClick = onDates)
-        CollectionRow(stringResource(R.string.favorites), stringResource(R.string.photos_you_ve_marked_with_a_heart), icon = { ICloudIcon(R.drawable.icloud_favorites) }, onClick = { choose(GalleryQuery.FAVORITES) })
-        SmartCollection.entries.take(3).forEach { smart -> CollectionRow(smart.localizedTitle(), null, icon = { ICloudIcon(smart.icon()) }, onClick = { choose(smart.id) }) }
+        SmartCollectionChips(summaries, choose)
+        Spacer(Modifier.height(16.dp))
+        Column(Modifier.padding(horizontal = 20.dp)) {
+            CollectionRow(stringResource(R.string.capture_date), stringResource(R.string.choose_a_date_range), icon = { Icon(Icons.Outlined.DateRange, null) }, onClick = onDates)
+            CollectionRow(stringResource(R.string.favorites), stringResource(R.string.photos_you_ve_marked_with_a_heart), icon = { ICloudIcon(R.drawable.icloud_favorites) }, onClick = { choose(GalleryQuery.FAVORITES) })
+        }
     }
 }
 

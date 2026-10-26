@@ -60,9 +60,11 @@ import me.lvca.alba.app.ui.navigation.navigationTransform
 import me.lvca.alba.app.ui.navigation.predictiveBackPose
 import me.lvca.alba.app.ui.navigation.rememberNavigationTransition
 import me.lvca.alba.app.ui.viewer.LocalPhotoTransition
+import me.lvca.alba.app.ui.viewer.LocalViewerBurst
 import me.lvca.alba.app.ui.viewer.MediaDetailScreen
 import me.lvca.alba.app.ui.viewer.PHOTO_TRANSITION_MILLIS
 import me.lvca.alba.app.ui.viewer.PhotoTransitionScope
+import me.lvca.alba.app.ui.viewer.ViewerBurst
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
@@ -258,7 +260,9 @@ fun AlbaApp(
                                                 it.action == BatchAction.KEEP_OFFLINE.name && it.status.isPending }
                                             val stagingUpload = transfers.batches.any { it.mediaId == media.id &&
                                                 it.action == BatchAction.UPLOAD.name && it.status.isPending }
-                                            MediaDetailScreen(
+                                            val burst = ViewerBurst(media.details.burstId?.let(gallery.burstSizes::get) ?: 0,
+                                                media.details.burstId in gallery.expandedBursts)
+                                            CompositionLocalProvider(LocalViewerBurst provides burst) { MediaDetailScreen(
                                                 media = media,
                                                 items = viewerItems,
                                                 collections = gallery.collections,
@@ -271,7 +275,7 @@ fun AlbaApp(
                                                 onPageSettled = { if (destination is Destination.Media) actions.openMedia(it) },
                                                 gallerySnapshot = galleryLayer,
                                                 onViewerLightBars = onViewerLightBars,
-                                            )
+                                            ) }
                                         }
                                     }
                                 }

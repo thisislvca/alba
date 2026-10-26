@@ -356,6 +356,7 @@ internal fun MediaDetailScreen(
                         Spacer(Modifier.height(20.dp))
                         Text(detailsLabel, style = MaterialTheme.typography.titleLarge)
                         Spacer(Modifier.height(16.dp))
+                        PhotoCaption(media)
                         PhotoMetadataCards(media, accountState, uploadTransfer)
                         PhotoExtraMetadata(media)
                         if (media.origin == MediaOrigin.DEVICE || media.linkedDeviceReference != null) {
@@ -378,7 +379,9 @@ internal fun MediaDetailScreen(
                                     }
                                     DetailAction(stringResource(if (media.isTrashed) R.string.restore_from_icloud else R.string.trash_in_icloud), canEdit,
                                         { actions.confirmCloudTrash(listOf(media.id), !media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) })
+                                    if (!media.isTrashed) HideAction(media, canEdit, actions)
                                     }
+                                    BurstAction(media, actions) { showDetails(false) }
                                     if (media.isShared) {
                                         DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true }, { Icon(Icons.Outlined.Info, null) })
                                         Text(stringResource(R.string.shared_copy_notice), Modifier.padding(18.dp))
@@ -386,8 +389,11 @@ internal fun MediaDetailScreen(
                                     DetailAction(stringResource(if (media.kind == MediaKind.LIVE_PHOTO) R.string.save_photo_and_video_to_gallery else R.string.save_to_phone_gallery),
                                         !isWorking, { actions.saveToGallery(media) }, { Icon(AlbaIcons.PhoneAndroid, null) })
                                     DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) }, { Icon(Icons.Outlined.Share, null) })
-                                    if (media.kind == MediaKind.LIVE_PHOTO) DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,
-                                        { actions.exportLivePhoto(media) }, { ICloudIcon(R.drawable.icloud_live_photos) })
+                                    if (media.kind == MediaKind.LIVE_PHOTO) {
+                                        LiveVideoActions(media, !isWorking, actions)
+                                        DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,
+                                            { actions.exportLivePhoto(media) }, { ICloudIcon(R.drawable.icloud_live_photos) })
+                                    }
                                     HorizontalDivider(color = colors.canvas, thickness = 2.dp)
                                     if (media.availability == MediaAvailability.ORIGINAL_CACHED) {
                                         DetailAction(stringResource(R.string.remove_offline_copy), !isWorking, { actions.removeCachedOriginal(media.id) }, { Icon(AlbaIcons.DeleteOutline, null) })
@@ -554,7 +560,7 @@ private fun ViewerAction(label: String, enabled: Boolean, click: () -> Unit, mod
 }
 
 @Composable
-private fun DetailAction(label: String, enabled: Boolean, click: () -> Unit, icon: @Composable () -> Unit) {
+internal fun DetailAction(label: String, enabled: Boolean, click: () -> Unit, icon: @Composable () -> Unit) {
     val colors = viewerColors()
     CompositionLocalProvider(LocalContentColor provides if (enabled) colors.foreground else colors.disabled) {
         AlbaListRow(label, click, enabled = enabled, leading = icon, leadingSize = 28.dp, gap = 18.dp,

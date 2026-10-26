@@ -42,6 +42,9 @@ interface GalleryEdits {
     suspend fun removeFromAlbum(id: String, mediaIds: List<String>)
     suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean)
     suspend fun setFavorite(mediaId: String, favorite: Boolean)
+
+    /** Moves iCloud photos into or out of the Hidden album. */
+    suspend fun setHidden(mediaIds: List<String>, hidden: Boolean)
     suspend fun createAlbum(name: String): GalleryCollection
     suspend fun deleteAlbum(id: String)
     suspend fun renameAlbum(id: String, name: String)

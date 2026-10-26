@@ -18,8 +18,8 @@ import androidx.compose.ui.res.stringResource
 import me.lvca.alba.app.R
 
 /**
- * The Search destination's filename field, drawn as a Material search bar: a filled, fully rounded container
- * with a leading search icon and a clear action, like the bar at the top of Google Photos' Search.
+ * The Search destination's field, for file names, titles, captions, albums, dates and photo types. It is drawn as a
+ * Material search bar: a filled, fully rounded container with a leading search icon and a clear action, like the bar at the top of Google Photos' Search.
  * Submitting closes the keyboard so the results and the navigation come back into view.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,7 +34,7 @@ internal fun GallerySearchBar(text: String, onTextChange: (String) -> Unit, modi
             onSearch = { focus.clearFocus() },
             expanded = false,
             onExpandedChange = {},
-            placeholder = { Text(stringResource(R.string.search_filenames)) },
+            placeholder = { Text(stringResource(R.string.search_your_photos)) },
             leadingIcon = { Icon(Icons.Outlined.Search, null) },
             trailingIcon = {
                 if (text.isNotEmpty()) IconButton(onClick = { onTextChange("") }) {

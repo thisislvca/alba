@@ -95,6 +95,13 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
                         if (hasCloud && !hasPhone && !hasShared) DropdownMenuItem(text = { Text(stringResource(if (query.trashOnly) R.string.restore_from_icloud else R.string.trash_in_icloud)) },
                             enabled = editable && withinLimit,
                             onClick = { more = false; actions.confirmCloudTrash(selectedItems.map { it.id }, !query.trashOnly) })
+                        val hideable = hasCloud && !hasPhone && !hasShared
+                        if (hideable && !query.trashOnly) {
+                            val unhide = query.collectionId == GalleryQuery.HIDDEN
+                            DropdownMenuItem(text = { Text(stringResource(if (unhide) R.string.unhide else R.string.hide)) },
+                                enabled = editable && withinLimit, modifier = Modifier.testTag("selection-hide"),
+                                onClick = { more = false; actions.setHidden(selectedItems.map { it.id }, !unhide) })
+                        }
                         DropdownMenuItem(text = { Text(stringResource(R.string.remove_offline_copies)) }, enabled = hasCloud,
                             onClick = { more = false; actions.runBatch(BatchAction.REMOVE_CACHE) })
                     }

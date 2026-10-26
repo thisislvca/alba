@@ -28,6 +28,21 @@ internal class ExportController(
         }
     }
 
+    /** Shares a Live Photo's motion clip as a video, like Google Photos' "Share as video". */
+    fun shareLiveVideo(media: GalleryMedia) {
+        runner.start(MediaActionKey(MediaAction.SHARE), R.string.message_could_not_prepare_sharing) {
+            effects.send(AlbaEffect.Share(exporter.prepareShare(listOf(media), motion = true)))
+        }
+    }
+
+    /** Saves a Live Photo's motion clip to the phone gallery as a video. */
+    fun saveLiveVideo(media: GalleryMedia) {
+        runner.start(MediaActionKey(MediaAction.SAVE_TO_GALLERY, media.id), R.string.message_could_not_save_to_the_gallery) {
+            exporter.saveToGallery(media, motionOnly = true)
+            messages.show(R.string.message_saved_the_motion_clip_as_a_video)
+        }
+    }
+
     fun cancelShare() = runner.cancel(MediaActionKey(MediaAction.SHARE))
 
     fun shareFailed() = messages.show(R.string.message_no_app_could_open_the_share_sheet)

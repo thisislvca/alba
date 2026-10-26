@@ -51,6 +51,12 @@ interface BrowseActions {
     fun requestDevicePhotos()
     fun openAccount()
 
+    /** Asks the user to unlock with their fingerprint, face or screen lock, then opens the Hidden album. */
+    fun openHidden()
+
+    /** Shows every photo of a burst in place of its key photo, or stacks it again. */
+    fun expandBurst(burstId: String, expanded: Boolean)
+
     /** Switches an unconnected library to the sample library. */
     fun startDemo()
 }
@@ -66,6 +72,9 @@ interface LibraryEditActions {
     fun addToAlbum(albumId: String, mediaIds: List<String>)
     fun confirmRemoveFromAlbum(albumId: String, mediaIds: List<String>)
     fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean)
+
+    /** Moves iCloud photos into or out of the Hidden album, with Undo. */
+    fun setHidden(mediaIds: List<String>, hidden: Boolean)
 
     /** Asks Android to move phone copies to its trash, or to restore them from it. */
     fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean)
@@ -94,6 +103,12 @@ interface ViewerActions {
     fun saveToGallery(media: GalleryMedia)
     fun exportOriginal(media: GalleryMedia)
     fun exportLivePhoto(media: GalleryMedia)
+
+    /** Shares a Live Photo's motion clip as a video. */
+    fun shareLiveVideo(media: GalleryMedia)
+
+    /** Saves a Live Photo's motion clip to the phone gallery as a video. */
+    fun saveLiveVideo(media: GalleryMedia)
     fun keepOriginalOffline(mediaId: String)
     fun removeCachedOriginal(mediaId: String)
     fun cancelOfflineDownload()

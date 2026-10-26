@@ -42,6 +42,8 @@ internal data class CloudPhotoAsset(
     val displayDownloadUrl: String = previewDownloadUrl,
     val isTrashed: Boolean = false,
     val byteCount: Long? = null,
+    val isHidden: Boolean = false,
+    val details: me.lvca.alba.engine.model.MediaDetails = me.lvca.alba.engine.model.MediaDetails(),
 )
 
 /** The engine record for this asset, published under [id]. */
@@ -69,6 +71,8 @@ internal fun CloudPhotoAsset.toRemoteMediaRecord(
     addedAtEpochMillis = addedAtEpochMillis,
     isTrashed = isTrashed,
     byteCount = byteCount,
+    isHidden = isHidden,
+    details = details,
 )
 
 internal data class ParsedCloudPhotoPage(
@@ -81,7 +85,8 @@ internal data class ParsedCloudPhotoPage(
 internal class CloudKitPhotoResponseParser {
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun parse(body: String, includeTrashed: Boolean = false, legacy: Boolean = false): ParsedCloudPhotoPage {
+    /** Hidden assets are dropped unless [includeHidden]; the main feed never lists them, and the Hidden album is read separately. */
+    fun parse(body: String, includeTrashed: Boolean = false, legacy: Boolean = false, includeHidden: Boolean = false): ParsedCloudPhotoPage {
         val root = runCatching { json.parseToJsonElement(body) as? JsonObject }
             .getOrNull()
             ?: malformed("Apple returned an invalid Photos response")
@@ -106,6 +111,7 @@ internal class CloudKitPhotoResponseParser {
             master to asset
         }
         val photos = pairedRecords.mapNotNull { (master, asset) -> parsePhoto(master, asset, includeTrashed, legacy) }
+            .filter { includeHidden || !it.isHidden }
 
         return ParsedCloudPhotoPage(
             photos = photos,
@@ -118,7 +124,8 @@ internal class CloudKitPhotoResponseParser {
     private fun parsePhoto(master: JsonObject, asset: JsonObject, includeTrashed: Boolean, legacy: Boolean): CloudPhotoAsset? {
         val assetRecordName = asset.text("recordName") ?: return null
         val trashed = asset.fieldText("isDeleted") in setOf("1", "true")
-        if (asset.fieldText("isHidden") in setOf("1", "true") || asset.fieldText("isExpunged") in setOf("1", "true") || (trashed && !includeTrashed)) return null
+        val hidden = asset.fieldText("isHidden") in setOf("1", "true")
+        if (asset.fieldText("isExpunged") in setOf("1", "true") || (trashed && !includeTrashed)) return null
         val movie = master.isMovie()
         val originalUrl = master.assetUrl("resOriginalRes") ?: return null
         val motionUrl = if (movie) null else master.assetUrl("resOriginalVidComplRes")
@@ -162,13 +169,9 @@ internal class CloudKitPhotoResponseParser {
             kind = when { movie -> me.lvca.alba.engine.model.MediaKind.VIDEO; motionUrl != null -> me.lvca.alba.engine.model.MediaKind.LIVE_PHOTO; else -> me.lvca.alba.engine.model.MediaKind.PHOTO },
             motionDownloadUrl = motionUrl,
             motionMimeType = if (master.fieldText("resOriginalVidComplFileType") == "public.mpeg-4") "video/mp4" else "video/quicktime",
-            mimeType = when (master.fieldText("itemType") ?: master.fieldText("resOriginalFileType")) {
-                "public.heic", "public.heif" -> "image/heic"
-                "public.png" -> "image/png"
-                "org.webmproject.webp" -> "image/webp"
-                "com.apple.quicktime-movie" -> "video/quicktime"
-                else -> if (movie) "video/mp4" else "image/jpeg"
-            },
+            mimeType = originalMimeType(master.fieldText("itemType") ?: master.fieldText("resOriginalFileType"), movie),
+            isHidden = hidden,
+            details = MediaDetailsParser.parse(asset),
             // CloudKit CPLAsset duration is an INT64 count of milliseconds.
             durationMillis = (asset.field("duration") as? JsonPrimitive)?.longOrNull,
             resourceFingerprint = RESOURCE_PREFIXES.mapNotNull { prefix ->
@@ -179,6 +182,9 @@ internal class CloudKitPhotoResponseParser {
             playbackUrl = if (movie || motionUrl != null) master.assetUrl("resVidMedRes") ?: master.assetUrl("resVidFullRes") ?: motionUrl ?: originalUrl else originalUrl,
         )
     }
+
+    private fun originalMimeType(type: String?, movie: Boolean): String = ORIGINAL_MIME_TYPES[type]
+        ?: if (type?.contains("raw-image") == true) "image/x-raw" else if (movie) "video/mp4" else "image/jpeg"
 
     private fun JsonObject.isMovie(): Boolean {
         val type = fieldText("itemType") ?: fieldText("resOriginalFileType") ?: return false
@@ -243,6 +249,34 @@ internal class CloudKitPhotoResponseParser {
             "resJPEGLargeHeight",
             "resJPEGFullHeight",
             "resJPEGThumbHeight",
+        )
+
+        /**
+         * Original UTIs to MIME types. RAW UTIs come from icloudpd and pyicloud's item type tables; ProRAW is Adobe DNG.
+         * A RAW original must never be labelled as the JPEG preview iCloud renders from it.
+         */
+        val ORIGINAL_MIME_TYPES = mapOf(
+            "public.jpeg" to "image/jpeg",
+            "public.heic" to "image/heic",
+            "public.heif" to "image/heic",
+            "public.png" to "image/png",
+            "public.tiff" to "image/tiff",
+            "com.compuserve.gif" to "image/gif",
+            "org.webmproject.webp" to "image/webp",
+            "com.adobe.raw-image" to "image/x-adobe-dng",
+            "com.canon.cr2-raw-image" to "image/x-canon-cr2",
+            "com.canon.cr3-raw-image" to "image/x-canon-cr3",
+            "com.canon.crw-raw-image" to "image/x-canon-crw",
+            "com.fuji.raw-image" to "image/x-fuji-raf",
+            "com.nikon.raw-image" to "image/x-nikon-nef",
+            "com.nikon.nrw-raw-image" to "image/x-nikon-nrw",
+            "com.olympus.raw-image" to "image/x-olympus-orf",
+            "com.olympus.or-raw-image" to "image/x-olympus-orf",
+            "com.panasonic.rw2-raw-image" to "image/x-panasonic-rw2",
+            "com.pentax.raw-image" to "image/x-pentax-pef",
+            "com.sony.arw-raw-image" to "image/x-sony-arw",
+            "com.apple.quicktime-movie" to "video/quicktime",
+            "public.mpeg-4" to "video/mp4",
         )
         val MOVIE_TYPES = setOf(
             "com.apple.quicktime-movie",

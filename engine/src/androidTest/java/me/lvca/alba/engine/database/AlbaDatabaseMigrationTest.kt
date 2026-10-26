@@ -42,6 +42,35 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
+    fun schemaFifteenAddsHiddenAndDetailsKeepingCacheAndRehydratingICloud() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 15).use { db ->
+            db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision," +
+                "resourceFingerprint,accentStartArgb,accentEndArgb,lastSeenScanId) " +
+                "VALUES ('kept','photo.heic',1,20,30,'ICLOUD','rev','fingerprint',0,0,'scan')")
+            db.execSQL("INSERT INTO media_cache (mediaId,previewCachePath,resourceFingerprint) VALUES ('kept','/preview','fingerprint')")
+            db.execSQL("INSERT INTO catalog_checkpoints VALUES ('icloud:account','token',10)")
+            db.execSQL("INSERT INTO catalog_checkpoints VALUES ('device:images','scan',10)")
+        }
+        helper.runMigrationsAndValidate(DATABASE_NAME, 16, true, AlbaDatabase.MIGRATION_15_16).close()
+        val migrated = AlbaDatabase.create(context)
+        try {
+            val row = requireNotNull(migrated.catalogDao().findById("kept"))
+            assertEquals("/preview", row.previewCachePath)
+            assertFalse(row.isHidden)
+            assertEquals(me.lvca.alba.engine.model.MediaDetails(), row.mediaDetails)
+            // The next refresh reads every iCloud photo again for the new fields; phone scans keep their checkpoint.
+            assertEquals(null, migrated.catalogDao().checkpoint("icloud:account"))
+            assertNotNull(migrated.catalogDao().checkpoint("device:images"))
+            val details = me.lvca.alba.engine.model.MediaDetails(caption = "Harbour", latitude = 44.3, longitude = 9.2,
+                timeZoneOffsetSeconds = 7200, burstId = "burst")
+            migrated.catalogDao().upsertItems(listOf(row.copy(isHidden = true, details = details)))
+            val stored = requireNotNull(migrated.catalogDao().findById("kept"))
+            assertTrue(stored.isHidden)
+            assertEquals(details, stored.details)
+        } finally { migrated.close() }
+    }
+
+    @Test
     fun schemaFourteenPreservesCollectionsAndCanStoreSelectedCover() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 14).use { db ->
             db.execSQL("INSERT INTO collections (account, collectionId, name, isFolder, position) VALUES ('demo-library', 'album', 'Keep me', 0, 3)")

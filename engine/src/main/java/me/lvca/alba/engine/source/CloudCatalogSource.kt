@@ -24,6 +24,8 @@ data class RemoteMediaRecord(
     val addedAtEpochMillis: Long? = null,
     val isTrashed: Boolean = false,
     val byteCount: Long? = null,
+    val isHidden: Boolean = false,
+    val details: me.lvca.alba.engine.model.MediaDetails = me.lvca.alba.engine.model.MediaDetails(),
 )
 
 data class CloudChanges(val upserts: List<RemoteMediaRecord>, val deletedRecordNames: Set<String>,
@@ -42,7 +44,14 @@ data class CloudCatalogPage(
     val changeToken: String,
 )
 
-interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations {
+/** iCloud's Hidden album, which the main library feed leaves out. */
+interface HiddenAlbumSource {
+    /** The Hidden album's assets, each with [RemoteMediaRecord.isHidden] set. */
+    suspend fun hiddenMedia(): List<RemoteMediaRecord> = emptyList()
+    suspend fun setHidden(mediaIds: List<String>, hidden: Boolean): Unit = error("Hiding photos is unavailable")
+}
+
+interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations, HiddenAlbumSource {
     suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource): Unit = error("Shared save is unavailable")
     suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource,
         operationId: String): Unit = error("Shared upload is unavailable")
