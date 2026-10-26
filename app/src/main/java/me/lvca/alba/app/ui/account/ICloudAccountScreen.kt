@@ -311,7 +311,7 @@ private fun SignInForm(
                 Icon(Icons.Outlined.Lock, null, Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(24.dp))
         Text(stringResource(R.string.sign_in_heading), style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
