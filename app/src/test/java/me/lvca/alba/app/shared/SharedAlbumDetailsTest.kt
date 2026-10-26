@@ -68,7 +68,8 @@ class SharedAlbumDetailsTest {
         val posts = mutableListOf<Pair<List<String>, String>>()
         var legacy by mutableStateOf(false)
         compose.setContent { AlbaTheme(darkTheme = false) { key(legacy) {
-            SharedContributionPicker(listOf(media), {}, {}, { ids, caption -> posts += ids to caption }, legacy = legacy, excludedLivePhotos = if (legacy) 2 else 0)
+            SharedContributionPicker(listOf(media), {}, {}, { ids, caption -> posts += ids to caption }, legacy = legacy,
+                excludedLivePhotos = if (legacy) 2 else 0)
         } } }
         compose.onNodeWithTag("shared-select-fixture:test").performClick()
         compose.onNodeWithText(context.resources.getQuantityString(R.plurals.shared_add_selected, 1, 1)).performClick()

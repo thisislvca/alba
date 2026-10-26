@@ -44,6 +44,7 @@ data class CloudCatalogPage(
 
 interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations {
     suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource): Unit = error("Shared save is unavailable")
+
     /** Uploads one file to a shared album; [caption] is written to its post where the album supports captions. */
     suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource,
         operationId: String, caption: String = ""): Unit = error("Shared upload is unavailable")

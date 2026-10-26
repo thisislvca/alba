@@ -69,6 +69,7 @@ data class SharedInvitation(val id: String, val name: String, val generation: Sh
 interface SharedAlbumOperations {
     suspend fun sharedActivity(id: String, rank: Int): SharedActivityPage = error("Album activity is unavailable")
     suspend fun sharedPostDiscussion(id: String): SharedDiscussion = error("Post discussion is unavailable")
+
     /** Every photo of the post [id], up to a bound, in posting order. */
     suspend fun sharedPostPhotos(id: String): List<String> = emptyList()
 

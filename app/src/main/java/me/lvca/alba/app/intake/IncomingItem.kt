@@ -8,6 +8,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
 import me.lvca.alba.app.platform.displayName
+import me.lvca.alba.engine.model.GalleryCollection
+import me.lvca.alba.engine.model.MediaKind
+import me.lvca.alba.engine.model.SharedAlbumGeneration
+import me.lvca.alba.engine.model.supportsLegacySharedUpload
 import java.io.FileNotFoundException
 
 internal data class IncomingItem(val uri: Uri, val name: String, val mime: String?, val failure: Int? = null)
@@ -23,3 +27,14 @@ internal suspend fun inspectIncoming(context: Context, value: String): IncomingI
     catch (_: FileNotFoundException) { IncomingItem(uri, context.getString(R.string.photos), null, R.string.incoming_file_missing) }
     catch (_: Exception) { IncomingItem(uri, context.getString(R.string.photos), null, R.string.incoming_unsupported) }
 }
+
+/** Where adding incoming items to a shared album stands. */
+internal enum class IncomingSharedResult { SENDING, ADDED, FAILED }
+
+/** The incoming items [album] accepts: legacy albums take single JPEG, PNG, HEIC, MP4 or MOV files only. */
+internal fun incomingForSharedAlbum(items: List<IncomingItem>, album: GalleryCollection): List<IncomingItem> =
+    if (album.shared?.generation != SharedAlbumGeneration.LEGACY) items
+    else items.filter { item ->
+        val mime = item.mime.orEmpty()
+        supportsLegacySharedUpload(if (mime.startsWith("video/")) MediaKind.VIDEO else MediaKind.PHOTO, mime)
+    }

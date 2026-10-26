@@ -5,6 +5,7 @@ import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
+import me.lvca.alba.engine.model.SHARED_POST_PREVIEW_PHOTOS
 import me.lvca.alba.engine.model.SharedActivityPage
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedAlbumManagement
@@ -12,7 +13,6 @@ import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SharedDiscussion
 import me.lvca.alba.engine.model.SharedInvitation
 import me.lvca.alba.engine.model.SharedPostPreview
-import me.lvca.alba.engine.model.SHARED_POST_PREVIEW_PHOTOS
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.source.MediaRead
 
@@ -81,6 +81,7 @@ interface LibraryEditActions {
 
     /** Asks Android to move phone copies to its trash, or to restore them from it. */
     fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean)
+
     /** Posts [mediaIds] to a shared album, with [caption] where the album supports captions. */
     fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>, caption: String = "")
     fun createSharedAlbum(name: String, generation: SharedAlbumGeneration)

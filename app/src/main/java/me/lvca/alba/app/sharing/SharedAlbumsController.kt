@@ -1,17 +1,15 @@
 package me.lvca.alba.app.sharing
 
 import androidx.lifecycle.SavedStateHandle
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -30,8 +28,6 @@ import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.GalleryRepository
-import me.lvca.alba.engine.model.SharedPostPreview
-import me.lvca.alba.engine.model.SharedUploadFile
 import me.lvca.alba.engine.model.SharedAction
 import me.lvca.alba.engine.model.SharedActivityPage
 import me.lvca.alba.engine.model.SharedAlbumGeneration
@@ -39,6 +35,8 @@ import me.lvca.alba.engine.model.SharedAlbumManagement
 import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SharedDiscussion
 import me.lvca.alba.engine.model.SharedInvitation
+import me.lvca.alba.engine.model.SharedPostPreview
+import me.lvca.alba.engine.model.SharedUploadFile
 import me.lvca.alba.protocol.account.ICloudAccountManager
 import me.lvca.alba.protocol.account.ICloudAccountState
 import java.util.UUID
@@ -65,11 +63,13 @@ internal class SharedAlbumsController(
     private val messages: UserMessages,
     private val gallery: GalleryBrowser,
     private val ledger: SharedActivityStore,
-    private val schedule: (Boolean) -> Unit,
-    refreshes: Flow<Any?>,
 ) {
+    // Recounted off the main thread, and only when the catalog itself changes, not on selection or query changes.
     private val marks: StateFlow<Map<String, SharedAlbumMark>> = gallery.state
-        .map { SharedAlbumMark.of(it.collections, it.catalogItems) }
+        .map { it.collections to it.catalogItems }
+        .distinctUntilChanged { old, new -> old.first === new.first && old.second === new.second }
+        .map { (collections, items) -> SharedAlbumMark.of(collections, items) }
+        .flowOn(Dispatchers.Default)
         .distinctUntilChanged()
         .stateIn(scope, SharingStarted.Eagerly, emptyMap())
 
@@ -78,31 +78,26 @@ internal class SharedAlbumsController(
     }.stateIn(scope, SharingStarted.Eagerly, SharedActivityState())
 
     init {
-        schedule(ledger.state.value.notificationsEnabled)
+        ledger.applySchedule()
         marks.onEach { current -> ledger.update { it.observe(current) } }.launchIn(scope)
         // An open shared album is read, including photos that arrive while it is open.
-        combine(gallery.state.map { it.query.collectionId }.distinctUntilChanged(), marks) { open, current -> open?.let { id -> current[id]?.let { id to it } } }
-            .filterNotNull()
+        combine(gallery.state.map { it.query.collectionId }.distinctUntilChanged(), marks) { open, current ->
+            open?.let { id -> current[id]?.let { id to it } }
+        }.filterNotNull()
             .onEach { (id, mark) -> ledger.update { it.markRead(id, mark) } }
             .launchIn(scope)
-        refreshes.drop(1).distinctUntilChanged().onEach { checkInvitations() }.launchIn(scope)
     }
 
-    private fun checkInvitations() {
+    /** Rereads pending invitations for the badge, after a refresh. */
+    fun checkInvitations() {
         if (accountManager.state.value !is ICloudAccountState.SignedIn && accountManager.state.value != ICloudAccountState.Demo) return
-        scope.launch {
-            try { pendingSharedInvitations() }
-            catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { /* The badge keeps its last known count; the invitations sheet shows errors. */ }
-        }
+        // The badge keeps its last known count on failure; the invitations sheet shows errors.
+        scope.launch { runCatching { pendingSharedInvitations() } }
     }
 
     fun markInvitationsRead() { ledger.update { it.markInvitationsRead() } }
 
-    fun setNotifications(enabled: Boolean) {
-        ledger.update { it.copy(notificationsEnabled = enabled) }
-        schedule(enabled)
-    }
+    fun setNotifications(enabled: Boolean) = ledger.setNotifications(enabled)
 
     suspend fun sharedActivity(albumId: String, rank: Int): SharedActivityPage = io { repository.sharedActivity(albumId, rank) }
     suspend fun sharedPostDiscussion(postId: String): SharedDiscussion = io { repository.sharedPostDiscussion(postId) }
@@ -152,11 +147,8 @@ internal class SharedAlbumsController(
     fun contributeFilesToSharedAlbum(albumId: String, files: List<SharedUploadFile>, operationKey: String, caption: String, done: (Boolean) -> Unit) {
         runner.start(MediaActionKey(MediaAction.SHARED_ALBUM), R.string.shared_contribute_failed) {
             val key = "shared-files:$albumId:$operationKey"
-            try {
-                repository.contributeFilesToSharedAlbum(albumId, files, operationId(key), caption)
-            } catch (error: Exception) {
-                done(false); throw error
-            }
+            runCatching { repository.contributeFilesToSharedAlbum(albumId, files, operationId(key), caption) }
+                .onFailure { done(false) }.getOrThrow()
             savedState.remove<String>(key)
             refreshAfterOwnPost(albumId)
             val name = gallery.current.collections.firstOrNull { it.id == albumId }?.name.orEmpty()

@@ -26,8 +26,15 @@ class AccountAwareICloudCatalogSource(
     override suspend fun sharedManagement(id: String) = currentSource().sharedManagement(id)
     override suspend fun sharedDiscussion(mediaId: String) = currentSource().sharedDiscussion(mediaId)
     override suspend fun changeSharedAlbum(id: String, command: me.lvca.alba.engine.model.SharedCommand, operationId: String) = currentSource().changeSharedAlbum(id, command, operationId)
-    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String) = currentSource().contributeToSharedAlbum(id, mediaIds, operationId, caption)
-    override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource, operationId: String, caption: String) = currentSource().uploadSharedPhoto(albumId, fileName, source, operationId, caption)
+    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String) =
+        currentSource().contributeToSharedAlbum(id, mediaIds, operationId, caption)
+    override suspend fun uploadSharedPhoto(
+        albumId: String,
+        fileName: String,
+        source: me.lvca.alba.engine.model.OneShotUploadSource,
+        operationId: String,
+        caption: String,
+    ) = currentSource().uploadSharedPhoto(albumId, fileName, source, operationId, caption)
     override suspend fun sharedAlbums() = currentSource().sharedAlbums()
     override suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration) = currentSource().createSharedAlbum(name, operationId, generation)
     override suspend fun recentlyDeleted() = currentSource().recentlyDeleted()

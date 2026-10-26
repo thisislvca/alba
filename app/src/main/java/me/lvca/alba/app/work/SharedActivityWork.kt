@@ -39,6 +39,8 @@ private const val SHARED_SUMMARY_ID = 2100
 private const val SHARED_INVITATION_ID = 2101
 private const val SHARED_ALBUM_ID = 2102
 private const val SHARED_WORK = "shared-album-activity"
+private const val CHECK_EVERY_HOURS = 6L
+private const val CHECK_TIMEOUT_MILLIS = 5 * 60_000L
 
 /** Checks shared albums for new invitations and photos a few times a day while notifications are on. */
 internal object SharedActivitySchedule {
@@ -48,7 +50,7 @@ internal object SharedActivitySchedule {
             work.cancelUniqueWork(SHARED_WORK)
             return
         }
-        val request = PeriodicWorkRequestBuilder<SharedActivityWorker>(6, TimeUnit.HOURS)
+        val request = PeriodicWorkRequestBuilder<SharedActivityWorker>(CHECK_EVERY_HOURS, TimeUnit.HOURS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).setRequiresBatteryNotLow(true).build())
             .build()
         work.enqueueUniquePeriodicWork(SHARED_WORK, ExistingPeriodicWorkPolicy.KEEP, request)
@@ -60,7 +62,7 @@ internal object SharedActivitySchedule {
  * reads no comments: Alba has no cheap signal for them, so only invitations and new photos are announced.
  */
 class SharedActivityWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = withTimeoutOrNull(5 * 60_000L) { check() } ?: Result.retry()
+    override suspend fun doWork(): Result = withTimeoutOrNull(CHECK_TIMEOUT_MILLIS) { check() } ?: Result.retry()
 
     private suspend fun check(): Result {
         val app = applicationContext as AlbaApplication
@@ -68,24 +70,18 @@ class SharedActivityWorker(context: Context, params: WorkerParameters) : Corouti
         if (!store.state.value.notificationsEnabled || !canNotify(applicationContext)) return Result.success()
         val accounts = app.graph.accountManager
         accounts.restore()
-        when (accounts.backgroundSessionDecision()) {
-            BackgroundSessionDecision.PAUSE -> return Result.success()
-            BackgroundSessionDecision.RETRY -> return Result.retry()
-            BackgroundSessionDecision.RUN -> Unit
-        }
+        val decision = accounts.backgroundSessionDecision()
         // Only a verified account has real invitations and albums to announce; never the demo library.
         val account = accounts.state.value
-        if (account !is ICloudAccountState.SignedIn || account.status != SessionStatus.VERIFIED) return Result.success()
-        return try {
+        val verified = account is ICloudAccountState.SignedIn && account.status == SessionStatus.VERIFIED
+        if (decision != BackgroundSessionDecision.RUN || !verified) {
+            return if (decision == BackgroundSessionDecision.RETRY) Result.retry() else Result.success()
+        }
+        return runCatching {
             val repository = app.graph.galleryRepository
             repository.refresh(includeDeviceMedia = false)
             announce(applicationContext, store, repository)
-            Result.success()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            Result.retry()
-        }
+        }.fold({ Result.success() }, { if (it is CancellationException) throw it else Result.retry() })
     }
 }
 
@@ -103,16 +99,18 @@ internal suspend fun announce(context: Context, store: SharedActivityStore, repo
     store.update { it.announce(news, current).announceInvitations(fresh.map(SharedInvitation::id).toSet()) }
 }
 
-internal fun canNotify(context: Context): Boolean =
-    (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
-        NotificationManagerCompat.from(context).areNotificationsEnabled()
+internal fun canNotify(context: Context): Boolean {
+    val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    return granted && NotificationManagerCompat.from(context).areNotificationsEnabled()
+}
 
 @Suppress("MissingPermission") // canNotify checked the permission.
 private fun postSharedActivity(context: Context, news: List<SharedAlbumNews>, invitations: List<SharedInvitation>) {
     if (news.isEmpty() && invitations.isEmpty()) return
     val manager = NotificationManagerCompat.from(context)
-    context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-        NotificationChannel(SHARED_CHANNEL, context.getString(R.string.shared_notification_channel), NotificationManager.IMPORTANCE_DEFAULT))
+    val channel = NotificationChannel(SHARED_CHANNEL, context.getString(R.string.shared_notification_channel), NotificationManager.IMPORTANCE_DEFAULT)
+    context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     fun builder() = NotificationCompat.Builder(context, SHARED_CHANNEL).setSmallIcon(R.drawable.ic_notification_shared)

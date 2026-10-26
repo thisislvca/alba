@@ -1,9 +1,10 @@
 package me.lvca.alba.app.albums
 
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import me.lvca.alba.app.intake.IncomingItem
+import me.lvca.alba.app.intake.incomingForSharedAlbum
 import me.lvca.alba.app.ui.collections.AlbumSort
 import me.lvca.alba.app.ui.collections.albumChooserEntries
-import me.lvca.alba.app.ui.intake.incomingForSharedAlbum
-import me.lvca.alba.app.intake.IncomingItem
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedAlbumInfo
@@ -11,7 +12,6 @@ import me.lvca.alba.engine.model.SharedAlbumRole
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
-import androidx.test.ext.junit.runners.AndroidJUnit4
 
 @RunWith(AndroidJUnit4::class)
 class AlbumOrderingTest {

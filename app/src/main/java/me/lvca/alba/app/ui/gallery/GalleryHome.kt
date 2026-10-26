@@ -99,8 +99,8 @@ import me.lvca.alba.app.ui.shared.SharedAlbumControls
 import me.lvca.alba.app.ui.shared.SharedAlbumDetails
 import me.lvca.alba.app.ui.shared.SharedAlbumEmptyState
 import me.lvca.alba.app.ui.shared.SharedContributionPicker
-import me.lvca.alba.app.ui.shared.sharedContributionCandidates
 import me.lvca.alba.app.ui.shared.SharedInvitations
+import me.lvca.alba.app.ui.shared.sharedContributionCandidates
 import me.lvca.alba.app.ui.transfers.BatchProgress
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
 import me.lvca.alba.app.ui.viewer.LocalPhotoTransition
@@ -496,12 +496,17 @@ internal fun GalleryHome(
                             actions = actions,
                             flat = hero,
                             onAddMedia = if (hero && collection?.shared?.canContribute == true && canEdit) ({ sheet = GallerySheet.SharedPicker }) else null,
-                            onInvite = if (hero && collection?.shared?.canManage == true && canEdit) ({ sheet = GallerySheet.SharedManage }) else null,
                             leading = if (hero) ({
                                 AlbumHero(requireNotNull(collection), summaries[collection.id], previewRetryVersion, actions::requestPreview,
                                     activity = if (collection.shared?.generation == SharedAlbumGeneration.MODERN) ({ sheet = GallerySheet.SharedActivity }) else null,
                                     view = gallery.items.firstOrNull()?.let { first -> { actions.openMedia(first.id) } },
                                     info = if (collection.shared != null) ({ sheet = GallerySheet.SharedInfo }) else null)
+                                // An empty shared album the person can add to prompts the first steps under its hero.
+                                val addable = canEdit && collection.shared?.canContribute == true
+                                if (addable && gallery.items.isEmpty() && !session.isRefreshing) {
+                                    SharedAlbumEmptyState({ sheet = GallerySheet.SharedPicker },
+                                        if (collection.shared?.canManage == true) ({ sheet = GallerySheet.SharedManage }) else null)
+                                }
                             }) else if (showSharedStrip) ({
                                 SharedAlbumsStrip(sharedAlbums, summaries, previewRetryVersion, actions::requestPreview, ::openShared,
                                     seeAll = { libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED; actions.clearSelection(); actions.changeQuery(GalleryQuery()) })
@@ -661,7 +666,6 @@ private fun PhotoGrid(
     leading: (@Composable () -> Unit)? = null,
     flat: Boolean = false,
     onAddMedia: (() -> Unit)? = null,
-    onInvite: (() -> Unit)? = null,
 ) {
     val leadingItems = if (leading != null) 1 else 0
     val date = query.date
@@ -748,10 +752,8 @@ private fun PhotoGrid(
         if (items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
-                else if (query.collectionId?.startsWith("shared:") == true) {
-                    if (onAddMedia != null || onInvite != null) SharedAlbumEmptyState(onAddMedia, onInvite)
-                    else Text(stringResource(R.string.shared_album_empty))
-                }
+                // Where photos can be added, the album's leading item shows the first steps instead.
+                else if (query.collectionId?.startsWith("shared:") == true) { if (onAddMedia == null) Text(stringResource(R.string.shared_album_empty)) }
                 else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
                 else if (connectPrompt) ConnectLibrary(connect = actions::openAccount, demo = actions::startDemo)
                 else {

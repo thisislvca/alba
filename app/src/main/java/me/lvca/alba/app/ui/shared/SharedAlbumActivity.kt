@@ -96,7 +96,9 @@ internal fun SharedAlbumActivity(album: GalleryCollection, media: List<GalleryMe
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("shared-post-reactions"))
                         }
                         Row {
-                            TextButton(onClick = { selected = post.id }, enabled = postPreview != null) { Text(stringResource(R.string.shared_post_discussion)) }
+                            TextButton(onClick = { selected = post.id }, enabled = postPreview != null) {
+                                Text(stringResource(R.string.shared_post_discussion))
+                            }
                             if ((postPreview?.total ?: 0) > 0) TextButton(onClick = { browsing = post.id }) { Text(stringResource(R.string.shared_post_open)) }
                         }
                     }

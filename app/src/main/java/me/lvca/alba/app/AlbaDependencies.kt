@@ -32,8 +32,6 @@ data class AlbaDependencies(
     val network: Flow<NetworkStatus?>,
     val diagnostics: AlbaDiagnostics,
     val sharedActivity: SharedActivityStore,
-    /** Starts or stops the background check for shared album activity. */
-    val scheduleSharedActivity: (Boolean) -> Unit = {},
 ) {
     companion object {
         fun from(graph: AlbaGraph) = AlbaDependencies(
@@ -49,7 +47,6 @@ data class AlbaDependencies(
             network = graph.network,
             diagnostics = graph.diagnostics,
             sharedActivity = graph.sharedActivity,
-            scheduleSharedActivity = graph::scheduleSharedActivity,
         )
     }
 }

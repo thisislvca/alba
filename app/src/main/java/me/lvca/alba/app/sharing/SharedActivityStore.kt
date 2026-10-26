@@ -13,8 +13,10 @@ import org.json.JSONObject
  * The [SharedActivityLedger], kept on the phone so the app and the background check agree on what is new. It holds
  * album and invitation IDs only: no names, photos or comments.
  */
-class SharedActivityStore(private val preferences: SharedPreferences) {
-    constructor(context: Context) : this(context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE))
+class SharedActivityStore(private val preferences: SharedPreferences, private val schedule: (Boolean) -> Unit = {}) {
+    /** [schedule] starts or stops the background check when notifications are turned on or off. */
+    constructor(context: Context, schedule: (Boolean) -> Unit) :
+        this(context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), schedule)
 
     private val mutableState = MutableStateFlow(load())
     val state: StateFlow<SharedActivityLedger> = mutableState.asStateFlow()
@@ -28,6 +30,17 @@ class SharedActivityStore(private val preferences: SharedPreferences) {
         }
         return next
     }
+
+    fun setNotifications(enabled: Boolean) {
+        update { it.copy(notificationsEnabled = enabled) }
+        schedule(enabled)
+    }
+
+    /** Keeps the background check in line with the saved switch, for example after an app update. */
+    fun applySchedule() = schedule(state.value.notificationsEnabled)
+
+    /** The same saved state without starting background work, for tests. */
+    fun withoutScheduling() = SharedActivityStore(preferences)
 
     /** Forgets everything, for example when the account signs out. */
     fun clear() = update { SharedActivityLedger(notificationsEnabled = it.notificationsEnabled) }

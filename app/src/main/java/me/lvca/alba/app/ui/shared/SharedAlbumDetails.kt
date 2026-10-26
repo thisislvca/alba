@@ -35,8 +35,8 @@ import me.lvca.alba.app.ui.designsystem.AlbaBottomSheet
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaSheetBody
 import me.lvca.alba.app.ui.designsystem.AlbaSheetHeading
-import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.MediaPill
+import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.gallery.mediaDuration
 import me.lvca.alba.engine.model.*
@@ -150,7 +150,8 @@ internal fun SharedPostSheet(count: Int, legacy: Boolean, dismiss: () -> Unit, p
             else {
                 OutlinedTextField(caption, { caption = it.take(MAX_CAPTION) }, label = { Text(stringResource(R.string.shared_caption)) },
                     modifier = Modifier.fillMaxWidth().testTag("shared-caption"))
-                Text(stringResource(R.string.shared_caption_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.shared_caption_note), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall)
             }
             Button(onClick = { post(if (legacy) "" else caption.trim()) }, modifier = Modifier.fillMaxWidth().testTag("shared-post-confirm")) {
                 Text(pluralStringResource(R.plurals.shared_post_items_title, count, count))
@@ -185,7 +186,8 @@ internal fun CreateSharedAlbumDialog(dismiss: () -> Unit, create: (String, Share
 @Composable
 internal fun SharedAlbumEmptyState(addPhotos: (() -> Unit)?, invite: (() -> Unit)?) {
     val addLabel = stringResource(R.string.shared_add_photos)
-    Column(Modifier.fillMaxWidth().testTag("shared-empty-state"), horizontalAlignment = Alignment.CenterHorizontally,
+    val padding = Modifier.padding(horizontal = AlbaSpacing.xl, vertical = AlbaSpacing.xxl)
+    Column(Modifier.fillMaxWidth().then(padding).testTag("shared-empty-state"), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
         Icon(painterResource(R.drawable.icloud_shared_albums), null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
         Text(stringResource(R.string.shared_empty_title), style = MaterialTheme.typography.titleMedium)
@@ -198,7 +200,9 @@ internal fun SharedAlbumEmptyState(addPhotos: (() -> Unit)?, invite: (() -> Unit
         }
         invite?.let {
             OutlinedButton(onClick = it, modifier = Modifier.testTag("shared-empty-invite")) {
-                Icon(Icons.Outlined.Person, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.sm)); Text(stringResource(R.string.shared_invite_people))
+                Icon(Icons.Outlined.Person, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(AlbaSpacing.sm))
+                Text(stringResource(R.string.shared_invite_people))
             }
         }
     }

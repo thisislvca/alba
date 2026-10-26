@@ -142,18 +142,19 @@ class SharedAlbumsCatalogTest {
 
     @Test fun blockingRemovesTheParticipantAndBlocksTheirIdentity() = runBlocking {
         val t = Transport().apply { guestParticipant = true; reflectShareWrites = true }; val s = source(t)
-        val album = s.sharedAlbums().collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER && it.shared!!.generation == SharedAlbumGeneration.MODERN }
+        val album = ownModernAlbum(s)
         assertTrue(s.sharedManagement(album.id).participants.any { it.id == "guest-participant" })
         s.changeSharedAlbum(album.id, SharedCommand(SharedAction.BLOCK, "guest-participant"), UUID.randomUUID().toString())
         val state = s.sharedManagement(album.id)
         assertEquals(listOf("owner-participant"), state.participants.map { it.id })
         assertEquals("guest", state.blocked.single().id)
-        assertTrue(runCatching { s.changeSharedAlbum(album.id, SharedCommand(SharedAction.BLOCK, "owner-participant"), UUID.randomUUID().toString()) }.isFailure)
+        val blockOwner = SharedCommand(SharedAction.BLOCK, "owner-participant")
+        assertTrue(runCatching { s.changeSharedAlbum(album.id, blockOwner, UUID.randomUUID().toString()) }.isFailure)
     }
 
     @Test fun postPreviewsDiscoverTheAlbumOnceForTheWholePage() = runBlocking {
         val t = Transport().apply { activityCount = 3 }; val s = source(t)
-        val album = s.sharedAlbums().collections.collections.first { it.shared!!.role == SharedAlbumRole.OWNER && it.shared!!.generation == SharedAlbumGeneration.MODERN }
+        val album = ownModernAlbum(s)
         val posts = s.sharedActivity(album.id, 0).posts.map { it.id }
         val before = t.requests.count { it.url.contains("changes/database") }
         val previews = s.sharedPostPreviews(posts)
@@ -463,6 +464,9 @@ class SharedAlbumsCatalogTest {
         assertEquals(2, s.sharedPostPhotos(post.id).size)
     }
 
+    private suspend fun ownModernAlbum(s: LiveICloudCatalogSource) = s.sharedAlbums().collections.collections
+        .first { it.shared!!.role == SharedAlbumRole.OWNER && it.shared!!.generation == SharedAlbumGeneration.MODERN }
+
     private class Journal : UploadJournal {
         val values = mutableMapOf<Pair<AccountBinding, String>, UploadCheckpoint>()
         override suspend fun load(binding: AccountBinding, attempt: String) = values[binding to attempt]
@@ -483,6 +487,8 @@ class SharedAlbumsCatalogTest {
         var activityCount = 0
         var splitPostPreview = false
         var rejectCaption = false; var guestParticipant = false
+        private val guestJson = Json.parseToJsonElement("""{"participantId":"guest-participant","type":"USER","permission":"READ_WRITE","acceptanceStatus":"ACCEPTED",""" +
+            """"userIdentity":{"userRecordName":"guest","lookupInfo":{"emailAddress":"guest@example.com"}}}""").jsonObject
         private fun post(index: Int) = buildJsonObject {
             put("recordName", "CPLPost-$index"); put("recordType", "CPLPost")
             putJsonObject("fields") { putJsonObject("postTimestamp") { put("value", 1790205441441L - index) } }
@@ -498,8 +504,7 @@ class SharedAlbumsCatalogTest {
                 if(publicShare) put("participants", JsonArray(base["participants"]!!.jsonArray + buildJsonObject {
                     put("participantId", "public-person"); put("type", "PUBLIC_USER"); put("permission", "READ_WRITE")
                 }))
-                if(guestParticipant) put("participants", JsonArray(base["participants"]!!.jsonArray + Json.parseToJsonElement(
-                    """{"participantId":"guest-participant","type":"USER","permission":"READ_WRITE","acceptanceStatus":"ACCEPTED","userIdentity":{"userRecordName":"guest","lookupInfo":{"emailAddress":"guest@example.com"}}}""").jsonObject))
+                if(guestParticipant) put("participants", JsonArray(base["participants"]!!.jsonArray + guestJson))
                 if(pendingRequest) putJsonArray("requesters") { add(buildJsonObject { putJsonObject("requesterInformation") { put("userRecordName", "waiting-user") } }) }
             } + (if(reflectShareWrites) createdShare.orEmpty() else emptyMap()))
         }

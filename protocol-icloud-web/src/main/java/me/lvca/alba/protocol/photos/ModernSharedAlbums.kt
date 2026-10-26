@@ -423,7 +423,7 @@ internal class ModernSharedAlbums(
                 if (record.text("recordType") == "CPLAsset") photos += ids.photo(album, requireNotNull(record.text("recordName")))
             }
             marker = response.text("continuationMarker")
-            marker?.let { check(seen.add(it) && seen.size <= 50) { "Incomplete post preview." } }
+            marker?.let { check(seen.add(it) && seen.size <= MAX_POST_PAGES) { "Incomplete post preview." } }
             // A truncated one-photo page must not route a grouped post's comments to its first photo.
         } while (marker != null && photos.size <= limit)
         return PostPhotos(photos.take(limit), complete = photos.size <= limit && marker == null)
@@ -464,6 +464,7 @@ internal class ModernSharedAlbums(
 
         /** The most photos read for one post. */
         const val MAX_POST_PHOTOS = 500
+        private const val MAX_POST_PAGES = 50
         private const val MAX_COVER_BYTES = 4 * 1024 * 1024
         private val REACTIONS = setOf("", "👍", "❤️", "😍", "🎉", "🔥", "😂")
     }

@@ -204,7 +204,8 @@ class SharedAlbumControlsTest {
     }
 
     @Test fun deletingSaysEveryoneElseLosesTheAlbum() {
-        compose.setContent { MaterialTheme { SharedAlbumControls(album, testAlbaActions(sharedManagement = { SharedAlbumManagement(album, emptyList()) }), {}) } }
+        val actions = testAlbaActions(sharedManagement = { SharedAlbumManagement(album, emptyList()) })
+        compose.setContent { MaterialTheme { SharedAlbumControls(album, actions, {}) } }
         compose.waitUntil { compose.onAllNodesWithText(label(R.string.shared_delete_album)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(label(R.string.shared_delete_album)).performScrollTo().performClick()
         compose.onNodeWithText(label(R.string.shared_confirm_delete)).assertIsDisplayed()

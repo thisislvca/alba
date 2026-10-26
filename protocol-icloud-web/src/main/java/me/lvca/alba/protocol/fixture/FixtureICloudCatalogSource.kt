@@ -131,7 +131,8 @@ class FixtureICloudCatalogSource(
                     }
                     SharedAction.BLOCK -> {
                         val person = state.participants.first { it.id == command.subject && it.role != SharedAlbumRole.OWNER }
-                        management[id] = state.copy(participants = state.participants - person, blocked = state.blocked + SharedAccessRequest(person.id, person.name))
+                        management[id] = state.copy(participants = state.participants - person,
+                            blocked = state.blocked + SharedAccessRequest(person.id, person.name))
                     }
                     me.lvca.alba.engine.model.SharedAction.RENAME -> sharedAlbums[sharedAlbums.indexOfFirst { it.id == id }] = state.album.copy(name = command.value)
                     me.lvca.alba.engine.model.SharedAction.INVITE -> management[id] = state.copy(participants = state.participants + me.lvca.alba.engine.model.SharedParticipant(operationId, command.value, me.lvca.alba.engine.model.SharedAlbumRole.CONTRIBUTOR, pending = true))

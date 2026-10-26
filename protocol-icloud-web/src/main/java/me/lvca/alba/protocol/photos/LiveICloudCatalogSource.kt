@@ -69,8 +69,10 @@ class LiveICloudCatalogSource(
     override suspend fun sharedManagement(id: String) = shared.sharedManagement(id)
     override suspend fun sharedDiscussion(mediaId: String) = shared.sharedDiscussion(mediaId)
     override suspend fun changeSharedAlbum(id: String, command: me.lvca.alba.engine.model.SharedCommand, operationId: String) = shared.changeSharedAlbum(id, command, operationId)
-    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String) = shared.contribute(id, mediaIds, operationId, caption)
-    override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: OneShotUploadSource, operationId: String, caption: String) = shared.upload(albumId, fileName, source, operationId, caption)
+    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String) =
+        shared.contribute(id, mediaIds, operationId, caption)
+    override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: OneShotUploadSource, operationId: String, caption: String) =
+        shared.upload(albumId, fileName, source, operationId, caption)
     override suspend fun sharedAlbums() = shared.snapshot()
     override suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration) = shared.create(name, operationId, generation)
     private val parser = CloudKitPhotoResponseParser()

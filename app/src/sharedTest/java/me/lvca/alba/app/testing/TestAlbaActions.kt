@@ -25,7 +25,7 @@ import me.lvca.alba.engine.source.MediaRead
  */
 internal fun testDependencies(graph: AlbaGraph): AlbaDependencies =
     AlbaDependencies.from(graph).copy(network = kotlinx.coroutines.flow.flowOf(null), transferScheduler = TransferScheduler {},
-        scheduleSharedActivity = {})
+        sharedActivity = graph.sharedActivity.withoutScheduling())
 
 /** Test fixtures explicitly opt into the callbacks they observe; every other action does nothing. Never used in production. */
 internal fun testAlbaActions(

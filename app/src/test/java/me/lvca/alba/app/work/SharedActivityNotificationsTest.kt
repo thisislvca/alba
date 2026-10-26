@@ -31,7 +31,8 @@ import org.robolectric.Shadows.shadowOf
 @RunWith(AndroidJUnit4::class)
 class SharedActivityNotificationsTest {
     private val app = ApplicationProvider.getApplicationContext<AlbaApplication>()
-    private val album = GalleryCollection("shared:test:shared:o:family", "Family", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.VIEWER))
+    private val album = GalleryCollection("shared:test:shared:o:family", "Family",
+        shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.VIEWER))
     private var media = listOf(photo("a"), photo("b"))
     private var invitations = emptyList<SharedInvitation>()
     private val repository = object : GalleryRepository by app.graph.galleryRepository {

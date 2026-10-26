@@ -73,8 +73,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         cache = MediaFileCache(appContext),
     )
     val exporter = GalleryExporter(appContext, galleryRepository)
-    val sharedActivity = SharedActivityStore(appContext)
-    fun scheduleSharedActivity(enabled: Boolean) = SharedActivitySchedule.apply(appContext, enabled)
+    val sharedActivity = SharedActivityStore(appContext) { enabled -> SharedActivitySchedule.apply(appContext, enabled) }
     private suspend fun clearSignedOutData() {
         sharedActivity.clear()
         batches.cancelActive()

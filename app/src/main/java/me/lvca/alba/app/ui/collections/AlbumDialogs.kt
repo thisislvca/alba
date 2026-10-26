@@ -37,11 +37,15 @@ internal fun AlbumNameDialog(title: String, initialName: String, dismiss: () -> 
  */
 internal fun albumChooserEntries(collections: List<GalleryCollection>, folder: String?): List<GalleryCollection> {
     val children = collections.filter { it.isPersonal }.groupBy { it.parentId }
-    fun holdsAlbum(id: String, depth: Int = 0): Boolean = depth < 32 &&
+    fun holdsAlbum(id: String, depth: Int = 0): Boolean = depth < MAX_FOLDER_DEPTH &&
         children[id].orEmpty().any { !it.isFolder || holdsAlbum(it.id, depth + 1) }
     return children[folder].orEmpty().filter { !it.isFolder || holdsAlbum(it.id) }
         .sortedWith(compareBy<GalleryCollection> { !it.isFolder }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 }
+
+/** Deeper nesting than this is treated as a cycle in the folder data. */
+private const val MAX_FOLDER_DEPTH = 32
+private val rowPadding = PaddingValues(horizontal = AlbaSpacing.md, vertical = AlbaSpacing.sm)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,10 +74,10 @@ internal fun AlbumChooser(collections: List<GalleryCollection>, dismiss: () -> U
                 items(entries, key = { it.id }) { album ->
                     if (album.isFolder) AlbaListRow(album.name, { folder = album.id }, leading = { Icon(AlbaIcons.PhotoLibrary, null) },
                         trailing = { AlbaChevron() }, shape = MaterialTheme.shapes.small,
-                        contentPadding = PaddingValues(horizontal = AlbaSpacing.md, vertical = AlbaSpacing.sm), modifier = Modifier.testTag("album-chooser-folder-${album.id}"))
+                        contentPadding = rowPadding, modifier = Modifier.testTag("album-chooser-folder-${album.id}"))
                     else AlbaListRow(album.name, { choose(album.id) },
                         leading = { ICloudIcon(if (shared) R.drawable.icloud_shared_albums else R.drawable.icloud_albums) }, shape = MaterialTheme.shapes.small,
-                        contentPadding = PaddingValues(horizontal = AlbaSpacing.md, vertical = AlbaSpacing.sm), modifier = Modifier.testTag("album-chooser-${album.id}"))
+                        contentPadding = rowPadding, modifier = Modifier.testTag("album-chooser-${album.id}"))
                 }
             }
         }
