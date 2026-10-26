@@ -27,8 +27,7 @@ internal class PersonalLibraryDatabase(
         if (path == "changes/zone" && (raw.code == 410 || parsed?.let(CloudKitErrors::requiresSyncReset) == true)) throw CatalogResetRequired()
         cloudKit.requireSuccess(session, raw)
         val root = parsed ?: Json.parseToJsonElement(raw.body).jsonObject
-        if (CloudKitErrors.requiresSyncReset(root)) throw CatalogResetRequired()
-        check(!CloudKitErrors.rejectedRequest(root)) { "Apple rejected the library request" }
+        CloudKitErrors.requireAccepted(root)
         return root
     }
 

@@ -211,13 +211,12 @@ class FixtureICloudCatalogSource(
     }
     private val trashed = mutableSetOf<String>()
     override suspend fun captureSyncToken() = CHANGE_TOKEN
-    override suspend fun changes(token: String, known: List<RemoteMediaRecord>): me.lvca.alba.engine.source.CloudChanges {
+    override suspend fun changes(token: String, known: me.lvca.alba.engine.source.KnownCloudRecords): me.lvca.alba.engine.source.CloudChanges {
         if (token != CHANGE_TOKEN) throw me.lvca.alba.engine.source.CatalogResetRequired()
-        val records = personalRecords()
-        val current = records.map { it.id }.toSet()
-        return me.lvca.alba.engine.source.CloudChanges(records.filterNot { it.id in trashed },
-            trashed + known.map { it.id }.filterNot { it in current }, CHANGE_TOKEN, false)
+        // The demo lists every item on each change page, so it never needs the rows Alba already has.
+        return me.lvca.alba.engine.source.CloudChanges(personalRecords().filterNot { it.id in trashed }, trashed.toSet(), CHANGE_TOKEN, false)
     }
+    override suspend fun libraryItemCount() = personalRecords().count { !it.isHidden }
     private val albums = mutableListOf(
         me.lvca.alba.engine.model.GalleryCollection("demo:journeys", "Journeys", isFolder = true),
         me.lvca.alba.engine.model.GalleryCollection("demo:coast", "By the sea", "demo:journeys"),

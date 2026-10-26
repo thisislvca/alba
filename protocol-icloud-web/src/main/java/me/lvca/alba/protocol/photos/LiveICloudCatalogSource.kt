@@ -105,10 +105,10 @@ class LiveICloudCatalogSource(
         if (parsed.size < assets.count { !it.isRemovedFromLibrary() }) throw CatalogResetRequired()
         return parsed
     }
-    override suspend fun changes(token: String, known: List<RemoteMediaRecord>): CloudChanges {
+    override suspend fun changes(token: String, known: KnownCloudRecords): CloudChanges {
         val root = database.call("changes/zone", PrimarySyncZone.changesBody(token, 200))
         val result = root["zones"]!!.jsonArray.single().jsonObject
-        result.serverErrorCode()?.let { throw CloudKitErrors.zoneChangesFailure(it) }
+        result.serverErrorCode()?.let { throw CloudKitErrors.zoneChangesFailure(it, CloudKitErrors.retryAfterMillis(result)) }
         val deleted = mutableSetOf<String>()
         val changedAssets = mutableSetOf<String>()
         for (element in result["records"]!!.jsonArray) {
@@ -120,7 +120,7 @@ class LiveICloudCatalogSource(
             when (type) {
                 "CPLAsset" -> changedAssets += name
                 "CPLMaster" -> {
-                    val related = known.filter { it.masterRecordName == name }.mapNotNull { it.assetRecordName }
+                    val related = known.assetRecordNames(name)
                     if (related.isEmpty()) throw CatalogResetRequired()
                     changedAssets += related
                 }
@@ -133,6 +133,28 @@ class LiveICloudCatalogSource(
         return CloudChanges(hydrated.map(::mapped), deleted,
             result["syncToken"]!!.jsonPrimitive.content, result["moreComing"]?.jsonPrimitive?.booleanOrNull == true)
     }
+
+    /**
+     * The main feed's size from iCloud's index counts, the way iCloud.com and pyicloud read an album's length: one
+     * `HyperionIndexCountLookup` query for the count index that matches [PHOTO_LIST_RECORD_TYPE].
+     */
+    override suspend fun libraryItemCount(): Int? {
+        val root = database.call("records/query", buildJsonObject {
+            putJsonObject("query") {
+                put("recordType", "HyperionIndexCountLookup")
+                putJsonArray("filterBy") {
+                    add(buildJsonObject {
+                        put("fieldName", "indexCountID"); put("comparator", "IN")
+                        putJsonObject("fieldValue") { put("type", "STRING_LIST"); putJsonArray("value") { add(LIBRARY_COUNT_INDEX) } }
+                    })
+                }
+            }
+            put("zoneID", PrimarySyncZone.zoneId()); put("zoneWide", true); put("resultsLimit", 1)
+        })
+        val count = root["records"]?.jsonArray?.firstOrNull()?.jsonObject?.fieldLong("itemCount") ?: return null
+        return count.takeIf { it in 0..Int.MAX_VALUE }?.toInt()
+    }
+
     override suspend fun collections(): CollectionSnapshot {
         val albums = mutableListOf<GalleryCollection>()
         val pending = java.util.LinkedList<String?>().apply { add(null) }
@@ -257,6 +279,7 @@ class LiveICloudCatalogSource(
                 ),
             ),
         )
+        response.jsonObjectOrNull()?.let(CloudKitErrors::throttle)?.let { throw it }
         val parsed = parser.parse(response.body)
         val namespace = ICloudAccountIdentity.namespace(session)
         val records = parsed.photos.map { photo -> mapped(photo, namespace).also { currentRefreshIds += it.id } }
@@ -477,6 +500,7 @@ class LiveICloudCatalogSource(
     private companion object {
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         const val PHOTO_LIST_RECORD_TYPE = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"
+        const val LIBRARY_COUNT_INDEX = "CPLAssetByAssetDateWithoutHiddenOrDeleted"
         const val HIDDEN_LIST_RECORD_TYPE = "CPLAssetAndMasterHiddenByAssetDate"
         const val HIDDEN_INCOMPLETE = "Hidden was incomplete. Refresh to try again."
         const val RECORDS_PER_PHOTO = 2

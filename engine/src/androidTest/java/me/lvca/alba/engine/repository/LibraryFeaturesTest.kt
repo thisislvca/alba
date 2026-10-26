@@ -95,7 +95,7 @@ class LibraryFeaturesTest {
             masterRecordName = "master", assetRecordName = "asset", resourceFingerprint = fingerprint)
         override suspend fun captureSyncToken() = "start"
         override suspend fun fetchPage(cursor: String?, limit: Int): CloudCatalogPage { snapshots++; return CloudCatalogPage(listOf(item()), null, "unused-rank") }
-        override suspend fun changes(token: String, known: List<RemoteMediaRecord>): CloudChanges {
+        override suspend fun changes(token: String, known: me.lvca.alba.engine.source.KnownCloudRecords): CloudChanges {
             if (expireOnce) { expireOnce = false; throw CatalogResetRequired() }
             return CloudChanges(if (deleted) emptyList() else listOf(item()), if (deleted) setOf("asset") else emptySet(), "end", false)
         }

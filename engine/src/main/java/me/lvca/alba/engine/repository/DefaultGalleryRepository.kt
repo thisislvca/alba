@@ -17,6 +17,7 @@ import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.CatalogCheckpointEntity
 import me.lvca.alba.engine.database.CatalogItemEntity
+import me.lvca.alba.engine.database.CatalogScanEntity
 import me.lvca.alba.engine.database.CollectionEntity
 import me.lvca.alba.engine.database.CollectionMemberEntity
 import me.lvca.alba.engine.database.mediaDetails
@@ -40,8 +41,11 @@ class DefaultGalleryRepository(
     private val deviceSource: DeviceCatalogSource?,
     private val cache: MediaFileCache,
     private val now: () -> Long = System::currentTimeMillis,
+    /** Waits between attempts while iCloud asks Alba to slow down; tests pass a recorder. */
+    private val pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
 ) : GalleryRepository {
     private val dao = database.catalogDao()
+    private val sync = database.catalogSyncDao()
     private val library = database.libraryDao()
     private val refreshLock = Mutex()
     private val editLock = Mutex()
@@ -384,7 +388,23 @@ class DefaultGalleryRepository(
         }
     }
 
+    override fun observeCatalogScan(): Flow<CatalogScanProgress?> = sync.observeScans().map { scans ->
+        scans.firstOrNull { it.account == cloudSource.accountLabel }?.let { CatalogScanProgress(it.loadedCount, it.totalCount) }
+    }.distinctUntilChanged()
+
+    override suspend fun resumeCatalogScan(): RefreshSummary? = refreshLock.withLock {
+        if (sync.scan(cloudSource.accountLabel) == null) null else refreshLocked(includeDeviceMedia = false)
+    }
+
     override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary = refreshLock.withLock {
+        refreshLocked(includeDeviceMedia)
+    }
+
+    /**
+     * Reads the library into the catalog page by page, never holding it in memory, then replaces what Recently Deleted,
+     * Hidden, shared albums and albums list, and removes the rows the read no longer saw.
+     */
+    private suspend fun refreshLocked(includeDeviceMedia: Boolean): RefreshSummary {
         val refreshedAt = now()
         val deviceRecords = if (includeDeviceMedia && deviceSource != null) {
             deviceSource.scanImages()
@@ -395,25 +415,11 @@ class DefaultGalleryRepository(
         if (includeDeviceMedia) exclusiveCatalog { publishDeviceScan(deviceRecords, refreshedAt) }
 
         val account = cloudSource.accountLabel
-        val scope = "icloud:$account"
-        val oldItems = exclusiveCatalog {
-            dao.cloudItems().map { item ->
-                // Upgrade old paths even if the upcoming network refresh is offline.
-                val retained = cache.retainPreview(item.mediaId, item.previewCachePath)?.absolutePath
-                if (retained != null && retained != item.previewCachePath) {
-                    dao.setPreviewPath(item.mediaId, retained)
-                    item.copy(previewCachePath = retained)
-                } else item
-            }
-        }
-        val checkpoint = dao.checkpoint(scope)?.changeToken?.takeUnless { it.startsWith("rank:") }
-        val activeCloud = try {
-            if (checkpoint == null) bootstrap(account) else applyChanges(oldItems.filterNot { it.isTrashed || SharedMediaIdentity.isShared(it.mediaId) }.map(::toRemote), checkpoint, account)
-        } catch (_: CatalogResetRequired) { bootstrap(account) }
-        val trash = cloudSource.recentlyDeleted()
-        val hiddenRead = hiddenSnapshot(account, oldItems)
-        val hidden = hiddenRead.records
-        val personalCollections = cloudSource.collections()
+        retainPreviewPaths()
+        val libraryRead = syncLibrary(account)
+        val trash = throttled { cloudSource.recentlyDeleted() }
+        val hiddenRead = hiddenSnapshot(account)
+        val personalCollections = throttled { cloudSource.collections() }
         var sharedAlbumsUnavailable = false
         val shared = try { cloudSource.sharedAlbums() }
         catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
@@ -424,65 +430,214 @@ class DefaultGalleryRepository(
             // Preserve only this account's last complete shared snapshot, including its cached bytes.
             val previous = library.observeCollections().first().filter { it.account == account && it.sharedGeneration != null }
             val collectionIds = previous.map { it.collectionId }.toSet()
-            val records = oldItems.filter { it.mediaId.startsWith("shared:$account:") }.map(::toRemote)
+            val records = sync.cloudItemsWithPrefix("shared:$account:").map(::toRemote)
             val recordIds = records.map { it.id }.toSet()
             val members = library.observeMembers().first().filter { it.account == account && it.collectionId in collectionIds && it.mediaId in recordIds }
             SharedCatalogSnapshot(records, CollectionSnapshot(previous.map { it.toModel() },
                 members.groupBy { it.collectionId }.mapValues { (_, rows) -> rows.map { it.mediaId }.toSet() }))
         }
-        // Hidden comes after the library so the Hidden album's own reading wins for a photo in both.
-        val cloud = activeCloud.copy(records = (activeCloud.records + trash + hidden + shared.records).associateBy { it.id }.values.toList())
+        // The library rows are in the catalog already. These snapshots are small and replace their rows whole; Hidden
+        // comes after Recently Deleted so the Hidden album's own reading wins for a photo in both.
+        val snapshots = (trash + hiddenRead.records + shared.records).associateBy { it.id }.values.toList()
         val collections = CollectionSnapshot(personalCollections.collections + shared.collections.collections,
             personalCollections.members + shared.collections.members)
         checkAccount(account, StoredMessage.ACCOUNT_CHANGED_DURING_REFRESH.code)
-        val cloudScanId = UUID.randomUUID().toString()
 
         exclusiveCatalog {
             checkAccount(account, "Account changed before publishing refresh")
-            // Downloads continue during network sync. Read their current paths only once
-            // publication owns the catalog, so refresh cannot discard a finished download.
-            val cachedById = dao.cloudItems().associateBy { it.mediaId }
-            val retainedCachePaths = database.withTransaction {
-                val entities = cloud.records.map { record ->
-                    catalogEntity(record, cachedById[record.id]?.takeIf { it.resourceFingerprint == record.resourceFingerprint }, cloudScanId)
-                }
-                dao.upsertItems(entities)
-                dao.deleteMissing(MediaOrigin.ICLOUD.name, cloudScanId)
-                if (cloud.changeToken.isNotBlank()) dao.upsertCheckpoint(
+            database.withTransaction {
+                // A finished read removes every row it did not see, as a full snapshot always did.
+                libraryRead.completedScanId?.let { sync.unstampOutsideScan(it) }
+                sync.unstampSnapshots()
+                // Downloads continue during network sync. Read their current paths only once
+                // publication owns the catalog, so refresh cannot discard a finished download.
+                writeRecords(snapshots, libraryRead.stamp)
+                sync.deleteUnstamped()
+                if (libraryRead.changeToken.isNotBlank()) dao.upsertCheckpoint(
                     CatalogCheckpointEntity(
                         scope = "icloud:${cloudSource.accountLabel}",
-                        changeToken = cloud.changeToken,
+                        changeToken = libraryRead.changeToken,
                         refreshedAtEpochMillis = refreshedAt,
                     ),
                 )
+                sync.deleteScan(account)
                 library.clearMembers()
                 library.clearCollections()
                 library.putCollections(collections.collections.map { it.toEntity(account) })
-                val ids = entities.map { it.mediaId }.toSet()
-                library.putMembers(collections.members.flatMap { (id, members) -> members.filter { it in ids }.map { CollectionMemberEntity(account, id, it) } })
-                buildSet(entities.size * 2) {
-                    entities.forEach { item ->
-                        item.previewCachePath?.let(::add)
-                        item.viewerCachePath?.let(::add)
-                        item.originalCachePath?.let(::add)
-                        item.motionCachePath?.let(::add)
-                    }
-                }
+                val present = collections.members.values.flatten().distinct().chunked(SQLITE_BIND_CHUNK_SIZE)
+                    .flatMapTo(HashSet()) { sync.existingIds(it) }
+                library.putMembers(collections.members.flatMap { (id, members) ->
+                    members.filter { it in present }.map { CollectionMemberEntity(account, id, it) }
+                })
             }
 
-            val pruneResult = cache.pruneTo(retainedCachePaths)
+            val pruneResult = cache.pruneTo(sync.cloudCachePaths().toSet())
             pruneResult.evictedPaths.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { paths ->
                 dao.clearPreviewPaths(paths); dao.clearViewerPaths(paths)
             }
         }
 
-        RefreshSummary(
-            cloudItemCount = cloud.records.size,
+        return RefreshSummary(
+            cloudItemCount = sync.cloudCount(),
             deviceItemCount = deviceRecords.size,
             refreshedAtEpochMillis = refreshedAt,
             sharedAlbumsUnavailable = sharedAlbumsUnavailable,
             hiddenUnavailable = !hiddenRead.complete,
         )
+    }
+
+    /** Upgrades old preview paths even if the upcoming network refresh is offline, a page of rows at a time. */
+    private suspend fun retainPreviewPaths() {
+        var after = ""
+        do {
+            val rows = exclusiveCatalog {
+                sync.cloudItemsAfter(after, CATALOG_WALK_SIZE).onEach { item ->
+                    val retained = cache.retainPreview(item.mediaId, item.previewCachePath)?.absolutePath
+                    if (retained != null && retained != item.previewCachePath) dao.setPreviewPath(item.mediaId, retained)
+                }
+            }
+            after = rows.lastOrNull()?.mediaId ?: after
+        } while (rows.size == CATALOG_WALK_SIZE)
+    }
+
+    /**
+     * How the library rows got into the catalog this refresh. [stamp] marks the rows seen; [completedScanId] is set
+     * when a full read finished, so publishing removes every row it did not see.
+     */
+    private class LibraryRead(val stamp: String, val completedScanId: String?, val changeToken: String)
+
+    /**
+     * Brings the library rows up to date: continues an unfinished full read, applies changes since the saved token, or
+     * starts a full read when there is no token or iCloud no longer accepts it.
+     */
+    private suspend fun syncLibrary(account: String): LibraryRead {
+        exclusiveCatalog { sync.deleteOtherScans(account) }
+        if (sync.scan(account) == null) {
+            val checkpoint = dao.checkpoint("icloud:$account")?.changeToken?.takeUnless { it.startsWith("rank:") }
+            if (checkpoint != null) {
+                val stamp = UUID.randomUUID().toString()
+                try { return LibraryRead(stamp, null, applyChanges(checkpoint, stamp, account)) }
+                catch (_: CatalogResetRequired) { /* Read the whole library again, below. */ }
+            }
+        }
+        return try { readLibrary(account) }
+        catch (_: CatalogResetRequired) {
+            // The token captured before the read expired while it ran: read once more from the first page.
+            exclusiveCatalog { checkAccount(account, "Account changed during catalog refresh"); sync.deleteScan(account) }
+            readLibrary(account)
+        }
+    }
+
+    /**
+     * The full library read. Each page is written to the catalog in its own transaction together with the cursor that
+     * follows it, so a read cut short by process death, a lost connection or the system stopping background work
+     * continues from the last page written. Rows already in the catalog stay browsable throughout, and new ones show
+     * up as their pages land; only publishing, once the read is complete, removes rows it did not see.
+     */
+    private suspend fun readLibrary(account: String): LibraryRead {
+        var scan = sync.scan(account) ?: startScan(account)
+        var resumed = scan.cursor != null
+        val visitedCursors = mutableSetOf<String?>()
+        while (!scan.pagesComplete) {
+            checkAccount(account, "Account changed during catalog refresh")
+            check(visitedCursors.add(scan.cursor)) { "Cloud catalog repeated cursor: ${scan.cursor}" }
+            val page = try { throttled { cloudSource.fetchPage(cursor = scan.cursor, limit = PAGE_SIZE) } }
+            catch (invalid: IllegalArgumentException) {
+                if (!resumed) throw invalid
+                // The source no longer accepts the saved cursor. Read again from the first page; rows stay.
+                resumed = false
+                visitedCursors.clear()
+                scan = scan.copy(cursor = null, loadedCount = 0)
+                continue
+            }
+            resumed = false
+            val current = scan
+            scan = exclusiveCatalog {
+                checkAccount(account, "Account changed before publishing page")
+                database.withTransaction {
+                    writeRecords(page.records, current.scanId)
+                    current.copy(cursor = page.nextCursor, pagesComplete = page.nextCursor == null,
+                        loadedCount = current.loadedCount + page.records.size, updatedAtEpochMillis = now())
+                        .also { sync.upsertScan(it) }
+                }
+            }
+        }
+        val token = scan.catchUpToken?.let { applyChanges(it, scan.scanId, account) }.orEmpty()
+        return LibraryRead(scan.scanId, scan.scanId, token)
+    }
+
+    private suspend fun startScan(account: String): CatalogScanEntity {
+        // Capture the token first: catching up from it after the last page covers every change made during the read.
+        val token = throttled { cloudSource.captureSyncToken() }
+        val total = try { cloudSource.libraryItemCount() }
+        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: Exception) { null }
+        val startedAt = now()
+        val scan = CatalogScanEntity(account = account, scanId = UUID.randomUUID().toString(), cursor = null,
+            pagesComplete = false, catchUpToken = token, loadedCount = 0, totalCount = total,
+            startedAtEpochMillis = startedAt, updatedAtEpochMillis = startedAt)
+        exclusiveCatalog {
+            checkAccount(account, "Account changed during catalog refresh")
+            sync.upsertScan(scan)
+        }
+        return scan
+    }
+
+    /** Applies library changes since [start] to the catalog a page at a time, and returns the token after them. */
+    private suspend fun applyChanges(start: String, stamp: String, account: String): String {
+        var token = start
+        val visited = mutableSetOf<String>()
+        val known = KnownCloudRecords { master -> sync.assetRecordNames(master) }
+        do {
+            checkAccount(account, "Account changed during sync")
+            check(visited.add(token)) { "Repeated change cursor" }
+            val page = throttled { cloudSource.changes(token, known) }
+            exclusiveCatalog {
+                checkAccount(account, "Account changed before publishing changes")
+                database.withTransaction {
+                    page.deletedRecordNames.toList().chunked(SQLITE_BIND_CHUNK_SIZE / 2).forEach { names ->
+                        sync.unstampRecords(names, names)
+                    }
+                    writeRecords(page.upserts, stamp)
+                }
+            }
+            token = page.nextToken
+        } while (page.moreComing)
+        return token
+    }
+
+    /** Writes [records] stamped [stamp], keeping the cached files of rows whose resources did not change. */
+    private suspend fun writeRecords(records: List<RemoteMediaRecord>, stamp: String) {
+        if (records.isEmpty()) return
+        val existing = records.map { it.id }.chunked(SQLITE_BIND_CHUNK_SIZE).flatMap { dao.findByIds(it) }.associateBy { it.mediaId }
+        dao.upsertItems(records.map { record ->
+            catalogEntity(record, existing[record.id]?.takeIf { it.resourceFingerprint == record.resourceFingerprint }, stamp)
+        })
+    }
+
+    /**
+     * Runs [block], waiting and trying again while iCloud asks Alba to slow down: as long as it says, or with growing
+     * waits when it does not. A wait longer than Alba keeps a refresh open for fails the refresh, so background work
+     * can come back later.
+     */
+    private suspend fun <T> throttled(block: suspend () -> T): T {
+        var attempt = 0
+        while (true) {
+            val outcome = runCatching { block() }
+            val error = outcome.exceptionOrNull() ?: return outcome.getOrThrow()
+            attempt++
+            pause(throttleWait(error, attempt) ?: throw error)
+        }
+    }
+
+    /** How long to wait before attempt [attempt] after [error], or null when it is not throttling or waited enough. */
+    private fun throttleWait(error: Throwable, attempt: Int): Long? {
+        if (error is kotlinx.coroutines.CancellationException || attempt > MAX_THROTTLE_RETRIES) return null
+        val throttle = generateSequence(error) { it.cause }.take(MAX_CAUSE_DEPTH).filterIsInstance<ThrottledFailure>().firstOrNull()
+            ?: return null
+        val wait = throttle.retryAfterMillis?.coerceAtLeast(MIN_THROTTLE_WAIT_MILLIS)
+            ?: (MIN_THROTTLE_WAIT_MILLIS shl (attempt - 1).coerceAtMost(MAX_BACKOFF_SHIFT))
+        return wait.takeIf { it <= MAX_THROTTLE_WAIT_MILLIS }
     }
 
     private class HiddenRead(val records: List<RemoteMediaRecord>, val complete: Boolean)
@@ -491,12 +646,12 @@ class DefaultGalleryRepository(
      * The Hidden album. An incomplete read keeps the last hidden rows rather than failing the whole refresh, and is
      * reported in the refresh summary so the user hears about it.
      */
-    private suspend fun hiddenSnapshot(account: String, oldItems: List<CatalogItemEntity>): HiddenRead =
-        try { HiddenRead(cloudSource.hiddenMedia(), complete = true) }
+    private suspend fun hiddenSnapshot(account: String): HiddenRead =
+        try { HiddenRead(throttled { cloudSource.hiddenMedia() }, complete = true) }
         catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
         catch (_: Exception) {
             checkAccount(account, "Account changed during hidden refresh")
-            HiddenRead(oldItems.filter { it.isHidden && !it.isTrashed && it.mediaId.startsWith("icloud:$account:") }.map(::toRemote), false)
+            HiddenRead(sync.hiddenCloudItems("icloud:$account:").map(::toRemote), false)
         }
 
     override suspend fun ensureViewer(mediaId: String) = withMediaLock(mediaId) {
@@ -552,6 +707,7 @@ class DefaultGalleryRepository(
         database.withTransaction {
             dao.deleteByOrigin(MediaOrigin.ICLOUD.name)
             dao.deleteCheckpoints("icloud:%")
+            sync.deleteScans()
             library.clearMembers()
             library.clearCollections()
         }
@@ -588,28 +744,6 @@ class DefaultGalleryRepository(
             isHidden = record.isHidden, details = record.details.takeIf { it != MediaDetails() },
         )
 
-    private suspend fun bootstrap(account: String): CompleteCloudCatalog {
-        val token = cloudSource.captureSyncToken()
-        val full = readCompleteCloudCatalog(account)
-        return if (token == null) full.copy(changeToken = "") else applyChanges(full.records, token, account)
-    }
-
-    private suspend fun applyChanges(initial: List<RemoteMediaRecord>, start: String, account: String): CompleteCloudCatalog {
-        val records = initial.associateBy { it.id }.toMutableMap()
-        var token = start
-        val visited = mutableSetOf<String>()
-        do {
-            checkAccount(account, "Account changed during sync")
-            check(visited.add(token)) { "Repeated change cursor" }
-            val page = cloudSource.changes(token, records.values.toList())
-            records.entries.removeAll { (_, value) -> value.assetRecordName in page.deletedRecordNames || value.masterRecordName in page.deletedRecordNames }
-            page.upserts.forEach { records[it.id] = it }
-            check(records.size <= MAX_CATALOG_ITEMS)
-            token = page.nextToken
-        } while (page.moreComing)
-        return CompleteCloudCatalog(records.values.toList(), token)
-    }
-
     private suspend fun requireCloudItem(mediaId: String): CatalogItemEntity {
         val entity = requireNotNull(dao.findById(mediaId)) { "Unknown media item: $mediaId" }
         require(entity.origin == MediaOrigin.ICLOUD.name) { "Device originals are not cache entries" }
@@ -621,34 +755,6 @@ class DefaultGalleryRepository(
 
     private suspend fun <T> exclusiveCatalog(block: suspend () -> T): T = catalogPermits.withPermit {
         catalogPermits.withPermit { block() }
-    }
-
-    private suspend fun readCompleteCloudCatalog(account: String): CompleteCloudCatalog {
-        val records = mutableListOf<me.lvca.alba.engine.source.RemoteMediaRecord>()
-        val visitedCursors = mutableSetOf<String?>()
-        var cursor: String? = null
-        var changeToken = ""
-        val partialScanId = UUID.randomUUID().toString()
-
-        do {
-            checkAccount(account, "Account changed during catalog refresh")
-            check(visitedCursors.add(cursor)) { "Cloud catalog repeated cursor: $cursor" }
-            val page = cloudSource.fetchPage(cursor = cursor, limit = PAGE_SIZE)
-            check(records.size + page.records.size <= MAX_CATALOG_ITEMS) { "Cloud catalog exceeded safety limit" }
-            // Make new photos visible during the first full scan. Never remove or
-            // replace existing rows, prune files, or advance the token until it finishes.
-            exclusiveCatalog {
-                checkAccount(account, "Account changed before publishing page")
-                val existing = dao.findByIds(page.records.map { it.id }).mapTo(HashSet()) { it.mediaId }
-                dao.upsertItems(page.records.filterNot { it.id in existing }.map { catalogEntity(it, null, partialScanId) })
-            }
-            records += page.records
-            check(records.size <= MAX_CATALOG_ITEMS) { "Cloud catalog exceeded v1 safety limit" }
-            cursor = page.nextCursor
-            changeToken = page.changeToken
-        } while (cursor != null)
-
-        return CompleteCloudCatalog(records = records, changeToken = changeToken)
     }
 
     private fun toModel(entity: CatalogItemEntity): GalleryMedia {
@@ -688,14 +794,14 @@ class DefaultGalleryRepository(
         )
     }
 
-    private data class CompleteCloudCatalog(
-        val records: List<me.lvca.alba.engine.source.RemoteMediaRecord>,
-        val changeToken: String,
-    )
-
     private companion object {
         const val PAGE_SIZE = 100
-        const val MAX_CATALOG_ITEMS = 100_000
+        const val CATALOG_WALK_SIZE = 500
+        const val MAX_CAUSE_DEPTH = 8
+        const val MAX_THROTTLE_RETRIES = 5
+        const val MIN_THROTTLE_WAIT_MILLIS = 2_000L
+        const val MAX_BACKOFF_SHIFT = 5
+        const val MAX_THROTTLE_WAIT_MILLIS = 60_000L
         const val MEDIA_LOCK_STRIPES = 64
         const val SQLITE_BIND_CHUNK_SIZE = 900
         const val DEFAULT_DEVICE_ACCENT_START = 0xFF5C6670L

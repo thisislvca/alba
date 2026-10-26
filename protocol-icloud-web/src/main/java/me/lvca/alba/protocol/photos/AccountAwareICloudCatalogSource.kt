@@ -43,7 +43,8 @@ class AccountAwareICloudCatalogSource(
     override suspend fun storageUsage() = currentSource().storageUsage()
     override suspend fun writeMotion(mediaId: String, output: OutputStream) = sourceForMedia(mediaId).writeMotion(mediaId, output)
     override suspend fun captureSyncToken() = currentSource().captureSyncToken()
-    override suspend fun changes(token: String, known: List<me.lvca.alba.engine.source.RemoteMediaRecord>) = currentSource().changes(token, known)
+    override suspend fun changes(token: String, known: me.lvca.alba.engine.source.KnownCloudRecords) = currentSource().changes(token, known)
+    override suspend fun libraryItemCount() = currentSource().libraryItemCount()
     override suspend fun collections() = currentSource().collections()
     override suspend fun openPlayback(mediaId: String, position: Long, length: Long) = sourceForMedia(mediaId).openPlayback(mediaId, position, length)
 

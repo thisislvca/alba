@@ -12,6 +12,12 @@ data class RefreshSummary(
     val hiddenUnavailable: Boolean = false,
 )
 
+/**
+ * A first full read of the iCloud library while it runs: [loadedCount] items so far, out of [totalCount] when iCloud
+ * said how many there are.
+ */
+data class CatalogScanProgress(val loadedCount: Int, val totalCount: Int? = null)
+
 /** Reading the catalog does not imply permission to edit or export originals. */
 interface GalleryReader {
     suspend fun findMedia(id: String): GalleryMedia?
@@ -21,6 +27,12 @@ interface GalleryReader {
     suspend fun refreshDevice()
     suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary
     suspend fun clearCloudCatalog()
+
+    /** The signed-in account's unfinished first library read, or null when there is none. */
+    fun observeCatalogScan(): Flow<CatalogScanProgress?> = kotlinx.coroutines.flow.flowOf(null)
+
+    /** Continues an unfinished first library read, as background work does; null when there is none to continue. */
+    suspend fun resumeCatalogScan(): RefreshSummary? = null
 }
 
 interface OriginalExporter {

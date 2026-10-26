@@ -272,6 +272,8 @@ internal fun GalleryHome(
         signedIn?.status == SessionStatus.EXPIRED -> stringResource(R.string.sign_in_again_saved_photos_available)
         signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED -> stringResource(R.string.icloud_photos_is_not_active)
         session.network?.online == false || signedIn?.status == SessionStatus.OFFLINE -> stringResource(R.string.offline_saved_photos_available)
+        // The first read of a large library takes a while: say how far it is rather than only that it is updating.
+        session.catalogScan != null -> catalogScanLabel(session.catalogScan)
         session.isRefreshing -> stringResource(R.string.updating_library)
         signedIn?.status == SessionStatus.VERIFIED -> stringResource(R.string.icloud_photos)
         else -> stringResource(R.string.connect_to_icloud)
@@ -440,7 +442,10 @@ internal fun GalleryHome(
                         }
                         val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
                         if (libraryHeader && gallery.selection.isEmpty()) BackupStatusChip(session, transfers, actions::openBackup)
-                        if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
+                        val scanFraction = session.catalogScan?.fraction()
+                        if (session.isRefreshing && scanFraction != null) {
+                            LinearProgressIndicator(progress = { scanFraction }, modifier = Modifier.fillMaxWidth().height(2.dp).testTag("catalog-scan-bar"))
+                        } else if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions)
                         else if (filterRow) {
                             if (tab == GalleryTab.SEARCH) GallerySearchBar(query.filename, { actions.changeQuery(query.copy(filename = it)) },
@@ -499,7 +504,8 @@ internal fun GalleryHome(
                             unfiltered = unfiltered,
                             connectPrompt = connectPrompt,
                             isRefreshing = session.isRefreshing,
-                            counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount, limitedAccess = limitedNote),
+                            counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount, limitedAccess = limitedNote,
+                                catalogScan = session.catalogScan),
                             previewRetryVersion = previewRetryVersion,
                             grid = when (shown.tab) {
                                 GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid
@@ -664,7 +670,13 @@ internal sealed interface GallerySheet {
  * The library's totals, shown under the grid. [limitedAccess] marks Android 14's partial access, where [device] counts
  * only the photos the user selected for Alba.
  */
-internal data class PhotoCounts(val cloud: Int, val device: Int, val limitedAccess: Boolean = false)
+internal data class PhotoCounts(
+    val cloud: Int,
+    val device: Int,
+    val limitedAccess: Boolean = false,
+    /** The first full read of the iCloud library, while it is unfinished. */
+    val catalogScan: CatalogScanProgress? = null,
+)
 
 /**
  * A grid of photos grouped by month, and by day from the [GridLevel.DAY] level up. Takes the lists it shows rather
@@ -781,7 +793,7 @@ private fun PhotoGrid(
         if (leading != null) item(key = "gallery-leading", span = { GridItemSpan(maxLineSpan) }) { Column(posed("gallery-leading")) { leading() } }
         if (items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
+                if (isRefreshing || counts.catalogScan != null) LibraryLoading(counts.catalogScan, isRefreshing)
                 else if (query.collectionId?.startsWith("shared:") == true) Text(stringResource(R.string.shared_album_empty))
                 else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
                 else if (query.collectionId == GalleryQuery.HIDDEN) Text(stringResource(R.string.hidden_empty))

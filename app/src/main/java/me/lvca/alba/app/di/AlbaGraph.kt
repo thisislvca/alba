@@ -11,7 +11,9 @@ import me.lvca.alba.app.platform.PhotoEditStore
 import me.lvca.alba.app.platform.networkStatus
 import me.lvca.alba.app.transfers.TransferScheduler
 import me.lvca.alba.app.work.BackupNotifications
+import me.lvca.alba.app.work.CatalogSyncScheduler
 import me.lvca.alba.app.work.UserTransferScheduler
+import me.lvca.alba.app.work.WorkManagerCatalogSyncScheduler
 import me.lvca.alba.app.work.WorkManagerWakeupScheduler
 import me.lvca.alba.app.work.cancelUserTransfers
 import me.lvca.alba.engine.cache.MediaFileCache
@@ -110,5 +112,6 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         override fun schedule() = UserTransferScheduler(appContext).enqueue(wifiOnly = backupPreferences.manualTransfersWaitForWifi)
         override suspend fun cancel() = cancelUserTransfers(appContext)
     }
+    val catalogSync: CatalogSyncScheduler = WorkManagerCatalogSyncScheduler(appContext)
     val network = networkStatus(appContext)
 }

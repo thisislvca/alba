@@ -55,7 +55,8 @@ class SharedGalleryRepositoryTest {
             assertEquals(0, source.edits)
             source.offline = false
             repo.refresh(false)
-            assertFalse(source.known.any { SharedMediaIdentity.isShared(it.id) })
+            // The shared copy has the same record names as the personal photo; only the personal one is known.
+            assertEquals(listOf("asset"), source.known)
             media = repo.observeGallery().first().first { it.id == Source.SHARED }
             assertEquals(MediaAvailability.ORIGINAL_CACHED, media.availability)
             val path = requireNotNull(media.originalReference)
@@ -93,14 +94,14 @@ class SharedGalleryRepositoryTest {
 
     private class Source : CloudCatalogSource {
         var contributor = false; var uploaded = byteArrayOf()
-        var offline = false; var revoked = false; var edits = 0; var known = emptyList<RemoteMediaRecord>(); var personalName = "same.jpg"
+        var offline = false; var revoked = false; var edits = 0; var known = emptyList<String>(); var personalName = "same.jpg"
         override val accountLabel = "test"
         private fun record(id: String) = RemoteMediaRecord(id, if(id == "icloud:test:asset") personalName else "same.jpg", 1000, 640, 480, "m:a", 0, 0,
             masterRecordName = "master", assetRecordName = "asset", resourceFingerprint = "bytes")
         override suspend fun fetchPage(cursor: String?, limit: Int) = CloudCatalogPage(listOf(record("icloud:test:asset")), null, "token")
         override suspend fun captureSyncToken() = "token"
-        override suspend fun changes(token: String, known: List<RemoteMediaRecord>): CloudChanges {
-            this.known = known
+        override suspend fun changes(token: String, known: me.lvca.alba.engine.source.KnownCloudRecords): CloudChanges {
+            this.known = known.assetRecordNames("master")
             return CloudChanges(listOf(record("icloud:test:asset")), emptySet(), "token", false)
         }
         override suspend fun collections() = CollectionSnapshot(listOf(GalleryCollection("personal-album", "Personal")), emptyMap())

@@ -86,6 +86,32 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
+    fun schemaSeventeenAddsTheResumableLibraryReadKeepingTheCatalogAndToken() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 17).use { db ->
+            db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision," +
+                "resourceFingerprint,accentStartArgb,accentEndArgb,lastSeenScanId,masterRecordName,assetRecordName) " +
+                "VALUES ('kept','photo.heic',1,20,30,'ICLOUD','rev','fingerprint',0,0,'scan','master','asset')")
+            db.execSQL("INSERT INTO media_cache (mediaId,previewCachePath,resourceFingerprint) VALUES ('kept','/preview','fingerprint')")
+            db.execSQL("INSERT INTO catalog_checkpoints VALUES ('icloud:account','token',10)")
+        }
+        helper.runMigrationsAndValidate(DATABASE_NAME, 18, true, AlbaDatabase.MIGRATION_17_18).close()
+        val migrated = AlbaDatabase.create(context)
+        try {
+            val dao = migrated.catalogDao()
+            // A library that finished its read on schema 17 keeps its token and refreshes incrementally.
+            assertEquals("/preview", dao.findById("kept")?.previewCachePath)
+            assertEquals("token", dao.checkpoint("icloud:account")?.changeToken)
+            val sync = migrated.catalogSyncDao()
+            assertEquals(null, sync.scan("account"))
+            assertEquals(listOf("asset"), sync.assetRecordNames("master"))
+            val scan = CatalogScanEntity("account", "scan", "100", pagesComplete = false, catchUpToken = "token",
+                loadedCount = 100, totalCount = 5_000, startedAtEpochMillis = 1, updatedAtEpochMillis = 2)
+            sync.upsertScan(scan)
+            assertEquals(scan, sync.scan("account"))
+        } finally { migrated.close() }
+    }
+
+    @Test
     fun schemaFourteenPreservesCollectionsAndCanStoreSelectedCover() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 14).use { db ->
             db.execSQL("INSERT INTO collections (account, collectionId, name, isFolder, position) VALUES ('demo-library', 'album', 'Keep me', 0, 3)")

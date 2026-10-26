@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.CatalogResetRequired
+import me.lvca.alba.engine.source.KnownCloudRecords
 import me.lvca.alba.protocol.account.*
 import me.lvca.alba.protocol.network.*
 import org.junit.Assert.*
@@ -47,19 +48,19 @@ class CatalogFeaturesTest {
         val t = Transport()
         val s = source(t)
         assertEquals("before", s.captureSyncToken())
-        val page = s.changes("before", s.fetchPage(null, 100).records)
+        val page = s.changes("before", KnownCloudRecords.of(s.fetchPage(null, 100).records))
         assertEquals("after", page.nextToken)
         assertEquals("asset", page.upserts.single().assetRecordName)
         assertEquals(setOf("gone"), page.deletedRecordNames)
         t.expiredToken = true
-        assertTrue(runCatching { s.changes("old", emptyList()) }.exceptionOrNull() is CatalogResetRequired)
+        assertTrue(runCatching { s.changes("old", KnownCloudRecords.NONE) }.exceptionOrNull() is CatalogResetRequired)
     }
     @Test fun aNewlyHiddenAssetIsFlaggedNotRemoved() = runBlocking {
         val t = Transport()
         val s = source(t)
         val known = s.fetchPage(null, 100).records
         t.hidden = true
-        val page = s.changes("before", known)
+        val page = s.changes("before", KnownCloudRecords.of(known))
         assertTrue(page.upserts.single { it.assetRecordName == "asset" }.isHidden)
         assertEquals(setOf("gone"), page.deletedRecordNames)
     }

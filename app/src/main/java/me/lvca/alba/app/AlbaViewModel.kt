@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
@@ -58,6 +59,7 @@ class AlbaViewModel(
     private val effectQueue = EffectQueue()
     private val network = dependencies.network.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val runner = MediaActionRunner(viewModelScope, dependencies.diagnostics, messages)
+    private val catalogSync = dependencies.catalogSync
     private val diagnostics = dependencies.diagnostics
 
     internal val previews: PreviewController = PreviewController(
@@ -164,6 +166,14 @@ class AlbaViewModel(
 
     init {
         sync.start()
+        // An unfinished first read of the library also runs as background work whenever a refresh runs it, as at its
+        // start or after signing in again, so leaving Alba does not lose it. Scheduling is idempotent.
+        viewModelScope.launch {
+            sync.state.map { it.isRefreshing && it.catalogScan != null && dependencies.accountManager.session.value != null }
+                .distinctUntilChanged().collect { running ->
+                if (running) catalogSync.schedule(expedited = true)
+            }
+        }
     }
 
     fun dismissMessage() = messages.clear()
@@ -258,6 +268,7 @@ class AlbaViewModel(
     /** Stops everything that belongs to the outgoing account and waits for it to end. */
     private suspend fun cancelCloudWork() {
         transfers.cancelActiveBatches()
+        catalogSync.cancel()
         val jobs = buildList<Job> {
             sync.cancel()?.let(::add)
             addAll(previews.cancel())

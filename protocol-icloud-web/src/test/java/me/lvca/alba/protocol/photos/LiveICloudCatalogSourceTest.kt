@@ -52,7 +52,7 @@ class LiveICloudCatalogSourceTest {
         """.trimIndent()
         val source = LiveICloudCatalogSource(ChangesTransport(200, changes), { SESSION })
 
-        val result = source.changes("saved-token", emptyList())
+        val result = source.changes("saved-token", me.lvca.alba.engine.source.KnownCloudRecords.NONE)
 
         assertEquals("next-token", result.nextToken)
         assertEquals(setOf("INVALID_SYNC_TOKEN"), result.deletedRecordNames)
@@ -71,7 +71,7 @@ class LiveICloudCatalogSourceTest {
         )
         for ((code, body) in cases) {
             val source = LiveICloudCatalogSource(ChangesTransport(code, body), { SESSION })
-            val error = runCatching { source.changes("saved-token", emptyList()) }.exceptionOrNull()
+            val error = runCatching { source.changes("saved-token", me.lvca.alba.engine.source.KnownCloudRecords.NONE) }.exceptionOrNull()
             assertTrue("HTTP $code $body", error is me.lvca.alba.engine.source.CatalogResetRequired)
         }
     }
@@ -80,9 +80,39 @@ class LiveICloudCatalogSourceTest {
         for (code in listOf("THROTTLED", "ZONE_BUSY", "TRY_AGAIN_LATER", "INTERNAL_ERROR")) {
             val body = """{"zones":[{"zoneID":{"zoneName":"PrimarySync"},"serverErrorCode":"$code","reason":"busy"}]}"""
             val source = LiveICloudCatalogSource(ChangesTransport(200, body), { SESSION })
-            val error = runCatching { source.changes("saved-token", emptyList()) }.exceptionOrNull()
+            val error = runCatching { source.changes("saved-token", me.lvca.alba.engine.source.KnownCloudRecords.NONE) }.exceptionOrNull()
             assertTrue("$code: $error", error is AppleProtocolException)
             assertEquals(code, AppleProtocolError.NETWORK, (error as AppleProtocolException).error)
+        }
+    }
+
+    @Test fun throttlingSaysHowLongToWaitSoALibraryReadCanBackOff() = runBlocking {
+        val body = """{"zones":[{"zoneID":{"zoneName":"PrimarySync"},"serverErrorCode":"THROTTLED","retryAfter":12}]}"""
+        val zone = runCatching { LiveICloudCatalogSource(ChangesTransport(200, body), { SESSION })
+            .changes("saved-token", me.lvca.alba.engine.source.KnownCloudRecords.NONE) }.exceptionOrNull()
+        assertEquals(12_000L, (zone as me.lvca.alba.engine.source.ThrottledFailure).retryAfterMillis)
+        val failed = runCatching { LiveICloudCatalogSource(ChangesTransport(200, body.replace("THROTTLED", "INTERNAL_ERROR")), { SESSION })
+            .changes("saved-token", me.lvca.alba.engine.source.KnownCloudRecords.NONE) }.exceptionOrNull()
+        assertFalse(failed is me.lvca.alba.engine.source.ThrottledFailure)
+
+        val cases = listOf(
+            AppleHttpResponse(429, mapOf("retry-after" to "30"), "{}") to 30_000L,
+            AppleHttpResponse(503, emptyMap(), """{"serverErrorCode":"TRY_AGAIN_LATER","retryAfter":5}""") to 5_000L,
+            AppleHttpResponse(429, emptyMap(), "") to null,
+        )
+        for ((response, wait) in cases) {
+            val transport = object : AppleHttpTransport {
+                override suspend fun execute(request: AppleHttpRequest) = response
+                override suspend fun stream(url: String, output: OutputStream) = error("Not used")
+                override fun snapshotCookies() = SESSION.cookies
+                override fun restore(snapshot: AppleSessionSnapshot) = Unit
+                override fun clear() = Unit
+            }
+            val error = runCatching { LiveICloudCatalogSource(transport, { SESSION }).captureSyncToken() }.exceptionOrNull()
+            assertTrue("HTTP ${response.code}: $error", error is me.lvca.alba.engine.source.ThrottledFailure)
+            assertEquals(wait, (error as me.lvca.alba.engine.source.ThrottledFailure).retryAfterMillis)
+            // Still a network problem to the user, as before.
+            assertEquals(AppleProtocolError.NETWORK, (error as AppleProtocolException).error)
         }
     }
 

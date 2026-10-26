@@ -36,15 +36,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TrashAttemptEntity::class,
         TrashObligationEntity::class,
         CollectionEntity::class, CollectionMemberEntity::class, BatchItemEntity::class, UploadCheckpointEntity::class,
-        UploadPauseEntity::class, DiscoveryFailureEntity::class,
+        UploadPauseEntity::class, DiscoveryFailureEntity::class, CatalogScanEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true,
     autoMigrations = [AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15), AutoMigration(from = 15, to = 16)],
 )
 abstract class AlbaDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao
     abstract fun catalogDao(): CatalogDao
+    abstract fun catalogSyncDao(): CatalogSyncDao
 
     abstract fun uploadTransferDao(): UploadTransferDao
 
@@ -56,6 +57,18 @@ abstract class AlbaDatabase : RoomDatabase() {
     abstract fun trashDao(): TrashDao
 
     companion object {
+        /** Adds the resumable library read and indexes the iCloud record names that library changes refer to. */
+        internal val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `catalog_scans` (`account` TEXT NOT NULL, `scanId` TEXT NOT NULL, " +
+                    "`cursor` TEXT, `pagesComplete` INTEGER NOT NULL, `catchUpToken` TEXT, `loadedCount` INTEGER NOT NULL, " +
+                    "`totalCount` INTEGER, `startedAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`account`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_catalog_items_masterRecordName` ON `catalog_items` (`masterRecordName`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_catalog_items_assetRecordName` ON `catalog_items` (`assetRecordName`)")
+            }
+        }
+
         /** Adds Hidden and the descriptive fields (title, caption, location, time zone, burst), then rehydrates iCloud. */
         internal val MIGRATION_16_17 = object : Migration(16, 17) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -205,6 +218,6 @@ abstract class AlbaDatabase : RoomDatabase() {
             AlbaDatabase::class.java,
             // Named before the Alba rename and stored on devices; keep it.
             "mela-catalog.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_16_17).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_16_17, MIGRATION_17_18).build()
     }
 }
