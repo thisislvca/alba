@@ -337,7 +337,7 @@
     <string name="storage_is_full_uploads_may_be_refused">Storage is full. Uploads may be refused.</string>
     <string name="storage_usage_is_not_available_yet">Storage usage is not available yet.</string>
     <string name="storage_used">%1$s of %2$s used</string>
-    <string name="supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke">Alba supports standard two-factor authentication and your Personal Library. You can upload supported photos and videos manually. Automatic backup covers only new Camera JPEGs. Shared Albums, Shared Library, security-key accounts, and Advanced Data Protection web approval are not supported.</string>
+    <string name="supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke">Alba supports standard two-factor authentication, your Personal Library and Shared Albums. You can upload supported photos and videos manually. Automatic backup covers only new Camera JPEGs. iCloud Shared Photo Library and accounts that use security keys or Advanced Data Protection are not supported yet.</string>
     <string name="terms_update_required">Open iCloud in a browser and accept Apple’s updated terms, then return to Alba.</string>
     <string name="the_saved_account_could_not_be_opened_your_library_has_not_been_replaced">The saved account could not be opened. Your library has not been replaced.</string>
     <string name="the_zip_preserves_the_original_still_image_and_motion_clip_your_gallery_may_show_them">The ZIP preserves the original still image and motion clip. Your gallery may show them as separate items.</string>
@@ -684,7 +684,7 @@
     <string name="about_missing_folders">Creating and moving iCloud album folders, editing photos in iCloud, and searching by faces or objects.</string>
     <string name="about_missing_accounts">Advanced Data Protection web approval, security-key sign-in and multiple saved Apple Accounts.</string>
     <string name="about_missing_provider">Showing cloud-only photos inside other Android gallery apps.</string>
-    <string name="about_missing_support">An in-app feedback form and a safe diagnostic export for support.</string>
+    <string name="about_missing_support">A safe diagnostic export for support.</string>
     <string name="about_notices">Third-party notices</string>
     <string name="about_hide_notices">Hide notices</string>
     <string name="icloud_photos_is_not_active">iCloud Photos isn’t active</string>
@@ -786,4 +786,68 @@
     <string name="label_with_detail">%1$s · %2$s</string>
     <!-- The first and last month of a scrollable timeline. -->
     <string name="month_span">%1$s – %2$s</string>
+
+    <!-- Sign-in: fields, inline errors and help links. -->
+    <string name="sign_in_unsupported_accounts">Accounts that use Advanced Data Protection or security keys can’t sign in to Alba yet.</string>
+    <string name="sign_in_show_password">Show password</string>
+    <string name="sign_in_hide_password">Hide password</string>
+    <string name="sign_in_forgot_password">Forgot password?</string>
+    <string name="sign_in_code_by_sms">Get a code by text message</string>
+    <string name="sign_in_error_security_key">This Apple Account uses security keys. Apple’s web sign-in, which Alba uses, can’t accept them yet, so Alba can’t connect to this account.</string>
+    <string name="sign_in_error_too_many_attempts">Apple paused sign-in after too many attempts. Wait a while, then try again. If Apple locked your account, unlock it at iforgot.apple.com.</string>
+    <string name="sign_in_help_security_keys">About security keys</string>
+    <string name="sign_in_help_unlock">Unlock or reset your account</string>
+    <string name="web_access_off_title">Turn on web access to iCloud data</string>
+    <string name="web_access_off_message">Access iCloud Data on the Web is off for this account. Advanced Data Protection turns it off by default. On your iPhone, open Settings, tap your name, then iCloud, and turn it on.</string>
+    <string name="web_access_off_help">How to turn it on</string>
+    <string name="browser_unavailable">No browser is available to open this link.</string>
+    <!-- Sign-out confirmation. -->
+    <string name="sign_out_confirm_title">Sign out of iCloud?</string>
+    <string name="remove_saved_account_confirm_title">Remove saved account?</string>
+    <string name="sign_out_confirm_body">Alba removes the iCloud photos it saved on this phone, including offline copies, and your saved sign-in. Nothing in iCloud is changed or deleted, and copies you saved to your phone’s gallery stay.</string>
+    <string name="sign_out_confirm_action">Sign out</string>
+    <string name="remove_saved_account_confirm_action">Remove</string>
+    <!-- Trash for a selection of phone and iCloud items. -->
+    <string name="mixed_trash_title">Move to trash?</string>
+    <string name="mixed_trash_action">Move to trash</string>
+    <plurals name="mixed_trash_cloud">
+        <item quantity="one">1 iCloud item moves to Recently Deleted on all your devices. It can normally be recovered for 30 days.</item>
+        <item quantity="other">%1$d iCloud items move to Recently Deleted on all your devices. They can normally be recovered for 30 days.</item>
+    </plurals>
+    <plurals name="mixed_trash_phone">
+        <item quantity="one">1 item on this phone moves to Android’s trash. Android asks you to confirm.</item>
+        <item quantity="other">%1$d items on this phone move to Android’s trash. Android asks you to confirm.</item>
+    </plurals>
+    <plurals name="mixed_trash_moved">
+        <item quantity="one">Moved to trash</item>
+        <item quantity="other">%1$d moved to trash</item>
+    </plurals>
+    <!-- About: links. -->
+    <string name="about_privacy_policy">Privacy policy</string>
+    <string name="about_feedback">Report a problem or send feedback</string>
+    <string name="about_feedback_detail">Opens a new issue on GitHub</string>
+    <string name="about_source_detail">Alba is open source</string>
+    <!-- Phone photo access. -->
+    <plurals name="limited_access_note">
+        <item quantity="one">Alba can see 1 selected photo</item>
+        <item quantity="other">Alba can see %1$d selected photos</item>
+    </plurals>
+    <string name="limited_access_change">Change</string>
+    <string name="limited_access_dismiss">Dismiss selected photos note</string>
+    <string name="phone_photo_settings_hint">Allow photo access for Alba in Settings, under Permissions.</string>
+    <string name="media_location_title">Keep photo locations</string>
+    <string name="media_location_body">Alba asks for photo location access so uploads keep where each photo was taken; without it, Android removes the location from the copy.</string>
+    <!-- Viewer: other apps and printing. -->
+    <string name="viewer_use_as">Use as</string>
+    <string name="viewer_open_with">Open with</string>
+    <string name="viewer_edit_in">Edit in…</string>
+    <string name="viewer_print">Print</string>
+    <string name="viewer_preparing_original">Getting the original…</string>
+    <string name="message_no_app_can_open_this">No app on this phone can do that with this item.</string>
+    <string name="message_could_not_prepare_the_original">Couldn’t get the original. Try again.</string>
+    <!-- Recently Deleted: time left before permanent deletion. -->
+    <plurals name="trash_days_left">
+        <item quantity="one">1 day left</item>
+        <item quantity="other">%1$d days left</item>
+    </plurals>
 </resources>

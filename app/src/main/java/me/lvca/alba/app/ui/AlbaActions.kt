@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui
 
+import me.lvca.alba.app.account.SignInDraft
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
@@ -67,6 +68,9 @@ interface LibraryEditActions {
     fun confirmRemoveFromAlbum(albumId: String, mediaIds: List<String>)
     fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean)
 
+    /** One confirmation for a selection of phone and iCloud items: each goes to its own trash. */
+    fun confirmMixedTrash(items: List<GalleryMedia>)
+
     /** Asks Android to move phone copies to its trash, or to restore them from it. */
     fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean)
     fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>)
@@ -98,14 +102,41 @@ interface ViewerActions {
     fun removeCachedOriginal(mediaId: String)
     fun cancelOfflineDownload()
     fun moveVerifiedPhotoToTrash(mediaId: String)
+
+    /** Hands a copy of the original to another app (wallpaper, contact photo, viewer, editor) or to printing. */
+    fun useElsewhere(media: GalleryMedia, use: ExternalUse)
+}
+
+/** What another app or the system does with a copy of a photo or video from the viewer. */
+enum class ExternalUse {
+    /** ACTION_ATTACH_DATA: wallpaper, contact photo and similar. */
+    USE_AS,
+
+    /** ACTION_VIEW in a chooser. */
+    OPEN_WITH,
+
+    /** ACTION_EDIT in a chooser. */
+    EDIT_IN,
+
+    /** Android's print framework, for photos. */
+    PRINT,
 }
 
 /** The account screen: sign-in, connection, backup and diagnostics. */
 interface AccountActions {
+    /** The password being typed, kept in memory across rotation but never in saved state. */
+    val signInDraft: SignInDraft
+
     fun closeAccount()
     fun signIn(appleId: String, password: String)
     fun submitTwoFactor(code: String)
     fun resendTwoFactor()
+
+    /** Asks Apple to text the verification code to the trusted phone number instead. */
+    fun sendCodeBySms()
+
+    /** The user edited the sign-in or code form, so its error no longer applies. */
+    fun clearSignInProblem()
     fun signOut()
     fun checkConnection()
     fun retryRestore()

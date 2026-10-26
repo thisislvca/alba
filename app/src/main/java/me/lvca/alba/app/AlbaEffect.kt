@@ -2,12 +2,14 @@ package me.lvca.alba.app
 
 import android.content.Intent
 import android.content.IntentSender
+import android.net.Uri
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import me.lvca.alba.app.ui.ExternalUse
 import java.util.concurrent.atomic.AtomicLong
 
 /** A one-shot platform request that the UI performs once, even across a configuration change. */
@@ -17,6 +19,9 @@ sealed interface AlbaEffect {
 
     /** Ask Android to confirm moving a verified phone original to its trash. */
     data class ConfirmVerifiedTrash(val request: IntentSender) : AlbaEffect
+
+    /** Hand a prepared copy to another app, or print it. [uri] is a FileProvider copy readable through a grant. */
+    data class UseElsewhere(val use: ExternalUse, val uri: Uri, val mimeType: String, val name: String) : AlbaEffect
 
     /** Ask for the media permissions automatic backup needs before it can be enabled. */
     data class RequestBackupPermissions(val permissions: List<String>) : AlbaEffect

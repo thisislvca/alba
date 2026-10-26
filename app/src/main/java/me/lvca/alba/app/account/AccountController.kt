@@ -21,6 +21,7 @@ import me.lvca.alba.app.diagnostics.DiagnosticOutcome
 import me.lvca.alba.app.gallery.LibrarySync
 import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.messages.UserMessages
+import me.lvca.alba.app.messages.appleProtocolError
 import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.platform.NetworkStatus
@@ -34,6 +35,7 @@ import me.lvca.alba.protocol.account.AppleSignInResult
 import me.lvca.alba.protocol.account.ICloudAccountManager
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
+import me.lvca.alba.protocol.auth.AppleProtocolError
 import java.time.Instant
 
 data class AccountInfo(
@@ -56,12 +58,16 @@ data class SessionState(
     val lastRefreshedAt: Instant? = null,
     /** Restoring the saved account failed; the account screen offers a retry instead of a spinner. */
     val restoreFailed: Boolean = false,
+    /** The last sign-in or verification problem, shown on the form until the user edits or retries. */
+    val signInProblem: SignInProblem? = null,
+    /** The last refresh found "Access iCloud Data on the Web" off for this account. */
+    val webAccessOff: Boolean = false,
 ) {
     val cloudSourceLabel: String
         get() = if (accountState != ICloudAccountState.Demo) "iCloud Personal Library" else "Demo iCloud library"
 }
 
-private data class AccountFlags(val busy: Boolean, val info: AccountInfo, val open: Boolean)
+private data class AccountFlags(val busy: Boolean, val info: AccountInfo, val open: Boolean, val problem: SignInProblem?)
 
 /**
  * Sign-in, two-factor verification, sign-out, switching between the demo and iCloud, and connection checks.
@@ -81,6 +87,10 @@ internal class AccountController(
     private val onAccountChanged: suspend (refresh: Boolean) -> Unit,
 ) {
     private val busy = MutableStateFlow(false)
+    private val problem = MutableStateFlow<SignInProblem?>(null)
+
+    /** The password being typed; in memory only (see [SignInDraft]). */
+    val signInDraft = SignInDraft()
     private val accountInfo = MutableStateFlow(AccountInfo())
     private val accountOpen = MutableStateFlow(savedState[ACCOUNT_OPEN] ?: false)
     private var accountInfoJob: Job? = null
@@ -88,7 +98,7 @@ internal class AccountController(
 
     val state: StateFlow<SessionState> = combine(
         accountManager.state,
-        combine(busy, accountInfo, accountOpen, ::AccountFlags),
+        combine(busy, accountInfo, accountOpen, problem, ::AccountFlags),
         network,
         sync.state,
     ) { account, flags, network, sync ->
@@ -101,6 +111,8 @@ internal class AccountController(
             isRefreshing = sync.isRefreshing,
             lastRefreshedAt = sync.lastRefreshedAt,
             restoreFailed = sync.restoreFailed,
+            signInProblem = flags.problem,
+            webAccessOff = sync.webAccessOff,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), SessionState())
 
@@ -204,11 +216,19 @@ internal class AccountController(
                 }
                 cancelCloudWork()
                 messages.clear()
+                problem.value = null
                 val result = accountManager.signIn(appleId, password)
-                if (result is AppleSignInResult.SignedIn) accountChanged(refresh = accountManager.authorizedSession != null)
+                // The password stays while a code is pending, so a wrong code or a new prompt never asks for it again.
+                if (result is AppleSignInResult.SignedIn) {
+                    signInDraft.password = ""
+                    accountChanged(refresh = accountManager.authorizedSession != null)
+                }
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
-                messages.show(error.toUserMessage(R.string.message_could_not_sign_in_to_icloud))
+                val shown = signInProblem(error, codeStep = false)
+                problem.value = shown
+                if (shown == SignInProblem.WRONG_PASSWORD) signInDraft.password = ""
+                if (shown == null) messages.show(error.toUserMessage(R.string.message_could_not_sign_in_to_icloud))
             } finally {
                 busy.value = false
             }
@@ -222,11 +242,15 @@ internal class AccountController(
             try {
                 cancelCloudWork()
                 messages.clear()
+                problem.value = null
                 accountManager.submitTwoFactor(code)
+                signInDraft.password = ""
                 accountChanged(refresh = accountManager.authorizedSession != null)
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
-                messages.show(error.toUserMessage(R.string.message_could_not_verify_that_code))
+                val shown = signInProblem(error, codeStep = true)
+                problem.value = shown
+                if (shown == null) messages.show(error.toUserMessage(R.string.message_could_not_verify_that_code))
             } finally {
                 busy.value = false
             }
@@ -250,9 +274,35 @@ internal class AccountController(
         }
     }
 
-    fun signOut() {
+    /** Asks Apple to text the code to the trusted phone number instead. */
+    fun sendCodeBySms() {
+        if (busy.value) return
+        busy.value = true
+        scope.launch {
+            messages.clear()
+            problem.value = null
+            try {
+                accountManager.sendCodeBySms()
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                problem.value = signInProblem(error, codeStep = true)?.takeIf { it == SignInProblem.TOO_MANY_ATTEMPTS }
+                if (problem.value == null) messages.show(error.toUserMessage(R.string.message_could_not_send_another_code))
+            } finally {
+                busy.value = false
+            }
+        }
+    }
+
+    /** The user changed the form, so the problem it showed no longer applies. */
+    fun clearSignInProblem() {
+        problem.value = null
+    }
+
+    /** Signs out; [onSavedAccountRemoved] runs when a saved account was removed, so the UI can show the introduction. */
+    fun signOut(onSavedAccountRemoved: () -> Unit = {}) {
         scope.launch {
             try {
+                val hadSavedAccount = accountManager.session.value != null
                 val accountChange = photos.accountWillChange()
                 if (accountChange is AccountChangeResult.Blocked) {
                     messages.show(localizedStoredMessage(accountChange.reason))
@@ -260,8 +310,14 @@ internal class AccountController(
                 }
                 cancelCloudWork()
                 messages.clear()
+                problem.value = null
+                signInDraft.password = ""
                 accountManager.signOut()
                 accountChanged()
+                if (hadSavedAccount) {
+                    closeAccount()
+                    onSavedAccountRemoved()
+                }
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
                 messages.show(error.toUserMessage(R.string.message_could_not_clear_the_icloud_account))
@@ -287,4 +343,13 @@ internal class AccountController(
     private companion object {
         const val ACCOUNT_OPEN = "accountOpen"
     }
+}
+
+/** The form-level problem [error] stands for, or null when it is not about what the user entered. */
+internal fun signInProblem(error: Throwable, codeStep: Boolean): SignInProblem? = when (error.appleProtocolError()) {
+    AppleProtocolError.INVALID_CREDENTIALS -> if (codeStep) null else SignInProblem.WRONG_PASSWORD
+    AppleProtocolError.INVALID_TWO_FACTOR_CODE -> if (codeStep) SignInProblem.WRONG_CODE else null
+    AppleProtocolError.SECURITY_KEY_REQUIRED -> SignInProblem.SECURITY_KEY
+    AppleProtocolError.TOO_MANY_ATTEMPTS -> SignInProblem.TOO_MANY_ATTEMPTS
+    else -> null
 }
