@@ -13,6 +13,7 @@ import me.lvca.alba.engine.database.TransferState
 import me.lvca.alba.engine.model.AccountChangeResult
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
 import me.lvca.alba.engine.model.BackupChange
+import me.lvca.alba.engine.model.BackupControls
 import me.lvca.alba.engine.model.BackupDraftId
 import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupScope
@@ -61,14 +62,14 @@ class DefaultPhotoCompanion(
     private val intake = TransferIntake(database, originals, staging, scheduler, accounts, authority, now)
     private val invoker = UploadInvoker(database, staging, protocol, scheduler, accounts, authority, now)
     private val reconciler = Reconciler(database, protocol, authority, stages, now)
-    private val backup = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages)
+    private val enrollment = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages)
     private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts)
 
-    override fun observeBackup() = backup.observeBackup()
-    override suspend fun beginBackupEnrollment(scope: BackupScope) = backup.beginBackupEnrollment(scope)
-    override suspend fun acceptBackupDisclosure(draft: BackupDraftId) = backup.acceptBackupDisclosure(draft)
-    override suspend fun finishBackupEnrollment(draft: BackupDraftId) = backup.finishBackupEnrollment(draft)
-    override suspend fun changeBackup(change: BackupChange) = backup.changeBackup(change)
+    override fun observeBackup() = enrollment.observeBackup()
+    override suspend fun beginBackupEnrollment(scope: BackupScope) = enrollment.beginBackupEnrollment(scope)
+    override suspend fun acceptBackupDisclosure(draft: BackupDraftId) = enrollment.acceptBackupDisclosure(draft)
+    override suspend fun finishBackupEnrollment(draft: BackupDraftId) = enrollment.finishBackupEnrollment(draft)
+    override suspend fun changeBackup(change: BackupChange) = enrollment.changeBackup(change)
 
     override fun observeTransfers(): Flow<List<TransferView>> = transferDao.observeTransfers().map { rows ->
         rows.map(::toTransferView)
@@ -179,49 +180,55 @@ class DefaultPhotoCompanion(
         onProgress: suspend (checked: Int, total: Int) -> Unit,
     ) = trash.prepareTrash(items, allowPartial, onProgress)
 
-    override suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates = trash.freeUpSpaceCandidates()
-
-    override suspend fun retryTransfer(transfer: TransferId): UploadTicket = intake.retry(transfer.value).also {
-        runSuspendCatching { scheduler.scheduleSoon() }
-    }
-
-    override suspend fun retryAllTransfers(): Int {
-        val binding = accounts.requireActive()
-        return intake.retryAll(binding).also { if (it > 0) runSuspendCatching { scheduler.scheduleSoon() } }
-    }
-
-    override suspend fun backupProgress(): BackupProgress =
-        accounts.synchronize()?.let { intake.backupProgress(it) } ?: BackupProgress(0, 0)
-
-    override suspend fun deviceFolders(): List<DeviceFolder> = originals.deviceFolders()
-
-    override suspend fun backupSettingsChanged() {
-        val binding = accounts.synchronize()
-        val enabled = binding != null && authority.currentEnrollment(binding) != null
-        if (automaticBackupPolicy.settings().paused || !enabled) {
-            scheduler.setAutomaticBackupEnabled(false)
-            scheduler.cancelRunningBackup()
-        } else {
-            scheduler.setAutomaticBackupEnabled(true)
-            runSuspendCatching { scheduler.scheduleSoon() }
-        }
-    }
-
-    override suspend fun retryAfterStorageFull() {
-        val binding = accounts.requireActive()
-        transferDao.clearUploadPause(binding.accountId)
-        runSuspendCatching { scheduler.scheduleSoon() }
-    }
-
-    override suspend fun userUploadProgress(sinceEpochMillis: Long): TransferProgress {
-        val account = accountDao.findActiveAccount() ?: return TransferProgress(0, 0)
-        val total = transferDao.countManualInRun(account.accountId, sinceEpochMillis)
-        val pending = transferDao.countPendingManualTransfers(account.accountId)
-        return TransferProgress(done = (total - pending).coerceAtLeast(0), total = total)
-    }
     override suspend fun beginTrash(proposal: ReclaimProposalId) = trash.beginTrash(proposal)
     override suspend fun recordTrashResult(attempt: TrashAttemptId, result: SystemConsentCallback) =
         trash.recordTrashResult(attempt, result)
+
+    override val backup: BackupControls = Controls()
+
+    /** Backup status, settings, retry and free space, over the same intake, trash and journal. */
+    private inner class Controls : BackupControls {
+        override suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates = trash.freeUpSpaceCandidates()
+
+        override suspend fun retryTransfer(transfer: TransferId): UploadTicket = intake.retry(transfer.value).also {
+            runSuspendCatching { scheduler.scheduleSoon() }
+        }
+
+        override suspend fun retryAllTransfers(): Int {
+            val binding = accounts.requireActive()
+            return intake.retryAll(binding).also { if (it > 0) runSuspendCatching { scheduler.scheduleSoon() } }
+        }
+
+        override suspend fun backupProgress(): BackupProgress =
+            accounts.synchronize()?.let { intake.backupProgress(it) } ?: BackupProgress(0, 0)
+
+        override suspend fun deviceFolders(): List<DeviceFolder> = originals.deviceFolders()
+
+        override suspend fun backupSettingsChanged() {
+            val binding = accounts.synchronize()
+            val enabled = binding != null && authority.currentEnrollment(binding) != null
+            if (automaticBackupPolicy.settings().paused || !enabled) {
+                scheduler.setAutomaticBackupEnabled(false)
+                scheduler.cancelRunningBackup()
+            } else {
+                scheduler.setAutomaticBackupEnabled(true)
+                runSuspendCatching { scheduler.scheduleSoon() }
+            }
+        }
+
+        override suspend fun retryAfterStorageFull() {
+            val binding = accounts.requireActive()
+            transferDao.clearUploadPause(binding.accountId)
+            runSuspendCatching { scheduler.scheduleSoon() }
+        }
+
+        override suspend fun userUploadProgress(sinceEpochMillis: Long): TransferProgress {
+            val account = accountDao.findActiveAccount() ?: return TransferProgress(0, 0)
+            val total = transferDao.countManualInRun(account.accountId, sinceEpochMillis)
+            val pending = transferDao.countPendingManualTransfers(account.accountId)
+            return TransferProgress(done = (total - pending).coerceAtLeast(0), total = total)
+        }
+    }
 
     override suspend fun accountWillChange(): AccountChangeResult = accounts.accountWillChange()
 

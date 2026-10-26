@@ -203,14 +203,14 @@ class AndroidMediaStoreSource(
             null,
         )?.use { cursor ->
             while (cursor.moveToNext()) {
-                val bucket = cursor.getString(0) ?: continue
-                val volume = cursor.getString(3) ?: "external"
+                val bucket = cursor.stringOrNull(MediaStore.MediaColumns.BUCKET_ID) ?: continue
+                val volume = cursor.stringOrNull(MediaStore.MediaColumns.VOLUME_NAME) ?: "external"
                 val id = BackupFolders.folderId(volume, bucket)
-                val path = cursor.getString(2).orEmpty()
+                val path = cursor.stringOrNull(MediaStore.MediaColumns.RELATIVE_PATH).orEmpty()
                 val current = counts[id]
                 counts[id] = current?.copy(itemCount = current.itemCount + 1) ?: DeviceFolder(
                     id = id,
-                    name = cursor.getString(1) ?: path.trimEnd('/').substringAfterLast('/'),
+                    name = cursor.stringOrNull(MediaStore.MediaColumns.BUCKET_DISPLAY_NAME) ?: path.trimEnd('/').substringAfterLast('/'),
                     relativePath = path,
                     itemCount = 1,
                     isCamera = BackupFolders.isCamera(path),

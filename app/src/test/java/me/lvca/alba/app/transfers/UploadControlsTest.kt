@@ -66,7 +66,7 @@ class UploadControlsTest {
         compose.onNodeWithTag("upload-picker-button").assertIsDisplayed().performClick()
         compose.onNodeWithTag("transfer-queue").assertIsDisplayed()
         compose.onNodeWithText("selected.jpg").assertIsDisplayed()
-        compose.onNodeWithText("Keep this item blocked; continue others").performClick()
+        compose.onNodeWithText("Skip this item").performClick()
         compose.runOnIdle {
             assertTrue(pickerRequested)
             assertEquals(unresolved.id, continued)

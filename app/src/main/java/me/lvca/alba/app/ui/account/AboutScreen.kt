@@ -6,8 +6,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.List
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -78,8 +76,6 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
                 AboutFeature(R.string.about_feature_backup_title, R.string.about_feature_backup_detail, AlbaIcons.CloudDone),
             ))
             AboutFeatureSection(R.string.about_upcoming, listOf(
-                AboutFeature(R.string.about_upcoming_formats_title, R.string.about_upcoming_formats_detail, Icons.Outlined.PlayArrow),
-                AboutFeature(R.string.about_upcoming_folders_title, R.string.about_upcoming_folders_detail, Icons.Outlined.List),
                 AboutFeature(R.string.about_upcoming_older_title, R.string.about_upcoming_older_detail, Icons.Outlined.DateRange),
             ), R.string.about_upcoming_note)
             TextButton(onClick = { showLimitations = !showLimitations }, modifier = Modifier.testTag("about-limitations")) {

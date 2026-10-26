@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import me.lvca.alba.app.R
 import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.messages.localizedStoredMessage
+import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.model.BackupChange
@@ -20,6 +21,9 @@ import me.lvca.alba.engine.model.TransferView
 /** Starts the platform job that runs queued transfers. */
 fun interface TransferScheduler {
     fun schedule()
+
+    /** Stops the user's uploads and downloads. An upload already sent goes to read-only verification. */
+    suspend fun cancel() = Unit
 }
 
 /**
@@ -41,6 +45,12 @@ internal interface TransferMode {
     suspend fun finishBackup(draftId: BackupDraftId)
     suspend fun disableBackup()
     suspend fun continuePastUnresolved(transferId: TransferId)
+
+    /** Stages again an item that sent nothing. */
+    suspend fun retry(transferId: TransferId)
+
+    /** Retries every item [retry] accepts; returns how many. */
+    suspend fun retryAll(): Int
 }
 
 /** The durable queue: uploads and backup go to the user's iCloud library through the photo companion. */
@@ -49,6 +59,8 @@ internal class LiveTransferMode(
     private val batches: GalleryBatchActions,
     private val scheduler: TransferScheduler,
     private val messages: UserMessages,
+    /** Backup settings and prompt answers; the demo has none. */
+    val preferences: BackupPreferences,
 ) : TransferMode {
     override val transfers: Flow<List<TransferView>> = photos.observeTransfers()
     override val backup: Flow<BackupView> = photos.observeBackup()
@@ -63,7 +75,7 @@ internal class LiveTransferMode(
         scheduler.schedule()
     }
 
-    override suspend fun beginBackup(): BackupDraft = photos.beginBackupEnrollment(BackupScope.CAMERA_JPEGS)
+    override suspend fun beginBackup(): BackupDraft = photos.beginBackupEnrollment(BackupScope.CURRENT)
 
     override suspend fun acceptBackup(draftId: BackupDraftId): BackupSetupEffect =
         photos.acceptBackupDisclosure(draftId).also { effect ->
@@ -83,4 +95,10 @@ internal class LiveTransferMode(
         messages.show(R.string.message_that_uncertain_item_stays_blocked_alba_can_continue_with_other_photos)
         scheduler.schedule()
     }
+
+    override suspend fun retry(transferId: TransferId) {
+        photos.backup.retryTransfer(transferId)
+    }
+
+    override suspend fun retryAll(): Int = photos.backup.retryAllTransfers()
 }

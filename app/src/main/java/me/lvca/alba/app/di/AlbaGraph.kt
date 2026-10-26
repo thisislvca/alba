@@ -4,13 +4,16 @@ import android.content.Context
 import me.lvca.alba.app.demo.DemoMediaImporter
 import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 import me.lvca.alba.app.platform.AndroidAutomaticBackupPolicy
+import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PhotoEditStore
 import me.lvca.alba.app.platform.networkStatus
 import me.lvca.alba.app.transfers.TransferScheduler
+import me.lvca.alba.app.work.BackupNotifications
 import me.lvca.alba.app.work.UserTransferScheduler
 import me.lvca.alba.app.work.WorkManagerWakeupScheduler
+import me.lvca.alba.app.work.cancelUserTransfers
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.companion.DefaultPhotoCompanion
@@ -49,6 +52,8 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         onLocalSignOut = ::clearSignedOutData,
     )
     private val mediaStore = AndroidMediaStoreSource(appContext)
+    val backupPreferences = BackupPreferences(appContext)
+    internal val backupNotifications = BackupNotifications(appContext, backupPreferences)
     private val liveCatalog = LiveICloudCatalogSource(
         transport = transport,
         isAuthorized = { accountManager.authorizedSession != null },
@@ -89,8 +94,8 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
             onSessionRejected = accountManager::rejectSession,
             uploadJournal = uploadJournal,
         ),
-        scheduler = WorkManagerWakeupScheduler(appContext),
-        automaticBackupPolicy = AndroidAutomaticBackupPolicy(appContext),
+        scheduler = WorkManagerWakeupScheduler(appContext) { backupPreferences.settings.value },
+        automaticBackupPolicy = AndroidAutomaticBackupPolicy(appContext, backupPreferences),
     )
     val maintenance: MaintenanceWakeup = photos
     val batches = GalleryBatchActions(database.libraryDao(), galleryRepository, photos,
@@ -101,6 +106,9 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         }) { cloudCatalog.accountLabel }
     val photoEdits = PhotoEditStore(appContext, galleryRepository)
     val demoImporter = DemoMediaImporter(appContext, accountManager, demoCatalog)
-    val transferScheduler = TransferScheduler { UserTransferScheduler(appContext).enqueue() }
+    val transferScheduler = object : TransferScheduler {
+        override fun schedule() = UserTransferScheduler(appContext).enqueue(wifiOnly = backupPreferences.manualTransfersWaitForWifi)
+        override suspend fun cancel() = cancelUserTransfers(appContext)
+    }
     val network = networkStatus(appContext)
 }

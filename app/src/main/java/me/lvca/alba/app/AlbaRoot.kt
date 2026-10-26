@@ -14,8 +14,11 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,9 +34,12 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
@@ -48,12 +54,14 @@ import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.platform.ExportDocument
+import me.lvca.alba.app.platform.MobileDataChoice
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PendingExport
 import me.lvca.alba.app.platform.UploadTarget
 import me.lvca.alba.app.platform.deviceLibraryChanges
 import me.lvca.alba.app.platform.hasDevicePhotoAccess
 import me.lvca.alba.app.platform.hasLimitedPhotoAccess
+import me.lvca.alba.app.platform.notBackedUpCount
 import me.lvca.alba.app.platform.phoneTrashUris
 import me.lvca.alba.app.platform.requestedDevicePhotoPermissions
 import me.lvca.alba.app.platform.uploadNeedsMediaLocationPermission
@@ -61,14 +69,18 @@ import me.lvca.alba.app.transfers.BackupSetup
 import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.app.ui.AlbaApp
 import me.lvca.alba.app.ui.InvitationActions
+import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
+import me.lvca.alba.app.ui.gallery.LocalBackupBadges
 import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
+import me.lvca.alba.app.ui.gallery.backupBadges
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
 import me.lvca.alba.app.ui.onboarding.WelcomeScreen
 import me.lvca.alba.app.ui.shared.SharedInvitations
 import me.lvca.alba.engine.companion.BatchAction
+import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
@@ -86,6 +98,9 @@ internal sealed interface RootDialog {
     data class ConfirmCloudTrash(val mediaIds: List<String>, val trashed: Boolean) : RootDialog
     data class ConfirmRemoveFromAlbum(val albumId: String, val mediaIds: List<String>) : RootDialog
 
+    /** Moving phone items to Android's trash when some of them are not backed up to iCloud. */
+    data class ConfirmPhoneTrash(val mediaIds: List<String>, val notBackedUp: Int) : RootDialog
+
     companion object {
         val Saver = Saver<RootDialog?, List<Any>>(
             save = { dialog ->
@@ -93,6 +108,7 @@ internal sealed interface RootDialog {
                     DemoUpload -> listOf("demo-upload")
                     is ConfirmCloudTrash -> listOf("cloud-trash", dialog.trashed, ArrayList(dialog.mediaIds))
                     is ConfirmRemoveFromAlbum -> listOf("remove-from-album", dialog.albumId, ArrayList(dialog.mediaIds))
+                    is ConfirmPhoneTrash -> listOf("phone-trash", dialog.notBackedUp, ArrayList(dialog.mediaIds))
                     null -> null
                 }
             },
@@ -102,6 +118,7 @@ internal sealed interface RootDialog {
                     "demo-upload" -> DemoUpload
                     "cloud-trash" -> ConfirmCloudTrash(saved[2] as List<String>, saved[1] as Boolean)
                     "remove-from-album" -> ConfirmRemoveFromAlbum(saved[1] as String, saved[2] as List<String>)
+                    "phone-trash" -> ConfirmPhoneTrash(saved[2] as List<String>, saved[1] as Int)
                     else -> null
                 }
             },
@@ -187,6 +204,9 @@ private fun AlbaMain(
     var dialog by rememberSaveable(stateSaver = RootDialog.Saver) { mutableStateOf(null) }
     var pendingExport by rememberSaveable(stateSaver = PendingExportSaver) { mutableStateOf(null) }
     var pendingUpload by rememberSaveable(stateSaver = UploadTargetSaver) { mutableStateOf(null) }
+    // A manual transfer waiting while Alba asks about notifications or mobile data first.
+    var pendingTransfer by rememberSaveable(stateSaver = PendingTransfer.Saver) { mutableStateOf(null) }
+    var transferPrompt by rememberSaveable { mutableStateOf<TransferPrompt?>(null) }
     // Opening the account to connect hides an incoming request until the account screen closes again.
     var incomingSuspended by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(session.isAccountOpen) { if (!session.isAccountOpen) incomingSuspended = false }
@@ -235,6 +255,12 @@ private fun AlbaMain(
     val uploadPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_INCOMING_ITEMS)) { uris ->
         uploadPicked(context, viewModel, uris)
     }
+    // Whatever Android answers, the transfer the user started goes ahead; only the next question waits for it.
+    var afterNotifications by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        afterNotifications?.invoke()
+        afterNotifications = null
+    }
     val mediaLocationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val target = pendingUpload
         pendingUpload = null
@@ -251,6 +277,52 @@ private fun AlbaMain(
                 else uploadPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
             }
 
+            override fun beforeTransfer(pending: PendingTransfer) {
+                // The demo sends nothing, so it has nothing to ask.
+                if (viewModel.account.state.value.accountState == ICloudAccountState.Demo) return run(pending)
+                pendingTransfer = pending
+                askNext(after = null)
+            }
+
+            override fun askNext(after: TransferPrompt?) {
+                val pending = pendingTransfer ?: return
+                val next = nextTransferPrompt(
+                    askNotifications = viewModel.transfers.backup.shouldAskForNotifications(),
+                    network = viewModel.account.state.value.network,
+                    choice = viewModel.transfers.backup.mobileDataChoice,
+                    after = after,
+                )
+                transferPrompt = next
+                if (next != null) return
+                pendingTransfer = null
+                when (viewModel.transfers.backup.mobileDataChoice) {
+                    MobileDataChoice.USE -> viewModel.transfers.backup.chooseMobileData(useMobileData = true, remember = false)
+                    MobileDataChoice.WAIT -> viewModel.transfers.backup.chooseMobileData(useMobileData = false, remember = false)
+                    // Asked just now, or not on mobile data: the answer, if any, is already saved.
+                    MobileDataChoice.ASK -> if (after != TransferPrompt.MOBILE_DATA) {
+                        viewModel.transfers.backup.chooseMobileData(useMobileData = true, remember = false)
+                    }
+                }
+                run(pending)
+            }
+
+            override fun requestNotifications(then: () -> Unit) {
+                viewModel.transfers.backup.notificationsAsked()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    afterNotifications = then
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else then()
+            }
+
+            private fun run(pending: PendingTransfer) = when (pending) {
+                PendingTransfer.PickUpload -> pickUpload()
+                is PendingTransfer.Upload -> upload(pending.target)
+                is PendingTransfer.Batch -> viewModel.transfers.runBatch(pending.action)
+                is PendingTransfer.KeepOffline -> viewModel.transfers.keepOriginalOffline(pending.mediaId)
+                is PendingTransfer.Retry -> viewModel.transfers.retryTransfer(TransferId(pending.transferId))
+                PendingTransfer.RetryAll -> viewModel.transfers.retryAllTransfers()
+            }
+
             override fun upload(target: UploadTarget) {
                 val accountState = viewModel.account.state.value.accountState
                 if (uploadNeedsMediaLocationPermission(accountState, context.granted(Manifest.permission.ACCESS_MEDIA_LOCATION))) {
@@ -261,7 +333,17 @@ private fun AlbaMain(
 
             override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) {
                 if (items.isEmpty()) return
-                requestPhoneTrash(phoneTrashUris(items) ?: return viewModel.localOperationFailed(), restore)
+                val uris = phoneTrashUris(items) ?: return viewModel.localOperationFailed()
+                // Say so before Android's own request when some of these exist only on this phone.
+                val notBackedUp = if (restore) 0 else notBackedUpCount(items, viewModel.transfers.state.value.uploadsByMediaId)
+                if (notBackedUp > 0) dialog = RootDialog.ConfirmPhoneTrash(items.map { it.id }, notBackedUp)
+                else requestPhoneTrash(uris, restore)
+            }
+
+            override fun confirmPhoneTrash(mediaIds: List<String>) {
+                val items = viewModel.gallery.current.catalogItems.filter { it.id in mediaIds }
+                if (items.size != mediaIds.size) return viewModel.localOperationFailed()
+                requestPhoneTrash(phoneTrashUris(items) ?: return viewModel.localOperationFailed(), restore = false)
             }
 
             override fun restoreOnPhone(contentUris: List<String>) = requestPhoneTrash(contentUris, restore = true)
@@ -363,7 +445,11 @@ private fun AlbaMain(
             }
         }
     }
-    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow) {
+    // Each tile reads its own badge through this State, so a badge change recomposes that tile alone.
+    val backupBadges = rememberUpdatedState(remember(transfers.backup.enabled, transfers.uploadsByMediaId) {
+        backupBadges(transfers.backup.enabled, transfers.uploadsByMediaId)
+    })
+    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalBackupBadges provides backupBadges) {
         AlbaApp(
             gallery = gallery,
             session = session,
@@ -392,10 +478,40 @@ private fun AlbaMain(
             dismiss = { dialog = null },
             confirm = { viewModel.edits.removeFromAlbum(current.albumId, current.mediaIds); dialog = null },
         )
+        is RootDialog.ConfirmPhoneTrash -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(pluralStringResource(R.plurals.phone_trash_not_backed_up_title, current.mediaIds.size, current.mediaIds.size)) },
+            text = {
+                Text(if (current.notBackedUp == current.mediaIds.size) {
+                    pluralStringResource(R.plurals.phone_trash_none_backed_up, current.notBackedUp, current.notBackedUp)
+                } else {
+                    pluralStringResource(R.plurals.phone_trash_some_not_backed_up, current.mediaIds.size, current.notBackedUp, current.mediaIds.size)
+                })
+            },
+            confirmButton = { TextButton(onClick = { dialog = null; platform.confirmPhoneTrash(current.mediaIds) },
+                modifier = Modifier.testTag("confirm-unbacked-phone-trash")) { Text(stringResource(R.string.trash_phone_copy)) } },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.cancel)) } },
+            modifier = Modifier.testTag("unbacked-phone-trash"),
+        )
         RootDialog.DemoUpload, null -> Unit
     }
     transfers.backupSetup?.takeUnless { it.awaitingPermissions }?.let { setup ->
-        BackupDisclosure(setup, accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
+        BackupDisclosure(setup, storageFull = session.accountInfo.storage?.let { !it.isDemo && it.usedBytes >= it.totalBytes } == true,
+            accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
+    }
+    when (transferPrompt) {
+        TransferPrompt.NOTIFICATIONS -> NotificationsRationale(
+            allow = { transferPrompt = null; platform.requestNotifications { platform.askNext(TransferPrompt.NOTIFICATIONS) } },
+            notNow = { viewModel.transfers.backup.notificationsAsked(); platform.askNext(TransferPrompt.NOTIFICATIONS) },
+        )
+        TransferPrompt.MOBILE_DATA -> MobileDataPrompt(
+            answer = { useMobileData, remember ->
+                viewModel.transfers.backup.chooseMobileData(useMobileData, remember)
+                platform.askNext(TransferPrompt.MOBILE_DATA)
+            },
+            dismiss = { transferPrompt = null; pendingTransfer = null },
+        )
+        null -> Unit
     }
 }
 
@@ -448,13 +564,19 @@ private fun ConfirmRemoval(title: Int, body: Int, count: Int, dismiss: () -> Uni
 }
 
 @Composable
-private fun BackupDisclosure(setup: BackupSetup, accept: () -> Unit, dismiss: () -> Unit) {
+private fun BackupDisclosure(setup: BackupSetup, storageFull: Boolean, accept: () -> Unit, dismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = dismiss,
         title = { Text(stringResource(R.string.back_up_new_photos)) },
         text = {
-            Text(if (setup.demo) stringResource(R.string.demo_backup_disclosure)
-                else stringResource(R.string.backup_disclosure, setup.destinationLabel))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(if (setup.demo) stringResource(R.string.demo_backup_disclosure)
+                    else stringResource(R.string.backup_disclosure, setup.destinationLabel))
+                if (!setup.demo) Text(stringResource(R.string.backup_disclosure_notifications), style = MaterialTheme.typography.bodySmall)
+                // Warn before the user commits: with a full iCloud nothing can back up until there is space.
+                if (storageFull && !setup.demo) Text(stringResource(R.string.backup_disclosure_storage_full),
+                    color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("backup-storage-full-warning"))
+            }
         },
         confirmButton = { Button(onClick = accept) { Text(stringResource(R.string.welcome_continue)) } },
         dismissButton = { OutlinedButton(onClick = dismiss) { Text(stringResource(R.string.not_now)) } },
@@ -466,7 +588,19 @@ internal interface PlatformRequests {
     fun requestDevicePhotos()
     fun pickUpload()
     fun upload(target: UploadTarget)
+
+    /** Starts [pending] after asking, once, about notifications and, on mobile data, whether to use it. */
+    fun beforeTransfer(pending: PendingTransfer)
+
+    /** Asks the question after [after], or starts the held transfer when there is none. */
+    fun askNext(after: TransferPrompt?)
+
+    /** Asks Android for notifications, then calls [then] whatever the answer. */
+    fun requestNotifications(then: () -> Unit)
     fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean)
+
+    /** The user confirmed moving items that are not all backed up to Android's trash. */
+    fun confirmPhoneTrash(mediaIds: List<String>)
 
     /** Asks Android to restore phone items that Alba moved to its trash. */
     fun restoreOnPhone(contentUris: List<String>)
@@ -505,6 +639,7 @@ private class AlbaRootActions(
     override fun refresh() = viewModel.sync.refresh()
     override fun requestDevicePhotos() = platform.requestDevicePhotos()
     override fun openAccount() = account.openAccount()
+    override fun openBackup() = account.openAccount(ProfilePage.BACKUP)
     override fun startDemo() = account.startDemo()
 
     override fun setFavorite(mediaId: String, favorite: Boolean) = edits.setFavorite(mediaId, favorite)
@@ -522,13 +657,20 @@ private class AlbaRootActions(
     override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>) = shared.contributeToSharedAlbum(albumId, mediaIds)
     override fun createSharedAlbum(name: String, generation: SharedAlbumGeneration) = shared.createSharedAlbum(name, generation)
 
-    override fun runBatch(action: BatchAction) =
-        if (action == BatchAction.UPLOAD) platform.upload(UploadTarget.Selection) else transfers.runBatch(action)
+    override fun runBatch(action: BatchAction) = when (action) {
+        BatchAction.UPLOAD -> platform.beforeTransfer(PendingTransfer.Upload(UploadTarget.Selection))
+        BatchAction.KEEP_OFFLINE, BatchAction.SAVE_TO_PHONE -> platform.beforeTransfer(PendingTransfer.Batch(action))
+        else -> transfers.runBatch(action)
+    }
     override fun retryBatch(batchId: String) = transfers.retryBatch(batchId)
     override fun cancelDownloadBatch(batchId: String) = transfers.cancelDownloadBatch(batchId)
-    override fun pickUpload() = platform.pickUpload()
-    override fun requestUpload(mediaId: String) = platform.upload(UploadTarget.Media(mediaId))
+    override fun pickUpload() = platform.beforeTransfer(PendingTransfer.PickUpload)
+    override fun requestUpload(mediaId: String) = platform.beforeTransfer(PendingTransfer.Upload(UploadTarget.Media(mediaId)))
     override fun continuePastUnresolved(transferId: TransferId) = transfers.continuePastUnresolved(transferId)
+    override fun retryTransfer(transferId: TransferId) = platform.beforeTransfer(PendingTransfer.Retry(transferId.value))
+    override fun retryAllTransfers() = platform.beforeTransfer(PendingTransfer.RetryAll)
+    override fun cancelUploads() = transfers.backup.cancelUploads()
+    override fun freeUpSpace(mediaIds: List<String>) = transfers.backup.freeUpSpace(mediaIds)
     override fun share(items: List<GalleryMedia>) = viewModel.exports.share(items)
     override fun cancelShare() = viewModel.exports.cancelShare()
 
@@ -539,7 +681,7 @@ private class AlbaRootActions(
     override fun saveToGallery(media: GalleryMedia) = viewModel.exports.saveToGallery(media)
     override fun exportOriginal(media: GalleryMedia) = platform.exportDocument(media, livePair = false)
     override fun exportLivePhoto(media: GalleryMedia) = platform.exportDocument(media, livePair = true)
-    override fun keepOriginalOffline(mediaId: String) = transfers.keepOriginalOffline(mediaId)
+    override fun keepOriginalOffline(mediaId: String) = platform.beforeTransfer(PendingTransfer.KeepOffline(mediaId))
     override fun removeCachedOriginal(mediaId: String) = transfers.removeCachedOriginal(mediaId)
     override fun cancelOfflineDownload() = transfers.cancelOfflineDownload()
     override fun moveVerifiedPhotoToTrash(mediaId: String) = transfers.requestVerifiedTrash(mediaId)
@@ -554,6 +696,12 @@ private class AlbaRootActions(
     override fun enableAutomaticBackup() = transfers.beginAutomaticBackup()
     override fun disableAutomaticBackup() = transfers.disableAutomaticBackup()
     override fun demoBackupAction(transferId: TransferId) = transfers.continuePastUnresolved(transferId)
+    override fun accountPageShown() = account.accountPageShown()
+    override fun setBackupSettings(settings: BackupSettings) = transfers.backup.setBackupSettings(settings)
+    override fun loadDeviceFolders() = transfers.backup.loadDeviceFolders()
+    override fun refreshBackupStatus() = transfers.backup.refreshBackupStatus()
+    override fun loadFreeUpSpace() = transfers.backup.loadFreeUpSpace()
+    override fun retryAfterStorageFull() = transfers.backup.retryAfterStorageFull()
     override fun setDiagnosticsEnabled(enabled: Boolean) = viewModel.setDiagnosticsEnabled(enabled)
     override fun checkPhoneStorage() = viewModel.phoneStorage.checkPhoneStorage()
     override fun clearLocalMedia(category: LocalMediaCategory) = viewModel.phoneStorage.clearLocalMedia(category)

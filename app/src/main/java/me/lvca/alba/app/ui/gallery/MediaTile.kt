@@ -128,6 +128,8 @@ internal fun MediaTile(
                 if (media.isFavorite && !selecting) FavoriteIcon(true,
                     contentDescription = stringResource(R.string.favorite), tint = onMedia,
                     modifier = Modifier.align(Alignment.TopEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(16.dp))
+                // Backup state, phone items only; a separate slot so other badges can change independently.
+                if (media.origin == MediaOrigin.DEVICE) BackupBadgeOverlay(media.id)
             }
             AnimatedVisibility(selecting, Modifier.align(Alignment.TopEnd).padding(6.dp),
                 enter = if (reducedMotion) EnterTransition.None

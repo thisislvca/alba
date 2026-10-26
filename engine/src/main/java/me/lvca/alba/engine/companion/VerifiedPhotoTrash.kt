@@ -47,12 +47,11 @@ internal class VerifiedPhotoTrash(
 
         for ((index, mediaId) in items.withIndex()) {
             onProgress(index, items.size)
-            val refusal = if (!allowPartial) checkExact(binding, proposalId, mediaId) { checked += it } else try {
-                checkExact(binding, proposalId, mediaId) { checked += it }
-            } catch (error: Exception) {
+            val refusal = if (!allowPartial) checkExact(binding, proposalId, mediaId) { checked += it } else {
                 // One unreadable item stays on the phone; the rest of the batch is still checked.
-                if (error is kotlinx.coroutines.CancellationException) throw error
-                StoredMessage.decode(error.message)?.code ?: StoredMessage.THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH.code
+                runSuspendCatching { checkExact(binding, proposalId, mediaId) { checked += it } }.getOrElse { error ->
+                    StoredMessage.decode(error.message)?.code ?: StoredMessage.THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH.code
+                }
             }
             if (refusal != null) {
                 if (!allowPartial) return blockedProposal(proposalId, refusal)

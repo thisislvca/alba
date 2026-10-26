@@ -92,7 +92,8 @@ class AlbaViewModel(
         runner = runner,
         effects = effectQueue,
         gallery = gallery,
-        live = LiveTransferMode(dependencies.photos, dependencies.batches, dependencies.transferScheduler, messages),
+        live = LiveTransferMode(dependencies.photos, dependencies.batches, dependencies.transferScheduler, messages,
+            dependencies.backupPreferences),
         demo = DemoTransferMode(viewModelScope, dependencies.accountManager, dependencies.repository,
             dependencies.demoImporter, messages) { id -> gallery.current.catalogItems.firstOrNull { it.id == id } },
     )

@@ -35,6 +35,8 @@ internal fun TransferQueueCard(
     transfers: List<TransferView>,
     onContinuePastUnresolved: (TransferId) -> Unit,
     demo: Boolean = false,
+    onRetry: (TransferId) -> Unit = {},
+    title: String? = null,
 ) {
     AlbaCard(
         modifier = Modifier
@@ -42,7 +44,7 @@ internal fun TransferQueueCard(
             .testTag("transfer-queue"),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-            Text(stringResource(if (demo) R.string.demo_backup_title else R.string.uploads), style = MaterialTheme.typography.titleMedium)
+            Text(title ?: stringResource(if (demo) R.string.demo_backup_title else R.string.uploads), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             transfers.forEachIndexed { index, transfer ->
                 Row(
@@ -82,14 +84,28 @@ internal fun TransferQueueCard(
                         )
                     }
                 }
-                if (transfer.state == TransferViewState.UNRESOLVED || (demo && transfer.message in setOf("demo-interrupted", "demo-wifi"))) {
+                if (transfer.state == TransferViewState.UNRESOLVED && !demo) {
+                    // Never a blind retry: the upload may have reached iCloud, so skipping is the only choice offered.
+                    Spacer(Modifier.height(6.dp))
+                    Text(stringResource(R.string.unresolved_item_explanation), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(
+                        onClick = { onContinuePastUnresolved(transfer.id) },
+                        modifier = Modifier.fillMaxWidth().testTag("skip-unresolved-${transfer.id.value}"),
+                    ) { Text(stringResource(R.string.skip_unresolved_item)) }
+                } else if (demo && transfer.message in setOf("demo-interrupted", "demo-wifi")) {
                     Spacer(Modifier.height(9.dp))
                     OutlinedButton(
                         onClick = { onContinuePastUnresolved(transfer.id) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(stringResource(if (demo) R.string.demo_backup_retry else R.string.keep_this_item_blocked_continue_others))
-                    }
+                    ) { Text(stringResource(R.string.demo_backup_retry)) }
+                } else if (transfer.retryable && !demo) {
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(
+                        onClick = { onRetry(transfer.id) },
+                        modifier = Modifier.fillMaxWidth().testTag("retry-transfer-${transfer.id.value}"),
+                    ) { Text(stringResource(R.string.retry)) }
                 }
                 if (index != transfers.lastIndex) {
                     Spacer(Modifier.height(9.dp))

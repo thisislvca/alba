@@ -18,14 +18,18 @@ internal object BackupFolders {
     fun isCamera(relativePath: String?): Boolean = relativePath?.lowercase() in CAMERA_PATHS
 
     /** The id a folder keeps across scans: its volume and MediaStore bucket. */
-    fun folderId(volume: String, bucketId: String): String = "device-folder:$volume:$bucketId"
+    fun folderId(volume: String, bucketId: String): String = "$ID_PREFIX:$volume:$bucketId"
 
     /** The volume and bucket of [folderId], or null when it is not one. */
     fun parse(folderId: String): Pair<String, String>? {
-        val parts = folderId.split(':')
-        if (parts.size != 3 || parts[0] != "device-folder" || parts[1].isBlank() || parts[2].isBlank()) return null
-        return parts[1] to parts[2]
+        val (prefix, volume, bucket) = folderId.split(':').takeIf { it.size == ID_PARTS } ?: return null
+        return (volume to bucket).takeIf { prefix == ID_PREFIX && volume.isNotBlank() && bucket.isNotBlank() }
     }
+
+    private const val ID_PREFIX = "device-folder"
+
+    /** A folder id is its prefix, volume and bucket. */
+    private const val ID_PARTS = 3
 
     /** MIME types [scope] covers, or null for every image and video. Non-JPEG items of older consents stay out. */
     fun mimeTypes(scope: BackupScope): List<String>? = when (scope) {

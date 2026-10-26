@@ -139,7 +139,7 @@ class BackupJournalTest {
         photos.syncNow()
         assertEquals("A paused upload is not resumed by the next pass", 1, protocol.uploadStarts)
 
-        photos.retryAfterStorageFull()
+        photos.backup.retryAfterStorageFull()
         photos.syncNow()
         assertEquals(2, protocol.uploadStarts)
         assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
@@ -155,7 +155,7 @@ class BackupJournalTest {
         assertEquals(TransferViewState.NEEDS_ATTENTION, canceled.state)
         assertTrue(canceled.retryable)
 
-        photos.retryTransfer(ticket.id)
+        photos.backup.retryTransfer(ticket.id)
         val retried = photos.observeTransfers().first().single()
         assertFalse("The retry replaces the canceled row", retried.id == ticket.id)
         photos.runUserUploads()
@@ -164,7 +164,7 @@ class BackupJournalTest {
         assertFalse(verified.retryable)
 
         try {
-            photos.retryTransfer(verified.id)
+            photos.backup.retryTransfer(verified.id)
             fail("A sent upload must never be retried blindly")
         } catch (refused: PhotoCompanionException.Refused) {
             assertEquals(StoredMessage.ONLY_ITEMS_THAT_SENT_NOTHING_CAN_BE_RETRIED, refused.reason)
@@ -193,7 +193,7 @@ class BackupJournalTest {
         photos.syncNow()
         source.items.forEach { record -> database.catalogDao().upsertItems(listOf(catalogRow(record))) }
 
-        val candidates = photos.freeUpSpaceCandidates()
+        val candidates = photos.backup.freeUpSpaceCandidates()
         assertEquals(source.items.map { it.id }, candidates.mediaIds)
         assertEquals(source.items.sumOf { it.byteCount }, candidates.byteCount)
 
@@ -215,7 +215,7 @@ class BackupJournalTest {
         val photos = enrolled()
         photos.syncNow()
 
-        val progress = photos.backupProgress()
+        val progress = photos.backup.backupProgress()
         assertEquals(1, progress.backedUp)
         assertEquals(2, progress.eligible)
     }

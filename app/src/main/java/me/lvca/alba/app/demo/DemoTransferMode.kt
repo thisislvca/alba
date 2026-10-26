@@ -75,6 +75,10 @@ internal class DemoTransferMode(
         }
     }
 
+    override suspend fun retry(transferId: TransferId) = demo.retry(transferId)
+
+    override suspend fun retryAll(): Int = demo.retryAll()
+
     fun reset() = demo.reset()
 
     private fun isDemo() = accountManager.state.value == ICloudAccountState.Demo

@@ -16,12 +16,11 @@
     <string name="apple_did_not_provide_a_photos_service_for_this_account">Apple non ha reso disponibile il servizio Foto per questo account</string>
     <string name="apple_session_verified">Sessione Apple verificata</string>
     <string name="apply">Applica</string>
-    <string name="automatic_jpeg_backup">Backup automatico JPEG</string>
     <string name="available_offline">Disponibile offline</string>
     <string name="back_to_gallery">Torna alla galleria</string>
     <string name="back_to_library">Torna alla libreria</string>
     <string name="back_up_new_photos">Eseguire il backup delle nuove foto?</string>
-    <string name="backup_disclosure">Alba leggerà automaticamente le nuove foto JPEG in DCIM/Camera su questo telefono e caricherà gli originali identici direttamente su %1$s tramite una rete senza limiti. I caricamenti si interrompono se cambiano l’accesso, il consenso o l’account di destinazione.</string>
+    <string name="backup_disclosure">Alba eseguirà il backup delle nuove foto e dei nuovi video della cartella della fotocamera, e delle cartelle che scegli, caricando gli originali identici direttamente su %1$s. Il backup usa il Wi-Fi, a meno che tu non consenta i dati mobili nelle impostazioni. Si interrompe se cambiano l’accesso, il consenso o l’account.</string>
     <string name="backup_on_for">Attivo per %1$s. I nuovi originali supportati vengono preparati, caricati una sola volta e verificati.</string>
     <string name="backups">Backup</string>
     <string name="batch_done">%1$s · completati: %2$d/%3$d</string>
@@ -98,7 +97,6 @@
     <string name="invalid_two_factor_code">Il codice di verifica è errato o scaduto. Richiedi un nuovo codice.</string>
     <string name="keep_offline">Conserva offline</string>
     <string name="keep_original_offline">Conserva originale offline</string>
-    <string name="keep_this_item_blocked_continue_others">Lascia questo elemento bloccato e continua con gli altri</string>
     <string name="large">Grande</string>
     <string name="last_checked_at">Ultima verifica: %1$s</string>
     <string name="library">Libreria</string>
@@ -140,7 +138,7 @@
     <string name="message_automatic_backup_was_disabled_before_this_upload_started">Il backup automatico è stato disattivato prima dell’inizio di questo caricamento.</string>
     <string name="message_automatic_jpeg_backup_is_on">Il backup automatico JPEG è attivo.</string>
     <string name="message_backup_paused_allow_full_photo_and_media_location_access">Backup in pausa: consenti l’accesso completo alle foto e alla loro posizione.</string>
-    <string name="message_backup_paused_waiting_for_an_unmetered_network">Backup in pausa: in attesa di una rete senza limiti.</string>
+    <string name="message_backup_paused_waiting_for_an_unmetered_network">Backup in pausa: in attesa del Wi-Fi.</string>
     <string name="message_backup_setup_expired">Configurazione del backup scaduta</string>
     <string name="message_check_the_upload_queue_before_selecting_this_item_again">Controlla la coda di caricamento prima di selezionare di nuovo questo elemento</string>
     <string name="message_checking_the_exact_original_in_icloud">Verifica dell’originale identico su iCloud</string>
@@ -247,7 +245,7 @@
     <string name="message_verified_in_icloud">Verificato in iCloud</string>
     <string name="message_waiting_for_upload_authorization_and_an_eligible_network">In attesa dell’autorizzazione al caricamento e di una rete consentita</string>
     <string name="message_waiting_to_upload">In attesa di caricamento</string>
-    <string name="metered_network_automatic_backup_waits_for_unmetered_internet">Rete a consumo · il backup automatico attende una rete senza limiti</string>
+    <string name="metered_network_automatic_backup_waits_for_unmetered_internet">Dati mobili · il backup attende il Wi-Fi, se non consenti i dati mobili</string>
     <string name="more">Altro</string>
     <string name="move_phone_original_to_trash">Sposta originale del telefono nel cestino</string>
     <string name="needs_attention">Richiede attenzione</string>
@@ -337,7 +335,7 @@
     <string name="storage_is_full_uploads_may_be_refused">Lo spazio è esaurito. I caricamenti potrebbero essere rifiutati.</string>
     <string name="storage_usage_is_not_available_yet">L’utilizzo dello spazio non è ancora disponibile.</string>
     <string name="storage_used">%1$s utilizzati su %2$s</string>
-    <string name="supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke">Alba supporta l’autenticazione standard a due fattori e la libreria personale. Puoi caricare manualmente foto e video supportati. Il backup automatico comprende solo i nuovi JPEG della fotocamera. Non sono supportati gli album condivisi, la libreria condivisa, gli account con chiavi di sicurezza e l’approvazione web di Protezione avanzata dati.</string>
+    <string name="supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke">Alba supporta l’autenticazione standard a due fattori e la libreria personale. Puoi caricare manualmente foto e video supportati. Il backup automatico comprende nuove foto e video della fotocamera e le cartelle che scegli. Non sono supportati gli album condivisi, la libreria condivisa, gli account con chiavi di sicurezza e l’approvazione web di Protezione avanzata dati.</string>
     <string name="terms_update_required">Apri iCloud in un browser e accetta le condizioni aggiornate di Apple, poi torna a Alba.</string>
     <string name="the_saved_account_could_not_be_opened_your_library_has_not_been_replaced">Impossibile aprire l’account salvato. La tua libreria non è stata sostituita.</string>
     <string name="the_zip_preserves_the_original_still_image_and_motion_clip_your_gallery_may_show_them">Lo ZIP conserva la foto originale e il video. La galleria potrebbe mostrarli come elementi separati.</string>
@@ -348,7 +346,7 @@
     <string name="turn_off_automatic_backup">Disattiva backup automatico</string>
     <string name="uncertain_item_kept_blocked">Elemento con esito incerto bloccato</string>
     <string name="unfavorite">Rimuovi dai preferiti</string>
-    <string name="unmetered_internet_automatic_backup_can_run_when_enabled">Rete senza limiti · il backup automatico può partire, se attivo</string>
+    <string name="unmetered_internet_automatic_backup_can_run_when_enabled">Wi-Fi · il backup può partire, se attivo</string>
     <string name="unsupported_original">Originale non supportato</string>
     <string name="unsupported_two_factor">Il metodo di verifica di questo account non è supportato da Alba.</string>
     <string name="updating_library">Aggiornamento della libreria…</string>
@@ -382,7 +380,7 @@
     <string name="welcome_library_title">Ritrova i tuoi momenti</string>
     <string name="welcome_offline_body">Salva gli originali per vederli offline, oppure condividi ed esporta una copia.</string>
     <string name="welcome_offline_title">Portali con te</string>
-    <string name="welcome_optional_body">Il backup automatico resta disattivato finché non lo attivi. Per ora include le nuove foto JPEG della fotocamera, non i video né le foto già presenti.</string>
+    <string name="welcome_optional_body">Il backup automatico resta disattivato finché non lo attivi. Salva le nuove foto e i nuovi video della fotocamera, non la libreria già presente.</string>
     <string name="welcome_optional_title">Il backup parte da te</string>
     <string name="welcome_phone_body">Scegli tu se includere in Alba le foto di questo telefono. Ti chiederemo l’accesso quando userai questa funzione.</string>
     <string name="welcome_phone_title">Le foto del telefono sono facoltative</string>
@@ -681,7 +679,7 @@
     <string name="about_diagnostics_description">Invia a Sentry informazioni anonime su arresti anomali e prestazioni. Non include mai foto, nomi dei file, dati dell’Apple Account o credenziali.</string>
     <string name="about_missing">Funzioni ancora da aggiungere</string>
     <string name="about_checklist_note">Questa lista mostra cosa manca: non contiene impostazioni o date di uscita promesse.</string>
-    <string name="about_missing_backup">Backup di video, altri formati, cartelle a scelta e foto già presenti. Il backup automatico copre solo i nuovi JPEG della fotocamera.</string>
+    <string name="about_missing_backup">Backup delle foto scattate prima di attivare il backup. Il backup automatico include solo i nuovi elementi.</string>
     <string name="about_missing_formats">Caricamento di Live Photo complete, RAW, AVIF e immagini animate.</string>
     <string name="about_missing_shared_library">Libreria foto condivisa di iCloud. Gli album condivisi sono già disponibili e sono una funzione diversa.</string>
     <string name="about_missing_shared_flows">Aggiornare i vecchi album condivisi, rifiutare inviti ai nuovi album e partecipare senza un Apple Account dentro Alba. Per queste operazioni usa iCloud.</string>
@@ -747,11 +745,7 @@
     <string name="about_feature_offline_title">Accesso offline e condivisione</string>
     <string name="about_feature_offline_detail">Salva gli originali sul telefono, condividili e crea copie ritagliate o ruotate.</string>
     <string name="about_feature_backup_title">Backup automatico della fotocamera</string>
-    <string name="about_feature_backup_detail">Se attivato, salva i nuovi JPEG della fotocamera con una connessione senza limiti di consumo.</string>
-    <string name="about_upcoming_formats_title">Più formati per il backup automatico</string>
-    <string name="about_upcoming_formats_detail">Estendere il backup automatico ai video supportati e ad altri formati fotografici.</string>
-    <string name="about_upcoming_folders_title">Scegli le cartelle da salvare</string>
-    <string name="about_upcoming_folders_detail">Selezionare altre cartelle da includere oltre a quella della fotocamera.</string>
+    <string name="about_feature_backup_detail">Salva nuove foto e nuovi video della fotocamera, e le cartelle che scegli, tramite Wi-Fi o, se lo consenti, dati mobili.</string>
     <string name="about_upcoming_older_title">Backup delle foto già presenti</string>
     <string name="about_upcoming_older_detail">Includere le foto già presenti, con numero di elementi e spazio stimato prima di iniziare.</string>
     <string name="about_limitations">Dettagli sulla compatibilità</string>
@@ -798,4 +792,143 @@
     <string name="demo_import_requested">Importazione demo richiesta</string>
     <string name="label_with_detail">%1$s · %2$s</string>
     <string name="month_span">%1$s – %2$s</string>
+    <string name="backup_failed_notification_body">Apri Backup per vedere il motivo e riprovare.</string>
+    <string name="backup_paused_sign_in_title">Backup in pausa: accedi</string>
+    <string name="backup_paused_sign_in_body">Accedi di nuovo a iCloud per continuare il backup. Niente su questo telefono viene toccato.</string>
+    <string name="backup_paused_storage_title">Spazio iCloud esaurito</string>
+    <string name="backup_paused_storage_body">Il backup è in pausa finché non c’è spazio su iCloud. Libera spazio su iCloud o cambia piano, poi riprova.</string>
+    <string name="backup_status_channel">Stato del backup</string>
+    <string name="backup_status_channel_description">Quando il backup si interrompe o alcuni elementi non possono essere salvati</string>
+    <string name="transfer_notification_uploading">Caricamento %1$d di %2$d</string>
+    <string name="transfer_notification_progress">Trasferimento %1$d di %2$d</string>
+    <string name="message_could_not_change_backup_settings">Impossibile modificare le impostazioni del backup</string>
+    <string name="uploads_canceled">Caricamenti annullati. Ciò che è già stato inviato viene controllato su iCloud.</string>
+    <string name="notifications_rationale_title">Ricevere notifiche sui trasferimenti?</string>
+    <string name="notifications_rationale_body">Alba mostra l’avanzamento dei caricamenti e ti avvisa quando il backup si interrompe o alcuni elementi non possono essere salvati.</string>
+    <string name="notifications_allow">Consenti</string>
+    <string name="mobile_data_prompt_title">Usare i dati mobili?</string>
+    <string name="mobile_data_prompt_body">Non sei connesso al Wi-Fi. Caricamenti e download potrebbero usare il tuo piano dati mobili.</string>
+    <string name="mobile_data_prompt_remember">Ricorda la mia scelta</string>
+    <string name="mobile_data_prompt_use">Usa dati mobili</string>
+    <string name="mobile_data_prompt_wait">Attendi il Wi-Fi</string>
+    <string name="backup_disclosure_notifications">Alba chiederà anche di inviare notifiche, così saprai quando il backup ha bisogno di te.</string>
+    <string name="backup_disclosure_storage_full">Lo spazio iCloud è esaurito. Il backup non può partire finché non c’è spazio.</string>
+    <string name="backup_chip_review">Rivedi il backup</string>
+    <string name="backup_chip_sign_in">Backup in pausa: accedi</string>
+    <string name="backup_chip_storage_full">Spazio iCloud esaurito</string>
+    <string name="backup_chip_permission">Backup in pausa: consenti l’accesso</string>
+    <string name="backup_chip_paused">Backup in pausa</string>
+    <string name="backup_chip_offline">In attesa di connessione</string>
+    <string name="backup_chip_wifi">In attesa del Wi-Fi</string>
+    <string name="backup_status_off">Il backup è disattivato</string>
+    <string name="backup_status_review">Il backup ora include di più</string>
+    <string name="backup_status_permission">Backup in pausa: consenti l’accesso</string>
+    <string name="backup_status_wifi">In attesa del Wi-Fi</string>
+    <string name="backup_status_done">Backup completato</string>
+    <string name="backup_progress">%1$d di %2$d salvati</string>
+    <string name="backup_last_backed_up">Ultimo backup: %1$s</string>
+    <string name="backup_queue_title">In corso</string>
+    <string name="cancel_uploads">Annulla caricamenti</string>
+    <string name="free_up_space_title">Libera spazio</string>
+    <string name="free_up_space_row">Rimuovi da questo telefono foto e video già salvati</string>
+    <string name="backup_review_detail">Il backup ora può includere video, tutti i formati di foto supportati e le cartelle che scegli. Rivedi e accetta per includerli.</string>
+    <string name="backup_paused_detail">Nessun backup finché non lo riprendi dalle impostazioni qui sotto.</string>
+    <string name="backup_storage_try_again">Riprova</string>
+    <string name="backup_review_button">Rivedi</string>
+    <string name="retry_all">Riprova tutti</string>
+    <string name="retry">Riprova</string>
+    <string name="backup_settings_section">Impostazioni</string>
+    <string name="backup_photos_mobile_data">Backup delle foto con dati mobili</string>
+    <string name="backup_mobile_data_detail">Altrimenti il backup attende il Wi-Fi.</string>
+    <string name="backup_videos_mobile_data">Backup dei video con dati mobili</string>
+    <string name="backup_while_roaming">Backup in roaming</string>
+    <string name="backup_while_roaming_detail">Usa i dati mobili all’estero, che possono costare di più.</string>
+    <string name="backup_pause">Metti in pausa il backup</string>
+    <string name="backup_pause_detail">Interrompe i caricamenti automatici finché non lo disattivi.</string>
+    <string name="backup_device_folders">Backup delle cartelle del dispositivo</string>
+    <string name="backup_device_folders_intro">Le nuove foto e i nuovi video della fotocamera vengono sempre salvati. Attiva altre cartelle, come Screenshot o WhatsApp Images, per salvare anche i nuovi elementi al loro interno.</string>
+    <string name="backup_device_folders_empty">Nessun’altra cartella con foto o video.</string>
+    <string name="backup_camera_folder">%1$s (fotocamera)</string>
+    <string name="free_up_space_intro">Queste foto e questi video hanno una copia identica su iCloud. Alba li ricontrolla uno per uno prima che Android ti chieda di spostarli nel cestino, dove restano per 30 giorni.</string>
+    <string name="free_up_space_nothing">Ancora niente da liberare. Qui compariranno le foto e i video di questo telefono già salvati.</string>
+    <string name="free_up_space_limit">Fino a %1$d elementi alla volta.</string>
+    <string name="free_up_space_checking">Controllo %1$d di %2$d</string>
+    <string name="free_up_space_button">Libera %1$s</string>
+    <string name="free_up_space_confirm">Alba ricontrolla ogni elemento con la sua copia su iCloud, poi Android ti chiede di confermare. Gli elementi che non corrispondono più restano su questo telefono.</string>
+    <string name="skip_unresolved_item">Salta questo elemento</string>
+    <string name="unresolved_item_explanation">Questo caricamento potrebbe essere arrivato su iCloud. Alba non lo invierà di nuovo, per evitare un duplicato.</string>
+    <string name="message_automatic_backup_is_on">Il backup è attivo.</string>
+    <string name="upload_avif_unsupported">Le immagini AVIF non possono ancora essere caricate su iCloud.</string>
+    <string name="upload_image_sequence_unsupported">Le sequenze di immagini HEIF, come raffiche o animazioni, non possono ancora essere caricate.</string>
+    <string name="icloud_storage_full">Lo spazio iCloud è esaurito. I caricamenti sono in pausa finché non c’è spazio.</string>
+    <string name="message_only_items_that_sent_nothing_can_be_retried">Questo elemento potrebbe essere arrivato su iCloud, quindi Alba lo controlla invece di inviarlo di nuovo.</string>
+    <string name="message_this_item_is_no_longer_in_the_queue">Questo elemento non è più in coda.</string>
+    <string name="badge_backup_waiting">In attesa di backup</string>
+    <string name="badge_backup_failed">Impossibile eseguire il backup</string>
+    <string name="badge_backup_done">Salvato</string>
+    <plurals name="backup_failed_notification_title">
+        <item quantity="one">%d elemento non può essere salvato</item>
+        <item quantity="other">%d elementi non possono essere salvati</item>
+        <item quantity="many">%d elementi non possono essere salvati</item>
+    </plurals>
+    <plurals name="retried_items">
+        <item quantity="one">Nuovo tentativo per %d elemento</item>
+        <item quantity="other">Nuovo tentativo per %d elementi</item>
+        <item quantity="many">Nuovo tentativo per %d elementi</item>
+    </plurals>
+    <plurals name="free_up_space_left_out">
+        <item quantity="one">%d elemento non corrisponde più alla copia su iCloud e resta su questo telefono.</item>
+        <item quantity="other">%d elementi non corrispondono più alla copia su iCloud e restano su questo telefono.</item>
+        <item quantity="many">%d elementi non corrispondono più alla copia su iCloud e restano su questo telefono.</item>
+    </plurals>
+    <plurals name="phone_trash_not_backed_up_title">
+        <item quantity="one">Spostare %d elemento nel cestino del telefono?</item>
+        <item quantity="other">Spostare %d elementi nel cestino del telefono?</item>
+        <item quantity="many">Spostare %d elementi nel cestino del telefono?</item>
+    </plurals>
+    <plurals name="phone_trash_none_backed_up">
+        <item quantity="one">Questo elemento non è salvato su iCloud. Android lo tiene nel cestino per 30 giorni, poi lo elimina definitivamente.</item>
+        <item quantity="other">Questi %d elementi non sono salvati su iCloud. Android li tiene nel cestino per 30 giorni, poi li elimina definitivamente.</item>
+        <item quantity="many">Questi %d elementi non sono salvati su iCloud. Android li tiene nel cestino per 30 giorni, poi li elimina definitivamente.</item>
+    </plurals>
+    <plurals name="phone_trash_some_not_backed_up">
+        <item quantity="one">%1$d di questi %2$d elementi non sono salvati su iCloud. Android li tiene nel cestino per 30 giorni, poi li elimina definitivamente.</item>
+        <item quantity="other">%1$d di questi %2$d elementi non sono salvati su iCloud. Android li tiene nel cestino per 30 giorni, poi li elimina definitivamente.</item>
+        <item quantity="many">%1$d di questi %2$d elementi non sono salvati su iCloud. Android li tiene nel cestino per 30 giorni, poi li elimina definitivamente.</item>
+    </plurals>
+    <plurals name="backup_chip_backing_up">
+        <item quantity="one">Backup di %d elemento</item>
+        <item quantity="other">Backup di %d elementi</item>
+        <item quantity="many">Backup di %d elementi</item>
+    </plurals>
+    <plurals name="backup_chip_failed">
+        <item quantity="one">%d elemento non può essere salvato</item>
+        <item quantity="other">%d elementi non possono essere salvati</item>
+        <item quantity="many">%d elementi non possono essere salvati</item>
+    </plurals>
+    <plurals name="backup_detail_wifi">
+        <item quantity="one">%d elemento attende il Wi-Fi. Consenti i dati mobili nelle impostazioni qui sotto per salvarlo ora.</item>
+        <item quantity="other">%d elementi attendono il Wi-Fi. Consenti i dati mobili nelle impostazioni qui sotto per salvarli ora.</item>
+        <item quantity="many">%d elementi attendono il Wi-Fi. Consenti i dati mobili nelle impostazioni qui sotto per salvarli ora.</item>
+    </plurals>
+    <plurals name="backup_failed_title">
+        <item quantity="one">%d elemento non può essere salvato</item>
+        <item quantity="other">%d elementi non possono essere salvati</item>
+        <item quantity="many">%d elementi non possono essere salvati</item>
+    </plurals>
+    <plurals name="backup_device_folders_detail">
+        <item quantity="one">%d cartella oltre alla fotocamera</item>
+        <item quantity="other">%d cartelle oltre alla fotocamera</item>
+        <item quantity="many">%d cartelle oltre alla fotocamera</item>
+    </plurals>
+    <plurals name="backup_folder_items">
+        <item quantity="one">%d elemento</item>
+        <item quantity="other">%d elementi</item>
+        <item quantity="many">%d elementi</item>
+    </plurals>
+    <plurals name="free_up_space_summary">
+        <item quantity="one">%1$d elemento · %2$s</item>
+        <item quantity="other">%1$d elementi · %2$s</item>
+        <item quantity="many">%1$d elementi · %2$s</item>
+    </plurals>
 </resources>

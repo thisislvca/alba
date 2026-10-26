@@ -107,4 +107,10 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.SHARE_UP_TO_2_GB_AT_A_TIME_TRY_FEWER_ITEMS -> R.string.message_share_up_to_2_gb_at_a_time_try_fewer_items
     StoredMessage.NOT_ENOUGH_SPACE_TO_PREPARE_THIS_SHARE_TRY_FEWER_OR_SMALLER_ITEMS -> R.string.message_not_enough_space_to_prepare_this_share_try_fewer_or_smaller_items
     StoredMessage.UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT -> R.string.message_upload_canceled_select_the_file_again_to_upload_it
+    StoredMessage.UPLOAD_AVIF_UNSUPPORTED -> R.string.upload_avif_unsupported
+    StoredMessage.UPLOAD_IMAGE_SEQUENCE_UNSUPPORTED -> R.string.upload_image_sequence_unsupported
+    StoredMessage.ICLOUD_STORAGE_FULL -> R.string.icloud_storage_full
+    StoredMessage.AUTOMATIC_BACKUP_IS_ON -> R.string.message_automatic_backup_is_on
+    StoredMessage.ONLY_ITEMS_THAT_SENT_NOTHING_CAN_BE_RETRIED -> R.string.message_only_items_that_sent_nothing_can_be_retried
+    StoredMessage.THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE -> R.string.message_this_item_is_no_longer_in_the_queue
 }

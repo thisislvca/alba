@@ -86,6 +86,13 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
                         if (hasPhone && !hasCloud) DropdownMenuItem(
                             text = { Text(stringResource(if (query.trashOnly) R.string.restore_photo else R.string.trash_phone_copy)) },
                             onClick = { more = false; actions.trashOnPhone(selectedItems, query.trashOnly) })
+                        // Backed-up items only: each is re-checked against iCloud before Android asks to trash it.
+                        val connected = (session.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED
+                        val phoneOnly = hasPhone && !hasCloud
+                        if (phoneOnly && !query.trashOnly && connected) DropdownMenuItem(
+                            text = { Text(stringResource(R.string.free_up_space_title)) },
+                            modifier = Modifier.testTag("selection-free-up-space"),
+                            onClick = { more = false; actions.freeUpSpace(selectedItems.map { it.id }) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.add_to_album)) }, enabled = editable && !hasShared && !query.trashOnly && hasCloud && !hasPhone && withinLimit,
                             onClick = { more = false; addingToAlbum = true })
                         val album = gallery.collections.firstOrNull { it.id == query.collectionId && it.isUserAlbum }

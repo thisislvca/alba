@@ -126,14 +126,14 @@ internal class UploadInvoker(
 
             try {
                 send(prepared, armed.transferId, armed.attemptId)
+            } catch (full: ICloudStorageFullException) {
+                prepared.cancel()
+                storageRefused(binding, armed, full)
             } catch (error: Throwable) {
                 prepared.cancel()
-                val resumable = protocol.canResume(binding, armed.attemptId)
-                // A refusal before any byte was sent leaves the attempt resumable; one after goes to verification.
-                if (!resumable) recordUnknown(armed, error::class.java.simpleName.ifBlank { "NO_TRUSTED_RESPONSE" })
-                // iCloud is full: every upload waits rather than failing one by one.
-                if (error is ICloudStorageFullException) pauseForStorageFull(binding.accountId, armed.transferId)
-                else if (resumable && leased.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
+                if (!protocol.canResume(binding, armed.attemptId)) {
+                    recordUnknown(armed, error::class.java.simpleName.ifBlank { "NO_TRUSTED_RESPONSE" })
+                } else if (leased.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
                 if (error is CancellationException) throw error
             }
             armed
@@ -156,27 +156,8 @@ internal class UploadInvoker(
             if (transfer.accountId == binding.accountId && transfer.authEpoch == binding.authEpoch &&
                 transfer.operationFence == binding.operationFence && protocol.canResume(binding, attemptId)) {
                 if (transfer.authorityType == AUTHORITY_MANUAL && !allowManual) return@forEach
-                if (isStoragePaused(binding.accountId)) return@forEach
-                val attempt = requireNotNull(transferDao.findAttempt(attemptId))
-                try {
-                    resume(binding, transfer, attemptId)
-                    return@forEach
-                } catch (error: Throwable) {
-                    if (error is CancellationException) throw error
-                    if (!protocol.isWriteAuthorized()) return@forEach
-                    if (error is ICloudStorageFullException) {
-                        if (!protocol.canResume(binding, attemptId)) recordUnknown(attempt, "RESUME_INTERRUPTED")
-                        pauseForStorageFull(binding.accountId, transfer.transferId)
-                        return@forEach
-                    }
-                    // Only failures that may pass on retry, with durable safe state, continue at the next wake.
-                    if (!error.failsEveryRetry() && protocol.canResume(binding, attemptId)) {
-                        if (transfer.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
-                        return@forEach
-                    }
-                    recordUnknown(attempt, "RESUME_INTERRUPTED")
-                    return@forEach
-                }
+                if (!isStoragePaused(binding.accountId)) resumeOrSettle(binding, transfer, attemptId)
+                return@forEach
             }
             database.withTransaction {
                 transferDao.insertUncertainty(
@@ -191,6 +172,27 @@ internal class UploadInvoker(
             }
         }
         return interrupted.size
+    }
+
+    /**
+     * Resumes an interrupted attempt under its own id. A failure that may pass on retry, with durable safe state, waits
+     * for the next wake; a storage refusal pauses uploads; anything else becomes uncertain and goes to verification.
+     */
+    private suspend fun resumeOrSettle(binding: AccountBinding, transfer: TransferEntity, attemptId: String) {
+        val attempt = requireNotNull(transferDao.findAttempt(attemptId))
+        try {
+            resume(binding, transfer, attemptId)
+        } catch (full: ICloudStorageFullException) {
+            storageRefused(binding, attempt, full)
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            if (!protocol.isWriteAuthorized()) return
+            if (!error.failsEveryRetry() && protocol.canResume(binding, attemptId)) {
+                if (transfer.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
+                return
+            }
+            recordUnknown(attempt, "RESUME_INTERRUPTED")
+        }
     }
 
     /**
@@ -334,6 +336,15 @@ internal class UploadInvoker(
     /** Whether iCloud refused an upload for storage and neither the user nor the retry time has lifted the pause. */
     suspend fun isStoragePaused(accountId: String): Boolean =
         transferDao.findUploadPause(accountId)?.let { it.retryAtEpochMillis > now() } == true
+
+    /**
+     * Apple refused [attempt] for lack of storage. Before any byte was sent the attempt stays resumable; after, it goes
+     * to verification. Either way every upload waits rather than failing one by one.
+     */
+    private suspend fun storageRefused(binding: AccountBinding, attempt: UploadAttemptEntity, full: ICloudStorageFullException) {
+        if (!protocol.canResume(binding, attempt.attemptId)) recordUnknown(attempt, full::class.java.simpleName)
+        pauseForStorageFull(binding.accountId, attempt.transferId)
+    }
 
     private suspend fun pauseForStorageFull(accountId: String, transferId: String) {
         val pausedAt = now()

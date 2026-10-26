@@ -178,6 +178,18 @@ interface PhotoCompanion {
         onProgress: suspend (checked: Int, total: Int) -> Unit = { _, _ -> },
     ): ReclaimProposal
 
+    /** Backup status, settings, retry and "Free up space". */
+    val backup: BackupControls
+
+    suspend fun beginTrash(proposal: ReclaimProposalId): TrashHandoff
+
+    suspend fun recordTrashResult(attempt: TrashAttemptId, result: SystemConsentCallback)
+
+    suspend fun accountWillChange(): AccountChangeResult
+}
+
+/** What the Backup page and the transfer runner need beyond uploading: status, settings, retry and free space. */
+interface BackupControls {
     /** Phone items backed up with a current proof, for "Free up space". */
     suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates
 
@@ -204,12 +216,6 @@ interface PhotoCompanion {
 
     /** Manual uploads done and in total since [sinceEpochMillis], for the transfer notification. */
     suspend fun userUploadProgress(sinceEpochMillis: Long): TransferProgress
-
-    suspend fun beginTrash(proposal: ReclaimProposalId): TrashHandoff
-
-    suspend fun recordTrashResult(attempt: TrashAttemptId, result: SystemConsentCallback)
-
-    suspend fun accountWillChange(): AccountChangeResult
 }
 
 sealed interface AccountChangeResult {

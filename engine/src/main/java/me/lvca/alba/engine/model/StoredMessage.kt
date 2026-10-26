@@ -105,7 +105,10 @@ enum class StoredMessage(val code: String, val legacyText: String) {
     UPLOAD_IMAGE_SEQUENCE_UNSUPPORTED("upload_image_sequence_unsupported", "HEIF image sequences, such as bursts or animations, can't be uploaded yet."),
     ICLOUD_STORAGE_FULL("icloud_storage_full", "iCloud storage is full. Backup is paused until there is space."),
     AUTOMATIC_BACKUP_IS_ON("automatic_backup_is_on", "Backup is on."),
-    ONLY_ITEMS_THAT_SENT_NOTHING_CAN_BE_RETRIED("only_items_that_sent_nothing_can_be_retried", "This item may have reached iCloud, so Alba checks it instead of sending it again."),
+    ONLY_ITEMS_THAT_SENT_NOTHING_CAN_BE_RETRIED(
+        "only_items_that_sent_nothing_can_be_retried",
+        "This item may have reached iCloud, so Alba checks it instead of sending it again.",
+    ),
     THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE("this_item_is_no_longer_in_the_queue", "This item is no longer in the queue.");
 
     companion object {

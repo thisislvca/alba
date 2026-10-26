@@ -6,6 +6,7 @@ import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.transfers.TransferScheduler
 import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.engine.companion.BatchAction
+import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
@@ -45,6 +46,13 @@ internal fun testAlbaActions(
     moveVerifiedPhotoToTrash: (String) -> Unit = {},
     openAccount: () -> Unit = {},
     startDemo: () -> Unit = {},
+    retryTransfer: (TransferId) -> Unit = {},
+    retryAllTransfers: () -> Unit = {},
+    cancelUploads: () -> Unit = {},
+    freeUpSpace: (List<String>) -> Unit = {},
+    setBackupSettings: (BackupSettings) -> Unit = {},
+    openBackup: () -> Unit = {},
+    retryAfterStorageFull: () -> Unit = {},
 ): AlbaActions {
     // Renamed so the overrides below cannot resolve to themselves.
     val onSharedActivity = sharedActivity; val onSharedPostDiscussion = sharedPostDiscussion; val onSharedPostPhotos = sharedPostPhotos
@@ -53,7 +61,20 @@ internal fun testAlbaActions(
     val onClearLocalMedia = clearLocalMedia; val onCheckConnection = checkConnection; val onSubmitTwoFactor = submitTwoFactor
     val onRequestDevicePhotos = requestDevicePhotos; val onPickUpload = pickUpload; val onContinue = continuePastUnresolved
     val onMoveVerifiedPhotoToTrash = moveVerifiedPhotoToTrash; val onOpenAccount = openAccount; val onStartDemo = startDemo
+    val onRetry = retryTransfer; val onRetryAll = retryAllTransfers; val onCancelUploads = cancelUploads; val onFreeUp = freeUpSpace
+    val onSettings = setBackupSettings; val onOpenBackup = openBackup; val onRetryStorage = retryAfterStorageFull
     return object : AlbaActions {
+        override fun retryTransfer(transferId: TransferId) = onRetry(transferId)
+        override fun retryAllTransfers() = onRetryAll()
+        override fun cancelUploads() = onCancelUploads()
+        override fun freeUpSpace(mediaIds: List<String>) = onFreeUp(mediaIds)
+        override fun setBackupSettings(settings: BackupSettings) = onSettings(settings)
+        override fun openBackup() = onOpenBackup()
+        override fun retryAfterStorageFull() = onRetryStorage()
+        override fun accountPageShown() = Unit
+        override fun loadDeviceFolders() = Unit
+        override fun refreshBackupStatus() = Unit
+        override fun loadFreeUpSpace() = Unit
         override suspend fun sharedActivity(albumId: String, rank: Int) = onSharedActivity(albumId, rank)
         override suspend fun sharedPostDiscussion(postId: String) = onSharedPostDiscussion(postId)
         override suspend fun sharedPostPhotos(postId: String) = onSharedPostPhotos(postId)

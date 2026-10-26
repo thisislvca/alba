@@ -2,6 +2,7 @@ package me.lvca.alba.app.ui
 
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.engine.companion.BatchAction
+import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
@@ -51,6 +52,9 @@ interface BrowseActions {
     fun requestDevicePhotos()
     fun openAccount()
 
+    /** Opens the Backup page: status, the queue, failed items with Retry, and settings. */
+    fun openBackup()
+
     /** Switches an unconnected library to the sample library. */
     fun startDemo()
 }
@@ -73,14 +77,28 @@ interface LibraryEditActions {
     fun createSharedAlbum(name: String, generation: SharedAlbumGeneration)
 }
 
+/** The upload queue and "Free up space", shared by the gallery, the viewer and the Backup page. */
+interface QueueActions {
+    fun continuePastUnresolved(transferId: TransferId)
+
+    /** Stages again an item that sent nothing to Apple. */
+    fun retryTransfer(transferId: TransferId)
+    fun retryAllTransfers()
+
+    /** Stops the user's uploads. */
+    fun cancelUploads()
+
+    /** Re-checks backed-up phone items as a batch, then asks Android to move them to its trash. */
+    fun freeUpSpace(mediaIds: List<String>)
+}
+
 /** Getting media in and out: batches, uploads and sharing. */
-interface TransferActions {
+interface TransferActions : QueueActions {
     fun runBatch(action: BatchAction)
     fun retryBatch(batchId: String)
     fun cancelDownloadBatch(batchId: String)
     fun pickUpload()
     fun requestUpload(mediaId: String)
-    fun continuePastUnresolved(transferId: TransferId)
     fun share(items: List<GalleryMedia>)
     fun cancelShare()
 }
@@ -112,6 +130,16 @@ interface AccountActions {
     fun enableAutomaticBackup()
     fun disableAutomaticBackup()
 
+    /** The account screen showed a page something outside it asked for. */
+    fun accountPageShown()
+    fun setBackupSettings(settings: BackupSettings)
+    fun loadDeviceFolders()
+    fun refreshBackupStatus()
+    fun loadFreeUpSpace()
+
+    /** The user says iCloud has space again. */
+    fun retryAfterStorageFull()
+
     /** Drives the demo backup walkthrough: interrupt, pause for Wi-Fi, clean up or retry a sample row. */
     fun demoBackupAction(transferId: TransferId)
     fun setDiagnosticsEnabled(enabled: Boolean)
@@ -124,7 +152,7 @@ interface GalleryScreenActions : BrowseActions, LibraryEditActions, TransferActi
 interface MediaScreenActions : BrowseActions, LibraryEditActions, TransferActions, ViewerActions, SharedActions
 
 /** Everything the account screen and its pages can do. */
-interface AccountScreenActions : AccountActions, StorageActions
+interface AccountScreenActions : AccountActions, StorageActions, QueueActions
 
 /** Every action Alba's screens can take. */
 interface AlbaActions : GalleryScreenActions, MediaScreenActions, AccountScreenActions {

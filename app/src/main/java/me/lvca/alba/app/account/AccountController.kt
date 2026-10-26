@@ -24,6 +24,7 @@ import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.platform.NetworkStatus
+import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.engine.model.AccountChangeResult
 import me.lvca.alba.engine.model.CloudAccountProfile
 import me.lvca.alba.engine.model.CloudStorageUsage
@@ -56,12 +57,14 @@ data class SessionState(
     val lastRefreshedAt: Instant? = null,
     /** Restoring the saved account failed; the account screen offers a retry instead of a spinner. */
     val restoreFailed: Boolean = false,
+    /** A page of the account screen something outside it asked to show, such as a notification opening Backup. */
+    val requestedPage: ProfilePage? = null,
 ) {
     val cloudSourceLabel: String
         get() = if (accountState != ICloudAccountState.Demo) "iCloud Personal Library" else "Demo iCloud library"
 }
 
-private data class AccountFlags(val busy: Boolean, val info: AccountInfo, val open: Boolean)
+private data class AccountFlags(val busy: Boolean, val info: AccountInfo, val open: Boolean, val page: ProfilePage?)
 
 /**
  * Sign-in, two-factor verification, sign-out, switching between the demo and iCloud, and connection checks.
@@ -83,12 +86,15 @@ internal class AccountController(
     private val busy = MutableStateFlow(false)
     private val accountInfo = MutableStateFlow(AccountInfo())
     private val accountOpen = MutableStateFlow(savedState[ACCOUNT_OPEN] ?: false)
+    private val requestedPage = MutableStateFlow(savedState.get<String>(REQUESTED_PAGE)?.let { saved ->
+        ProfilePage.entries.firstOrNull { it.name == saved }
+    })
     private var accountInfoJob: Job? = null
     private var signInPreviousDsid: String? = null
 
     val state: StateFlow<SessionState> = combine(
         accountManager.state,
-        combine(busy, accountInfo, accountOpen, ::AccountFlags),
+        combine(busy, accountInfo, accountOpen, requestedPage, ::AccountFlags),
         network,
         sync.state,
     ) { account, flags, network, sync ->
@@ -101,13 +107,23 @@ internal class AccountController(
             isRefreshing = sync.isRefreshing,
             lastRefreshedAt = sync.lastRefreshedAt,
             restoreFailed = sync.restoreFailed,
+            requestedPage = flags.page,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), SessionState())
 
-    fun openAccount() {
+    /** Opens the account screen, on [page] when one is given. */
+    fun openAccount(page: ProfilePage? = null) {
         savedState[ACCOUNT_OPEN] = true
         accountOpen.value = true
+        savedState[REQUESTED_PAGE] = page?.name
+        requestedPage.value = page
         checkConnection()
+    }
+
+    /** The account screen showed the requested page, so a recreation does not show it again. */
+    fun accountPageShown() {
+        savedState[REQUESTED_PAGE] = null
+        requestedPage.value = null
     }
 
     fun closeAccount() {
@@ -286,5 +302,6 @@ internal class AccountController(
 
     private companion object {
         const val ACCOUNT_OPEN = "accountOpen"
+        const val REQUESTED_PAGE = "accountRequestedPage"
     }
 }

@@ -131,39 +131,10 @@ internal class TransferIntake(
         }
         // Cached rows can belong to an older enrollment; use only the scoped page.
         for (item in page.items) {
-            val passed = LocalDiscoveryCheckpoint(page.checkpoint.volumeName, page.checkpoint.volumeVersion,
-                item.generationModified, item.mediaStoreId)
-            if (transferDao.countTransfersForMedia(binding.accountId, item.id) > 0) {
-                saveCheckpoint(passed)
-                continue
-            }
-            if (!UploadMediaFormat.isCandidate(item.mimeType)) {
-                recordSkipped(binding, enrollment, item, unsupportedReason(item.mimeType))
-                saveCheckpoint(passed)
-                continue
-            }
-            val queued = try {
-                createTransfer(
-                    binding = binding,
-                    authorityType = AUTHORITY_AUTOMATIC,
-                    authorityId = "enrollment:${enrollment.enrollmentId}:${enrollment.revision}",
-                    enrollment = enrollment,
-                    mediaId = item.id,
-                    contentUri = item.contentUri,
-                ) { output ->
-                    originals.copyMediaStoreItem(item.contentUri, item.sourceRevision, output)
-                }
-                true
-            } catch (refused: UnsupportedUploadException) {
-                recordSkipped(binding, enrollment, item, refused.message ?: UnsupportedUploadException.MESSAGE)
-                false
-            } catch (refused: PhotoCompanionException.Refused) {
-                // The same bytes are already queued or verified, or held back by an unresolved upload that shows itself.
-                if (refused.reason !in PASSED_OVER) throw refused
-                false
-            }
-            // Failed staging must not advance past the item; anything else above throws before this line.
-            saveCheckpoint(passed)
+            val queued = stageDiscovered(binding, enrollment, item)
+            // Failed staging throws before this line, so it never advances past the item.
+            saveCheckpoint(LocalDiscoveryCheckpoint(page.checkpoint.volumeName, page.checkpoint.volumeVersion,
+                item.generationModified, item.mediaStoreId))
             if (queued) {
                 if (page.moreComing || item != page.items.last()) runSuspendCatching { scheduler.scheduleSoon() }
                 return 1
@@ -172,6 +143,38 @@ internal class TransferIntake(
         saveCheckpoint(page.checkpoint)
         if (page.moreComing) runSuspendCatching { scheduler.scheduleSoon() }
         return 0
+    }
+
+    /**
+     * Queues one discovered item, or passes over it: already in the journal, the same bytes already queued, or refused
+     * by the uploader, which is recorded as skipped with its reason. Returns true when it queued a transfer.
+     */
+    private suspend fun stageDiscovered(binding: AccountBinding, enrollment: BackupEnrollmentEntity, item: DeviceMediaRecord): Boolean {
+        if (transferDao.countTransfersForMedia(binding.accountId, item.id) > 0) return false
+        if (!UploadMediaFormat.isCandidate(item.mimeType)) {
+            recordSkipped(binding, enrollment, item, unsupportedReason(item.mimeType))
+            return false
+        }
+        return try {
+            createTransfer(
+                binding = binding,
+                authorityType = AUTHORITY_AUTOMATIC,
+                authorityId = "enrollment:${enrollment.enrollmentId}:${enrollment.revision}",
+                enrollment = enrollment,
+                mediaId = item.id,
+                contentUri = item.contentUri,
+            ) { output ->
+                originals.copyMediaStoreItem(item.contentUri, item.sourceRevision, output)
+            }
+            true
+        } catch (refused: UnsupportedUploadException) {
+            recordSkipped(binding, enrollment, item, refused.message ?: UnsupportedUploadException.MESSAGE)
+            false
+        } catch (refused: PhotoCompanionException.Refused) {
+            // The same bytes are already queued or verified, or held back by an unresolved upload that shows itself.
+            if (refused.reason !in PASSED_OVER) throw refused
+            false
+        }
     }
 
     /** Ids of everything automatic backup covers on the phone, and how many of them are verified in iCloud. */
@@ -219,13 +222,7 @@ internal class TransferIntake(
 
     /** Retries every item [retry] accepts. One that is refused again keeps its row and reason. */
     suspend fun retryAll(binding: AccountBinding): Int = transferDao.findRetryable(binding.accountId).count { row ->
-        try {
-            retry(row.transferId)
-            true
-        } catch (error: Exception) {
-            if (error is kotlinx.coroutines.CancellationException) throw error
-            false
-        }
+        runSuspendCatching { retry(row.transferId) }.isSuccess
     }
 
     /** Records an item automatic backup found but the uploader refuses, so the user sees it and why. */
@@ -314,7 +311,7 @@ internal class TransferIntake(
         if (scope == BackupScope.CAMERA_JPEGS) return base
         val coverage = (folders.sorted() + "video=${originals.hasVideoAccess()}").joinToString("|")
         val digest = MessageDigest.getInstance("SHA-256").digest(coverage.toByteArray(Charsets.UTF_8))
-        return "$base:media:" + digest.take(8).joinToString("") { "%02x".format(it) }
+        return "$base:media:" + digest.take(COVERAGE_KEY_BYTES).joinToString("") { "%02x".format(it) }
     }
 
     private fun BackupEnrollmentEntity.baseline(): LocalDiscoveryCheckpoint? = discoveryBaselineVersion?.let { version ->
@@ -437,6 +434,9 @@ internal class TransferIntake(
         /** Items checked per discovery pass; at most one of them is staged. */
         const val AUTO_DISCOVERY_PAGE_SIZE = 20
         const val MEDIA_STORE_PREFIX = "content://media/"
+
+        /** Enough of the coverage digest to tell folder sets apart in a checkpoint id. */
+        const val COVERAGE_KEY_BYTES = 8
         val RETRYABLE_STATES = setOf(TransferState.NEEDS_ATTENTION, TransferState.UNSUPPORTED)
         val PASSED_OVER = setOf(
             StoredMessage.THESE_EXACT_BYTES_ARE_ALREADY_QUEUED_OR_VERIFIED_IN_ICLOUD,
