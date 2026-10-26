@@ -14,7 +14,10 @@ import me.lvca.alba.engine.model.AccountChangeResult
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
 import me.lvca.alba.engine.model.BackupChange
 import me.lvca.alba.engine.model.BackupDraftId
+import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.DeviceFolder
+import me.lvca.alba.engine.model.FreeUpSpaceCandidates
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.MaintenanceWakeup
 import me.lvca.alba.engine.model.PhotoCompanion
@@ -22,6 +25,7 @@ import me.lvca.alba.engine.model.ReclaimProposalId
 import me.lvca.alba.engine.model.SyncTicket
 import me.lvca.alba.engine.model.SystemConsentCallback
 import me.lvca.alba.engine.model.TransferId
+import me.lvca.alba.engine.model.TransferProgress
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.engine.model.TrashAttemptId
@@ -39,7 +43,7 @@ import java.util.UUID
  */
 class DefaultPhotoCompanion(
     private val database: AlbaDatabase,
-    originals: ExactOriginalSource,
+    private val originals: ExactOriginalSource,
     staging: UploadStagingStore,
     private val protocol: ICloudPhotoProtocol,
     private val scheduler: WakeupScheduler,
@@ -88,6 +92,8 @@ class DefaultPhotoCompanion(
             val summary = wake(WakeReason.USER_TRANSFER)
             val account = accountDao.findActiveAccount() ?: return
             if (transferDao.countPendingManualTransfers(account.accountId) == 0) return
+            // iCloud is full: stop here rather than retrying; the queue resumes when the user tries again.
+            if (invoker.isStoragePaused(account.accountId)) return
             val slot = transferDao.findWriteSlot(account.accountId)
             if (slot != null) {
                 val attempt = transferDao.findAttempt(slot.attemptId) ?: return
@@ -153,16 +159,66 @@ class DefaultPhotoCompanion(
         }
         val invoked = invoker.invokeOne(binding, allowManual, allowAutomatic)
         if (invoked > 0) reconciled += reconciler.reconcileOne(binding)
-        val dueAt = transferDao.earliestReconciliationDue(binding.accountId, now(), automaticBackupPolicy.isUnmetered())
-        val ready = transferDao.findWriteSlot(binding.accountId) == null &&
-            transferDao.countRunnableReady(binding.accountId, authority.canRun(binding), allowManual = false) > 0
+        val dueAt = transferDao.earliestReconciliationDue(binding.accountId, now(), authority.mayUseNetwork())
+        val ready = transferDao.findWriteSlot(binding.accountId) == null && !invoker.isStoragePaused(binding.accountId) &&
+            transferDao.countRunnableReady(
+                binding.accountId,
+                allowAutomaticPhotos = authority.canRun(binding, video = false),
+                allowAutomaticVideos = authority.canRun(binding, video = true),
+                allowManual = false,
+            ) > 0
         val moreWork = dueAt != null || ready
         if (ready) scheduler.scheduleSoon()
         else if (dueAt != null) scheduler.scheduleAt(dueAt)
         WakeSummary(recovered, reconciled, stagedAutomatic, invoked, moreWork)
     }
 
-    override suspend fun prepareTrash(items: Set<String>) = trash.prepareTrash(items)
+    override suspend fun prepareTrash(
+        items: Set<String>,
+        allowPartial: Boolean,
+        onProgress: suspend (checked: Int, total: Int) -> Unit,
+    ) = trash.prepareTrash(items, allowPartial, onProgress)
+
+    override suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates = trash.freeUpSpaceCandidates()
+
+    override suspend fun retryTransfer(transfer: TransferId): UploadTicket = intake.retry(transfer.value).also {
+        runSuspendCatching { scheduler.scheduleSoon() }
+    }
+
+    override suspend fun retryAllTransfers(): Int {
+        val binding = accounts.requireActive()
+        return intake.retryAll(binding).also { if (it > 0) runSuspendCatching { scheduler.scheduleSoon() } }
+    }
+
+    override suspend fun backupProgress(): BackupProgress =
+        accounts.synchronize()?.let { intake.backupProgress(it) } ?: BackupProgress(0, 0)
+
+    override suspend fun deviceFolders(): List<DeviceFolder> = originals.deviceFolders()
+
+    override suspend fun backupSettingsChanged() {
+        val binding = accounts.synchronize()
+        val enabled = binding != null && authority.currentEnrollment(binding) != null
+        if (automaticBackupPolicy.settings().paused || !enabled) {
+            scheduler.setAutomaticBackupEnabled(false)
+            scheduler.cancelRunningBackup()
+        } else {
+            scheduler.setAutomaticBackupEnabled(true)
+            runSuspendCatching { scheduler.scheduleSoon() }
+        }
+    }
+
+    override suspend fun retryAfterStorageFull() {
+        val binding = accounts.requireActive()
+        transferDao.clearUploadPause(binding.accountId)
+        runSuspendCatching { scheduler.scheduleSoon() }
+    }
+
+    override suspend fun userUploadProgress(sinceEpochMillis: Long): TransferProgress {
+        val account = accountDao.findActiveAccount() ?: return TransferProgress(0, 0)
+        val total = transferDao.countManualInRun(account.accountId, sinceEpochMillis)
+        val pending = transferDao.countPendingManualTransfers(account.accountId)
+        return TransferProgress(done = (total - pending).coerceAtLeast(0), total = total)
+    }
     override suspend fun beginTrash(proposal: ReclaimProposalId) = trash.beginTrash(proposal)
     override suspend fun recordTrashResult(attempt: TrashAttemptId, result: SystemConsentCallback) =
         trash.recordTrashResult(attempt, result)
@@ -190,5 +246,8 @@ class DefaultPhotoCompanion(
         updatedAtEpochMillis = row.updatedAtEpochMillis,
         verifiedAtEpochMillis = row.verifiedAtEpochMillis,
         message = row.message,
+        automatic = row.authorityType == AUTHORITY_AUTOMATIC,
+        retryable = row.activeAttemptId == null &&
+            (row.state == TransferState.NEEDS_ATTENTION || row.state == TransferState.UNSUPPORTED),
     )
 }

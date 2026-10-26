@@ -3,6 +3,7 @@ package me.lvca.alba.protocol.photos
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
@@ -65,6 +66,33 @@ class LiveICloudPhotoProtocolTest {
         assertEquals(AppleProtocolError.SESSION_EXPIRED, (error as AppleProtocolException).error)
         assertEquals(SESSION, rejected)
         assertEquals(0, transport.rawUploadCalls)
+    }
+
+    @Test
+    fun `a full iCloud refuses the reservation before any byte and leaves the attempt resumable`() = runBlocking {
+        val transport = ScriptedTransport(reservationHttpCode = 413)
+        val journal = CrashJournal("never")
+        val protocol = LiveICloudPhotoProtocol(transport, { SESSION }, uploadJournal = journal)
+        val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
+
+        val error = runCatching { protocol.prepareOriginal(binding, "photo.jpg", CountingSource(JPEG)).startOnce("full") }.exceptionOrNull()
+
+        assertTrue(error is ICloudStorageFullException)
+        assertEquals(0, transport.rawUploadCalls)
+        assertTrue(protocol.canResume(binding, "full"))
+    }
+
+    @Test
+    fun `a quota refusal at registration is reported as storage full`() = runBlocking {
+        val transport = ScriptedTransport(registrationStatus = 413)
+        val protocol = LiveICloudPhotoProtocol(transport, { SESSION })
+        val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
+
+        val error = runCatching { protocol.prepareOriginal(binding, "photo.jpg", CountingSource(JPEG)).startOnce("late") }.exceptionOrNull()
+
+        assertTrue(error is ICloudStorageFullException)
+        assertTrue(CloudKitErrors.quotaExceeded(200, Json.parseToJsonElement("""{"errors":[{"serverErrorCode":"QUOTA_EXCEEDED"}]}""").jsonObject))
+        assertTrue(!CloudKitErrors.quotaExceeded(200, Json.parseToJsonElement("""{"serverErrorCode":"THROTTLED"}""").jsonObject))
     }
 
     @Test

@@ -4,7 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.withLock
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.BackupEnrollmentDraftEntity
@@ -35,20 +35,30 @@ internal class BackupEnrollment(
     private val backupDao = database.backupDao()
     private val transferDao = database.transferDao()
 
-    fun observeBackup(): Flow<BackupView> = backupDao.observeBackup().map { row ->
+    fun observeBackup(): Flow<BackupView> = combine(
+        backupDao.observeBackup(),
+        transferDao.observeActiveUploadPause(),
+    ) { row, pause ->
+        val storageFullSince = pause?.takeIf { it.reason == StoredMessage.ICLOUD_STORAGE_FULL.code }?.pausedAtEpochMillis
         if (row == null) {
-            BackupView(enabled = false)
+            BackupView(enabled = false, storageFullSinceEpochMillis = storageFullSince)
         } else {
+            val scope = BackupScope.valueOf(row.scope)
             BackupView(
                 enabled = row.enabled,
                 destinationLabel = row.destinationLabel,
-                scope = BackupScope.valueOf(row.scope),
+                scope = scope,
                 message = when {
                     !row.enabled -> StoredMessage.AUTOMATIC_BACKUP_IS_OFF.code
+                    storageFullSince != null -> StoredMessage.ICLOUD_STORAGE_FULL.code
                     !originals.hasAutomaticBackupAccess() -> StoredMessage.BACKUP_PAUSED_ALLOW_FULL_PHOTO_AND_MEDIA_LOCATION_ACCESS.code
-                    !automaticBackupPolicy.isUnmetered() -> StoredMessage.BACKUP_PAUSED_WAITING_FOR_AN_UNMETERED_NETWORK.code
-                    else -> StoredMessage.NEW_CAMERA_JPEGS_WILL_BACK_UP_AUTOMATICALLY.code
+                    !automaticBackupPolicy.settings().allowsAny(automaticBackupPolicy.network()) ->
+                        StoredMessage.BACKUP_PAUSED_WAITING_FOR_AN_UNMETERED_NETWORK.code
+                    scope == BackupScope.CAMERA_JPEGS -> StoredMessage.NEW_CAMERA_JPEGS_WILL_BACK_UP_AUTOMATICALLY.code
+                    else -> StoredMessage.AUTOMATIC_BACKUP_IS_ON.code
                 },
+                disclosureCurrent = scope == BackupScope.CURRENT && row.disclosureRevision == BACKUP_DISCLOSURE_REVISION,
+                storageFullSinceEpochMillis = storageFullSince,
             )
         }
     }
@@ -71,12 +81,12 @@ internal class BackupEnrollment(
             expiresAtEpochMillis = createdAt + BACKUP_DRAFT_LIFETIME_MILLIS,
         )
         backupDao.insertBackupDraft(draft)
+        // The UI words the disclosure in the user's language; the revision records which wording they agreed to.
         return BackupDraft(
             id = BackupDraftId(draft.draftId),
             destinationLabel = draft.destinationLabel,
-            disclosure = "Alba will automatically read newly added JPEG photos in DCIM/Camera on this phone and upload exact " +
-                "original bytes directly to ${draft.destinationLabel} on an unmetered network. Uploads pause when access, consent, " +
-                "or the destination account changes.",
+            scope = scope,
+            revision = draft.disclosureRevision,
         )
     }
 
@@ -139,7 +149,7 @@ internal class BackupEnrollment(
                     enabled = true,
                     destinationLabel = active.destinationLabel,
                     scope = BackupScope.valueOf(enrollment.scope),
-                    message = StoredMessage.AUTOMATIC_JPEG_BACKUP_IS_ON.code,
+                    message = StoredMessage.AUTOMATIC_BACKUP_IS_ON.code,
                 )
             }
         }
@@ -178,18 +188,22 @@ internal class BackupEnrollment(
     }
 
     private fun automaticBackupPermissions(): List<String> = buildList {
-        add(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                Manifest.permission.READ_MEDIA_IMAGES
-            } else {
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            },
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.READ_MEDIA_IMAGES)
+            add(Manifest.permission.READ_MEDIA_VIDEO)
+        } else {
+            add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
         add(Manifest.permission.ACCESS_MEDIA_LOCATION)
     }
 
-    private companion object {
-        const val BACKUP_DISCLOSURE_REVISION = "2026-08-23.1"
-        const val BACKUP_DRAFT_LIFETIME_MILLIS = 15 * 60 * 1_000L
+    companion object {
+        /**
+         * The disclosure wording the user agrees to. 2026-10-26.1 widened backup from new camera JPEGs on an unmetered
+         * network to every accepted photo and video format, chosen folders, and mobile data when the user allows it.
+         * An enrollment under an older revision keeps its own scope until the user agrees again.
+         */
+        const val BACKUP_DISCLOSURE_REVISION = "2026-10-26.1"
+        private const val BACKUP_DRAFT_LIFETIME_MILLIS = 15 * 60 * 1_000L
     }
 }

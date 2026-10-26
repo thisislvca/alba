@@ -11,6 +11,7 @@ data class BackupProjection(
     val enabled: Boolean,
     val destinationLabel: String,
     val scope: String,
+    val disclosureRevision: String = "",
 )
 
 /** Automatic backup disclosure drafts and the account's enrollment. */
@@ -18,7 +19,7 @@ data class BackupProjection(
 interface BackupDao {
     @Query(
         """
-        SELECT e.enabled, a.destinationLabel, e.scope
+        SELECT e.enabled, a.destinationLabel, e.scope, e.disclosureRevision
         FROM backup_enrollments e
         JOIN accounts a ON a.accountId = e.accountId
         WHERE a.active = 1

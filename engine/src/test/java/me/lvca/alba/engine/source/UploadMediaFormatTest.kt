@@ -21,6 +21,12 @@ class UploadMediaFormatTest {
             assertTrue(runCatching { UploadMediaFormat.detect(invalid) }.exceptionOrNull() is UnsupportedUploadException)
         }
     }
+    @Test fun refusalsNameWhyTheFormatIsRefused() {
+        fun reason(bytes: ByteArray) = (runCatching { UploadMediaFormat.detect(bytes) }.exceptionOrNull() as UnsupportedUploadException).message
+        assertEquals(UnsupportedUploadException.AVIF, reason(ftyp("avif", "mif1")))
+        assertEquals(UnsupportedUploadException.IMAGE_SEQUENCE, reason(ftyp("heic", "msf1", "hevc")))
+        assertEquals(UnsupportedUploadException.MESSAGE, reason("GIF89a".toByteArray()))
+    }
     @Test fun retainsVerifiedSuffixAndCorrectsMisleadingSuffix() {
         assertEquals("original.HEIF", UploadMediaFormat.HEIC.fileName("original.HEIF"))
         assertEquals("movie.mov", UploadMediaFormat.MOV.fileName("folder/movie.mov"))

@@ -2,6 +2,7 @@ package me.lvca.alba.engine.source
 
 import android.content.IntentSender
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.DeviceFolder
 import java.io.OutputStream
 
 data class ExactOriginalEvidence(
@@ -59,19 +60,32 @@ interface ExactOriginalSource {
 
     fun hasAutomaticBackupAccess(): Boolean
 
-    suspend fun discoverJpegs(
-        checkpoint: LocalDiscoveryCheckpoint?,
-        limit: Int,
-    ): LocalDiscoveryPage
+    /** Whether videos can be read. Without it, automatic backup covers photos only. */
+    fun hasVideoAccess(): Boolean = false
 
-    /** Returns only camera JPEGs added strictly after enrollment, never older edited photos. */
-    suspend fun discoverEligibleJpegs(
+    /**
+     * Returns only items [scope] covers, from the camera folder and the chosen [folders], added strictly after
+     * enrollment; never older edited items. Formats the uploader refuses are returned too, so they can be reported.
+     */
+    suspend fun discoverEligibleMedia(
         checkpoint: LocalDiscoveryCheckpoint?,
         limit: Int,
         scope: BackupScope,
+        folders: Set<String>,
         addedAfterEpochMillis: Long,
         enrollmentBaseline: LocalDiscoveryCheckpoint? = null,
     ): LocalDiscoveryPage = error("This source cannot enforce automatic backup scope")
+
+    /** The ids of every item [discoverEligibleMedia] covers, regardless of checkpoint, for counting progress. */
+    suspend fun eligibleMediaIds(
+        scope: BackupScope,
+        folders: Set<String>,
+        addedAfterEpochMillis: Long,
+        enrollmentBaseline: LocalDiscoveryCheckpoint? = null,
+    ): Set<String> = emptySet()
+
+    /** Folders holding photos or videos on every volume, the camera first. */
+    suspend fun deviceFolders(): List<DeviceFolder> = emptyList()
 
     suspend fun captureEnrollmentBaseline(): LocalDiscoveryCheckpoint? = null
 

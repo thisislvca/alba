@@ -7,6 +7,8 @@ import me.lvca.alba.engine.database.ReclaimProposalEntity
 import me.lvca.alba.engine.database.ReclaimProposalItemEntity
 import me.lvca.alba.engine.database.TrashAttemptEntity
 import me.lvca.alba.engine.database.TrashObligationEntity
+import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.FreeUpSpaceCandidates
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.ReclaimProposal
 import me.lvca.alba.engine.model.ReclaimProposalId
@@ -32,45 +34,36 @@ internal class VerifiedPhotoTrash(
     private val trashDao = database.trashDao()
     private val verificationDao = database.verificationDao()
 
-    suspend fun prepareTrash(items: Set<String>): ReclaimProposal {
+    suspend fun prepareTrash(
+        items: Set<String>,
+        allowPartial: Boolean = false,
+        onProgress: suspend (checked: Int, total: Int) -> Unit = { _, _ -> },
+    ): ReclaimProposal {
         refuseUnless(items.isNotEmpty(), StoredMessage.SELECT_AT_LEAST_ONE_VERIFIED_PHOTO)
         val binding = accounts.requireActive()
         val proposalId = UUID.randomUUID().toString()
         val checked = mutableListOf<ReclaimProposalItemEntity>()
-        val checkedAt = now()
+        var firstRefusal: String? = null
 
-        for (mediaId in items) {
-            val proof = verificationDao.findCurrentProof(mediaId, binding.accountId)
-                ?: return blockedProposal(proposalId, StoredMessage.THIS_PHOTO_DOES_NOT_HAVE_A_CURRENT_EXACT_ICLOUD_PROOF.code)
-            val source = transferDao.findStagedSource(proof.stagedSourceId)
-                ?: return blockedProposal(proposalId, StoredMessage.THE_LOCAL_PROOF_SOURCE_IS_UNAVAILABLE.code)
-            val pairEntity = verificationDao.findRemotePair(proof.remotePairId)
-                ?: return blockedProposal(proposalId, StoredMessage.THE_ICLOUD_RECORD_PROOF_IS_UNAVAILABLE.code)
-            require(source.accountId == binding.accountId && proof.accountId == binding.accountId)
-
-            val local = originals.hashMediaStoreItem(source.contentUri, source.sourceRevision)
-            val remoteHash = HashingOutputStream()
-            val remote = protocol.streamFreshOriginal(binding, pairEntity.toCandidate(), remoteHash)
-            val exact = local.sha256Hex == proof.sha256Hex &&
-                local.byteCount == proof.byteCount &&
-                remoteHash.sha256Hex() == proof.sha256Hex &&
-                remoteHash.byteCount == proof.byteCount &&
-                remote.byteCount == proof.byteCount &&
-                remote.resourceIdentity == pairEntity.originalResourceIdentity
-            if (!exact) {
-                return blockedProposal(proposalId, StoredMessage.THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH.code)
+        for ((index, mediaId) in items.withIndex()) {
+            onProgress(index, items.size)
+            val refusal = if (!allowPartial) checkExact(binding, proposalId, mediaId) { checked += it } else try {
+                checkExact(binding, proposalId, mediaId) { checked += it }
+            } catch (error: Exception) {
+                // One unreadable item stays on the phone; the rest of the batch is still checked.
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                StoredMessage.decode(error.message)?.code ?: StoredMessage.THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH.code
             }
-            checked += ReclaimProposalItemEntity(
-                proposalId = proposalId,
-                mediaId = mediaId,
-                contentUri = source.contentUri,
-                proofId = proof.proofId,
-                localSha256Hex = local.sha256Hex,
-                remoteSha256Hex = remoteHash.sha256Hex(),
-                verifiedAtEpochMillis = checkedAt,
-            )
+            if (refusal != null) {
+                if (!allowPartial) return blockedProposal(proposalId, refusal)
+                firstRefusal = firstRefusal ?: refusal
+            }
         }
+        onProgress(items.size, items.size)
+        if (checked.isEmpty()) return blockedProposal(proposalId, firstRefusal ?: StoredMessage.SELECT_AT_LEAST_ONE_VERIFIED_PHOTO.code)
 
+        // The consent window runs from the last check, so a long batch does not expire before Android asks the user.
+        val checkedAt = now()
         val expiresAt = checkedAt + RECLAIM_PROPOSAL_LIFETIME_MILLIS
         database.withTransaction {
             val active = requireNotNull(accountDao.findActiveAccount())
@@ -89,7 +82,55 @@ internal class VerifiedPhotoTrash(
             )
             trashDao.insertReclaimProposalItems(checked)
         }
-        return ReclaimProposal(ReclaimProposalId(proposalId), items, expiresAt)
+        return ReclaimProposal(ReclaimProposalId(proposalId), checked.map { it.mediaId }.toSet(), expiresAt)
+    }
+
+    /**
+     * Re-reads [mediaId]'s phone and iCloud originals and compares both with its proof. Hands the checked item to
+     * [accept] and returns null when they match exactly; otherwise returns why not.
+     */
+    private suspend fun checkExact(
+        binding: AccountBinding,
+        proposalId: String,
+        mediaId: String,
+        accept: (ReclaimProposalItemEntity) -> Unit,
+    ): String? {
+        val proof = verificationDao.findCurrentProof(mediaId, binding.accountId)
+            ?: return StoredMessage.THIS_PHOTO_DOES_NOT_HAVE_A_CURRENT_EXACT_ICLOUD_PROOF.code
+        val source = transferDao.findStagedSource(proof.stagedSourceId)
+            ?: return StoredMessage.THE_LOCAL_PROOF_SOURCE_IS_UNAVAILABLE.code
+        val pairEntity = verificationDao.findRemotePair(proof.remotePairId)
+            ?: return StoredMessage.THE_ICLOUD_RECORD_PROOF_IS_UNAVAILABLE.code
+        require(source.accountId == binding.accountId && proof.accountId == binding.accountId)
+
+        val local = originals.hashMediaStoreItem(source.contentUri, source.sourceRevision)
+        val remoteHash = HashingOutputStream()
+        val remote = protocol.streamFreshOriginal(binding, pairEntity.toCandidate(), remoteHash)
+        val exact = local.sha256Hex == proof.sha256Hex &&
+            local.byteCount == proof.byteCount &&
+            remoteHash.sha256Hex() == proof.sha256Hex &&
+            remoteHash.byteCount == proof.byteCount &&
+            remote.byteCount == proof.byteCount &&
+            remote.resourceIdentity == pairEntity.originalResourceIdentity
+        if (!exact) return StoredMessage.THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH.code
+        accept(
+            ReclaimProposalItemEntity(
+                proposalId = proposalId,
+                mediaId = mediaId,
+                contentUri = source.contentUri,
+                proofId = proof.proofId,
+                localSha256Hex = local.sha256Hex,
+                remoteSha256Hex = remoteHash.sha256Hex(),
+                verifiedAtEpochMillis = now(),
+            ),
+        )
+        return null
+    }
+
+    /** Phone items with a current proof, oldest first, and the bytes they hold on the phone. */
+    suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates {
+        val rows = verificationDao.findReclaimableOnPhone()
+        return FreeUpSpaceCandidates(rows.map { it.mediaId }, rows.sumOf { it.byteCount })
     }
 
     suspend fun beginTrash(proposal: ReclaimProposalId): TrashHandoff {

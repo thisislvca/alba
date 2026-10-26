@@ -16,6 +16,7 @@ import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.StoredMessage
 import java.io.OutputStream
 import java.security.MessageDigest
@@ -92,19 +93,17 @@ class AndroidMediaStoreSource(
 
     override fun hasAutomaticBackupAccess(): Boolean = permissionFingerprint().startsWith("full:unredacted")
 
-    override suspend fun discoverJpegs(
-        checkpoint: LocalDiscoveryCheckpoint?,
-        limit: Int,
-    ): LocalDiscoveryPage = discoverEligibleJpegs(checkpoint, limit, BackupScope.CAMERA_JPEGS, 0L)
+    override fun hasVideoAccess(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        has(Manifest.permission.READ_MEDIA_VIDEO)
 
-    override suspend fun discoverEligibleJpegs(
+    override suspend fun discoverEligibleMedia(
         checkpoint: LocalDiscoveryCheckpoint?,
         limit: Int,
         scope: BackupScope,
+        folders: Set<String>,
         addedAfterEpochMillis: Long,
         enrollmentBaseline: LocalDiscoveryCheckpoint?,
     ): LocalDiscoveryPage = withContext(Dispatchers.IO) {
-        require(scope == BackupScope.CAMERA_JPEGS)
         require(limit in 1..200) { "MediaStore discovery limit must be between 1 and 200" }
         check(hasAutomaticBackupAccess()) {
             StoredMessage.AUTOMATIC_BACKUP_NEEDS_FULL_PHOTO_ACCESS_AND_PRECISE_MEDIA_LOCATION_ACCESS.code
@@ -118,37 +117,28 @@ class AndroidMediaStoreSource(
         }
         val afterGeneration = compatibleCheckpoint?.generationModified ?: -1L
         val afterId = compatibleCheckpoint?.mediaStoreId ?: -1L
-        val collection = MediaStore.Images.Media.getContentUri(volume)
-        val enrollmentGeneration = enrollmentBaseline?.takeIf { it.volumeVersion == version }?.generationModified
-        val enrollmentPredicate = if (enrollmentGeneration != null) {
-            "${MediaStore.Images.Media.GENERATION_ADDED} > ?"
-        } else {
-            "${MediaStore.Images.Media.DATE_ADDED} > ?"
-        }
+        val (scopeSelection, scopeArgs) = eligibleSelection(scope, folders, addedAfterEpochMillis, enrollmentBaseline, version)
         val selection = """
-            (${MediaStore.Images.Media.GENERATION_MODIFIED} > ? OR
-             (${MediaStore.Images.Media.GENERATION_MODIFIED} = ? AND ${MediaStore.Images.Media._ID} > ?))
-            AND ${MediaStore.Images.Media.GENERATION_MODIFIED} <= ?
-            AND ${MediaStore.Images.Media.MIME_TYPE} IN (?, ?)
-            AND ${MediaStore.Images.Media.RELATIVE_PATH} = ?
-            AND $enrollmentPredicate
+            (${MediaStore.MediaColumns.GENERATION_MODIFIED} > ? OR
+             (${MediaStore.MediaColumns.GENERATION_MODIFIED} = ? AND ${MediaStore.MediaColumns._ID} > ?))
+            AND ${MediaStore.MediaColumns.GENERATION_MODIFIED} <= ?
+            AND $scopeSelection
         """.trimIndent()
-        val args = arrayOf(
-            afterGeneration.toString(), afterGeneration.toString(), afterId.toString(),
-            highWater.toString(), "image/jpeg", "image/jpg", "DCIM/Camera/", (enrollmentGeneration ?: (addedAfterEpochMillis / 1_000L)).toString(),
-        )
+        val args = listOf(afterGeneration.toString(), afterGeneration.toString(), afterId.toString(), highWater.toString()) +
+            scopeArgs
         val queryArgs = Bundle().apply {
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
-            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args)
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args.toTypedArray())
             putStringArray(
                 ContentResolver.QUERY_ARG_SORT_COLUMNS,
-                arrayOf(MediaStore.Images.Media.GENERATION_MODIFIED, MediaStore.Images.Media._ID),
+                arrayOf(MediaStore.MediaColumns.GENERATION_MODIFIED, MediaStore.MediaColumns._ID),
             )
             putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_ASCENDING)
             putInt(ContentResolver.QUERY_ARG_LIMIT, limit + 1)
         }
-        val discovered = resolver.query(collection, galleryProjection(), queryArgs, null)?.use { cursor ->
-            readRecords(cursor, collection, version)
+        val files = MediaStore.Files.getContentUri(volume)
+        val discovered = resolver.query(files, discoveryProjection(), queryArgs, null)?.use { cursor ->
+            readRecords(cursor, files, version)
         }.orEmpty()
         check(MediaStore.getVersion(appContext, volume) == version) {
             "MediaStore changed while automatic backup was scanning."
@@ -166,6 +156,96 @@ class AndroidMediaStoreSource(
             ),
             moreComing = discovered.size > limit,
         )
+    }
+
+    override suspend fun eligibleMediaIds(
+        scope: BackupScope,
+        folders: Set<String>,
+        addedAfterEpochMillis: Long,
+        enrollmentBaseline: LocalDiscoveryCheckpoint?,
+    ): Set<String> = withContext(Dispatchers.IO) {
+        if (!hasAutomaticBackupAccess()) return@withContext emptySet()
+        val volume = MediaStore.VOLUME_EXTERNAL
+        val version = MediaStore.getVersion(appContext, volume)
+        val (selection, args) = eligibleSelection(scope, folders, addedAfterEpochMillis, enrollmentBaseline, version)
+        val queryArgs = Bundle().apply {
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args.toTypedArray())
+        }
+        resolver.query(
+            MediaStore.Files.getContentUri(volume),
+            arrayOf(MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.MEDIA_TYPE, MediaStore.MediaColumns.VOLUME_NAME),
+            queryArgs,
+            null,
+        )?.use { cursor ->
+            buildSet {
+                while (cursor.moveToNext()) {
+                    val video = cursor.getInt(1) == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+                    add(deviceMediaId(video, cursor.getString(2) ?: "external", cursor.getLong(0)))
+                }
+            }
+        }.orEmpty()
+    }
+
+    override suspend fun deviceFolders(): List<DeviceFolder> = withContext(Dispatchers.IO) {
+        val queryArgs = Bundle().apply {
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (?, ?)")
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, MEDIA_TYPES)
+        }
+        val counts = linkedMapOf<String, DeviceFolder>()
+        resolver.query(
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL),
+            arrayOf(
+                MediaStore.MediaColumns.BUCKET_ID, MediaStore.MediaColumns.BUCKET_DISPLAY_NAME,
+                MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.VOLUME_NAME,
+            ),
+            queryArgs,
+            null,
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val bucket = cursor.getString(0) ?: continue
+                val volume = cursor.getString(3) ?: "external"
+                val id = BackupFolders.folderId(volume, bucket)
+                val path = cursor.getString(2).orEmpty()
+                val current = counts[id]
+                counts[id] = current?.copy(itemCount = current.itemCount + 1) ?: DeviceFolder(
+                    id = id,
+                    name = cursor.getString(1) ?: path.trimEnd('/').substringAfterLast('/'),
+                    relativePath = path,
+                    itemCount = 1,
+                    isCamera = BackupFolders.isCamera(path),
+                )
+            }
+        }
+        counts.values.sortedWith(compareByDescending<DeviceFolder> { it.isCamera }.thenBy { it.name.lowercase() })
+    }
+
+    /** Rows [scope] covers in the camera folder and [folders], added after enrollment. Pending rows are never returned. */
+    private fun eligibleSelection(
+        scope: BackupScope,
+        folders: Set<String>,
+        addedAfterEpochMillis: Long,
+        enrollmentBaseline: LocalDiscoveryCheckpoint?,
+        version: String,
+    ): Pair<String, List<String>> {
+        val enrollmentGeneration = enrollmentBaseline?.takeIf { it.volumeVersion == version }?.generationModified
+        val enrollmentPredicate = if (enrollmentGeneration != null) {
+            "${MediaStore.MediaColumns.GENERATION_ADDED} > ?"
+        } else {
+            "${MediaStore.MediaColumns.DATE_ADDED} > ?"
+        }
+        val (folderSelection, folderArgs) = BackupFolders.selection(BackupFolders.extraFolders(scope, folders))
+        val mimeTypes = BackupFolders.mimeTypes(scope)
+        val mimeSelection = mimeTypes?.let { types -> "AND ${MediaStore.MediaColumns.MIME_TYPE} IN (${types.joinToString { "?" }})" }.orEmpty()
+        val mediaTypes = if (mimeTypes == null && hasVideoAccess()) MEDIA_TYPES.toList() else listOf(MEDIA_TYPES.first())
+        val selection = """
+            ${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (${mediaTypes.joinToString { "?" }})
+            $mimeSelection
+            AND $folderSelection
+            AND $enrollmentPredicate
+        """.trimIndent()
+        return selection to (mediaTypes + mimeTypes.orEmpty() + folderArgs +
+            (enrollmentGeneration ?: (addedAfterEpochMillis / 1_000L)).toString())
     }
 
     override suspend fun captureEnrollmentBaseline(): LocalDiscoveryCheckpoint = withContext(Dispatchers.IO) {
@@ -233,16 +313,24 @@ class AndroidMediaStoreSource(
         val generationIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.GENERATION_MODIFIED)
         val volumeIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.VOLUME_NAME)
 
+        val mediaTypeIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.MEDIA_TYPE)
         while (cursor.moveToNext()) {
             val id = cursor.getLong(idIndex)
-            val uri = ContentUris.withAppendedId(collection, id)
+            // A MediaStore Files row names its own media type; open it through its typed collection.
+            val rowVideo = if (mediaTypeIndex >= 0) cursor.getInt(mediaTypeIndex) == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO else video
+            val rowCollection = when {
+                mediaTypeIndex < 0 -> collection
+                rowVideo -> MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+                else -> MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+            }
+            val uri = ContentUris.withAppendedId(rowCollection, id)
             val capturedAt = cursor.getLong(takenIndex).takeIf { it > 0L }
                 ?: cursor.getLong(addedIndex) * 1_000L
             val generation = cursor.getLong(generationIndex)
             val volume = cursor.getString(volumeIndex) ?: "external"
             add(
                 DeviceMediaRecord(
-                    id = if (video) "device:video:$volume:$id" else "device:$volume:$id",
+                    id = deviceMediaId(rowVideo, volume, id),
                     fileName = cursor.getString(nameIndex) ?: "Photo $id.jpg",
                     capturedAtEpochMillis = capturedAt,
                     addedAtEpochMillis = cursor.getLong(addedIndex).takeIf { it > 0 }?.times(1_000L),
@@ -256,7 +344,7 @@ class AndroidMediaStoreSource(
                     generationModified = generation,
                     mimeType = cursor.getString(mimeIndex) ?: "application/octet-stream",
                     byteCount = cursor.getLong(sizeIndex).coerceAtLeast(0L),
-                    durationMillis = cursor.longOrNull("duration"),
+                    durationMillis = cursor.longOrNull("duration")?.takeIf { rowVideo },
                     deviceFolderId = cursor.getColumnIndex("bucket_id").takeIf { it >= 0 }?.let { "device-folder:$volume:${cursor.getString(it)}" },
                     deviceFolderName = cursor.getColumnIndex("bucket_display_name").takeIf { it >= 0 }?.let(cursor::getString),
                     isTrashed = cursor.longOrNull("is_trashed") == 1L,
@@ -282,6 +370,9 @@ class AndroidMediaStoreSource(
         add(MediaStore.Images.Media.GENERATION_MODIFIED)
         add(MediaStore.Images.Media.VOLUME_NAME)
     }.toTypedArray()
+
+    private fun discoveryProjection(): Array<String> = galleryProjection() +
+        arrayOf(MediaStore.Files.FileColumns.MEDIA_TYPE, MediaStore.MediaColumns.DURATION)
 
     private fun galleryCollection(): Uri = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
 
@@ -413,6 +504,10 @@ class AndroidMediaStoreSource(
     )
 
     private companion object {
+        val MEDIA_TYPES = arrayOf(
+            MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE.toString(),
+            MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO.toString(),
+        )
         val DISCARDING_OUTPUT = object : OutputStream() {
             override fun write(b: Int) = Unit
             override fun write(b: ByteArray, off: Int, len: Int) = Unit

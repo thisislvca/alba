@@ -16,6 +16,8 @@ data class TransferProjection(
     val updatedAtEpochMillis: Long,
     val verifiedAtEpochMillis: Long?,
     val message: String?,
+    val authorityType: String = "MANUAL",
+    val activeAttemptId: String? = null,
 )
 
 data class ReleasableStageProjection(
@@ -29,7 +31,8 @@ interface TransferDao {
     @Query(
         """
         SELECT t.transferId, t.mediaId, t.displayName, t.state,
-               s.byteCount, t.updatedAtEpochMillis, t.verifiedAtEpochMillis, t.message
+               s.byteCount, t.updatedAtEpochMillis, t.verifiedAtEpochMillis, t.message,
+               t.authorityType, t.activeAttemptId
         FROM transfers t
         JOIN staged_sources s ON s.stagedSourceId = t.stagedSourceId
         JOIN accounts a ON a.accountId = t.accountId AND a.active = 1
@@ -120,16 +123,26 @@ interface TransferDao {
 
     @Query(
         """
-        SELECT * FROM transfers
-        WHERE accountId = :accountId AND state = 'READY' AND (:allowAutomatic OR authorityType != 'AUTOMATIC')
-          AND (:allowManual OR authorityType != 'MANUAL')
-          AND (leaseExpiresAtEpochMillis IS NULL OR leaseExpiresAtEpochMillis < :now)
-        ORDER BY CASE authorityType WHEN 'MANUAL' THEN 0 ELSE 1 END,
-                 createdAtEpochMillis, transferId
+        SELECT t.* FROM transfers t
+        JOIN staged_sources s ON s.stagedSourceId = t.stagedSourceId
+        WHERE t.accountId = :accountId AND t.state = 'READY'
+          AND (t.authorityType != 'AUTOMATIC' OR
+               (s.mimeType LIKE 'video/%' AND :allowAutomaticVideos) OR
+               (s.mimeType NOT LIKE 'video/%' AND :allowAutomaticPhotos))
+          AND (:allowManual OR t.authorityType != 'MANUAL')
+          AND (t.leaseExpiresAtEpochMillis IS NULL OR t.leaseExpiresAtEpochMillis < :now)
+        ORDER BY CASE t.authorityType WHEN 'MANUAL' THEN 0 ELSE 1 END,
+                 t.createdAtEpochMillis, t.transferId
         LIMIT 1
         """,
     )
-    suspend fun findNextReady(accountId: String, now: Long, allowAutomatic: Boolean = true, allowManual: Boolean = true): TransferEntity?
+    suspend fun findNextReady(
+        accountId: String,
+        now: Long,
+        allowAutomaticPhotos: Boolean = true,
+        allowAutomaticVideos: Boolean = allowAutomaticPhotos,
+        allowManual: Boolean = true,
+    ): TransferEntity?
 
     @Query(
         """
@@ -387,12 +400,79 @@ interface TransferDao {
     suspend fun earliestReconciliationDue(accountId: String, now: Long, allowAutomatic: Boolean = true): Long?
 
     @Query("""
-        SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND state = 'READY'
-          AND (:allowAutomatic OR authorityType != 'AUTOMATIC')
-          AND (:allowManual OR authorityType != 'MANUAL')
+        SELECT COUNT(*) FROM transfers t
+        JOIN staged_sources s ON s.stagedSourceId = t.stagedSourceId
+        WHERE t.accountId = :accountId AND t.state = 'READY'
+          AND (t.authorityType != 'AUTOMATIC' OR
+               (s.mimeType LIKE 'video/%' AND :allowAutomaticVideos) OR
+               (s.mimeType NOT LIKE 'video/%' AND :allowAutomaticPhotos))
+          AND (:allowManual OR t.authorityType != 'MANUAL')
     """)
-    suspend fun countRunnableReady(accountId: String, allowAutomatic: Boolean, allowManual: Boolean = true): Int
+    suspend fun countRunnableReady(
+        accountId: String,
+        allowAutomaticPhotos: Boolean,
+        allowAutomaticVideos: Boolean = allowAutomaticPhotos,
+        allowManual: Boolean = true,
+    ): Int
 
     @Query("SELECT * FROM transfers WHERE accountId = :accountId AND mediaId = :mediaId AND state NOT IN ('NEEDS_ATTENTION', 'UNSUPPORTED', 'ABANDONED') LIMIT 1")
     suspend fun findTransferForMedia(accountId: String, mediaId: String): TransferEntity?
+
+    /** Any journal row for the phone item, including skipped and failed ones, so discovery never reports it twice. */
+    @Query("SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND mediaId = :mediaId")
+    suspend fun countTransfersForMedia(accountId: String, mediaId: String): Int
+
+    /** Items that stopped before any attempt was armed: nothing reached Apple, so staging them again is safe. */
+    @Query(
+        """
+        SELECT * FROM transfers
+        WHERE accountId = :accountId AND state IN ('NEEDS_ATTENTION', 'UNSUPPORTED') AND activeAttemptId IS NULL
+        ORDER BY createdAtEpochMillis, transferId
+        """,
+    )
+    suspend fun findRetryable(accountId: String): List<TransferEntity>
+
+    /** Removes a row [findRetryable] returned, once its retry is queued. */
+    @Query(
+        """
+        DELETE FROM transfers
+        WHERE transferId = :transferId AND state IN ('NEEDS_ATTENTION', 'UNSUPPORTED') AND activeAttemptId IS NULL
+        """,
+    )
+    suspend fun deleteRetried(transferId: String): Int
+
+    @Query("DELETE FROM staged_sources WHERE stagedSourceId = :sourceId AND NOT EXISTS (SELECT 1 FROM upload_attempts WHERE stagedSourceId = :sourceId)")
+    suspend fun deleteUnattemptedSource(sourceId: String): Int
+
+    @Query("SELECT mediaId FROM transfers WHERE accountId = :accountId AND state = 'VERIFIED' AND mediaId IS NOT NULL")
+    suspend fun findVerifiedMediaIds(accountId: String): List<String>
+
+    /** Manual uploads finished since [since], and those still to run, for the transfer notification. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM transfers
+        WHERE accountId = :accountId AND authorityType = 'MANUAL'
+          AND (state IN ('READY', 'SENDING') OR createdAtEpochMillis >= :since)
+        """,
+    )
+    suspend fun countManualInRun(accountId: String, since: Long): Int
+
+    @Query("UPDATE transfers SET message = :message, updatedAtEpochMillis = :now WHERE transferId = :transferId AND state = 'SENDING'")
+    suspend fun noteSendingMessage(transferId: String, message: String, now: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun pauseUploads(pause: UploadPauseEntity)
+
+    @Query("SELECT * FROM upload_pauses WHERE accountId = :accountId")
+    suspend fun findUploadPause(accountId: String): UploadPauseEntity?
+
+    @Query(
+        """
+        SELECT p.* FROM upload_pauses p JOIN accounts a ON a.accountId = p.accountId AND a.active = 1 LIMIT 1
+        """,
+    )
+    fun observeActiveUploadPause(): Flow<UploadPauseEntity?>
+
+    @Query("DELETE FROM upload_pauses WHERE accountId = :accountId")
+    suspend fun clearUploadPause(accountId: String): Int
 }

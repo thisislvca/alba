@@ -1,6 +1,7 @@
 package me.lvca.alba.protocol.photos
 
 import kotlinx.serialization.json.*
+import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.UploadAcceptance
@@ -86,7 +87,10 @@ internal class PhotosUpload(
         val reservation = post("createUploadUrl", buildJsonObject {
             put("zoneName", zoneName)
             putJsonObject("assets") { put(clientId, source.byteCount) }
-        }).objectBody()
+        }).also { response ->
+            // Nothing has been sent yet, so the attempt stays resumable once there is space.
+            if (response.refusesForStorage()) throw ICloudStorageFullException()
+        }.objectBody()
         val target = (reservation["uploadUrls"] as? JsonObject)?.text(clientId)
             ?: malformed("Apple did not reserve the requested upload")
         save("RESERVED", mapOf("target" to JsonPrimitive(target)))
@@ -139,6 +143,7 @@ internal class PhotosUpload(
         result
         }
         val status = ((result["response"] as? JsonObject)?.get("status") as? JsonPrimitive)?.intOrNull
+        if (CloudKitErrors.quotaExceeded(status ?: 0, result)) throw ICloudStorageFullException()
         if (status != 200 && status != 409) {
             throw AppleProtocolException(AppleProtocolError.PHOTOS_UNAVAILABLE,
                 "Apple Photos registration returned status ${status ?: "unknown"}.")
@@ -187,6 +192,11 @@ internal class PhotosUpload(
 
     private suspend fun AppleHttpResponse.objectBody() = elementBody() as? JsonObject
         ?: malformed("Apple returned an invalid upload response")
+
+    private fun AppleHttpResponse.refusesForStorage(): Boolean = CloudKitErrors.quotaExceeded(
+        code,
+        runCatching { json.parseToJsonElement(body) as? JsonObject }.getOrNull(),
+    )
 
     private fun malformed(message: String): Nothing =
         throw AppleProtocolException(AppleProtocolError.MALFORMED_RESPONSE, message)

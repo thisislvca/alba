@@ -45,16 +45,33 @@ data class TransferView(
     val updatedAtEpochMillis: Long,
     val verifiedAtEpochMillis: Long? = null,
     val message: String? = null,
+    /** Automatic backup found it, rather than the user choosing it. */
+    val automatic: Boolean = false,
+    /** Nothing was sent for it, so staging it again from the phone is safe. */
+    val retryable: Boolean = false,
 )
 
+/** What automatic backup reads. Names are persisted with each enrollment; keep them stable. */
 enum class BackupScope {
+    /** Enrollments consented before backup covered videos and every accepted format. Kept as they were agreed. */
     CAMERA_JPEGS,
+
+    /** Every photo and video format the uploader accepts, from the camera folder and the folders the user adds. */
+    CAMERA_MEDIA,
+    ;
+
+    companion object {
+        /** The scope a new enrollment asks the user to agree to. */
+        val CURRENT = CAMERA_MEDIA
+    }
 }
 
+/** A disclosure shown for [scope]. The UI words it; [revision] is what the user's consent is recorded against. */
 data class BackupDraft(
     val id: BackupDraftId,
     val destinationLabel: String,
-    val disclosure: String,
+    val scope: BackupScope,
+    val revision: String,
 )
 
 sealed interface BackupSetupEffect {
@@ -67,7 +84,35 @@ data class BackupView(
     val destinationLabel: String? = null,
     val scope: BackupScope? = null,
     val message: String? = null,
+    /** False when the user agreed to an older disclosure, so what backup covers now needs their consent again. */
+    val disclosureCurrent: Boolean = true,
+    /** When iCloud refused an upload for lack of storage; backup waits instead of failing item by item. */
+    val storageFullSinceEpochMillis: Long? = null,
 )
+
+/** How much of what automatic backup covers is verified in iCloud. */
+data class BackupProgress(
+    val backedUp: Int,
+    val eligible: Int,
+)
+
+/** Phone items with a current exact iCloud proof, which Android's trash could take off the phone. */
+data class FreeUpSpaceCandidates(
+    val mediaIds: List<String>,
+    val byteCount: Long,
+)
+
+/** A folder on the phone that automatic backup can include. [id] is stable across scans. */
+data class DeviceFolder(
+    val id: String,
+    val name: String,
+    val relativePath: String,
+    val itemCount: Int,
+    val isCamera: Boolean,
+)
+
+/** Manual uploads finished and still to go in the current run. */
+data class TransferProgress(val done: Int, val total: Int)
 
 sealed interface BackupChange {
     data object Disable : BackupChange
@@ -123,7 +168,42 @@ interface PhotoCompanion {
 
     suspend fun continuePastUnresolved(transfer: TransferId)
 
-    suspend fun prepareTrash(items: Set<String>): ReclaimProposal
+    /**
+     * Re-checks [items] against freshly read phone and iCloud bytes. Without [allowPartial] one failure blocks the whole
+     * proposal; with it, items that fail are left out and only an empty result is blocked.
+     */
+    suspend fun prepareTrash(
+        items: Set<String>,
+        allowPartial: Boolean = false,
+        onProgress: suspend (checked: Int, total: Int) -> Unit = { _, _ -> },
+    ): ReclaimProposal
+
+    /** Phone items backed up with a current proof, for "Free up space". */
+    suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates
+
+    /** Stages an item again whose earlier try sent nothing to Apple. Uncertain uploads are never retried here. */
+    suspend fun retryTransfer(transfer: TransferId): UploadTicket
+
+    /** Retries every item [retryTransfer] accepts. Returns how many it queued. */
+    suspend fun retryAllTransfers(): Int
+
+    /** How much of what backup covers is verified, counted from the phone and the journal. */
+    suspend fun backupProgress(): BackupProgress
+
+    /** Folders on the phone that hold photos or videos, for choosing what backup includes. */
+    suspend fun deviceFolders(): List<DeviceFolder>
+
+    /**
+     * The user changed backup settings: re-plan background work for the networks they now allow. Pausing stops the
+     * running pass; an upload it interrupts resumes later or goes to read-only verification, never to a blind resend.
+     */
+    suspend fun backupSettingsChanged()
+
+    /** The user asked to try again after iCloud storage was full. */
+    suspend fun retryAfterStorageFull()
+
+    /** Manual uploads done and in total since [sinceEpochMillis], for the transfer notification. */
+    suspend fun userUploadProgress(sinceEpochMillis: Long): TransferProgress
 
     suspend fun beginTrash(proposal: ReclaimProposalId): TrashHandoff
 
@@ -217,6 +297,12 @@ interface OneShotUploadSource {
     fun openOnce(): InputStream
 }
 
+/**
+ * Apple refused to reserve an upload because the account's iCloud storage is full. It is raised only before any byte is
+ * sent, so the attempt stays safely resumable; backup pauses instead of failing each item.
+ */
+class ICloudStorageFullException(message: String = "iCloud storage is full") : RuntimeException(message)
+
 interface PreparedICloudUpload {
     suspend fun startOnce(attemptId: String): UploadAcceptance
 
@@ -257,8 +343,40 @@ interface ICloudPhotoProtocol {
     ): RemoteOriginalObservation
 }
 
+/** The network automatic backup sees now. */
+enum class BackupNetwork { OFFLINE, UNMETERED, METERED, ROAMING }
+
+/** The user's backup settings. Everything that spends mobile data is off until they turn it on. */
+data class BackupSettings(
+    val photosOnMobileData: Boolean = false,
+    val videosOnMobileData: Boolean = false,
+    val whileRoaming: Boolean = false,
+    /** Extra [DeviceFolder.id]s the user chose, beyond the camera folder. */
+    val deviceFolders: Set<String> = emptySet(),
+    /** The user paused backup; nothing automatic runs until they resume it. */
+    val paused: Boolean = false,
+) {
+    /** Whether automatic backup may upload a photo, or a video when [video], on [network]. */
+    fun allows(network: BackupNetwork, video: Boolean): Boolean = !paused && when (network) {
+        BackupNetwork.UNMETERED -> true
+        BackupNetwork.METERED -> if (video) videosOnMobileData else photosOnMobileData
+        BackupNetwork.ROAMING -> whileRoaming && (if (video) videosOnMobileData else photosOnMobileData)
+        BackupNetwork.OFFLINE -> false
+    }
+
+    /** Whether anything automatic may use the network on [network]. */
+    fun allowsAny(network: BackupNetwork): Boolean = allows(network, video = false) || allows(network, video = true)
+
+    /** Whether background work may need a metered network. */
+    val usesMobileData: Boolean get() = photosOnMobileData || videosOnMobileData
+}
+
 fun interface AutomaticBackupPolicy {
     fun isUnmetered(): Boolean
+
+    fun network(): BackupNetwork = if (isUnmetered()) BackupNetwork.UNMETERED else BackupNetwork.METERED
+
+    fun settings(): BackupSettings = BackupSettings()
 }
 
 interface WakeupScheduler {
@@ -266,5 +384,9 @@ interface WakeupScheduler {
 
     suspend fun scheduleSoon()
 
+    /** Plans periodic backup, or stops planning it. Called again whenever the networks backup may use change. */
     suspend fun setAutomaticBackupEnabled(enabled: Boolean)
+
+    /** Stops a background backup pass that is running now. */
+    suspend fun cancelRunningBackup() = Unit
 }

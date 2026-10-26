@@ -42,4 +42,22 @@ interface VerificationDao {
 
     @Query("SELECT * FROM remote_asset_pairs WHERE remotePairId = :pairId")
     suspend fun findRemotePair(pairId: String): RemoteAssetPairEntity?
+
+    /**
+     * Phone items still in the gallery, not in Android's trash, with a current proof for the active account: what
+     * "Free up space" offers. The newest proof per item counts once.
+     */
+    @Query(
+        """
+        SELECT p.mediaId AS mediaId, MAX(p.byteCount) AS byteCount FROM verification_proofs p
+        JOIN accounts a ON a.accountId = p.accountId AND a.active = 1
+        JOIN catalog_items c ON c.mediaId = p.mediaId AND c.origin = 'DEVICE' AND c.isTrashed = 0
+        WHERE p.invalidatedAtEpochMillis IS NULL AND p.mediaId IS NOT NULL
+        GROUP BY p.mediaId
+        ORDER BY MIN(c.capturedAtEpochMillis), p.mediaId
+        """,
+    )
+    suspend fun findReclaimableOnPhone(): List<ReclaimableProjection>
 }
+
+data class ReclaimableProjection(val mediaId: String, val byteCount: Long)
