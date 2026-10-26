@@ -1,6 +1,7 @@
 package me.lvca.alba.app.albums
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasText
@@ -74,6 +75,9 @@ class AlbumsTest {
         val renamed = runBlocking { repository.observeCollections().first().single { it.name == "Extension renamed" } }
         compose.onNodeWithTag("album-chooser-${renamed.id}").performClick()
         compose.waitUntilSettled { albumHoldsFirstPhoto("Extension renamed") }
+        // The repository holds the photo before the action has finished: the details stay disabled while it runs, and a tap
+        // on a disabled row does nothing. Wait until the action has ended, which is when the row is enabled again.
+        compose.waitUntilSettled { runCatching { compose.onNodeWithTag("detail-add-to-album").assertIsEnabled() }.isSuccess }
 
         // A new album made from the viewer's chooser starts with the photo on screen.
         // Let the "Added to album" message time out on the test clock: it sits over the bottom of the details, where
