@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.StatFs
 import android.provider.DocumentsContract
@@ -29,6 +30,9 @@ import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+/** A small decode is enough to tell whether Android can read an image at all. */
+private const val DECODE_CHECK_SAMPLE = 16
+
 /** Publishes new copies only; it never modifies the source or asks for broad storage access. */
 class GalleryExporter(context: Context, private val repository: OriginalExporter) {
     private val appContext = context.applicationContext
@@ -42,6 +46,17 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
             directory.deleteRecursively()
             throw error
         }
+    }
+
+    /**
+     * Whether Android can decode the image at [uri]. Android's print helper drops an image it cannot decode without
+     * saying so, so Alba checks a small decode first and reports the problem itself.
+     */
+    suspend fun canDecodeImage(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        val options = BitmapFactory.Options().apply { inSampleSize = DECODE_CHECK_SAMPLE }
+        val bitmap = runCatching { resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) } }.getOrNull()
+        bitmap?.recycle()
+        bitmap != null
     }
 
     private fun newShareDirectory(): File {

@@ -825,9 +825,9 @@
         <item quantity="other">%1$d elementi di iCloud passano in Eliminati di recente su tutti i tuoi dispositivi. Di solito si possono recuperare per 30 giorni.</item>
     </plurals>
     <plurals name="mixed_trash_phone">
-        <item quantity="one">1 elemento di questo telefono passa nel cestino di Android. Android ti chiede di confermare.</item>
-        <item quantity="many">%1$d elementi di questo telefono passano nel cestino di Android. Android ti chiede di confermare.</item>
-        <item quantity="other">%1$d elementi di questo telefono passano nel cestino di Android. Android ti chiede di confermare.</item>
+        <item quantity="one">1 elemento di questo telefono passa nel cestino di Android. Android ti chiede di confermare. Se lì rifiuti, gli elementi di iCloud passano comunque in Eliminati di recente.</item>
+        <item quantity="many">%1$d elementi di questo telefono passano nel cestino di Android. Android ti chiede di confermare. Se lì rifiuti, gli elementi di iCloud passano comunque in Eliminati di recente.</item>
+        <item quantity="other">%1$d elementi di questo telefono passano nel cestino di Android. Android ti chiede di confermare. Se lì rifiuti, gli elementi di iCloud passano comunque in Eliminati di recente.</item>
     </plurals>
     <plurals name="mixed_trash_moved">
         <item quantity="one">Spostato nel cestino</item>
@@ -854,6 +854,8 @@
     <string name="viewer_print">Stampa</string>
     <string name="viewer_preparing_original">Recupero dell’originale…</string>
     <string name="message_no_app_can_open_this">Nessuna app su questo telefono può farlo con questo elemento.</string>
+    <string name="message_cannot_print_this_format">Questa foto non si può stampare: Android non ne legge il formato.</string>
+    <string name="message_could_not_print">Impossibile avviare la stampa. Riprova.</string>
     <string name="message_could_not_prepare_the_original">Impossibile recuperare l’originale. Riprova.</string>
     <plurals name="trash_days_left">
         <item quantity="one">1 giorno rimasto</item>

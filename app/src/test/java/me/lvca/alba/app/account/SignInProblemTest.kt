@@ -3,10 +3,14 @@ package me.lvca.alba.app.account
 import me.lvca.alba.app.R
 import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.messages.toUserMessage
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.TwoFactorDelivery
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SignInProblemTest {
@@ -23,6 +27,15 @@ class SignInProblemTest {
         assertEquals(SignInProblem.SECURITY_KEY, signInProblem(error(AppleProtocolError.SECURITY_KEY_REQUIRED), codeStep = false))
         assertEquals(SignInProblem.TOO_MANY_ATTEMPTS,
             signInProblem(IllegalStateException("wrapped", error(AppleProtocolError.TOO_MANY_ATTEMPTS)), codeStep = true))
+    }
+
+    @Test fun signingOutASavedAccountReturnsToTheIntroductionEvenWhenItsRestoreFailed() {
+        assertTrue(signOutRemovesSavedAccount(ICloudAccountState.SignedIn("alex@example.com"), hasSession = true))
+        // The restore failed before the session loaded: "Remove saved account" still removes one.
+        assertTrue(signOutRemovesSavedAccount(ICloudAccountState.Restoring, hasSession = false))
+        // Cancelling a sign-in at the code step leaves the user where they were.
+        assertFalse(signOutRemovesSavedAccount(ICloudAccountState.AwaitingTwoFactor("alex@example.com", TwoFactorDelivery.TRUSTED_DEVICE), hasSession = false))
+        assertFalse(signOutRemovesSavedAccount(ICloudAccountState.SignedOut, hasSession = false))
     }
 
     @Test fun otherFailuresStayPassingMessages() {

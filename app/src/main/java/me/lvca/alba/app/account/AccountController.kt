@@ -125,6 +125,8 @@ internal class AccountController(
     fun closeAccount() {
         savedState[ACCOUNT_OPEN] = false
         accountOpen.value = false
+        // Leaving the account screen ends the sign-in attempt; the password must not wait in memory.
+        signInDraft.password = ""
     }
 
     fun startDemo() = selectLibraryMode(demo = true)
@@ -250,6 +252,8 @@ internal class AccountController(
                 if (error is CancellationException) throw error
                 val shown = signInProblem(error, codeStep = true)
                 problem.value = shown
+                // Only a mistyped code is retried on the same prompt; anything else may end it, so drop the password.
+                if (shown != SignInProblem.WRONG_CODE) signInDraft.password = ""
                 if (shown == null) messages.show(error.toUserMessage(R.string.message_could_not_verify_that_code))
             } finally {
                 busy.value = false
@@ -302,7 +306,7 @@ internal class AccountController(
     fun signOut(onSavedAccountRemoved: () -> Unit = {}) {
         scope.launch {
             try {
-                val hadSavedAccount = accountManager.session.value != null
+                val hadSavedAccount = signOutRemovesSavedAccount(accountManager.state.value, accountManager.session.value != null)
                 val accountChange = photos.accountWillChange()
                 if (accountChange is AccountChangeResult.Blocked) {
                     messages.show(localizedStoredMessage(accountChange.reason))
@@ -344,6 +348,13 @@ internal class AccountController(
         const val ACCOUNT_OPEN = "accountOpen"
     }
 }
+
+/**
+ * Whether signing out from [state] removes a saved account, so the UI returns to the introduction. That includes a
+ * restore that failed before its session loaded, but not a sign-in abandoned at the code step.
+ */
+internal fun signOutRemovesSavedAccount(state: ICloudAccountState, hasSession: Boolean): Boolean =
+    hasSession || state == ICloudAccountState.Restoring || state is ICloudAccountState.SignedIn
 
 /** The form-level problem [error] stands for, or null when it is not about what the user entered. */
 internal fun signInProblem(error: Throwable, codeStep: Boolean): SignInProblem? = when (error.appleProtocolError()) {

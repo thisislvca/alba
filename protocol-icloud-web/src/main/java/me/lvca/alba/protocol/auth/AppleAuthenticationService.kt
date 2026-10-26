@@ -6,7 +6,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -51,6 +50,9 @@ class AppleAuthenticationService internal constructor(
     private val webSession = ICloudWebSession(this.transport, telemetry)
     private val json = Json { ignoreUnknownKeys = true }
     private var pendingAuth: PendingAuth? = null
+
+    /** The last sign-in response listed hardware security keys; they explain a sign-in with no code route. */
+    private var listedSecurityKeys = false
 
     suspend fun signIn(appleId: String, password: String, reusableSession: AppleSessionSnapshot? = null): AppleSignInResult =
         withContext(computationDispatcher) { signInInternal(appleId, password, reusableSession) }
@@ -105,17 +107,18 @@ class AppleAuthenticationService internal constructor(
         completion.requireNotThrottled()
         if (completion.code == HTTP_TWO_FACTOR_REQUIRED) {
             val completionBody = completion.jsonObjectOrNull()
-            // Accounts protected by hardware security keys answer with a FIDO challenge and the keys' names instead
-            // of a code route; the web sign-in Alba uses cannot complete it.
-            completionBody.requireNoSecurityKey()
+            // Accounts with hardware security keys list them here. Apple may still offer a code route, so the keys
+            // only explain a failure when no such route turns up.
+            val securityKeys = completionBody.listsSecurityKeys()
             val authType = (completionBody?.get("authType") as? JsonPrimitive)?.contentOrNull
                 ?: (completionBody?.get("authenticationType") as? JsonPrimitive)?.contentOrNull
             if (authType != "hsa2") {
-                throw AppleProtocolException(
+                throw if (securityKeys) securityKeyRequired() else AppleProtocolException(
                     AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
                     "This Apple Account returned an unsupported verification challenge.",
                 )
             }
+            listedSecurityKeys = securityKeys
             val pending = requestTwoFactor(normalizedAppleId, clientId)
             pendingAuth = pending
             return AppleSignInResult.RequiresTwoFactor(
@@ -389,6 +392,7 @@ class AppleAuthenticationService internal constructor(
         )
     }
 
+    /** The first code route Apple offers. [listedSecurityKeys] explains why there is none. */
     private suspend fun requestTwoFactor(appleId: String, clientId: String): PendingAuth {
         val optionsResponse = try {
             transport.execute(
@@ -408,7 +412,6 @@ class AppleAuthenticationService internal constructor(
             ?.body
             ?.let(Hsa2BootContext::parse)
         val authOptions = optionsResponse?.jsonObjectOrNull()
-        authOptions.requireNoSecurityKey()
         val trustedPhone = bootContext?.phoneNumberVerification.findTrustedPhone()
             ?: authOptions.findTrustedPhone()
         if (bootContext?.supportsTrustedDeviceBridge == true) {
@@ -449,8 +452,9 @@ class AppleAuthenticationService internal constructor(
             )
         }
 
+        // No trusted device and no trusted number: with security keys listed, the key is the only way in.
         val phone = trustedPhone
-            ?: throw AppleProtocolException(
+            ?: throw if (listedSecurityKeys || authOptions.listsSecurityKeys()) securityKeyRequired() else AppleProtocolException(
                 AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
                 "Apple did not offer a trusted-device or SMS verification route.",
             )
@@ -509,14 +513,8 @@ class AppleAuthenticationService internal constructor(
         return TrustedPhone(id = id, hint = hint)
     }
 
-    /** Refuses accounts Apple answers with a FIDO challenge for hardware security keys (`fsaChallenge`, `keyNames`). */
-    private fun JsonObject?.requireNoSecurityKey() {
-        if (this == null) return
-        val challenge = this["fsaChallenge"]
-        if ((challenge != null && challenge !is JsonNull) || (this["keyNames"] as? JsonArray)?.isNotEmpty() == true) {
-            throw securityKeyRequired()
-        }
-    }
+    /** Apple names the account's hardware security keys in `keyNames`; an empty list or a bare challenge lists none. */
+    private fun JsonObject?.listsSecurityKeys(): Boolean = (this?.get("keyNames") as? JsonArray)?.isNotEmpty() == true
 
     /** Apple answers too many recent attempts with HTTP 429, which is not a wrong password or code. */
     private fun AppleHttpResponse.requireNotThrottled() {

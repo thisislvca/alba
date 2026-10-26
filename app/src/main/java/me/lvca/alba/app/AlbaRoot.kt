@@ -360,7 +360,7 @@ private fun AlbaMain(
                                 ExternalUse.EDIT_IN -> editInTitle
                                 else -> openWithTitle
                             }).addFlags(intent.flags and PERMISSION_GRANT_FLAGS))
-                        }.onFailure { viewModel.exports.useElsewhereFailed() }
+                        }.onFailure { viewModel.exports.useElsewhereFailed(effect.use) }
                     }
                 } finally {
                     viewModel.effectHandled(pending)

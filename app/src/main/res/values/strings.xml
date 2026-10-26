@@ -815,8 +815,8 @@
         <item quantity="other">%1$d iCloud items move to Recently Deleted on all your devices. They can normally be recovered for 30 days.</item>
     </plurals>
     <plurals name="mixed_trash_phone">
-        <item quantity="one">1 item on this phone moves to Android’s trash. Android asks you to confirm.</item>
-        <item quantity="other">%1$d items on this phone move to Android’s trash. Android asks you to confirm.</item>
+        <item quantity="one">1 item on this phone moves to Android’s trash. Android asks you to confirm. If you decline there, the iCloud items still move to Recently Deleted.</item>
+        <item quantity="other">%1$d items on this phone move to Android’s trash. Android asks you to confirm. If you decline there, the iCloud items still move to Recently Deleted.</item>
     </plurals>
     <plurals name="mixed_trash_moved">
         <item quantity="one">Moved to trash</item>
@@ -844,6 +844,8 @@
     <string name="viewer_print">Print</string>
     <string name="viewer_preparing_original">Getting the original…</string>
     <string name="message_no_app_can_open_this">No app on this phone can do that with this item.</string>
+    <string name="message_cannot_print_this_format">This photo can’t be printed: Android can’t read its image format.</string>
+    <string name="message_could_not_print">Couldn’t start printing. Try again.</string>
     <string name="message_could_not_prepare_the_original">Couldn’t get the original. Try again.</string>
     <!-- Recently Deleted: time left before permanent deletion. -->
     <plurals name="trash_days_left">

@@ -42,11 +42,16 @@ internal class ExportController(
         if (use == ExternalUse.PRINT && media.kind == MediaKind.VIDEO) return
         runner.start(MediaActionKey(MediaAction.OPEN_ELSEWHERE), R.string.message_could_not_prepare_the_original) {
             val uri = exporter.prepareCopy(media)
+            if (use == ExternalUse.PRINT && !exporter.canDecodeImage(uri)) {
+                messages.show(R.string.message_cannot_print_this_format)
+                return@start
+            }
             effects.send(AlbaEffect.UseElsewhere(use, uri, media.mimeType, media.fileName))
         }
     }
 
-    fun useElsewhereFailed() = messages.show(R.string.message_no_app_can_open_this)
+    fun useElsewhereFailed(use: ExternalUse) =
+        messages.show(if (use == ExternalUse.PRINT) R.string.message_could_not_print else R.string.message_no_app_can_open_this)
 
     fun shareFailed() = messages.show(R.string.message_no_app_could_open_the_share_sheet)
 

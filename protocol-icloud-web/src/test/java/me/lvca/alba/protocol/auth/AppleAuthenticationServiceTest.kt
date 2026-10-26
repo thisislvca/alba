@@ -231,16 +231,35 @@ class AppleAuthenticationServiceTest {
     }
 
     @Test
-    fun `security key accounts stop before any code is requested`() = runBlocking {
-        val transport = ScriptedTransport(
-            completeBody = "{\"authType\":\"hsa2\",\"fsaChallenge\":{\"challenge\":\"abc\"},\"keyNames\":[\"YubiKey\"]}",
-        )
+    fun `security keys explain a sign in that offers no code route`() = runBlocking {
+        val transport = ScriptedTransport(completeBody = SECURITY_KEY_BODY, trustedDeviceCode = 404)
         val service = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID })
 
         val error = runCatching { service.signIn(APPLE_ID, PASSWORD) }.exceptionOrNull() as AppleProtocolException
 
         assertEquals(AppleProtocolError.SECURITY_KEY_REQUIRED, error.error)
-        assertFalse(transport.requests.any { pathWithoutQuery(it.url) == "/appleauth/auth" })
+    }
+
+    @Test
+    fun `listed security keys do not block a trusted device code Apple still offers`() = runBlocking {
+        val service = AppleAuthenticationService(ScriptedTransport(completeBody = SECURITY_KEY_BODY), clientIdProvider = { CLIENT_ID })
+
+        val signIn = service.signIn(APPLE_ID, PASSWORD)
+
+        assertEquals(AppleSignInResult.RequiresTwoFactor(APPLE_ID, TwoFactorDelivery.TRUSTED_DEVICE), signIn)
+    }
+
+    @Test
+    fun `an empty key list or bare challenge is not a security key account`() = runBlocking {
+        val transport = ScriptedTransport(
+            completeBody = "{\"authType\":\"hsa2\",\"fsaChallenge\":{},\"keyNames\":[]}",
+            trustedDeviceCode = 404,
+        )
+        val service = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID })
+
+        val error = runCatching { service.signIn(APPLE_ID, PASSWORD) }.exceptionOrNull() as AppleProtocolException
+
+        assertEquals(AppleProtocolError.UNSUPPORTED_TWO_FACTOR, error.error)
     }
 
     @Test
@@ -337,6 +356,7 @@ class AppleAuthenticationServiceTest {
         private val accountLoginCode: Int = 200,
         private val initCode: Int = 200,
         private val completeBody: String? = null,
+        private val trustedDeviceCode: Int = 200,
     ) : AppleHttpTransport {
         val requests = mutableListOf<AppleHttpRequest>()
         var clearCount = 0
@@ -376,7 +396,7 @@ class AppleAuthenticationServiceTest {
                 "/appleauth/auth" -> response(200, bootHtml)
                 "/setup/ws/1/validate" -> response(validateCode, validateBody)
 
-                "/appleauth/auth/verify/trusteddevice" -> response(200, "{}")
+                "/appleauth/auth/verify/trusteddevice" -> response(trustedDeviceCode, "{}")
                 "/appleauth/auth/verify/trusteddevice/securitycode" -> response(200, "{}")
                 "/appleauth/auth/verify/phone" -> response(200, "{}")
                 "/appleauth/auth/verify/phone/securitycode" -> response(200, "{}")
@@ -433,6 +453,7 @@ class AppleAuthenticationServiceTest {
         const val APPLE_ID = "luca@example.com"
         const val PASSWORD = "correct horse battery staple"
         const val CLIENT_ID = "test-client-id"
+        const val SECURITY_KEY_BODY = "{\"authType\":\"hsa2\",\"fsaChallenge\":{\"challenge\":\"abc\"},\"keyNames\":[\"YubiKey\"]}"
         const val SERVER_PUBLIC_B = "rGvbQTJKmpvxZt5eE4lYL69ytmUZh+4H/DGSlD21YFCjcynLtKCZ7YGT4HV3Z6E91SMSq0sDMQ3Nf0ip2gT9UOgIOWntt2ewz2CVF5oWOrNmGgX71fqq6CkYqZYvC5O4Vfl5k+yXXuqoDXQK2/T/dHNZ0EHVwz6nHSgeRGsUdzvKl7Q6I/uAFna9IHpDbGSB8dK5B4cXRhpbnTLmiPh3SFRFI7UksNV9Xqd6J3XS7PoDLPvb9S+zeGFgJ5AE5Xrmr4dOcwPOUymczAQce8MI2CpWmPOo0MOCca41+Onb+7aUtcgD2J965DXeI21SX1R1m2XjcvzWjvIPpxEflu8yXg=="
         val LEGACY_BOOT_HTML = """
             <html>
