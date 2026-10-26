@@ -20,16 +20,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.AlbaAppRule
-import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.runBlockingWithMainLooper
 import me.lvca.alba.app.testing.showFloatingDate
-import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.app.testing.waitUntilExists
 import me.lvca.alba.app.testing.waitUntilGone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,8 +39,6 @@ import java.time.format.DateTimeFormatter
 class AppSurfacesTest {
     @get:Rule val app = AlbaAppRule()
     private val compose get() = app.compose
-
-    @Before fun galleryLoaded() = compose.waitForGalleryMedia()
 
     @Test fun profileScrollsToTheWindowEdgeAndAboutRestoresWithoutLeavingTheAccount() {
         compose.onNodeWithTag("account-button").performClick()
@@ -129,11 +124,8 @@ class AppSurfacesTest {
     @Test fun openFolderAndAlbumSurviveRecreation() {
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collection-albums").performClick()
-        // The demo's albums arrive with the catalog, which loads in the background.
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText("Journeys").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Journeys").performClick()
         app.recreate()
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithText("By the sea").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("By the sea").performClick()
         compose.waitUntilExists("album-hero")
         app.recreate()

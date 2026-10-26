@@ -3,17 +3,14 @@ package me.lvca.alba.app.gallery
 import android.Manifest
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.AlbaViewModel
-import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.R
-import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.MediaStoreFixtures
-import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.SystemWindows
 import me.lvca.alba.app.testing.UI_WAIT
@@ -27,9 +24,8 @@ import org.junit.Test
 
 @SdkSuppress(minSdkVersion = 33)
 class PhoneTrashUiTest {
-    @get:Rule(order = 0) val onboarding = OnboardingRule()
-    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
+    @get:Rule val app = AlbaAppRule()
+    private val compose get() = app.compose
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
 
     /** Answers Android's own trash or restore confirmation, which opens in a separate platform window. */

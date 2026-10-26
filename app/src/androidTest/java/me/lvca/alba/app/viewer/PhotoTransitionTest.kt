@@ -3,14 +3,11 @@ package me.lvca.alba.app.viewer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.width
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
-import me.lvca.alba.app.MainActivity
-import me.lvca.alba.app.testing.FailureCapture
-import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
@@ -19,17 +16,20 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 
+/**
+ * The photo grows out of its tile into the viewer and shrinks back into the grid. The viewer draws a recorded snapshot
+ * of the gallery behind it; Robolectric's software drawing replays that snapshot by re-running the gallery's drawing
+ * after the gallery has left composition, so these stay on a device.
+ */
 class PhotoTransitionTest {
-    @get:Rule(order = 0) val onboarding = OnboardingRule()
-    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
+    @get:Rule val app = AlbaAppRule()
+    private val compose get() = app.compose
 
     private fun viewerReady(id: String) = compose.waitUntil(UI_WAIT) {
         compose.onAllNodesWithTag("photo-viewer-$id", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
     }
 
     @Smoke @Test fun imageExpandsFromTileAndShrinksBackWithoutRemovingOutgoingViewer() {
-        compose.scrollToGalleryMedia("fixture:icloud:0020")
         val id = "fixture:icloud:0020"
         kotlinx.coroutines.runBlocking { (compose.activity.application as AlbaApplication).graph.galleryRepository.keepOriginalOffline(id) }
         compose.scrollToGalleryMedia(id)
@@ -62,7 +62,7 @@ class PhotoTransitionTest {
         assertTrue("Photo should move toward its final vertical position",
             kotlin.math.abs(intermediate.top.value - full.top.value) < kotlin.math.abs(start.top.value - full.top.value))
 
-        compose.onNodeWithContentDescription("Back to gallery").performClick()
+        compose.onNodeWithTag("floating-viewer-back").performClick()
         // Projection, image decoding, and lazy-grid measurement finish asynchronously. Sample
         // actual frames instead of assuming the return element exists at a fixed wall-clock time.
         compose.waitUntil(SHORT_WAIT) {
@@ -91,7 +91,7 @@ class PhotoTransitionTest {
         }
         val current = compose.onAllNodes(hasTestTagPrefix("photo-viewer-"), useUnmergedTree = true).fetchSemanticsNodes().single()
             .config[androidx.compose.ui.semantics.SemanticsProperties.TestTag].removePrefix("photo-viewer-")
-        compose.onNodeWithContentDescription("Back to gallery").performClick()
+        compose.onNodeWithTag("floating-viewer-back").performClick()
         compose.onNodeWithTag("media-$current").assertIsDisplayed()
         compose.scrollToGalleryMedia(current)
         compose.onNodeWithTag("media-$current").performClick()
@@ -126,7 +126,6 @@ class PhotoTransitionTest {
     }
 
     @Test fun zoomedLandscapePhotoCanFillItsLetterbox() {
-        compose.scrollToGalleryMedia("fixture:icloud:0020")
         // The live-photo demo is portrait; use an actual landscape photo for letterboxing.
         val id = "fixture:icloud:0001"
         compose.scrollToGalleryMedia(id)

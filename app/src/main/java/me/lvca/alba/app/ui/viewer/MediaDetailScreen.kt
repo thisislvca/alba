@@ -367,7 +367,8 @@ internal fun MediaDetailScreen(
                         if (media.origin == MediaOrigin.DEVICE || media.linkedDeviceReference != null) {
                             Spacer(Modifier.height(16.dp))
                             DetailAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.trash_phone_copy), !isWorking,
-                                { actions.trashOnPhone(listOf(media), media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) })
+                                { actions.trashOnPhone(listOf(media), media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) },
+                                Modifier.testTag("detail-phone-trash"))
                             Text(stringResource(if (media.isTrashed) R.string.trash_restore_explanation else R.string.trash_phone_explanation), style = MaterialTheme.typography.bodySmall)
                         }
                         Spacer(Modifier.height(24.dp))
@@ -378,14 +379,17 @@ internal fun MediaDetailScreen(
                                     val inHidden = media.isHidden && !media.isTrashed
                                     if (!media.isShared && !inHidden) {
                                     DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,
-                                        { actions.setFavorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = if (media.isFavorite) AlbaTheme.colors.favorite else AlbaTheme.colors.accent) })
-                                    DetailAction(stringResource(R.string.add_to_album), canEdit && !media.isTrashed, { choosingAlbum = true }, { ICloudIcon(R.drawable.icloud_albums) })
+                                        { actions.setFavorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = if (media.isFavorite) AlbaTheme.colors.favorite else AlbaTheme.colors.accent) },
+                                        Modifier.testTag("detail-favorite"))
+                                    DetailAction(stringResource(R.string.add_to_album), canEdit && !media.isTrashed, { choosingAlbum = true }, { ICloudIcon(R.drawable.icloud_albums) },
+                                        Modifier.testTag("detail-add-to-album"))
                                     collections.firstOrNull { it.id == currentAlbumId && it.isUserAlbum }?.let { album ->
                                         if (!media.isTrashed) DetailAction(stringResource(R.string.remove_from_album), canEdit,
                                             { actions.confirmRemoveFromAlbum(album.id, listOf(media.id)) }, { ICloudIcon(R.drawable.icloud_albums) })
                                     }
                                     DetailAction(stringResource(if (media.isTrashed) R.string.restore_from_icloud else R.string.trash_in_icloud), canEdit,
-                                        { actions.confirmCloudTrash(listOf(media.id), !media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) })
+                                        { actions.confirmCloudTrash(listOf(media.id), !media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) },
+                                        Modifier.testTag("detail-cloud-trash"))
                                     }
                                     if (!media.isShared && !media.isTrashed) HideAction(media, canEdit, actions)
                                     BurstAction(media, actions) { showDetails(false) }
@@ -461,7 +465,7 @@ private fun ViewerDetailsBackButton(label: String, click: () -> Unit) {
     val colors = viewerColors()
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).padding(start = 12.dp, top = 12.dp)) {
         Surface(shape = CircleShape, color = colors.canvas, contentColor = colors.foreground, shadowElevation = 4.dp) {
-            IconButton(onClick = click, modifier = Modifier.size(48.dp)) {
+            IconButton(onClick = click, modifier = Modifier.size(48.dp).testTag("details-back")) {
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, label)
             }
         }
@@ -553,10 +557,10 @@ private fun ViewerActionBar(
     val colors = viewerColors()
     Row(Modifier.fillMaxWidth().background(colors.canvas).windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility).offset(y = 5.dp).height(76.dp),
         horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-        ViewerAction(stringResource(R.string.share), enabled, onShare, Modifier.weight(1f)) {
+        ViewerAction(stringResource(R.string.share), enabled, onShare, Modifier.weight(1f).testTag("viewer-share")) {
             Icon(Icons.Outlined.Share, null)
         }
-        if (media.kind != MediaKind.VIDEO && !media.isTrashed) ViewerAction(stringResource(R.string.viewer_edit), enabled, onEdit, Modifier.weight(1f)) {
+        if (media.kind != MediaKind.VIDEO && !media.isTrashed) ViewerAction(stringResource(R.string.viewer_edit), enabled, onEdit, Modifier.weight(1f).testTag("viewer-edit")) {
             Icon(Icons.Outlined.Edit, null)
         } else ViewerAction(stringResource(R.string.details), true, onDetails, Modifier.weight(1f)) {
             Icon(Icons.Outlined.Info, null)
@@ -569,7 +573,8 @@ private fun ViewerActionBar(
         } else ViewerAction(stringResource(R.string.details), true, onDetails, Modifier.weight(1f)) {
             Icon(Icons.Outlined.Info, null)
         }
-        if (media.kind == MediaKind.LIVE_PHOTO) ViewerAction(stringResource(if (playingLive) R.string.show_still_photo else R.string.play_live_photo), true, onLive, Modifier.weight(1f)) {
+        if (media.kind == MediaKind.LIVE_PHOTO) ViewerAction(stringResource(if (playingLive) R.string.show_still_photo else R.string.play_live_photo), true, onLive,
+            Modifier.weight(1f).testTag("viewer-live")) {
             Icon(Icons.Filled.PlayArrow, null)
         }
     }
@@ -590,10 +595,10 @@ private fun ViewerAction(label: String, enabled: Boolean, click: () -> Unit, mod
 }
 
 @Composable
-internal fun DetailAction(label: String, enabled: Boolean, click: () -> Unit, icon: @Composable () -> Unit) {
+internal fun DetailAction(label: String, enabled: Boolean, click: () -> Unit, icon: @Composable () -> Unit, modifier: Modifier = Modifier) {
     val colors = viewerColors()
     CompositionLocalProvider(LocalContentColor provides if (enabled) colors.foreground else colors.disabled) {
-        AlbaListRow(label, click, enabled = enabled, leading = icon, leadingSize = 28.dp, gap = 18.dp,
+        AlbaListRow(label, click, modifier, enabled = enabled, leading = icon, leadingSize = 28.dp, gap = 18.dp,
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp))
     }
 }

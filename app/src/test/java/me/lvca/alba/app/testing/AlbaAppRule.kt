@@ -16,10 +16,10 @@ import org.junit.runners.model.Statement
  * Robolectric gives every test a fresh application, so its database, files and preferences start empty and nothing
  * one test changes reaches another.
  *
- * [onboarded] starts past the introduction with the demo selected; `false` starts at the introduction as a fresh
- * install does.
+ * [onboarded] starts past the introduction with the demo selected, and its catalog in the repository and on screen
+ * before the test's first Compose call ([DemoCatalogRule]). `false` starts at the introduction as a fresh install does.
  */
-class AlbaAppRule(onboarded: Boolean = true) : TestRule {
+class AlbaAppRule(private val onboarded: Boolean = true) : TestRule {
     private val onboarding = OnboardingRule(onboarded)
 
     val compose: AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity> = createAndroidComposeRule<MainActivity>()
@@ -35,6 +35,8 @@ class AlbaAppRule(onboarded: Boolean = true) : TestRule {
         compose.waitForIdle()
     }
 
-    override fun apply(base: Statement, description: Description): Statement =
-        RuleChain.outerRule(onboarding).around(compose).apply(base, description)
+    override fun apply(base: Statement, description: Description): Statement {
+        val chain = RuleChain.outerRule(onboarding)
+        return (if (onboarded) chain.around(DemoCatalogRule(compose)) else chain).around(compose).apply(base, description)
+    }
 }

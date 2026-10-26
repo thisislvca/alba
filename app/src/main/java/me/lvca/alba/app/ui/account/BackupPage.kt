@@ -117,7 +117,7 @@ internal fun BackupPage(
 
     if (backup.enabled) {
         Spacer(Modifier.height(AlbaSpacing.lg))
-        OutlinedButton(onClick = actions::disableAutomaticBackup, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = actions::disableAutomaticBackup, modifier = Modifier.fillMaxWidth().testTag("backup-turn-off")) {
             Text(stringResource(R.string.turn_off_automatic_backup))
         }
     }
@@ -161,7 +161,7 @@ private fun BackupStatusCard(
             }
             if (!backup.enabled) {
                 backup.message?.let { Text(localizedStoredMessage(it).localized(), style = MaterialTheme.typography.bodyMedium) }
-                Button(enabled = connected || demo, onClick = actions::enableAutomaticBackup, modifier = Modifier.fillMaxWidth()) {
+                Button(enabled = connected || demo, onClick = actions::enableAutomaticBackup, modifier = Modifier.fillMaxWidth().testTag("backup-start")) {
                     Text(stringResource(if (demo) R.string.demo_backup_start else R.string.set_up_automatic_backup))
                 }
             } else {
@@ -389,18 +389,20 @@ private fun DemoControls(session: SessionState, transfers: TransferState, action
     session.lastRefreshedAt?.let {
         Text(stringResource(R.string.library_refreshed_at, timestampLabel(it)), style = MaterialTheme.typography.bodySmall)
     }
-    OutlinedButton(onClick = actions::checkConnection, enabled = !session.isRefreshing, modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(onClick = actions::checkConnection, enabled = !session.isRefreshing, modifier = Modifier.fillMaxWidth().testTag("demo-sync-refresh")) {
         Text(stringResource(R.string.demo_sync_refresh))
     }
     if (!backup.enabled) return
     var confirmCleanup by remember { mutableStateOf(false) }
-    OutlinedButton(onClick = { actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_INTERRUPT)) }, modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(onClick = { actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_INTERRUPT)) },
+        modifier = Modifier.fillMaxWidth().testTag("demo-backup-interrupt")) {
         Text(stringResource(R.string.demo_backup_interrupt))
     }
-    OutlinedButton(onClick = { actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_WIFI)) }, modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(onClick = { actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_WIFI)) },
+        modifier = Modifier.fillMaxWidth().testTag("demo-backup-pause-wifi")) {
         Text(stringResource(R.string.demo_backup_pause_wifi))
     }
-    OutlinedButton(onClick = { confirmCleanup = true }, modifier = Modifier.fillMaxWidth(),
+    OutlinedButton(onClick = { confirmCleanup = true }, modifier = Modifier.fillMaxWidth().testTag("demo-cleanup-preview"),
         enabled = transfers.queue.isNotEmpty() && transfers.queue.all { row -> row.state == TransferViewState.VERIFIED }) {
         Text(stringResource(R.string.demo_cleanup_preview))
     }
@@ -408,7 +410,8 @@ private fun DemoControls(session: SessionState, transfers: TransferState, action
         title = { Text(stringResource(R.string.demo_cleanup_preview)) },
         text = { Text(stringResource(R.string.demo_cleanup_disclosure)) },
         confirmButton = {
-            TextButton(onClick = { confirmCleanup = false; actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_CLEANUP)) }) {
+            TextButton(onClick = { confirmCleanup = false; actions.demoBackupAction(TransferId(DemoTransferMode.CONTROL_CLEANUP)) },
+                modifier = Modifier.testTag("demo-cleanup-confirm")) {
                 Text(stringResource(R.string.welcome_continue))
             }
         },

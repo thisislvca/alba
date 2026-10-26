@@ -2,10 +2,7 @@ package me.lvca.alba.app.gallery.grid
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import me.lvca.alba.app.MainActivity
-import me.lvca.alba.app.testing.FailureCapture
-import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import org.junit.Assert.*
@@ -14,9 +11,8 @@ import org.junit.Test
 
 /** Pinching morphs the grid live with the fingers, then commits past a fifth of the way or springs back. */
 class GalleryPinchAnimationTest {
-    @get:Rule(order = 0) val onboarding = OnboardingRule()
-    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
+    @get:Rule val app = AlbaAppRule()
+    private val compose get() = app.compose
 
     private val photo get() = compose.onNodeWithTag("media-fixture:icloud:0020")
     private val grid get() = compose.onNodeWithTag("gallery-grid")
@@ -51,7 +47,6 @@ class GalleryPinchAnimationTest {
 
     @Smoke @Test fun pinchFollowsTheFingersThenCommitsOrReverts() {
         compose.scrollToGalleryMedia("fixture:icloud:0020")
-        grid.performScrollToKey("fixture:icloud:0020")
         // Initial lazy-grid placement must settle before measuring the pinch anchor.
         compose.mainClock.advanceTimeBy(1200)
         val initial = width()

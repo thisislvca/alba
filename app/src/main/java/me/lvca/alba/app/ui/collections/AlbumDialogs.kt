@@ -26,8 +26,13 @@ import me.lvca.alba.engine.model.*
 internal fun AlbumNameDialog(title: String, initialName: String, dismiss: () -> Unit, save: (String) -> Unit) {
     var name by rememberSaveable { mutableStateOf(initialName) }
     AlertDialog(onDismissRequest = dismiss, title = { Text(title) }, text = {
-        OutlinedTextField(name, { if (it.length <= 255) name = it }, label = { Text(stringResource(R.string.album_name)) }, singleLine = true)
-    }, confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { save(name.trim()) }) { Text(stringResource(R.string.save)) } },
+        OutlinedTextField(name, { if (it.length <= 255) name = it }, label = { Text(stringResource(R.string.album_name)) }, singleLine = true,
+            modifier = Modifier.testTag("album-name-field"))
+    }, confirmButton = {
+        TextButton(enabled = name.isNotBlank(), onClick = { save(name.trim()) }, modifier = Modifier.testTag("album-name-save")) {
+            Text(stringResource(R.string.save))
+        }
+    },
         dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } })
 }
 
@@ -67,7 +72,7 @@ internal fun AlbumChooser(collections: List<GalleryCollection>, dismiss: () -> U
             if (folder != null) AlbaListRow(stringResource(R.string.back_action), { folder = collections.firstOrNull { it.id == folder }?.parentId },
                 leading = { Icon(Icons.AutoMirrored.Outlined.ArrowBack, null) }, shape = MaterialTheme.shapes.small,
                 contentPadding = PaddingValues(horizontal = AlbaSpacing.md, vertical = AlbaSpacing.sm), modifier = Modifier.testTag("album-chooser-up"))
-            else if (canCreate && !shared) TextButton(onClick = { creating = true }, modifier = Modifier.fillMaxWidth()) {
+            else if (canCreate && !shared) TextButton(onClick = { creating = true }, modifier = Modifier.fillMaxWidth().testTag("album-chooser-new")) {
                 Text(stringResource(R.string.new_album))
             }
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp), contentPadding = PaddingValues(bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {

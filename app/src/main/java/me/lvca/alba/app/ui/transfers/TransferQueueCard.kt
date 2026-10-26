@@ -98,7 +98,7 @@ internal fun TransferQueueCard(
                     Spacer(Modifier.height(9.dp))
                     OutlinedButton(
                         onClick = { onContinuePastUnresolved(transfer.id) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("demo-backup-retry-${transfer.id.value}"),
                     ) { Text(stringResource(R.string.demo_backup_retry)) }
                 } else if (transfer.retryable && !demo) {
                     Spacer(Modifier.height(6.dp))

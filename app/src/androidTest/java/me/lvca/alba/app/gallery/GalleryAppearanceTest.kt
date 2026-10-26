@@ -2,11 +2,8 @@ package me.lvca.alba.app.gallery
 
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import kotlinx.coroutines.flow.first
-import me.lvca.alba.app.MainActivity
-import me.lvca.alba.app.testing.FailureCapture
-import me.lvca.alba.app.testing.OnboardingRule
+import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.UI_WAIT
 import org.junit.Assert.assertTrue
@@ -16,12 +13,10 @@ import kotlin.math.abs
 
 /** Exercises the new entry points against the real demo repository and video previews. */
 class GalleryAppearanceTest {
-    @get:Rule(order = 0) val onboarding = OnboardingRule()
-    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
+    @get:Rule val app = AlbaAppRule()
+    private val compose get() = app.compose
 
     @Smoke @Test fun statusBarAreaIsStronglyTintedOverScrolledPhotos() {
-        compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("shared-albums-strip").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("gallery-grid").performTouchInput { swipeUp() }
         compose.waitForIdle()
         // Like Google Photos, photos stay faintly visible under the clock, but the tint keeps every pixel close to

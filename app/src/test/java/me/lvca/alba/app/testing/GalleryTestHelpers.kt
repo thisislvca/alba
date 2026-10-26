@@ -15,11 +15,14 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 
-/** The first demo photo the gallery shows; the demo catalog loads asynchronously from its fixtures. */
+/** The first demo photo the gallery shows. */
 internal const val FIRST_DEMO_PHOTO = "fixture:icloud:0020"
 
-internal fun ComposeTestRule.waitForGalleryMedia(id: String = FIRST_DEMO_PHOTO) {
-    // Wait for the item in the lazy grid's data, even when phone photos put it offscreen.
+/**
+ * Waits for [id] to reach the gallery grid's data, even when phone photos put it offscreen. With [AlbaAppRule] the demo
+ * catalog is there from the start; this is for items that arrive later, such as uploads and contributions.
+ */
+internal fun ComposeTestRule.waitForGalleryMedia(id: String) {
     waitUntil(UI_WAIT) {
         val grid = onAllNodesWithTag("gallery-grid").fetchSemanticsNodes().singleOrNull()
         (grid?.config?.getOrNull(SemanticsProperties.IndexForKey)?.invoke(id) ?: -1) >= 0
