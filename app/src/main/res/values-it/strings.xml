@@ -305,8 +305,6 @@
     <string name="selection_upload_short">Carica</string>
     <string name="screenshots">Screenshot</string>
     <string name="search">Cerca</string>
-    <string name="search_by_filename_or_narrow_your_library_by_date_and_media_type">Cerca per nome del file oppure filtra la libreria per data e tipo di file multimediale.</string>
-    <string name="search_filenames">Cerca per nome del file</string>
     <string name="select_all_shown">Seleziona tutti</string>
     <string name="send_another_code">Invia un altro codice</string>
     <string name="session_expired">La sessione iCloud è scaduta. Accedi di nuovo per riconnetterti.</string>
@@ -837,6 +835,61 @@
     <string name="shared_posted_without_caption">Pubblicato senza didascalia. Apple non ha accettato la didascalia per questo album.</string>
     <string name="shared_notification_public">Nuove attività negli album condivisi</string>
     <string name="shared_allow_notifications">Consenti notifiche</string>
+    <!-- Hidden: iCloud's Hidden album, locked behind the phone's unlock. -->
+    <string name="hidden">Nascosti</string>
+    <string name="hidden_locked">Sblocca per vedere</string>
+    <string name="hidden_unlock_title">Sblocca Nascosti</string>
+    <string name="hidden_unlock_subtitle">Usa impronta, volto o blocco schermo</string>
+    <string name="hidden_needs_screen_lock">Imposta un blocco schermo sul telefono per aprire Nascosti.</string>
+    <string name="hidden_unlock_failed">Impossibile sbloccare Nascosti. Riprova.</string>
+    <string name="hidden_empty">Qui compaiono le foto che nascondi su iCloud.</string>
+    <string name="hide">Nascondi</string>
+    <string name="unhide">Mostra</string>
+    <string name="hidden_refresh_unavailable">Impossibile controllare Nascosti. Mostra quello che Alba ha visto l\'ultima volta.</string>
+    <string name="hidden_change_failed">Impossibile confermare la modifica a Nascosti. Aggiorna prima di riprovare.</string>
+    <plurals name="hidden_moved">
+        <item quantity="one">Spostata in Nascosti</item>
+        <item quantity="other">%1$d spostate in Nascosti</item>
+        <item quantity="many">%1$d spostate in Nascosti</item>
+    </plurals>
+    <plurals name="unhidden_moved">
+        <item quantity="one">Riportata nella libreria</item>
+        <item quantity="other">%1$d riportate nella libreria</item>
+        <item quantity="many">%1$d riportate nella libreria</item>
+    </plurals>
+    <!-- Search -->
+    <string name="search_your_photos">Cerca nelle tue foto</string>
+    <string name="search_landing_body">Cerca nomi dei file, titoli, didascalie e album, oppure prova un mese, un anno o un tipo come \"video 2024\" o \"giugno\".</string>
+    <string name="search_matching_albums">Album</string>
+    <!-- Photo types and bursts -->
+    <string name="raw_badge">RAW</string>
+    <plurals name="burst_view_photos">
+        <item quantity="one">Visualizza %1$d foto della sequenza</item>
+        <item quantity="other">Visualizza %1$d foto della sequenza</item>
+        <item quantity="many">Visualizza %1$d foto della sequenza</item>
+    </plurals>
+    <string name="burst_stack">Mostra solo la foto principale della sequenza</string>
+    <plurals name="burst_photo_count">
+        <item quantity="one">Sequenza, %1$d foto</item>
+        <item quantity="other">Sequenza, %1$d foto</item>
+        <item quantity="many">Sequenza, %1$d foto</item>
+    </plurals>
+    <!-- Photo details -->
+    <string name="photo_caption">Didascalia</string>
+    <string name="photo_taken">Scattata</string>
+    <string name="photo_added">Aggiunta a iCloud</string>
+    <string name="photo_duration">Durata</string>
+    <string name="photo_format">Formato</string>
+    <string name="photo_lens">Obiettivo</string>
+    <string name="photo_altitude">%1$s m sul livello del mare</string>
+    <string name="open_in_maps">Apri in Maps</string>
+    <string name="no_maps_app">Nessuna app di mappe può aprire questo luogo.</string>
+    <!-- A capture time with its time zone, such as "20 lug 2026, 21:48 · GMT+02:00". -->
+    <string name="time_with_zone">%1$s · %2$s</string>
+    <!-- Live Photos -->
+    <string name="share_as_video">Condividi come video</string>
+    <string name="save_as_video">Salva come video</string>
+    <string name="message_saved_the_motion_clip_as_a_video">Clip in movimento salvata nella galleria come video</string>
     <string name="backup_failed_notification_body">Apri Backup per vedere il motivo e riprovare.</string>
     <string name="backup_paused_sign_in_title">Backup in pausa: accedi</string>
     <string name="backup_paused_sign_in_body">Accedi di nuovo a iCloud per continuare il backup. Niente su questo telefono viene toccato.</string>

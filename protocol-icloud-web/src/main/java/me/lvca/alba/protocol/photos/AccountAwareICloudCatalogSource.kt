@@ -38,6 +38,8 @@ class AccountAwareICloudCatalogSource(
     override suspend fun sharedAlbums() = currentSource().sharedAlbums()
     override suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration) = currentSource().createSharedAlbum(name, operationId, generation)
     override suspend fun recentlyDeleted() = currentSource().recentlyDeleted()
+    override suspend fun hiddenMedia() = currentSource().hiddenMedia()
+    override suspend fun setHidden(mediaIds: List<String>, hidden: Boolean) = currentSource().setHidden(mediaIds, hidden)
     override suspend fun removeFromAlbum(id: String, mediaIds: List<String>) = currentSource().removeFromAlbum(id, mediaIds)
     override suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean) = currentSource().setCloudTrashed(mediaIds, trashed)
     override suspend fun setFavorite(mediaId: String, favorite: Boolean) = currentSource().setFavorite(mediaId, favorite)

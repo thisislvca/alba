@@ -123,7 +123,11 @@ internal class LibrarySync(
                     it.copy(isRefreshing = false, lastRefreshedAt = Instant.ofEpochMilli(summary.refreshedAtEpochMillis),
                         webAccessOff = false)
                 }
-                if (summary.sharedAlbumsUnavailable) messages.show(R.string.shared_refresh_unavailable) else messages.clear(RefreshMessages)
+                when {
+                    summary.sharedAlbumsUnavailable -> messages.show(R.string.shared_refresh_unavailable)
+                    summary.hiddenUnavailable -> messages.show(R.string.hidden_refresh_unavailable)
+                    else -> messages.clear(RefreshMessages)
+                }
                 previews.retry()
             } catch (cancelled: CancellationException) {
                 span.finish(DiagnosticOutcome.CANCELLED)

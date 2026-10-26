@@ -37,7 +37,15 @@ SELECT c.mediaId,
     c.deviceFolderName,
     c.localFavorite,
     c.isTrashed,
-    c.expiresAtEpochMillis
+    c.expiresAtEpochMillis,
+    c.isHidden,
+    c.caption,
+    c.description,
+    c.latitude,
+    c.longitude,
+    c.altitude,
+    c.timeZoneOffsetSeconds,
+    c.burstId
 FROM catalog_items c
 LEFT JOIN media_cache cache ON cache.mediaId = c.mediaId AND cache.resourceFingerprint = c.resourceFingerprint
 """

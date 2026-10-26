@@ -85,7 +85,7 @@ internal fun SharedAlbumDetails(album: GalleryCollection, dismiss: () -> Unit) {
  * supported format. Also counts the Live Photos left out, so the picker can say why they are missing.
  */
 internal fun sharedContributionCandidates(items: List<GalleryMedia>, generation: SharedAlbumGeneration): Pair<List<GalleryMedia>, Int> {
-    val personal = items.filter { !it.isShared && !it.isTrashed }
+    val personal = items.filter { !it.isShared && !it.isTrashed && !it.isHidden }
     val accepted = personal.filter {
         if (generation == SharedAlbumGeneration.LEGACY || it.origin == MediaOrigin.DEVICE) supportsLegacySharedUpload(it.kind, it.mimeType) else true
     }

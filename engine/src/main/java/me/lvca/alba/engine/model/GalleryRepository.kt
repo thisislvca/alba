@@ -8,6 +8,8 @@ data class RefreshSummary(
     val deviceItemCount: Int,
     val refreshedAtEpochMillis: Long,
     val sharedAlbumsUnavailable: Boolean = false,
+    /** Hidden could not be read completely; the last hidden photos are kept until a later refresh succeeds. */
+    val hiddenUnavailable: Boolean = false,
 )
 
 /** Reading the catalog does not imply permission to edit or export originals. */
@@ -42,6 +44,9 @@ interface GalleryEdits {
     suspend fun removeFromAlbum(id: String, mediaIds: List<String>)
     suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean)
     suspend fun setFavorite(mediaId: String, favorite: Boolean)
+
+    /** Moves iCloud photos into or out of the Hidden album. */
+    suspend fun setHidden(mediaIds: List<String>, hidden: Boolean)
     suspend fun createAlbum(name: String): GalleryCollection
     suspend fun deleteAlbum(id: String)
     suspend fun renameAlbum(id: String, name: String)

@@ -19,6 +19,7 @@ import me.lvca.alba.engine.database.CatalogCheckpointEntity
 import me.lvca.alba.engine.database.CatalogItemEntity
 import me.lvca.alba.engine.database.CollectionEntity
 import me.lvca.alba.engine.database.CollectionMemberEntity
+import me.lvca.alba.engine.database.mediaDetails
 import me.lvca.alba.engine.database.toEntity
 import me.lvca.alba.engine.database.toModel
 import me.lvca.alba.engine.model.*
@@ -269,6 +270,16 @@ class DefaultGalleryRepository(
         dao.upsertItems(items.map { it.copy(isTrashed = trashed) })
     }
 
+    override suspend fun setHidden(mediaIds: List<String>, hidden: Boolean) = edit { account ->
+        val ids = mediaIds.distinct()
+        require(ids.isNotEmpty() && ids.size <= 50) { StoredMessage.SELECT_UP_TO_50_ICLOUD_PHOTOS_AT_A_TIME.code }
+        val items = ids.map { require(!SharedMediaIdentity.isShared(it)); requireCloudItem(it) }
+        require(items.none { it.isTrashed })
+        cloudSource.setHidden(ids, hidden)
+        checkEditAccount(account)
+        dao.upsertItems(items.map { it.copy(isHidden = hidden) })
+    }
+
     private suspend fun editableAlbum(account: String, id: String): CollectionEntity {
         require(!SharedMediaIdentity.isShared(id) && !id.startsWith("smart:") && !id.startsWith("device-folder:")) { StoredMessage.MEDIA_COLLECTIONS_CANNOT_BE_EDITED.code }
         return requireNotNull(library.collection(account, id)) { StoredMessage.ALBUM_IS_NO_LONGER_AVAILABLE_REFRESH_THE_LIBRARY.code }
@@ -439,6 +450,8 @@ class DefaultGalleryRepository(
             if (checkpoint == null) bootstrap(account) else applyChanges(oldItems.filterNot { it.isTrashed || SharedMediaIdentity.isShared(it.mediaId) }.map(::toRemote), checkpoint, account)
         } catch (_: CatalogResetRequired) { bootstrap(account) }
         val trash = cloudSource.recentlyDeleted()
+        val hiddenRead = hiddenSnapshot(account, oldItems)
+        val hidden = hiddenRead.records
         val personalCollections = cloudSource.collections()
         var sharedAlbumsUnavailable = false
         val shared = try { cloudSource.sharedAlbums() }
@@ -456,7 +469,8 @@ class DefaultGalleryRepository(
             SharedCatalogSnapshot(records, CollectionSnapshot(previous.map { it.toModel() },
                 members.groupBy { it.collectionId }.mapValues { (_, rows) -> rows.map { it.mediaId }.toSet() }))
         }
-        val cloud = activeCloud.copy(records = (activeCloud.records + trash + shared.records).associateBy { it.id }.values.toList())
+        // Hidden comes after the library so the Hidden album's own reading wins for a photo in both.
+        val cloud = activeCloud.copy(records = (activeCloud.records + trash + hidden + shared.records).associateBy { it.id }.values.toList())
         val collections = CollectionSnapshot(personalCollections.collections + shared.collections.collections,
             personalCollections.members + shared.collections.members)
         checkAccount(account, StoredMessage.ACCOUNT_CHANGED_DURING_REFRESH.code)
@@ -506,8 +520,23 @@ class DefaultGalleryRepository(
             deviceItemCount = deviceRecords.size,
             refreshedAtEpochMillis = refreshedAt,
             sharedAlbumsUnavailable = sharedAlbumsUnavailable,
+            hiddenUnavailable = !hiddenRead.complete,
         )
     }
+
+    private class HiddenRead(val records: List<RemoteMediaRecord>, val complete: Boolean)
+
+    /**
+     * The Hidden album. An incomplete read keeps the last hidden rows rather than failing the whole refresh, and is
+     * reported in the refresh summary so the user hears about it.
+     */
+    private suspend fun hiddenSnapshot(account: String, oldItems: List<CatalogItemEntity>): HiddenRead =
+        try { HiddenRead(cloudSource.hiddenMedia(), complete = true) }
+        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: Exception) {
+            checkAccount(account, "Account changed during hidden refresh")
+            HiddenRead(oldItems.filter { it.isHidden && !it.isTrashed && it.mediaId.startsWith("icloud:$account:") }.map(::toRemote), false)
+        }
 
     override suspend fun ensureViewer(mediaId: String) = withMediaLock(mediaId) {
         val entity = requireCloudItem(mediaId)
@@ -570,7 +599,8 @@ class DefaultGalleryRepository(
 
     private fun toRemote(it: CatalogItemEntity) = RemoteMediaRecord(it.mediaId, it.fileName, it.capturedAtEpochMillis,
         it.width, it.height, it.sourceRevision, it.accentStartArgb, it.accentEndArgb,
-        MediaKind.valueOf(it.kind), it.mimeType, it.durationMillis, it.masterRecordName, it.assetRecordName, it.resourceFingerprint, it.motionMimeType, it.addedAtEpochMillis, byteCount = it.byteCount)
+        MediaKind.valueOf(it.kind), it.mimeType, it.durationMillis, it.masterRecordName, it.assetRecordName, it.resourceFingerprint, it.motionMimeType, it.addedAtEpochMillis,
+        byteCount = it.byteCount, isHidden = it.isHidden, details = it.mediaDetails)
 
     private fun catalogEntity(record: RemoteMediaRecord, existing: CatalogItemEntity?, scanId: String) =
         CatalogItemEntity(
@@ -594,6 +624,7 @@ class DefaultGalleryRepository(
             kind = record.kind.name, mimeType = record.mimeType, durationMillis = record.durationMillis,
             masterRecordName = record.masterRecordName, assetRecordName = record.assetRecordName,
             resourceFingerprint = record.resourceFingerprint, motionMimeType = record.motionMimeType, isTrashed = record.isTrashed,
+            isHidden = record.isHidden, details = record.details.takeIf { it != MediaDetails() },
         )
 
     private suspend fun bootstrap(account: String): CompleteCloudCatalog {
@@ -692,6 +723,7 @@ class DefaultGalleryRepository(
             byteCount = entity.byteCount ?: entity.originalCachePath?.takeIf { originalReadable }?.let { java.io.File(it).length() }, deviceFolderId = entity.deviceFolderId, deviceFolderName = entity.deviceFolderName,
             isTrashed = entity.isTrashed, expiresAtEpochMillis = entity.expiresAtEpochMillis,
             kind = MediaKind.valueOf(entity.kind), mimeType = entity.mimeType, durationMillis = entity.durationMillis,
+            isHidden = entity.isHidden, details = entity.mediaDetails,
         )
     }
 

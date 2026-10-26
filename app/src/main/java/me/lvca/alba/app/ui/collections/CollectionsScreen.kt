@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -49,7 +50,7 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
     summaries: Map<String, CollectionPreview>, scroll: LazyGridState, preview: (String) -> Unit,
     openPage: (CollectionsPage) -> Unit, openFolder: (String) -> Unit, openCollection: (String) -> Unit, openOffline: () -> Unit,
     openSharedInvitations: () -> Unit = {}, createSharedAlbum: () -> Unit = {}, openTrash: () -> Unit = {}, openCloudTrash: () -> Unit = {},
-    createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: Dp = 16.dp) {
+    createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: Dp = 16.dp, openHidden: () -> Unit = {}) {
     var sort by rememberSaveable { mutableStateOf(AlbumSort.RECENT) }
     val sortable = page != CollectionsPage.DEVICE
     val albums = remember(gallery.collections, folder, page, sort, summaries) {
@@ -100,6 +101,13 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                         if (index > 0) AlbaDivider(Modifier.padding(start = 60.dp))
                         CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) }) { openCollection(smart.id) }
                     }
+                }
+            }
+            // Like iOS, Hidden sits apart and shows no count or covers until it is unlocked.
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                AlbaCard(Modifier.testTag("collection-hidden")) {
+                    CollectionRow(stringResource(R.string.hidden), stringResource(R.string.hidden_locked),
+                        icon = { Icon(Icons.Outlined.Lock, null) }, onClick = openHidden)
                 }
             }
         } else {

@@ -31,6 +31,39 @@ class LibraryEditingTest {
         assertEquals(2, transport.requests.count { it.url.contains("records/modify") })
     }
 
+    @Test fun hidingWritesIsHiddenLikeAFavoriteAndChecksTheReturnedValue() = runBlocking {
+        val transport = EditingTransport()
+        val source = LiveICloudCatalogSource(transport, { session }, isAuthorized = { true })
+        val id = "icloud:${source.accountLabel}:photo"
+        source.setHidden(listOf(id), true)
+        val request = transport.requests.single { it.url.contains("records/modify") }
+        assertTrue(request.oneShot)
+        val body = Json.parseToJsonElement(request.body!!).jsonObject
+        assertTrue(body["atomic"]!!.jsonPrimitive.boolean)
+        val record = body["operations"]!!.jsonArray.single().jsonObject["record"]!!.jsonObject
+        assertEquals("CPLAsset", record["recordType"]!!.jsonPrimitive.content)
+        assertEquals("current-version", record["recordChangeTag"]!!.jsonPrimitive.content)
+        val field = record["fields"]!!.jsonObject["isHidden"]!!.jsonObject
+        assertEquals("INT64", field["type"]!!.jsonPrimitive.content)
+        assertEquals(1, field["value"]!!.jsonPrimitive.int)
+        assertEquals(setOf("isHidden"), record["fields"]!!.jsonObject.keys)
+        transport.omitFavoriteConfirmation = true
+        assertTrue(runCatching { source.setHidden(listOf(id), true) }.isFailure)
+        // A photo that is already visible needs no write to unhide.
+        source.setHidden(listOf(id), false)
+        assertTrue(runCatching { source.setHidden(listOf("icloud:another-account:photo"), true) }.isFailure)
+        assertEquals(2, transport.requests.count { it.url.contains("records/modify") })
+    }
+
+    @Test fun hiddenAlbumIsReadFromItsOwnIndex() = runBlocking {
+        val transport = EditingTransport()
+        val source = LiveICloudCatalogSource(transport, { session }, isAuthorized = { true })
+        assertTrue(source.hiddenMedia().isEmpty())
+        val query = transport.requests.single { it.url.contains("records/query") }
+        assertTrue(query.body!!.contains("\"CPLAssetAndMasterHiddenByAssetDate\""))
+        assertTrue(transport.requests.none { it.url.contains("records/modify") })
+    }
+
     @Test fun deletingAlbumTombstonesOnlyAlbumAndRequiresConfirmationWithoutRetry() = runBlocking {
         val transport = EditingTransport()
         val source = LiveICloudCatalogSource(transport, { session }, isAuthorized = { true })

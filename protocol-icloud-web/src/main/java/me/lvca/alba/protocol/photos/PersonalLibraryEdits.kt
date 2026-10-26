@@ -84,6 +84,36 @@ internal class PersonalLibraryEdits(
         }
     }
 
+    /**
+     * Moves assets into or out of the Hidden album by writing CPLAsset `isHidden`, the INT64 flag the Hidden index
+     * (`CPLAssetAndMasterHiddenByAssetDate`) and the main feed (`...WithoutHiddenOrDeleted`) read. It is written like
+     * `isFavorite`: at the version just read, atomically, and confirmed from Apple's response.
+     */
+    suspend fun setHidden(mediaIds: List<String>, hidden: Boolean) = authorizedEdit { session ->
+        val names = mediaIds.distinct().map { mediaRecordName(it, session) }
+        require(names.size in 1..50)
+        val records = database.lookup(names)
+        check(records.mapNotNull { it.recordName() }.toSet() == names.toSet() && records.size == names.size)
+        val operations = records.mapNotNull { record ->
+            check(record.isTrashable(requireVisible = false) && !record.fieldFlag("isDeleted")) {
+                "This photo is no longer available. Refresh the library."
+            }
+            if (record.fieldFlag("isHidden") == hidden) return@mapNotNull null
+            operation("update", buildJsonObject {
+                put("recordName", record.recordName()!!); put("recordType", "CPLAsset")
+                put("recordChangeTag", checkNotNull(record.text("recordChangeTag")?.takeIf { it.isNotBlank() }))
+                putJsonObject("fields") { put("isHidden", writeField("INT64", JsonPrimitive(if (hidden) 1 else 0))) }
+            })
+        }
+        if (operations.isNotEmpty()) {
+            val result = modify(session, operations)
+            check(result.all { it.fieldFlag("isHidden") == hidden && it.fieldText("isHidden") != null }) {
+                "iCloud did not confirm the change to Hidden. Refresh before retrying."
+            }
+        }
+        database.requireUnchanged(session)
+    }
+
     private fun albumName(name: String): JsonObject {
         require(name.isNotBlank() && name.length <= 255)
         return writeField("ENCRYPTED_BYTES", JsonPrimitive(Base64.getEncoder().encodeToString(name.toByteArray(Charsets.UTF_8))))
@@ -180,7 +210,8 @@ internal class PersonalLibraryEdits(
         val records = database.lookup(names)
         check(records.mapNotNull { it.recordName() }.toSet() == names.toSet() && records.size == names.size)
         val operations = records.mapNotNull { record ->
-            check(record.isTrashable()) { "This photo is no longer available. Refresh the library." }
+            // A hidden photo can come back from Recently Deleted (into Hidden); only moving to the trash needs it visible.
+            check(record.isTrashable(requireVisible = trashed)) { "This photo is no longer available. Refresh the library." }
             if (record.fieldFlag("isDeleted") == trashed) return@mapNotNull null
             operation("update", buildJsonObject {
                 put("recordName", record.recordName()!!); put("recordType", "CPLAsset"); put("recordChangeTag", checkNotNull(record.text("recordChangeTag")?.takeIf { it.isNotBlank() }))

@@ -45,7 +45,7 @@ class GalleryNavigationTest {
         assertTrue("The photo grid should be visible below shared albums", first.top < screen.height * .8f)
         compose.scrollToGalleryMedia("fixture:icloud:0001")
         compose.onNodeWithTag("tab-SEARCH").performClick()
-        compose.onNodeWithText("Search filenames").performTextInput("Sea breeze")
+        compose.onNodeWithTag("search-field").performTextInput("Sea breeze")
         compose.hideKeyboard()
         // The navigation steps aside while the keyboard is open and returns once it has closed.
         compose.waitUntilDisplayed(hasTestTag("tab-COLLECTIONS"))

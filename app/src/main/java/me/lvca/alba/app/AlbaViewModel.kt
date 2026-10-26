@@ -182,6 +182,13 @@ class AlbaViewModel(
 
     fun localOperationFailed() = messages.show(R.string.local_action_failed)
 
+    /** Opens Hidden once the user unlocked it, or says why it stayed locked. */
+    internal fun hiddenUnlockAnswered(result: me.lvca.alba.app.platform.UnlockResult) = when (result) {
+        me.lvca.alba.app.platform.UnlockResult.UNLOCKED -> gallery.openUnlockedHidden()
+        me.lvca.alba.app.platform.UnlockResult.NO_SCREEN_LOCK -> messages.show(R.string.hidden_needs_screen_lock)
+        me.lvca.alba.app.platform.UnlockResult.FAILED -> messages.show(R.string.hidden_unlock_failed)
+        me.lvca.alba.app.platform.UnlockResult.CANCELED -> Unit
+    }
     fun editedCopyNotUploaded() = messages.show(R.string.edited_copy_not_uploaded)
 
     fun setDiagnosticsEnabled(enabled: Boolean) = diagnostics.setEnabled(enabled)
