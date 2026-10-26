@@ -9,6 +9,9 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["capturedAtEpochMillis", "mediaId"]),
         Index(value = ["origin", "lastSeenScanId"]),
+        // Library changes name iCloud records, not media ids: these find the rows a change touches.
+        Index(value = ["masterRecordName"]),
+        Index(value = ["assetRecordName"]),
     ],
 )
 data class CatalogItemEntity(
@@ -54,4 +57,30 @@ data class CatalogCheckpointEntity(
     @PrimaryKey val scope: String,
     val changeToken: String,
     val refreshedAtEpochMillis: Long,
+)
+
+/**
+ * A first full read of an account's iCloud library that has not finished yet. Each page is written to the catalog as
+ * it arrives, tagged with [scanId], and this row records where to continue, so the read survives process death, a
+ * lost connection or the app leaving the screen. It is removed when the read is published.
+ */
+@Entity(tableName = "catalog_scans")
+data class CatalogScanEntity(
+    /** The account label the read belongs to. A read never continues under another account. */
+    @PrimaryKey val account: String,
+    val scanId: String,
+    /** The next page to read; null before the first page. */
+    val cursor: String?,
+    /** Every page is read: what is left is catching up on changes made meanwhile, then publishing. */
+    val pagesComplete: Boolean,
+    /** The change token captured before the first page, to catch up from. Null when the source has none. */
+    val catchUpToken: String?,
+    /** Photos and videos read so far. */
+    val loadedCount: Int,
+    /** How many items iCloud says the library has, when it could say so cheaply. */
+    val totalCount: Int?,
+    val startedAtEpochMillis: Long,
+    val updatedAtEpochMillis: Long,
+    /** The read already started over once because its saved cursor was refused; it does not again. */
+    @androidx.room.ColumnInfo(defaultValue = "0") val restarted: Boolean = false,
 )

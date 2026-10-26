@@ -81,6 +81,9 @@ class LiveICloudCatalogSource(
     private val downloads = ConcurrentHashMap<String, DownloadReferences>()
     private val currentRefreshIds = ConcurrentHashMap.newKeySet<String>()
 
+    /** The account whose web access and indexing this process last checked. */
+    @Volatile private var preparedFor: String? = null
+
     override val writeAccountId: String? get() = sessionProvider()?.let(ICloudAccountIdentity::accountId)
     override val accountLabel: String
         get() = sessionProvider()?.let(ICloudAccountIdentity::namespace) ?: "signed-out"
@@ -108,10 +111,10 @@ class LiveICloudCatalogSource(
         if (parsed.size < assets.count { !it.isRemovedFromLibrary() }) throw CatalogResetRequired()
         return parsed
     }
-    override suspend fun changes(token: String, known: List<RemoteMediaRecord>): CloudChanges {
+    override suspend fun changes(token: String, known: KnownCloudRecords): CloudChanges {
         val root = database.call("changes/zone", PrimarySyncZone.changesBody(token, 200))
         val result = root["zones"]!!.jsonArray.single().jsonObject
-        result.serverErrorCode()?.let { throw CloudKitErrors.zoneChangesFailure(it) }
+        result.serverErrorCode()?.let { throw CloudKitErrors.zoneChangesFailure(it, CloudKitErrors.retryAfterMillis(result)) }
         val deleted = mutableSetOf<String>()
         val changedAssets = mutableSetOf<String>()
         for (element in result["records"]!!.jsonArray) {
@@ -123,7 +126,7 @@ class LiveICloudCatalogSource(
             when (type) {
                 "CPLAsset" -> changedAssets += name
                 "CPLMaster" -> {
-                    val related = known.filter { it.masterRecordName == name }.mapNotNull { it.assetRecordName }
+                    val related = known.assetRecordNames(name)
                     if (related.isEmpty()) throw CatalogResetRequired()
                     changedAssets += related
                 }
@@ -136,6 +139,28 @@ class LiveICloudCatalogSource(
         return CloudChanges(hydrated.map(::mapped), deleted,
             result["syncToken"]!!.jsonPrimitive.content, result["moreComing"]?.jsonPrimitive?.booleanOrNull == true)
     }
+
+    /**
+     * The main feed's size from iCloud's index counts, the way iCloud.com and pyicloud read an album's length: one
+     * `HyperionIndexCountLookup` query for the count index that matches [PHOTO_LIST_RECORD_TYPE].
+     */
+    override suspend fun libraryItemCount(): Int? {
+        val root = database.call("records/query", buildJsonObject {
+            putJsonObject("query") {
+                put("recordType", "HyperionIndexCountLookup")
+                putJsonArray("filterBy") {
+                    add(buildJsonObject {
+                        put("fieldName", "indexCountID"); put("comparator", "IN")
+                        putJsonObject("fieldValue") { put("type", "STRING_LIST"); putJsonArray("value") { add(LIBRARY_COUNT_INDEX) } }
+                    })
+                }
+            }
+            put("zoneID", PrimarySyncZone.zoneId()); put("zoneWide", true); put("resultsLimit", 1)
+        })
+        val count = root["records"]?.jsonArray?.firstOrNull()?.jsonObject?.fieldLong("itemCount") ?: return null
+        return count.takeIf { it in 0..Int.MAX_VALUE }?.toInt()
+    }
+
     override suspend fun collections(): CollectionSnapshot {
         val albums = mutableListOf<GalleryCollection>()
         val pending = java.util.LinkedList<String?>().apply { add(null) }
@@ -241,25 +266,26 @@ class LiveICloudCatalogSource(
         require(limit in 1..100) { "iCloud page size must be between 1 and 100" }
         val session = requireSession()
         cloudKit.bind(session)
-        val pageCursor = PageCursor.decode(cursor)
-        if (cursor == null) {
+        // Only a cursor of our own that no longer decodes counts as refused; other argument errors stay bugs.
+        val pageCursor = try { PageCursor.decode(cursor) }
+        catch (_: IllegalArgumentException) { throw CatalogCursorRejected("The saved page cursor is not valid") }
+        // A read resumed in a new process still checks web access and indexing before its first page.
+        if (cursor == null || preparedFor != session.dsid) {
             preparePhotos(session)
-            currentRefreshIds.clear()
+            preparedFor = session.dsid
         }
+        if (cursor == null) currentRefreshIds.clear()
 
-        val response = cloudKit.send(
-            session = session,
-            request = AppleHttpRequest(
-                method = "POST",
-                url = database.url(session, "records/query"),
-                headers = PersonalLibraryDatabase.HEADERS,
-                body = photoQueryBody(
-                    offset = pageCursor.offset,
-                    limit = limit,
-                    continuationMarker = pageCursor.continuationMarker,
-                ),
+        val response = sendPage(session, AppleHttpRequest(
+            method = "POST",
+            url = database.url(session, "records/query"),
+            headers = PersonalLibraryDatabase.HEADERS,
+            body = photoQueryBody(
+                offset = pageCursor.offset,
+                limit = limit,
+                continuationMarker = pageCursor.continuationMarker,
             ),
-        )
+        ), resumed = cursor != null)
         val parsed = parser.parse(response.body)
         val namespace = ICloudAccountIdentity.namespace(session)
         val records = parsed.photos.map { photo -> mapped(photo, namespace).also { currentRefreshIds += it.id } }
@@ -324,6 +350,43 @@ class LiveICloudCatalogSource(
             transport.stream(selectUrl(freshReferences(mediaId)), output)
         }
         cloudKit.persist(session, null)
+    }
+
+    /**
+     * Sends a page query. For a page after the first, a request error CloudKit gives for the query itself (a 4xx other
+     * than sign-in and throttling, or an error in a 200 body) means it no longer accepts the cursor, as when a
+     * continuation marker expired, and the read can start over. A lost connection stays a network error.
+     */
+    private suspend fun sendPage(session: AppleSessionSnapshot, request: AppleHttpRequest, resumed: Boolean): AppleHttpResponse {
+        val raw = cloudKit.exchange(session, request)
+        CloudKitErrors.cursorRejection(raw.code, null, resumed)?.let { throw it }
+        val response = cloudKit.requireSuccess(session, raw)
+        response.jsonObjectOrNull()?.let { root -> CloudKitErrors.throttle(root) ?: CloudKitErrors.cursorRejection(raw.code, root, resumed) }
+            ?.let { throw it }
+        return response
+    }
+
+    /**
+     * Looks the library assets up by name. Only NOT_FOUND or an asset that came back deleted is [LibraryLookup.gone]; any
+     * other per-record error, an asset or master missing from the answer, or an asset that does not parse is neither,
+     * so the read keeps the row.
+     */
+    override suspend fun libraryRecords(assetRecordNames: List<String>): LibraryLookup {
+        val byName = database.lookup(assetRecordNames).associateBy { it.recordName() }
+        val gone = assetRecordNames.filterTo(mutableSetOf()) { name -> byName[name]?.let(::certainlyGone) == true }
+        val live = assetRecordNames.mapNotNull { byName[it] }.filter { it.serverErrorCode() == null && !it.isRemovedFromLibrary() }
+        if (live.isEmpty()) return LibraryLookup(emptyList(), gone)
+        val masters = database.lookup(live.mapNotNull { it.fieldObject("masterRef")?.recordName() })
+            .filter { it.serverErrorCode() == null }
+        val parsed = parser.parse(buildJsonObject { put("records", JsonArray(live + masters)) }.toString()).photos
+        return LibraryLookup(parsed.map { mapped(it) }, gone)
+    }
+
+    /** NOT_FOUND, or a library asset deleted or moved to Recently Deleted. A hidden asset is still in the library. */
+    private fun certainlyGone(asset: JsonObject): Boolean = when (asset.serverErrorCode()) {
+        null -> asset.isRemovedFromLibrary() && !asset.isHiddenAsset()
+        NOT_FOUND -> true
+        else -> false
     }
 
     private suspend fun preparePhotos(session: AppleSessionSnapshot) {
@@ -480,6 +543,8 @@ class LiveICloudCatalogSource(
     private companion object {
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         const val PHOTO_LIST_RECORD_TYPE = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"
+        const val LIBRARY_COUNT_INDEX = "CPLAssetByAssetDateWithoutHiddenOrDeleted"
+        const val NOT_FOUND = "NOT_FOUND"
         const val HIDDEN_LIST_RECORD_TYPE = "CPLAssetAndMasterHiddenByAssetDate"
         const val HIDDEN_INCOMPLETE = "Hidden was incomplete. Refresh to try again."
         const val RECORDS_PER_PHOTO = 2

@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.CatalogResetRequired
+import me.lvca.alba.engine.source.KnownCloudRecords
 import me.lvca.alba.protocol.account.*
 import me.lvca.alba.protocol.network.*
 import org.junit.Assert.*
@@ -47,24 +48,52 @@ class CatalogFeaturesTest {
         val t = Transport()
         val s = source(t)
         assertEquals("before", s.captureSyncToken())
-        val page = s.changes("before", s.fetchPage(null, 100).records)
+        val page = s.changes("before", KnownCloudRecords.of(s.fetchPage(null, 100).records))
         assertEquals("after", page.nextToken)
         assertEquals("asset", page.upserts.single().assetRecordName)
         assertEquals(setOf("gone"), page.deletedRecordNames)
         t.expiredToken = true
-        assertTrue(runCatching { s.changes("old", emptyList()) }.exceptionOrNull() is CatalogResetRequired)
+        assertTrue(runCatching { s.changes("old", KnownCloudRecords.NONE) }.exceptionOrNull() is CatalogResetRequired)
     }
     @Test fun aNewlyHiddenAssetIsFlaggedNotRemoved() = runBlocking {
         val t = Transport()
         val s = source(t)
         val known = s.fetchPage(null, 100).records
         t.hidden = true
-        val page = s.changes("before", known)
+        val page = s.changes("before", KnownCloudRecords.of(known))
         assertTrue(page.upserts.single { it.assetRecordName == "asset" }.isHidden)
         assertEquals(setOf("gone"), page.deletedRecordNames)
     }
 
+    @Test fun lookingUpUnseenItemsTreatsOnlyNotFoundAndDeletedAsGone() = runBlocking {
+        val t = Transport()
+        t.extraAssets = """,{"recordName":"missing","serverErrorCode":"NOT_FOUND"}""" +
+            """,{"recordName":"busy","serverErrorCode":"INTERNAL_ERROR"},{"recordName":"denied","serverErrorCode":"ACCESS_DENIED"}""" +
+            """,{"recordName":"deleted","recordType":"CPLAsset","fields":{"masterRef":{"value":{"recordName":"master"}},"isDeleted":{"value":1}}}"""
+        val names = listOf("asset", "missing", "busy", "denied", "deleted", "absent")
+
+        val lookup = source(t).libraryRecords(names)
+
+        assertEquals(listOf("asset"), lookup.present.map { it.assetRecordName })
+        // Other per-record errors and a name the answer left out are not answers, so the read keeps those rows.
+        assertEquals(setOf("missing", "deleted"), lookup.gone)
+        // A per-record THROTTLED or ZONE_BUSY fails the whole lookup as throttling, which waits and publishes nothing.
+        for (code in listOf("THROTTLED", "ZONE_BUSY")) {
+            t.extraAssets = """,{"recordName":"busy","serverErrorCode":"$code"}"""
+            val error = runCatching { source(t).libraryRecords(listOf("asset", "busy")) }.exceptionOrNull()
+            assertTrue("$code: $error", error is me.lvca.alba.engine.source.ThrottledFailure)
+        }
+        t.extraAssets = ""
+
+        t.masterError = true
+        val withoutMaster = source(t).libraryRecords(listOf("asset"))
+        assertTrue(withoutMaster.present.isEmpty())
+        assertTrue(withoutMaster.gone.isEmpty())
+    }
+
     private class Transport : AppleHttpTransport {
+        var extraAssets = ""
+        var masterError = false
         var hidden = false
         var expire = false; var expiredToken = false; var opens = 0; var lookups = 0; var lastUrl = ""
         var masterRevision = "m1"
@@ -84,7 +113,9 @@ class CatalogFeaturesTest {
                     """{"zones":[{"syncToken":"after","moreComing":false,"records":[$asset,{"recordName":"gone","deleted":true}]}]}"""
                 request.url.contains("records/lookup") -> {
                     lookups++
-                    if (body.contains("\"master\"")) """{"records":[$master]}""" else """{"records":[$asset]}"""
+                    if (body.contains("\"master\"")) {
+                        if (masterError) """{"records":[{"recordName":"master","serverErrorCode":"INTERNAL_ERROR"}]}""" else """{"records":[$master]}"""
+                    } else """{"records":[$asset$extraAssets]}"""
                 }
                 body.contains("CPLAlbumByPositionLive") -> if (body.contains("parentId"))
                     """{"records":[{"recordName":"album","fields":{"albumNameEnc":{"value":"Q29hc3Q="},"albumType":{"value":0}}}]}""" else

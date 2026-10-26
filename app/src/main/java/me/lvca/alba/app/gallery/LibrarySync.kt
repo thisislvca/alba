@@ -18,6 +18,7 @@ import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.messages.appleProtocolError
 import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.transfers.TransferController
+import me.lvca.alba.engine.model.CatalogScanProgress
 import me.lvca.alba.engine.model.GalleryRepository
 import me.lvca.alba.engine.model.MaintenanceWakeup
 import me.lvca.alba.engine.model.WakeReason
@@ -35,6 +36,8 @@ data class SyncState(
     val restoreFailed: Boolean = false,
     /** The last refresh failed because "Access iCloud Data on the Web" is off; the account screen explains it. */
     val webAccessOff: Boolean = false,
+    /** The first full read of the iCloud library, while it is unfinished. */
+    val catalogScan: CatalogScanProgress? = null,
 )
 
 /** Restores the saved account at start, and refreshes the library from iCloud and the phone. */
@@ -55,6 +58,9 @@ internal class LibrarySync(
 
     /** Opens the saved account, resumes pending photo work and loads the library. */
     fun start() {
+        scope.launch {
+            repository.observeCatalogScan().collect { progress -> mutableState.update { it.copy(catalogScan = progress) } }
+        }
         scope.launch {
             try { restoreAccount() } catch (error: Exception) {
                 if (error is CancellationException) throw error
