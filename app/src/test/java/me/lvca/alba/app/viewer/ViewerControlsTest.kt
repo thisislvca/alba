@@ -21,6 +21,8 @@ import me.lvca.alba.app.screenshots.ScreenshotFixtures
 import me.lvca.alba.app.testing.GalleryStateActions
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.setAlbaContent
+import me.lvca.alba.app.testing.testAlbaActions
+import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.engine.model.MediaAvailability
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -86,5 +88,23 @@ class ViewerControlsTest {
         }
         compose.waitForIdle()
         image.assert(fit)
+    }
+
+    @Test fun overflowHandsTheOriginalToOtherAppsAndStillOpensDetails() {
+        val uses = mutableListOf<Pair<String, ExternalUse>>()
+        val actions = GalleryStateActions(gallery.copy(selectedMedia = photo),
+            testAlbaActions(useElsewhere = { media, use -> uses += media.id to use }))
+        compose.setAlbaContent(actions.state, ScreenshotFixtures.signedIn, actions)
+        compose.onNodeWithTag("viewer-more").performClick()
+        listOf(R.string.viewer_use_as, R.string.viewer_open_with, R.string.viewer_edit_in, R.string.viewer_print).forEach {
+            compose.onNodeWithText(text(it)).assertIsDisplayed()
+        }
+        compose.onNodeWithTag("viewer-use-use_as").performClick()
+        compose.onNodeWithTag("viewer-more").performClick()
+        compose.onNodeWithTag("viewer-use-print").performClick()
+        assertEquals(listOf(photo.id to ExternalUse.USE_AS, photo.id to ExternalUse.PRINT), uses)
+        compose.onNodeWithTag("viewer-more").performClick()
+        compose.onNodeWithTag("viewer-menu-details").performClick()
+        compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
     }
 }

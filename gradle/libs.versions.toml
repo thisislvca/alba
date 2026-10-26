@@ -24,6 +24,7 @@ profileinstaller = "1.4.1"
 benchmark = "1.5.0"
 uiautomator = "2.4.0"
 exifinterface = "1.4.2"
+print = "1.0.0"
 media3 = "1.11.1"
 detekt = "1.23.8"
 ktlint-gradle = "14.2.0"
@@ -36,6 +37,7 @@ androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstall
 androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
 androidx-exif = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
+androidx-print = { module = "androidx.print:print", version.ref = "print" }
 media3-player = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }

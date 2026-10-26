@@ -142,6 +142,11 @@ fun AlbaApp(
             Text(stringResource(R.string.downloading_original_files_when_needed_live_photos_share_their_still_image_use_zip_ex))
         } }, confirmButton = { TextButton(onClick = actions::cancelShare) { Text(stringResource(R.string.cancel)) } })
 
+    if (mediaWork.preparingOriginal) AlertDialog(
+        onDismissRequest = actions::cancelShare, title = { Text(stringResource(R.string.viewer_preparing_original)) },
+        text = { CircularProgressIndicator() },
+        confirmButton = { TextButton(onClick = actions::cancelShare) { Text(stringResource(R.string.cancel)) } })
+
     val destination = Destination.of(session, gallery)
     val back = rootBack(destination, gallery.selection.isNotEmpty())
     BackHandler(enabled = back == RootBack.CLEAR_SELECTION || back == RootBack.CLOSE_MEDIA) {

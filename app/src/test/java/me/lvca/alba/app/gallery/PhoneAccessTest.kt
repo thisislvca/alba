@@ -2,6 +2,7 @@ package me.lvca.alba.app.gallery
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -29,6 +30,25 @@ class PhoneAccessTest {
         compose.onNodeWithTag("gallery-menu-button").performClick()
         compose.onNodeWithText("Choose phone photos").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, requests) }
+    }
+
+    @Test
+    fun limitedAccessNoteCountsSelectedPhotosOffersChangeAndCanBeDismissed() {
+        var requests = 0
+        compose.setAlbaContent(GalleryState(deviceMediaAccess = true, limitedPhotoAccess = true, deviceCount = 3),
+            SessionState(accountState = ICloudAccountState.Demo, isRefreshing = false), onPhotos = { requests++ })
+        compose.onNodeWithText("Alba can see 3 selected photos").assertIsDisplayed()
+        compose.onNodeWithTag("limited-access-change").performClick()
+        compose.runOnIdle { assertEquals(1, requests) }
+        compose.onNodeWithContentDescription("Dismiss selected photos note").performClick()
+        compose.onNodeWithTag("limited-access-note").assertDoesNotExist()
+    }
+
+    @Test
+    fun fullAccessShowsNoLimitedNote() {
+        compose.setAlbaContent(GalleryState(deviceMediaAccess = true, deviceCount = 3),
+            SessionState(accountState = ICloudAccountState.Demo, isRefreshing = false))
+        compose.onNodeWithTag("limited-access-note").assertDoesNotExist()
     }
 
     @Test

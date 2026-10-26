@@ -26,6 +26,7 @@ internal enum class MediaAction(val diagnosticTag: String) {
     SHARE("share"),
     SAVE_TO_GALLERY("save"),
     EXPORT("export"),
+    OPEN_ELSEWHERE("open_elsewhere"),
     REMOVE_OFFLINE_COPY("offline"),
     VERIFIED_TRASH("verified_trash"),
     STORAGE_CLEANUP("storage_cleanup"),
@@ -43,6 +44,8 @@ data class MediaWork(
     val busy: Boolean = false,
     /** Copies are being prepared for the share sheet; the user may cancel. */
     val sharing: Boolean = false,
+    /** An original is being fetched for another app or for printing; the user may cancel. */
+    val preparingOriginal: Boolean = false,
 )
 
 /**

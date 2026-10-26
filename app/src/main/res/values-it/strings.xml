@@ -337,7 +337,7 @@
     <string name="storage_is_full_uploads_may_be_refused">Lo spazio è esaurito. I caricamenti potrebbero essere rifiutati.</string>
     <string name="storage_usage_is_not_available_yet">L’utilizzo dello spazio non è ancora disponibile.</string>
     <string name="storage_used">%1$s utilizzati su %2$s</string>
-    <string name="supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke">Alba supporta l’autenticazione standard a due fattori e la libreria personale. Puoi caricare manualmente foto e video supportati. Il backup automatico comprende solo i nuovi JPEG della fotocamera. Non sono supportati gli album condivisi, la libreria condivisa, gli account con chiavi di sicurezza e l’approvazione web di Protezione avanzata dati.</string>
+    <string name="supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke">Alba supporta l’autenticazione standard a due fattori, la libreria personale e gli album condivisi. Puoi caricare manualmente foto e video supportati. Il backup automatico comprende solo i nuovi JPEG della fotocamera. La Libreria foto condivisa di iCloud e gli account con chiavi di sicurezza o Protezione avanzata dati non sono ancora supportati.</string>
     <string name="terms_update_required">Apri iCloud in un browser e accetta le condizioni aggiornate di Apple, poi torna a Alba.</string>
     <string name="the_saved_account_could_not_be_opened_your_library_has_not_been_replaced">Impossibile aprire l’account salvato. La tua libreria non è stata sostituita.</string>
     <string name="the_zip_preserves_the_original_still_image_and_motion_clip_your_gallery_may_show_them">Lo ZIP conserva la foto originale e il video. La galleria potrebbe mostrarli come elementi separati.</string>
@@ -688,7 +688,7 @@
     <string name="about_missing_folders">Creare e spostare cartelle di album iCloud, modificare foto su iCloud e cercare volti o oggetti.</string>
     <string name="about_missing_accounts">Approvazione web con Protezione avanzata dei dati, accesso con chiavi di sicurezza e più Apple Account salvati.</string>
     <string name="about_missing_provider">Mostrare le foto presenti solo su iCloud nelle altre app galleria Android.</string>
-    <string name="about_missing_support">Un modulo di feedback e un’esportazione sicura dei dati diagnostici per l’assistenza.</string>
+    <string name="about_missing_support">Un’esportazione sicura dei dati diagnostici per l’assistenza.</string>
     <string name="about_notices">Licenze e riconoscimenti</string>
     <string name="about_hide_notices">Nascondi licenze</string>
     <string name="icloud_photos_is_not_active">Foto di iCloud non è attivo</string>
@@ -798,4 +798,68 @@
     <string name="demo_import_requested">Importazione demo richiesta</string>
     <string name="label_with_detail">%1$s · %2$s</string>
     <string name="month_span">%1$s – %2$s</string>
+
+    <string name="sign_in_unsupported_accounts">Gli account con Protezione avanzata dati o chiavi di sicurezza non possono ancora accedere ad Alba.</string>
+    <string name="sign_in_show_password">Mostra password</string>
+    <string name="sign_in_hide_password">Nascondi password</string>
+    <string name="sign_in_forgot_password">Password dimenticata?</string>
+    <string name="sign_in_code_by_sms">Ricevi un codice tramite SMS</string>
+    <string name="sign_in_error_security_key">Questo Apple Account usa chiavi di sicurezza. L’accesso web di Apple, usato da Alba, non le accetta ancora, quindi Alba non può collegarsi a questo account.</string>
+    <string name="sign_in_error_too_many_attempts">Apple ha sospeso l’accesso dopo troppi tentativi. Attendi un po’ e riprova. Se Apple ha bloccato l’account, sbloccalo su iforgot.apple.com.</string>
+    <string name="sign_in_help_security_keys">Informazioni sulle chiavi di sicurezza</string>
+    <string name="sign_in_help_unlock">Sblocca o reimposta l’account</string>
+    <string name="web_access_off_title">Attiva l’accesso web ai dati di iCloud</string>
+    <string name="web_access_off_message">“Accedi ai dati di iCloud sul web” è disattivato per questo account. Protezione avanzata dati lo disattiva di default. Sull’iPhone apri Impostazioni, tocca il tuo nome, poi iCloud, e attivalo.</string>
+    <string name="web_access_off_help">Come attivarlo</string>
+    <string name="browser_unavailable">Nessun browser disponibile per aprire questo link.</string>
+    <string name="sign_out_confirm_title">Uscire da iCloud?</string>
+    <string name="remove_saved_account_confirm_title">Rimuovere l’account salvato?</string>
+    <string name="sign_out_confirm_body">Alba rimuove le foto di iCloud salvate su questo telefono, comprese le copie offline, e l’accesso salvato. In iCloud non viene modificato né eliminato nulla, e le copie salvate nella galleria del telefono restano.</string>
+    <string name="sign_out_confirm_action">Esci</string>
+    <string name="remove_saved_account_confirm_action">Rimuovi</string>
+    <string name="mixed_trash_title">Spostare nel cestino?</string>
+    <string name="mixed_trash_action">Sposta nel cestino</string>
+    <plurals name="mixed_trash_cloud">
+        <item quantity="one">1 elemento di iCloud passa in Eliminati di recente su tutti i tuoi dispositivi. Di solito si può recuperare per 30 giorni.</item>
+        <item quantity="many">%1$d elementi di iCloud passano in Eliminati di recente su tutti i tuoi dispositivi. Di solito si possono recuperare per 30 giorni.</item>
+        <item quantity="other">%1$d elementi di iCloud passano in Eliminati di recente su tutti i tuoi dispositivi. Di solito si possono recuperare per 30 giorni.</item>
+    </plurals>
+    <plurals name="mixed_trash_phone">
+        <item quantity="one">1 elemento di questo telefono passa nel cestino di Android. Android ti chiede di confermare. Se lì rifiuti, gli elementi di iCloud passano comunque in Eliminati di recente.</item>
+        <item quantity="many">%1$d elementi di questo telefono passano nel cestino di Android. Android ti chiede di confermare. Se lì rifiuti, gli elementi di iCloud passano comunque in Eliminati di recente.</item>
+        <item quantity="other">%1$d elementi di questo telefono passano nel cestino di Android. Android ti chiede di confermare. Se lì rifiuti, gli elementi di iCloud passano comunque in Eliminati di recente.</item>
+    </plurals>
+    <plurals name="mixed_trash_moved">
+        <item quantity="one">Spostato nel cestino</item>
+        <item quantity="many">%1$d spostati nel cestino</item>
+        <item quantity="other">%1$d spostati nel cestino</item>
+    </plurals>
+    <string name="about_privacy_policy">Informativa sulla privacy</string>
+    <string name="about_feedback">Segnala un problema o invia un feedback</string>
+    <string name="about_feedback_detail">Apre una nuova segnalazione su GitHub</string>
+    <string name="about_source_detail">Alba è open source</string>
+    <plurals name="limited_access_note">
+        <item quantity="one">Alba può vedere 1 foto selezionata</item>
+        <item quantity="many">Alba può vedere %1$d foto selezionate</item>
+        <item quantity="other">Alba può vedere %1$d foto selezionate</item>
+    </plurals>
+    <string name="limited_access_change">Modifica</string>
+    <string name="limited_access_dismiss">Chiudi la nota sulle foto selezionate</string>
+    <string name="phone_photo_settings_hint">Consenti ad Alba l’accesso alle foto in Impostazioni, alla voce Autorizzazioni.</string>
+    <string name="media_location_title">Mantieni la posizione delle foto</string>
+    <string name="media_location_body">Alba chiede l’accesso alla posizione delle foto perché i caricamenti conservino dove è stata scattata ogni foto; senza, Android rimuove la posizione dalla copia.</string>
+    <string name="viewer_use_as">Usa come</string>
+    <string name="viewer_open_with">Apri con</string>
+    <string name="viewer_edit_in">Modifica in…</string>
+    <string name="viewer_print">Stampa</string>
+    <string name="viewer_preparing_original">Recupero dell’originale…</string>
+    <string name="message_no_app_can_open_this">Nessuna app su questo telefono può farlo con questo elemento.</string>
+    <string name="message_cannot_print_this_format">Questa foto non si può stampare: Android non ne legge il formato.</string>
+    <string name="message_could_not_print">Impossibile avviare la stampa. Riprova.</string>
+    <string name="message_could_not_prepare_the_original">Impossibile recuperare l’originale. Riprova.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">1 giorno rimasto</item>
+        <item quantity="many">%1$d giorni rimasti</item>
+        <item quantity="other">%1$d giorni rimasti</item>
+    </plurals>
 </resources>
