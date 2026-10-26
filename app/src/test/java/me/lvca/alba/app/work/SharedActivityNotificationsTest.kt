@@ -110,11 +110,11 @@ class SharedActivityNotificationsTest {
         "https://www.icloud.com/photos#/sharedalbums/sc,T")
 
     @Test fun fromAndroid15OnlyTheFragmentAliasClaimsICloudPhotosLinks() {
-        assertEquals(listOf("MainActivity"), albaHandlers("https://photos.icloud.com/shared/album/Token3"))
-        // iCloud Photos' web home reaches only the fragment-matching alias, which Android 15 limits to sc, fragments.
-        // Robolectric does not apply fragment groups, so this checks paths; SharedAlbumLinkRoutingTest checks fragments.
-        for (link in photosHomeLinks) assertEquals(link, listOf("SharedAlbumWebLink"), albaHandlers(link))
-        assertTrue(albaHandlers("https://www.icloud.com/mail/").isEmpty())
+        assertTrue("MainActivity" in albaHandlers("https://photos.icloud.com/shared/album/Token3"))
+        // Robolectric ignores the fragment groups, and so the path inside them: it shows only that the fragment alias is the
+        // one enabled and the path alias is not. SharedAlbumLinkRoutingTest checks paths and fragments on a device.
+        assertTrue("SharedAlbumWebLink" in albaHandlers("https://www.icloud.com/photos#/sharedalbums/sc,T"))
+        assertTrue("SharedAlbumPathLink" !in albaHandlers("https://www.icloud.com/photos/"))
     }
 
     @Config(sdk = [34])
