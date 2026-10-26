@@ -266,7 +266,9 @@ class LiveICloudCatalogSource(
         require(limit in 1..100) { "iCloud page size must be between 1 and 100" }
         val session = requireSession()
         cloudKit.bind(session)
-        val pageCursor = PageCursor.decode(cursor)
+        // Only a cursor of our own that no longer decodes counts as refused; other argument errors stay bugs.
+        val pageCursor = try { PageCursor.decode(cursor) }
+        catch (_: IllegalArgumentException) { throw CatalogCursorRejected("The saved page cursor is not valid") }
         // A read resumed in a new process still checks web access and indexing before its first page.
         if (cursor == null || preparedFor != session.dsid) {
             preparePhotos(session)
@@ -364,13 +366,27 @@ class LiveICloudCatalogSource(
         return response
     }
 
-    /** The library assets among [assetRecordNames], looked up by name; missing, deleted and hidden ones are left out. */
-    override suspend fun libraryRecords(assetRecordNames: List<String>): List<RemoteMediaRecord> {
-        val assets = database.lookup(assetRecordNames).filter { it["serverErrorCode"] == null && !it.isRemovedFromLibrary() }
-        if (assets.isEmpty()) return emptyList()
-        val masters = database.lookup(assets.mapNotNull { it.fieldObject("masterRef")?.recordName() })
-            .filter { it["serverErrorCode"] == null }
-        return parser.parse(buildJsonObject { put("records", JsonArray(assets + masters)) }.toString()).photos.map { mapped(it) }
+    /**
+     * Looks the library assets up by name. Only NOT_FOUND or an asset that came back deleted is [LibraryLookup.gone]; any
+     * other per-record error, an asset or master missing from the answer, or an asset that does not parse is neither,
+     * so the read keeps the row.
+     */
+    override suspend fun libraryRecords(assetRecordNames: List<String>): LibraryLookup {
+        val byName = database.lookup(assetRecordNames).associateBy { it.recordName() }
+        val gone = assetRecordNames.filterTo(mutableSetOf()) { name -> byName[name]?.let(::certainlyGone) == true }
+        val live = assetRecordNames.mapNotNull { byName[it] }.filter { it.serverErrorCode() == null && !it.isRemovedFromLibrary() }
+        if (live.isEmpty()) return LibraryLookup(emptyList(), gone)
+        val masters = database.lookup(live.mapNotNull { it.fieldObject("masterRef")?.recordName() })
+            .filter { it.serverErrorCode() == null }
+        val parsed = parser.parse(buildJsonObject { put("records", JsonArray(live + masters)) }.toString()).photos
+        return LibraryLookup(parsed.map { mapped(it) }, gone)
+    }
+
+    /** NOT_FOUND, or a library asset deleted or moved to Recently Deleted. A hidden asset is still in the library. */
+    private fun certainlyGone(asset: JsonObject): Boolean = when (asset.serverErrorCode()) {
+        null -> asset.isRemovedFromLibrary() && !asset.isHiddenAsset()
+        NOT_FOUND -> true
+        else -> false
     }
 
     private suspend fun preparePhotos(session: AppleSessionSnapshot) {
@@ -528,6 +544,7 @@ class LiveICloudCatalogSource(
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         const val PHOTO_LIST_RECORD_TYPE = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"
         const val LIBRARY_COUNT_INDEX = "CPLAssetByAssetDateWithoutHiddenOrDeleted"
+        const val NOT_FOUND = "NOT_FOUND"
         const val HIDDEN_LIST_RECORD_TYPE = "CPLAssetAndMasterHiddenByAssetDate"
         const val HIDDEN_INCOMPLETE = "Hidden was incomplete. Refresh to try again."
         const val RECORDS_PER_PHOTO = 2

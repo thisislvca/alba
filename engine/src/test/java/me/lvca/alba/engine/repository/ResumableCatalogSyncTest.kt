@@ -21,6 +21,7 @@ import me.lvca.alba.engine.source.CloudCatalogPage
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.engine.source.CloudChanges
 import me.lvca.alba.engine.source.KnownCloudRecords
+import me.lvca.alba.engine.source.LibraryLookup
 import me.lvca.alba.engine.source.RemoteMediaRecord
 import me.lvca.alba.engine.source.ThrottledFailure
 import org.junit.After
@@ -201,13 +202,18 @@ class ResumableCatalogSyncTest {
         assertEquals(listOf<String?>("10", null, "10"), source.requested)
         assertTrue(requireNotNull(database.catalogSyncDao().scan("account-a")).restarted)
         assertEquals(10, database.catalogSyncDao().cloudCount())
-        // Refused again, it does not start over a second time.
+        // Refused again after the restart, the read is dropped, keeping its rows, rather than failing every refresh.
         source.requested.clear()
-        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is CatalogCursorRejected)
+        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is CatalogScanAbandoned)
         assertEquals(listOf<String?>("10"), source.requested)
+        assertNull(database.catalogSyncDao().scan("account-a"))
+        assertEquals(10, database.catalogSyncDao().cloudCount())
 
+        // The next refresh starts a fresh read from the first page.
         source.rejectCursor = null
+        source.requested.clear()
         repository(source).refresh(false)
+        assertEquals(listOf<String?>(null, "10", "20"), source.requested)
         assertEquals(30, database.catalogSyncDao().cloudCount())
         assertNull(database.catalogSyncDao().scan("account-a"))
     }
@@ -235,6 +241,58 @@ class ResumableCatalogSyncTest {
         assertFalse(source.id(2) in items)
         assertEquals(29, items.size)
         assertEquals(MediaAvailability.ORIGINAL_CACHED, items.getValue(source.id(10)).availability)
+    }
+
+    @Test
+    fun uncertainLookupsKeepRowsAndOnlyCertainAnswersRemoveThem() = runBlocking {
+        val source = PagedSource(count = 30)
+        val first = repository(source)
+        first.refresh(false)
+        first.keepOriginalOffline(source.id(25))
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        // Photos 20 to 29 were deleted elsewhere; only the lookup by name can tell.
+        source.items = (0 until 20).toMutableList()
+
+        // A per-item error such as THROTTLED or ZONE_BUSY is not an answer: every row stays.
+        source.lookup = Lookup.ERRORS
+        repository(source).refresh(false)
+        assertEquals(30, database.catalogSyncDao().cloudCount())
+        assertEquals(MediaAvailability.ORIGINAL_CACHED, repository(source).findMedia(source.id(25))?.availability)
+
+        // A lookup that fails publishes nothing, and the read is still there to finish.
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.lookup = Lookup.THROWS
+        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is IOException)
+        assertEquals(30, database.catalogSyncDao().cloudCount())
+        assertNotNull(database.catalogSyncDao().scan("account-a"))
+
+        // A partial answer removes only the photos it named as gone.
+        source.lookup = Lookup.PARTIAL
+        repository(source).refresh(false)
+        assertEquals((0 until 20).map(source::id).toSet() + (25 until 30).map(source::id),
+            repository(source).observeGallery().first().map { it.id }.toSet())
+
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.lookup = Lookup.ANSWERS
+        repository(source).refresh(false)
+        assertEquals(20, database.catalogSyncDao().cloudCount())
+    }
+
+    @Test
+    fun aRowWithoutARecordNameIsRemovedOnlyWhenAChangeReportsIt() = runBlocking {
+        val source = PagedSource(count = 10).apply { unnamed = setOf(5) }
+        repository(source).refresh(false)
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.items.remove(5)
+
+        // It cannot be looked up, and photos move between pages, so not being listed is not enough.
+        repository(source).refresh(false)
+        assertNotNull(database.catalogDao().findById(source.id(5)))
+
+        database.catalogDao().deleteCheckpoints("icloud:%")
+        source.changes = CloudChanges(emptyList(), setOf(source.id(5)), "token-after", false)
+        repository(source).refresh(false)
+        assertNull(database.catalogDao().findById(source.id(5)))
     }
 
     @Test
@@ -289,6 +347,9 @@ class ResumableCatalogSyncTest {
 
     private class Throttled(override val retryAfterMillis: Long?) : IOException("Throttled"), ThrottledFailure
 
+    /** How the fake answers a lookup by name: fully, with only temporary per-item errors, half the names, or not at all. */
+    private enum class Lookup { ANSWERS, ERRORS, PARTIAL, THROWS }
+
     /** A library of [count] items in pages of [pageSize]; cursors are offsets into [items], as iCloud's start ranks are. */
     private class PagedSource(count: Int, private val pageSize: Int = 10) : CloudCatalogSource {
         override var accountLabel = "account-a"
@@ -298,6 +359,8 @@ class ResumableCatalogSyncTest {
         var token: String? = "token-before"
         var resetChanges = false
         val favorites = mutableListOf<String>()
+        var lookup = Lookup.ANSWERS
+        var unnamed = emptySet<Int>()
         val requested = mutableListOf<String?>()
         var failAt: String? = null
         var onFetch: (String?) -> Unit = {}
@@ -309,12 +372,20 @@ class ResumableCatalogSyncTest {
 
         fun id(index: Int) = "icloud:$accountLabel:asset-$index"
         fun record(index: Int) = RemoteMediaRecord(id(index), "IMG_$index.JPG", index.toLong(), 10, 10, "rev-$index", 0, 0,
-            masterRecordName = "master-$index", assetRecordName = "asset-$index")
+            masterRecordName = "master-$index", assetRecordName = "asset-$index".takeUnless { index in unnamed })
 
         override suspend fun captureSyncToken() = token
         override suspend fun libraryItemCount() = items.size
-        override suspend fun libraryRecords(assetRecordNames: List<String>) =
-            items.filter { "asset-$it" in assetRecordNames }.map(::record)
+        override suspend fun libraryRecords(assetRecordNames: List<String>): LibraryLookup {
+            val answered = when (lookup) {
+                Lookup.ANSWERS -> assetRecordNames
+                Lookup.ERRORS -> emptyList()
+                Lookup.PARTIAL -> assetRecordNames.take(assetRecordNames.size / 2)
+                Lookup.THROWS -> throw IOException("offline")
+            }
+            val present = items.filter { "asset-$it" in answered }.map(::record)
+            return LibraryLookup(present, answered.toSet() - present.mapNotNull { it.assetRecordName }.toSet())
+        }
         override suspend fun setFavorite(mediaId: String, favorite: Boolean) { favorites += mediaId }
         override suspend fun fetchPage(cursor: String?, limit: Int): CloudCatalogPage {
             requested += cursor

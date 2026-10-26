@@ -321,7 +321,7 @@ class FixtureICloudCatalogSource(
         val offset = cursor?.toIntOrNull() ?: 0
         // Like iCloud's main feed, the library pages leave Hidden out.
         val all = personalRecords().filterNot { it.isHidden }
-        require(offset in 0..all.size) { "Invalid fixture cursor: $cursor" }
+        if (offset !in 0..all.size) throw me.lvca.alba.engine.source.CatalogCursorRejected("Invalid fixture cursor: $cursor")
         val page = all.drop(offset).take(limit)
         listed += page.map { it.id }
         val nextOffset = offset + page.size

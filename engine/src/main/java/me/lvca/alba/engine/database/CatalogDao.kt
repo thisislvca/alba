@@ -172,7 +172,8 @@ interface CatalogSyncDao {
      * whether they still exist. Recently Deleted and Hidden have their own snapshots.
      */
     @Query("""SELECT mediaId, assetRecordName FROM catalog_items WHERE origin = 'ICLOUD'
-        AND substr(mediaId, 1, length(:prefix)) = :prefix AND lastSeenScanId != :scanId AND isTrashed = 0 AND isHidden = 0
+        AND substr(mediaId, 1, length(:prefix)) = :prefix AND lastSeenScanId != :scanId AND lastSeenScanId != ''
+        AND isTrashed = 0 AND isHidden = 0
         AND mediaId > :after ORDER BY mediaId LIMIT :limit""")
     suspend fun unseenLibraryRows(prefix: String, scanId: String, after: String, limit: Int): List<UnseenRow>
 
@@ -190,8 +191,12 @@ interface CatalogSyncDao {
      * snapshot read in the same refresh, such as Recently Deleted, still lists them.
      */
     @Query("""UPDATE catalog_items SET lastSeenScanId = '' WHERE origin = 'ICLOUD' AND mediaId NOT LIKE 'shared:%'
-        AND (assetRecordName IN (:assetNames) OR masterRecordName IN (:masterNames))""")
-    suspend fun unstampRecords(assetNames: List<String>, masterNames: List<String>)
+        AND (assetRecordName IN (:assetNames) OR masterRecordName IN (:masterNames) OR mediaId IN (:mediaIds))""")
+    suspend fun unstampRecords(assetNames: List<String>, masterNames: List<String>, mediaIds: List<String>)
+
+    /** Marks these rows as seen by the read [scanId], keeping them when it publishes. */
+    @Query("UPDATE catalog_items SET lastSeenScanId = :scanId WHERE mediaId IN (:ids)")
+    suspend fun stampRows(ids: List<String>, scanId: String)
 
     /** Marks every iCloud row a finished library read did not see. */
     @Query("UPDATE catalog_items SET lastSeenScanId = '' WHERE origin = 'ICLOUD' AND lastSeenScanId != :scanId")

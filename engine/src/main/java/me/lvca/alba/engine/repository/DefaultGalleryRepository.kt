@@ -589,8 +589,13 @@ class DefaultGalleryRepository(
             checkAccount(account, "Account changed during catalog refresh")
             if (!visitedCursors.add(scan.cursor)) abandonScan(account, "The library repeated a page cursor")
             val page = try { throttled { cloudSource.fetchPage(cursor = scan.cursor, limit = PAGE_SIZE) } }
-            catch (rejected: CatalogCursorRejected) { if (resumed && !scan.restarted) null else throw rejected }
-            catch (invalid: IllegalArgumentException) { if (resumed && !scan.restarted) null else throw invalid }
+            catch (rejected: CatalogCursorRejected) {
+                if (!resumed) throw rejected
+                // Refused a second time, as when the process died after a restart and the marker expired again: drop
+                // the read, keeping its rows, so the next refresh starts a fresh one instead of failing forever.
+                if (scan.restarted) abandonScan(account, "The library refused its saved page twice")
+                null
+            }
             resumed = false
             val current = scan
             scan = writeLocked(account) {
@@ -612,7 +617,11 @@ class DefaultGalleryRepository(
     /**
      * Looks up by name the account's library rows the read did not see, and keeps those still in the library. Pages
      * are read by position, so a photo deleted earlier in the library moves the rest up one place, and the photo that
-     * crossed a page boundary is never on any page. Only rows iCloud no longer has are left for publishing to remove.
+     * crossed a page boundary is never on any page.
+     *
+     * This fails closed: a row is left for publishing to remove only when iCloud said for certain it is gone, or a
+     * change already reported it deleted. A temporary per-item error, an item missing from the answer, or a row
+     * without a record name to look up keeps the row; a failed lookup fails the refresh before anything is published.
      */
     private suspend fun keepUnseenRowsThatStillExist(account: String, scanId: String) {
         var after = ""
@@ -620,8 +629,17 @@ class DefaultGalleryRepository(
             val rows = sync.unseenLibraryRows("icloud:$account:", scanId, after, LOOKUP_CHUNK)
             after = rows.lastOrNull()?.mediaId ?: after
             val names = rows.mapNotNull { it.assetRecordName }
-            val existing = if (names.isEmpty()) emptyList() else throttled { cloudSource.libraryRecords(names) }.orEmpty()
-            if (existing.isNotEmpty()) writeLocked(account) { writeRecords(existing, scanId) }
+            val lookup = if (names.isEmpty()) LibraryLookup(emptyList(), emptySet())
+                else throttled { cloudSource.libraryRecords(names) }
+            // A source that cannot look items up pages exactly, so what its read did not list is gone.
+            val gone = lookup?.gone ?: names.toSet()
+            val kept = rows.filter { it.assetRecordName == null || it.assetRecordName !in gone }.map { it.mediaId }
+            writeLocked(account) {
+                kept.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { sync.stampRows(it, scanId) }
+                lookup?.present?.let { writeRecords(it.filter { record -> record.assetRecordName !in gone }, scanId) }
+            }
+            // Pace the lookups a little; a library can have many unseen rows after an account change.
+            if (rows.size == LOOKUP_CHUNK) pause(LOOKUP_PACE_MILLIS)
         } while (rows.size == LOOKUP_CHUNK)
     }
 
@@ -663,8 +681,8 @@ class DefaultGalleryRepository(
             check(visited.add(token)) { "Repeated change cursor" }
             val page = throttled { cloudSource.changes(token, known) }
             writeLocked(account) {
-                page.deletedRecordNames.toList().chunked(SQLITE_BIND_CHUNK_SIZE / 2).forEach { names ->
-                    sync.unstampRecords(names, names)
+                page.deletedRecordNames.toList().chunked(DELETED_NAMES_CHUNK).forEach { names ->
+                    sync.unstampRecords(names, names, names)
                 }
                 writeRecords(page.upserts, stamp)
             }
@@ -865,6 +883,10 @@ class DefaultGalleryRepository(
         const val PAGE_SIZE = 100
         const val CATALOG_WALK_SIZE = 500
         const val LOOKUP_CHUNK = 200
+        const val LOOKUP_PACE_MILLIS = 250L
+
+        /** Deleted names bind three times in one statement (asset, master, media id), within SQLite's 999 limit. */
+        const val DELETED_NAMES_CHUNK = 300
         const val MAX_CAUSE_DEPTH = 8
         const val MAX_THROTTLE_RETRIES = 5
         const val MIN_THROTTLE_WAIT_MILLIS = 2_000L

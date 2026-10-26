@@ -82,12 +82,18 @@ interface LibraryScanSource {
     suspend fun libraryItemCount(): Int? = null
 
     /**
-     * Which of these asset record names are still library items, looked up by name rather than by position. A full
-     * read pages by position, so an item can shift past a page boundary while it runs; a row the read did not see is
-     * removed only once this says it is gone. Null when the source cannot look items up and its pages never shift.
+     * Looks these asset record names up by name rather than by position. A full read pages by position, so an item can
+     * shift past a page boundary while it runs; a row the read did not see is removed only when this says it is
+     * [LibraryLookup.gone]. Null when the source cannot look items up and its pages never shift.
      */
-    suspend fun libraryRecords(assetRecordNames: List<String>): List<RemoteMediaRecord>? = null
+    suspend fun libraryRecords(assetRecordNames: List<String>): LibraryLookup? = null
 }
+
+/**
+ * What a lookup by name found: the [present] library items, and the names iCloud said for certain are [gone] (not
+ * found, or deleted). A name in neither, such as one that came back with a temporary error, is kept as it is.
+ */
+data class LibraryLookup(val present: List<RemoteMediaRecord>, val gone: Set<String>)
 
 /** The source no longer accepts a saved page cursor, as when an iCloud continuation marker expired. */
 class CatalogCursorRejected(message: String) : Exception(message)
