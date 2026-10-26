@@ -24,12 +24,16 @@ end
 
 default_platform(:android)
 platform :android do
-  desc 'Upload the prepared AAB to internal testing; leave store graphics and descriptions alone'
+  desc 'Upload the prepared AAB to internal testing, then release the same build to closed testing (Alpha); leave store graphics and descriptions alone'
   lane :internal do
     m = release_manifest
     UI.user_error!('Unsigned build cannot be uploaded') unless m.fetch('signed')
     write_notes(m)
-    upload_to_play_store(**play_options, aab: File.expand_path('../.artifacts/release/alba.aab', __dir__), track: 'internal', release_status: 'completed', version_name: "#{m.fetch('version')}#{m['channel'] == 'alpha' ? ' Alpha' : ''} (#{m.fetch('versionCode')})", mapping: File.expand_path('../.artifacts/release/mapping.txt', __dir__))
+    version_name = "#{m.fetch('version')}#{m['channel'] == 'alpha' ? ' Alpha' : ''} (#{m.fetch('versionCode')})"
+    upload_to_play_store(**play_options, aab: File.expand_path('../.artifacts/release/alba.aab', __dir__), track: 'internal', release_status: 'completed', version_name: version_name, mapping: File.expand_path('../.artifacts/release/mapping.txt', __dir__))
+    # Testers join the closed test, not internal testing, and Play only offers a build on a track they joined. Promoting
+    # here keeps both tracks on the same build; closed testing goes live once Google's review of it finishes.
+    upload_to_play_store(**play_options, track: 'internal', track_promote_to: 'alpha', version_code: m.fetch('versionCode'), version_name: version_name, release_status: 'completed', skip_upload_apk: true, skip_upload_aab: true)
   end
 
   desc 'Promote the selected internal build to production without rebuilding or uploading a binary'

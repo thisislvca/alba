@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       channel:
-        description: Release channel (alpha uploads to internal testing)
+        description: Release channel (alpha uploads to internal testing and closed testing)
         required: true
         default: alpha
         type: choice
@@ -18,7 +18,7 @@ on:
         description: 'Short release notes (required for Play, maximum 500 characters)'
         type: string
       upload_to_play:
-        description: 'Upload the signed AAB to Play internal testing'
+        description: 'Upload the signed AAB to Play internal testing and release it to closed testing (Alpha)'
         default: true
         type: boolean
       dry_run:
@@ -167,7 +167,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   internal:
-    name: Upload to Play internal testing
+    name: Upload to Play internal and closed testing
     needs: [build, sign]
     if: ${{ !inputs.dry_run && inputs.upload_to_play }}
     environment: play-internal
@@ -209,7 +209,7 @@ jobs:
           service_account: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT }}
           project_id: lvca-alba-releases
           create_credentials_file: true
-      - name: Upload verified bundle to internal testing
+      - name: Upload verified bundle to internal testing and promote it to closed testing
         run: bundle exec fastlane android internal
 
   announce:
