@@ -115,4 +115,5 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE -> R.string.message_this_item_is_no_longer_in_the_queue
     StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK -> R.string.could_not_reach_icloud_to_check
     StoredMessage.THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK -> R.string.the_phone_file_changed_after_its_check
+    StoredMessage.COULD_NOT_READ_THIS_FILE_ON_THE_PHONE -> R.string.could_not_read_this_file_on_the_phone
 }

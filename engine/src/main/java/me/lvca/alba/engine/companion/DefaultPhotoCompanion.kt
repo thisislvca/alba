@@ -50,6 +50,8 @@ class DefaultPhotoCompanion(
     private val scheduler: WakeupScheduler,
     private val now: () -> Long = System::currentTimeMillis,
     private val automaticBackupPolicy: AutomaticBackupPolicy = AutomaticBackupPolicy { false },
+    /** A clock that never moves back; the trash consent window is measured on it. */
+    elapsedRealtime: () -> Long = android.os.SystemClock::elapsedRealtime,
 ) : PhotoCompanion, MaintenanceWakeup {
     private val accountDao = database.accountDao()
     private val transferDao = database.transferDao()
@@ -63,7 +65,7 @@ class DefaultPhotoCompanion(
     private val invoker = UploadInvoker(database, staging, protocol, scheduler, accounts, authority, now)
     private val reconciler = Reconciler(database, protocol, authority, stages, now)
     private val enrollment = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages)
-    private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts)
+    private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts, elapsedRealtime)
 
     override fun observeBackup() = enrollment.observeBackup()
     override suspend fun beginBackupEnrollment(scope: BackupScope) = enrollment.beginBackupEnrollment(scope)

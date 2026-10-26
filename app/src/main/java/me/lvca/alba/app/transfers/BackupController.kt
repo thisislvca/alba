@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,8 +33,11 @@ import me.lvca.alba.engine.model.StoredMessage
 /** Saved so Android's answer to a verified trash request reaches its attempt after recreation. */
 internal const val TRASH_ATTEMPT_KEY = "verifiedTrashAttempt"
 
-/** "Free up space" items not yet checked in this run, saved so a run continues after recreation. */
+/** "Free up space" items not yet checked in this run, saved so a run can be offered again after recreation. */
 private const val FREE_UP_REMAINING = "freeUpRemaining"
+
+/** The trash attempt of the free-up chunk Android is asking about; other trash answers never touch the run. */
+private const val FREE_UP_ATTEMPT = "freeUpAttempt"
 
 /**
  * Backup status, settings and "Free up space" for the Backup page, and what Alba asks before a manual transfer:
@@ -48,13 +52,23 @@ internal class BackupController(
     private val messages: UserMessages,
     private val effects: EffectQueue,
     private val isDemo: () -> Boolean,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val progress = MutableStateFlow<BackupProgress?>(null)
     private val folders = MutableStateFlow<List<DeviceFolder>?>(null)
     private val freeUp = MutableStateFlow(FreeUpSpaceState())
     private var freeUpJob: Job? = null
 
+    /** A free-up run started in this process. A run left from before a restart is offered, never resumed on its own. */
+    private var runActive = false
+
     val extras: Flow<BackupExtras> = combine(preferences.settings, progress, folders, freeUp, ::BackupExtras)
+
+    init {
+        // A run left by a killed process, not waiting for Android's answer: ask before continuing it.
+        val left = savedState.get<ArrayList<String>>(FREE_UP_REMAINING).orEmpty()
+        if (left.isNotEmpty() && savedState.get<String>(FREE_UP_ATTEMPT) == null) freeUp.update { it.copy(leftover = left.size) }
+    }
 
     /** Counts how much of what backup covers is verified. Cheap enough to run when the Backup page shows. */
     fun refreshBackupStatus() {
@@ -163,14 +177,34 @@ internal class BackupController(
         if (isDemo() || mediaIds.isEmpty() || freeUp.value.checking) return
         val ids = mediaIds.distinct().take(PHONE_TRASH_LIMIT)
         savedState[FREE_UP_REMAINING] = ArrayList(ids)
-        freeUp.update { it.copy(checking = true, checked = 0, total = ids.size, awaitingConsent = false) }
+        runActive = true
+        freeUp.update { it.copy(checking = true, checked = 0, total = ids.size, awaitingConsent = false, leftover = 0) }
         nextFreeUpChunk()
     }
 
-    /** Android answered for a chunk: an approval continues with the next chunk, anything else stops the run. */
-    fun freeUpChunkAnswered(approved: Boolean) {
+    /**
+     * Android answered trash request [attemptId]. Only the free-up chunk's own answer moves the run: an approval
+     * continues with the next chunk when the run started in this process, and is offered again otherwise; anything else
+     * stops it. Any other trash answer just refreshes what can be freed.
+     */
+    fun trashAnswered(attemptId: String, approved: Boolean) {
+        if (attemptId != savedState.get<String>(FREE_UP_ATTEMPT)) return loadFreeUpSpace()
+        savedState.remove<String>(FREE_UP_ATTEMPT)
         val remaining = savedState.get<ArrayList<String>>(FREE_UP_REMAINING).orEmpty()
-        if (approved && remaining.isNotEmpty()) nextFreeUpChunk() else finishFreeUp()
+        when {
+            !approved || remaining.isEmpty() -> finishFreeUp()
+            runActive -> nextFreeUpChunk()
+            else -> freeUp.update { it.copy(checking = false, awaitingConsent = false, leftover = remaining.size) }
+        }
+    }
+
+    /** The user chose to continue a run left from before a restart. */
+    fun continueFreeUp() {
+        val remaining = savedState.get<ArrayList<String>>(FREE_UP_REMAINING).orEmpty()
+        if (remaining.isEmpty() || isDemo()) return finishFreeUp()
+        runActive = true
+        freeUp.update { it.copy(checking = true, checked = 0, total = remaining.size, leftover = 0) }
+        nextFreeUpChunk()
     }
 
     /** Stops the run. Nothing leaves the phone without Android's own request, so stopping here removes nothing. */
@@ -180,8 +214,10 @@ internal class BackupController(
     }
 
     private fun finishFreeUp() {
+        runActive = false
         savedState.remove<ArrayList<String>>(FREE_UP_REMAINING)
-        freeUp.update { it.copy(checking = false, awaitingConsent = false) }
+        savedState.remove<String>(FREE_UP_ATTEMPT)
+        freeUp.update { it.copy(checking = false, awaitingConsent = false, leftover = 0) }
         loadFreeUpSpace()
     }
 
@@ -194,26 +230,27 @@ internal class BackupController(
         freeUp.update { it.copy(checking = true, total = total, checked = offset, awaitingConsent = false) }
         freeUpJob = scope.launch {
             try {
-                val proposal = withContext(Dispatchers.IO) {
+                val proposal = withContext(io) {
                     photos.prepareTrash(remaining.toSet(), allowPartial = true) { checked, _ ->
                         freeUp.update { it.copy(checked = offset + checked) }
                     }
                 }
-                savedState[FREE_UP_REMAINING] = ArrayList(proposal.unchecked)
-                reportLeftOut(proposal.refusals.values)
+                // iCloud out of reach: the rest would fail too. This chunk's verified items may still go, then stop.
+                val unreachable = StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code in proposal.refusals.values
+                savedState[FREE_UP_REMAINING] = if (unreachable) ArrayList() else ArrayList(proposal.unchecked)
+                reportLeftOut(proposal.refusals.values, notChecked = if (unreachable) proposal.unchecked.size else 0)
                 if (proposal.blockedReason != null) {
                     if (proposal.refusals.isEmpty()) messages.show(localizedStoredMessage(proposal.blockedReason))
-                    // Nothing in this chunk matched. When iCloud is out of reach the rest would fail too, so stop.
-                    val unreachable = StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code in proposal.refusals.values
                     return@launch if (unreachable || proposal.unchecked.isEmpty()) finishFreeUp() else nextFreeUpChunk()
                 }
-                val handoff = withContext(Dispatchers.IO) { photos.beginTrash(proposal.id) }
+                val handoff = withContext(io) { photos.beginTrash(proposal.id) }
                 val changed = proposal.eligibleMediaIds.size - handoff.mediaIds.size
                 if (handoff.mediaIds.isNotEmpty() && changed > 0) {
                     messages.show(UiMessage.quantity(R.plurals.free_up_space_changed, changed))
                 }
                 // Saved, so Android's answer still reaches the attempt after the activity or process is recreated.
                 savedState[TRASH_ATTEMPT_KEY] = handoff.attemptId.value
+                savedState[FREE_UP_ATTEMPT] = handoff.attemptId.value
                 freeUp.update { it.copy(awaitingConsent = true) }
                 effects.send(AlbaEffect.ConfirmVerifiedTrash(handoff.intentSender))
             } catch (cancelled: CancellationException) {
@@ -225,12 +262,17 @@ internal class BackupController(
         }
     }
 
-    /** Says why items stay: iCloud could not be reached, or the copies no longer match. */
-    private fun reportLeftOut(refusals: Collection<String>) {
+    /**
+     * Says why items stay: iCloud could not be reached, which also stops the run with [notChecked] items unchecked;
+     * the phone file could not be read; or the copies no longer match.
+     */
+    private fun reportLeftOut(refusals: Collection<String>, notChecked: Int) {
         val unreachable = refusals.count { it == StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code }
-        val mismatched = refusals.size - unreachable
+        val unreadable = refusals.count { it == StoredMessage.COULD_NOT_READ_THIS_FILE_ON_THE_PHONE.code }
+        val mismatched = refusals.size - unreachable - unreadable
         when {
-            unreachable > 0 -> messages.show(UiMessage.quantity(R.plurals.free_up_space_unreachable, unreachable))
+            unreachable > 0 -> messages.show(UiMessage.quantity(R.plurals.free_up_space_stopped_unreachable, unreachable + notChecked))
+            unreadable > 0 -> messages.show(UiMessage.quantity(R.plurals.free_up_space_unreadable, unreadable))
             mismatched > 0 -> messages.show(UiMessage.quantity(R.plurals.free_up_space_left_out, mismatched))
         }
     }

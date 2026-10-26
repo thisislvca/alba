@@ -87,6 +87,8 @@ data class FreeUpSpaceState(
     val total: Int = 0,
     /** Android is asking the user about the checked chunk. */
     val awaitingConsent: Boolean = false,
+    /** Items of a run left from before a restart, offered again rather than resumed on their own. */
+    val leftover: Int = 0,
 )
 
 /** What backup adds to [TransferState] beyond the queue and the enrollment. */
@@ -134,7 +136,7 @@ internal class TransferController(
     private val backupSetup = BackupSetupStore(savedState)
 
     /** Backup status, settings, prompts and "Free up space". */
-    val backup = BackupController(scope, savedState, photos, live.preferences, scheduler, messages, effects) { mode === demo }
+    val backup = BackupController(scope, savedState, photos, live.preferences, scheduler, messages, effects, isDemo = { mode === demo })
 
     val state: StateFlow<TransferState> = combine(
         combine(batches.observe(), accountManager.state) { rows, _ -> rows },
@@ -349,7 +351,7 @@ internal class TransferController(
         scope.launch {
             runCatching { photos.recordTrashResult(TrashAttemptId(attempt), result) }
                 .onSuccess {
-                    backup.freeUpChunkAnswered(result == SystemConsentCallback.APPROVED)
+                    backup.trashAnswered(attempt, result == SystemConsentCallback.APPROVED)
                     messages.show(if (result == SystemConsentCallback.APPROVED) {
                         R.string.message_android_approved_the_trash_request_alba_is_checking_the_phone_item_its_icloud_copy_remains_veri
                     } else {

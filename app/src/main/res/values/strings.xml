@@ -912,12 +912,22 @@
         <item quantity="one">%d item changed on the phone after its check and stays.</item>
         <item quantity="other">%d items changed on the phone after their check and stay.</item>
     </plurals>
-    <plurals name="free_up_space_unreachable">
-        <item quantity="one">Couldn’t reach iCloud to check %d item. It stays on this phone.</item>
-        <item quantity="other">Couldn’t reach iCloud to check %d items. They stay on this phone.</item>
-    </plurals>
     <plurals name="free_up_space_more_remain">
         <item quantity="one">%d more item can be freed next time.</item>
         <item quantity="other">%d more items can be freed next time.</item>
+    </plurals>
+    <string name="free_up_space_continue_title">Continue freeing up space?</string>
+    <string name="could_not_read_this_file_on_the_phone">Alba couldn’t read this file on the phone, so it stays.</string>
+    <plurals name="free_up_space_continue_body">
+        <item quantity="one">%d item from your last run hasn’t been checked yet. Nothing was removed without your OK.</item>
+        <item quantity="other">%d items from your last run haven’t been checked yet. Nothing was removed without your OK.</item>
+    </plurals>
+    <plurals name="free_up_space_stopped_unreachable">
+        <item quantity="one">Couldn’t reach iCloud, so Alba stopped. %d item wasn’t checked and stays on this phone.</item>
+        <item quantity="other">Couldn’t reach iCloud, so Alba stopped. %d items weren’t checked and stay on this phone.</item>
+    </plurals>
+    <plurals name="free_up_space_unreadable">
+        <item quantity="one">Alba couldn’t read %d item on the phone. It stays.</item>
+        <item quantity="other">Alba couldn’t read %d items on the phone. They stay.</item>
     </plurals>
 </resources>

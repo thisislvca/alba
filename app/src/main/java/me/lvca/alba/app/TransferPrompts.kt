@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.platform.MobileDataChoice
@@ -125,6 +126,23 @@ internal fun FreeUpSpaceProgress(run: FreeUpSpaceState, cancel: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = cancel, modifier = Modifier.testTag("free-up-space-cancel")) { Text(stringResource(R.string.cancel)) } },
         modifier = Modifier.testTag("free-up-space-running"),
+    )
+}
+
+/** A "Free up space" run left from before a restart: continue it, or leave the items on the phone. */
+@Composable
+internal fun ContinueFreeUpSpace(leftover: Int, resume: () -> Unit, discard: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = discard,
+        title = { Text(stringResource(R.string.free_up_space_continue_title)) },
+        text = { Text(pluralStringResource(R.plurals.free_up_space_continue_body, leftover, leftover)) },
+        confirmButton = {
+            TextButton(onClick = resume, modifier = Modifier.testTag("free-up-space-continue")) {
+                Text(stringResource(R.string.welcome_continue))
+            }
+        },
+        dismissButton = { TextButton(onClick = discard) { Text(stringResource(R.string.not_now)) } },
+        modifier = Modifier.testTag("free-up-space-leftover"),
     )
 }
 

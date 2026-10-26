@@ -696,6 +696,8 @@ class DefaultPhotoCompanionTest {
 
         override suspend fun readTrashState(contentUri: String): LocalTrashState? = trashState
 
+        override suspend fun currentRevision(contentUri: String) = if (contentUri == LOCAL_URI) LOCAL_REVISION else "selected-rev"
+
         private fun evidence(
             contentUri: String,
             name: String,

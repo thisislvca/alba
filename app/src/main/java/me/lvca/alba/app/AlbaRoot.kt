@@ -508,6 +508,8 @@ private fun AlbaMain(
         awaitingNotificationAnswer = false
         platform.askNext(TransferPrompt.NOTIFICATIONS)
     }
+    if (transfers.freeUpSpace.leftover > 0) ContinueFreeUpSpace(transfers.freeUpSpace.leftover,
+        resume = viewModel.transfers.backup::continueFreeUp, discard = viewModel.transfers.backup::cancelFreeUp)
     // Wherever "Free up space" started, its progress and Cancel show here.
     transfers.freeUpSpace.takeIf { it.checking && !it.awaitingConsent }?.let { run ->
         FreeUpSpaceProgress(run, cancel = viewModel.transfers.backup::cancelFreeUp)

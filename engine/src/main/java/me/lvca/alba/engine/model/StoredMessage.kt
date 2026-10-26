@@ -111,7 +111,8 @@ enum class StoredMessage(val code: String, val legacyText: String) {
     ),
     THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE("this_item_is_no_longer_in_the_queue", "This item is no longer in the queue."),
     COULD_NOT_REACH_ICLOUD_TO_CHECK("could_not_reach_icloud_to_check", "Couldn't reach iCloud to check. Nothing was removed."),
-    THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK("the_phone_file_changed_after_its_check", "The phone file changed after its check, so it stays.");
+    THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK("the_phone_file_changed_after_its_check", "The phone file changed after its check, so it stays."),
+    COULD_NOT_READ_THIS_FILE_ON_THE_PHONE("could_not_read_this_file_on_the_phone", "Alba could not read this file on the phone, so it stays.");
 
     companion object {
         private val byCode = entries.associateBy { it.code }

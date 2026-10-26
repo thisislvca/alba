@@ -938,14 +938,26 @@
         <item quantity="other">%d elementi sono cambiati sul telefono dopo il controllo e restano.</item>
         <item quantity="many">%d elementi sono cambiati sul telefono dopo il controllo e restano.</item>
     </plurals>
-    <plurals name="free_up_space_unreachable">
-        <item quantity="one">Impossibile raggiungere iCloud per controllare %d elemento. Resta su questo telefono.</item>
-        <item quantity="other">Impossibile raggiungere iCloud per controllare %d elementi. Restano su questo telefono.</item>
-        <item quantity="many">Impossibile raggiungere iCloud per controllare %d elementi. Restano su questo telefono.</item>
-    </plurals>
     <plurals name="free_up_space_more_remain">
         <item quantity="one">Un altro elemento (%d) potrà essere liberato la prossima volta.</item>
         <item quantity="other">Altri %d elementi potranno essere liberati la prossima volta.</item>
         <item quantity="many">Altri %d elementi potranno essere liberati la prossima volta.</item>
+    </plurals>
+    <string name="free_up_space_continue_title">Continuare a liberare spazio?</string>
+    <string name="could_not_read_this_file_on_the_phone">Alba non è riuscita a leggere questo file sul telefono, quindi resta.</string>
+    <plurals name="free_up_space_continue_body">
+        <item quantity="one">%d elemento dell’ultima volta non è ancora stato controllato. Non è stato rimosso nulla senza il tuo consenso.</item>
+        <item quantity="other">%d elementi dell’ultima volta non sono ancora stati controllati. Non è stato rimosso nulla senza il tuo consenso.</item>
+        <item quantity="many">%d elementi dell’ultima volta non sono ancora stati controllati. Non è stato rimosso nulla senza il tuo consenso.</item>
+    </plurals>
+    <plurals name="free_up_space_stopped_unreachable">
+        <item quantity="one">Impossibile raggiungere iCloud, quindi Alba si è fermata. %d elemento non è stato controllato e resta su questo telefono.</item>
+        <item quantity="other">Impossibile raggiungere iCloud, quindi Alba si è fermata. %d elementi non sono stati controllati e restano su questo telefono.</item>
+        <item quantity="many">Impossibile raggiungere iCloud, quindi Alba si è fermata. %d elementi non sono stati controllati e restano su questo telefono.</item>
+    </plurals>
+    <plurals name="free_up_space_unreadable">
+        <item quantity="one">Alba non è riuscita a leggere %d elemento sul telefono. Resta.</item>
+        <item quantity="other">Alba non è riuscita a leggere %d elementi sul telefono. Restano.</item>
+        <item quantity="many">Alba non è riuscita a leggere %d elementi sul telefono. Restano.</item>
     </plurals>
 </resources>

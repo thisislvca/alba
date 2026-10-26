@@ -61,6 +61,7 @@ class BackupJournalTest {
     private val source by lazy { FakeSource(context) }
     private val protocol = FakeProtocol()
     private var clock = NOW
+    private var elapsed = 5_000_000L
     private var network = BackupNetwork.UNMETERED
     private var settings = BackupSettings()
     private val policy = object : AutomaticBackupPolicy {
@@ -216,8 +217,9 @@ class BackupJournalTest {
         repeat(3) { photos.syncNow() }
         source.items.forEach { record -> database.catalogDao().upsertItems(listOf(catalogRow(record))) }
         // Each check takes 40 s, so the third would start after the batch's checking budget.
-        source.onHash = { clock += 40_000 }
+        source.onHash = { clock += 40_000; elapsed += 40_000 }
         val started = clock
+        val startedElapsed = elapsed
 
         val first = photos.prepareTrash(source.items.map { it.id }.toSet(), allowPartial = true)
         assertEquals(source.items.take(2).map { it.id }.toSet(), first.eligibleMediaIds)
@@ -225,12 +227,45 @@ class BackupJournalTest {
         assertEquals("The window runs from the first check", started + 120_000, first.expiresAtEpochMillis)
 
         clock = started + 121_000
+        elapsed = startedElapsed + 121_000
         try {
             photos.beginTrash(first.id)
             fail("A check older than the consent window must not reach Android")
         } catch (refused: PhotoCompanionException.Refused) {
             assertEquals(StoredMessage.TRASH_PROPOSAL_EXPIRED, refused.reason)
         }
+    }
+
+    @Test
+    fun settingTheWallClockBackDoesNotReviveAnOldCheck() = runBlocking {
+        source.items += item(1, "one.jpg", "image/jpeg")
+        val photos = enrolled()
+        photos.syncNow()
+        database.catalogDao().upsertItems(listOf(catalogRow(source.items.single())))
+        val proposal = photos.prepareTrash(setOf(source.items.single().id), allowPartial = true)
+
+        elapsed += 121_000
+        clock -= 3_600_000
+        try {
+            photos.beginTrash(proposal.id)
+            fail("The consent window is measured on a clock that never moves back")
+        } catch (refused: PhotoCompanionException.Refused) {
+            assertEquals(StoredMessage.TRASH_PROPOSAL_EXPIRED, refused.reason)
+        }
+    }
+
+    @Test
+    fun aPhoneFileWhoseRevisionCannotBeReadStaysOnThePhone() = runBlocking {
+        source.items += item(1, "one.jpg", "image/jpeg")
+        source.items += item(2, "two.jpg", "image/jpeg")
+        val photos = enrolled()
+        photos.syncNow()
+        photos.syncNow()
+        source.items.forEach { record -> database.catalogDao().upsertItems(listOf(catalogRow(record))) }
+        val proposal = photos.prepareTrash(source.items.map { it.id }.toSet(), allowPartial = true)
+
+        source.revisionUnknown += source.items[1].contentUri
+        assertEquals(setOf(source.items[0].id), photos.beginTrash(proposal.id).mediaIds)
     }
 
     @Test
@@ -313,6 +348,7 @@ class BackupJournalTest {
         scheduler = NoOpScheduler,
         automaticBackupPolicy = policy,
         now = { clock },
+        elapsedRealtime = { elapsed },
     )
 
     private fun item(id: Long, name: String, mime: String, refuse: String? = null) = DeviceMediaRecord(
@@ -343,6 +379,7 @@ class BackupJournalTest {
         val changed = mutableSetOf<String>()
         val unreadable = mutableSetOf<String>()
         val editedAfterCheck = mutableSetOf<String>()
+        val revisionUnknown = mutableSetOf<String>()
         var onHash: () -> Unit = {}
         var lastScope: BackupScope? = null
 
@@ -383,7 +420,11 @@ class BackupJournalTest {
             return evidence(contentUri, "camera.jpg", null, if (contentUri in changed) byteArrayOf(-1, -40, -1, 9) else null)
         }
 
-        override suspend fun currentRevision(contentUri: String) = if (contentUri in editedAfterCheck) "edited" else "rev"
+        override suspend fun currentRevision(contentUri: String) = when (contentUri) {
+            in revisionUnknown -> null
+            in editedAfterCheck -> "edited"
+            else -> "rev"
+        }
 
         override fun createTrashRequest(contentUris: List<String>): IntentSender = PendingIntent.getActivity(
             context, 44, Intent("me.lvca.alba.TEST_TRASH").setPackage(context.packageName), PendingIntent.FLAG_IMMUTABLE,

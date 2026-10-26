@@ -28,7 +28,15 @@ internal class VerifiedPhotoTrash(
     private val scheduler: WakeupScheduler,
     private val now: () -> Long,
     private val accounts: AccountBindingSync,
+    /** A clock that never moves back, for the check budget and the consent window. */
+    private val elapsedRealtime: () -> Long,
 ) {
+    /**
+     * When each proposal's consent window closes, on [elapsedRealtime]. Kept in memory: a proposal from before a
+     * process restart or reboot has no entry and counts as expired, so a moved wall clock can never revive it.
+     */
+    private val consentDeadlines = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
     private val accountDao = database.accountDao()
     private val transferDao = database.transferDao()
     private val trashDao = database.trashDao()
@@ -46,12 +54,12 @@ internal class VerifiedPhotoTrash(
         val refusals = linkedMapOf<String, String>()
         val ordered = items.toList()
         // The consent window runs from the first check: no item's check is older than it when Android asks.
-        val firstCheckAt = now()
+        val firstCheckAt = elapsedRealtime()
         var reached = 0
 
         while (reached < ordered.size) {
             // A partial batch stops early enough that Android can still ask inside the window; the rest waits.
-            val chunkFull = now() - firstCheckAt >= CHECK_BUDGET_MILLIS || checked.size >= MAX_CHUNK
+            val chunkFull = elapsedRealtime() - firstCheckAt >= CHECK_BUDGET_MILLIS || checked.size >= MAX_CHUNK
             if (allowPartial && reached > 0 && chunkFull) break
             val mediaId = ordered[reached]
             onProgress(reached, ordered.size)
@@ -73,7 +81,9 @@ internal class VerifiedPhotoTrash(
         }
 
         val checkedAt = now()
-        val expiresAt = firstCheckAt + RECLAIM_PROPOSAL_LIFETIME_MILLIS
+        val consentDeadline = firstCheckAt + RECLAIM_PROPOSAL_LIFETIME_MILLIS
+        // The stored expiry is for display and older readers; the monotonic deadline is what beginTrash enforces.
+        val expiresAt = checkedAt + (consentDeadline - elapsedRealtime())
         database.withTransaction {
             val active = requireNotNull(accountDao.findActiveAccount())
             refuseUnless(active.toBinding() == binding, StoredMessage.THE_ACCOUNT_CHANGED_DURING_THE_FINAL_ICLOUD_CHECK)
@@ -91,6 +101,7 @@ internal class VerifiedPhotoTrash(
             )
             trashDao.insertReclaimProposalItems(checked)
         }
+        consentDeadlines[proposalId] = consentDeadline
         return ReclaimProposal(ReclaimProposalId(proposalId), checked.map { it.mediaId }.toSet(), expiresAt,
             refusals = refusals, unchecked = unchecked)
     }
@@ -120,9 +131,12 @@ internal class VerifiedPhotoTrash(
             ?: return StoredMessage.THE_ICLOUD_RECORD_PROOF_IS_UNAVAILABLE.code
         require(source.accountId == binding.accountId && proof.accountId == binding.accountId)
 
-        val local = originals.hashMediaStoreItem(source.contentUri, source.sourceRevision)
+        // A phone read and an iCloud read fail for different reasons; the user is told which.
+        val local = runSuspendCatching { originals.hashMediaStoreItem(source.contentUri, source.sourceRevision) }
+            .getOrElse { return StoredMessage.decode(it.message)?.code ?: StoredMessage.COULD_NOT_READ_THIS_FILE_ON_THE_PHONE.code }
         val remoteHash = HashingOutputStream()
-        val remote = protocol.streamFreshOriginal(binding, pairEntity.toCandidate(), remoteHash)
+        val remote = runSuspendCatching { protocol.streamFreshOriginal(binding, pairEntity.toCandidate(), remoteHash) }
+            .getOrElse { return StoredMessage.decode(it.message)?.code ?: StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code }
         val exact = local.sha256Hex == proof.sha256Hex &&
             local.byteCount == proof.byteCount &&
             remoteHash.sha256Hex() == proof.sha256Hex &&
@@ -152,7 +166,9 @@ internal class VerifiedPhotoTrash(
 
     suspend fun beginTrash(proposal: ReclaimProposalId): TrashHandoff {
         val row = refuseIfNull(trashDao.findReclaimProposal(proposal.value), StoredMessage.TRASH_PROPOSAL_EXPIRED)
-        refuseUnless(row.state == "READY" && row.expiresAtEpochMillis > now(), StoredMessage.TRASH_PROPOSAL_EXPIRED)
+        // Checked on a clock that never moves back: setting the wall clock back cannot make an old check current.
+        val deadline = consentDeadlines[proposal.value]
+        refuseUnless(row.state == "READY" && deadline != null && elapsedRealtime() < deadline, StoredMessage.TRASH_PROPOSAL_EXPIRED)
         // A phone file edited since its check is left out: only the exact bytes that were verified may be trashed.
         val items = trashDao.findReclaimProposalItems(proposal.value).filter { unchangedSinceCheck(it) }
         refuseUnless(items.isNotEmpty(), StoredMessage.THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK)
@@ -207,7 +223,8 @@ internal class VerifiedPhotoTrash(
     private suspend fun unchangedSinceCheck(item: ReclaimProposalItemEntity): Boolean {
         val proof = verificationDao.findProof(item.proofId) ?: return false
         val current = runSuspendCatching { originals.currentRevision(item.contentUri) }.getOrElse { return false }
-        return current == null || current == proof.sourceRevision
+        // A revision that cannot be read is not proof that the file is unchanged.
+        return current != null && current == proof.sourceRevision
     }
 
     suspend fun recordTrashResult(attempt: TrashAttemptId, result: SystemConsentCallback) {
