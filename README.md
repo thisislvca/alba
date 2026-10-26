@@ -108,7 +108,7 @@ Add `#methodName` to a class to run one test, or pass `-Pandroid.testInstrumenta
 ### What CI runs
 
 - **Every pull request and push to `main`:** one job builds everything, runs every JVM test, verifies the screenshot goldens, and runs lint, detekt and ktlint. Another runs every app, engine and protocol device test on a Pixel 9 emulator (API 36). Failed device tests are retried once; a test that passes only on the retry is listed as flaky in the job summary. Fix it at the root.
-- **Nightly and manual runs:** the same two jobs, plus the `@Smoke` device tests on API 30 (the minimum) and on a compact phone.
+- **Nightly:** the JVM job and the `@Smoke` device tests on API 30 (the minimum) and on a compact phone. Manual runs do both and the full Pixel 9 suite.
 
 "Android checks" passes only when the JVM job and every device job pass.
 
