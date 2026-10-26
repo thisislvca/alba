@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    # Nightly, so the full device suite, the minSdk device and the compact phone still cover main between merges.
+    # Nightly, for the minimum SDK device and the compact phone, which only nightly and manual runs cover.
     - cron: '17 3 * * *'
   workflow_dispatch:
     inputs:
@@ -109,19 +109,51 @@ jobs:
   record-screenshots:
     # Manual: Actions > CI > Run workflow > pick the branch > tick "record-screenshots". Records every golden on Linux,
     # where CI verifies them, and commits the result to that branch. Never on main: goldens reach main through review.
+    #
+    # The commit is pushed with a token from the repository's GitHub App (secrets ALBA_BOT_APP_ID and
+    # ALBA_BOT_PRIVATE_KEY): pushes made with GITHUB_TOKEN start no workflows, the App's push starts CI on the branch as
+    # any push does. That push cannot loop back here: recording runs only on a manual workflow_dispatch, never on push
+    # or pull_request, and a dispatch made by any bot, the App included, is refused.
     name: Record screenshot goldens
     if: >-
-      github.repository != 'thisislvca/mela-archive' && inputs.record-screenshots
+      github.repository != 'thisislvca/mela-archive' && github.event_name == 'workflow_dispatch'
+      && inputs.record-screenshots && !endsWith(github.actor, '[bot]')
       && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # The push uses the App's token, not GITHUB_TOKEN, which only needs to read.
     permissions:
-      contents: write
+      contents: read
     env:
       ALBA_SENTRY_DSN: ''
       ALBA_SENTRY_PROPERTIES: /tmp/alba-ci-no-sentry.properties
     steps:
+      # No fallback to GITHUB_TOKEN: its push would leave the branch without CI on the new goldens.
+      - name: Require the GitHub App secrets
+        env:
+          APP_ID: ${{ secrets.ALBA_BOT_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.ALBA_BOT_PRIVATE_KEY }}
+        run: |
+          missing=()
+          if [ -z "$APP_ID" ]; then missing+=(ALBA_BOT_APP_ID); fi
+          if [ -z "$PRIVATE_KEY" ]; then missing+=(ALBA_BOT_PRIVATE_KEY); fi
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing repository secret(s): ${missing[*]}. Recording pushes the goldens with the repository's" \
+              "GitHub App so that the push starts CI. Add the App's ID as ALBA_BOT_APP_ID and its private key (the whole" \
+              ".pem file) as ALBA_BOT_PRIVATE_KEY under Settings > Secrets and variables > Actions; AGENTS.md has the steps."
+            exit 1
+          fi
+      - name: Create the GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          # The secret holds the App ID, which the action still accepts alongside the newer client ID.
+          app-id: ${{ secrets.ALBA_BOT_APP_ID }}
+          private-key: ${{ secrets.ALBA_BOT_PRIVATE_KEY }}
+          permission-contents: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
@@ -138,22 +170,23 @@ jobs:
       - name: Commit goldens
         env:
           BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
           test "$BRANCH" != main
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          bot="${APP_SLUG}[bot]"
+          git config user.name "$bot"
+          git config user.email "$(gh api "/users/$bot" --jq .id)+$bot@users.noreply.github.com"
           git add -A app/src/test/screenshots
           if git diff --cached --quiet; then echo "The goldens are unchanged."; exit 0; fi
           git commit -m 'test: record screenshot goldens on Linux'
           git push origin "HEAD:$BRANCH"
-          echo "Committed new goldens to $BRANCH. Commits pushed by Actions do not start CI; push again or re-run it." \
-            >> "$GITHUB_STEP_SUMMARY"
+          echo "Committed new goldens to $BRANCH as $bot. The push starts CI on the branch." >> "$GITHUB_STEP_SUMMARY"
 
   instrumentation:
-    # Pull requests run the @Smoke device tests on the Pixel 9 at the target API level. Pushes to main, the nightly
-    # schedule and manual runs run every device test there, and the smoke tests on the minimum SDK and a compact phone.
-    # Dropping devices from the matrix, rather than skipping a job, keeps the result "Android checks" requires
-    # meaningful on pull requests.
+    # Pull requests and pushes to main run every app, engine and protocol device test on the Pixel 9 at the target API
+    # level. The nightly schedule and manual runs add the @Smoke tests on the minimum SDK and a compact phone. Dropping
+    # devices from the matrix, rather than skipping a job, keeps the result "Android checks" requires meaningful.
     name: ${{ matrix.title }}
     if: github.repository != 'thisislvca/mela-archive' && !inputs.record-screenshots
     runs-on: ubuntu-24.04
@@ -162,7 +195,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"device":"pixel9Api36","suite":"smoke","title":"Android 36 smoke device tests"}]' || '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"},{"device":"pixel9Api30","suite":"smoke","title":"Android 30 smoke device tests"},{"device":"compactApi36","suite":"smoke","title":"Compact phone smoke device tests"}]') }}
+        include: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"},{"device":"pixel9Api30","suite":"smoke","title":"Android 30 smoke device tests"},{"device":"compactApi36","suite":"smoke","title":"Compact phone smoke device tests"}]' || '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"}]') }}
     env:
       ALBA_SENTRY_DSN: ''
       ALBA_SENTRY_PROPERTIES: /tmp/alba-ci-no-sentry.properties
