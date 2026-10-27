@@ -4,20 +4,15 @@ import android.provider.MediaStore
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.AlbaApplication
-import me.lvca.alba.app.MainActivity
 import me.lvca.alba.app.platform.GalleryExporter
-import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.LONG_WAIT
 import me.lvca.alba.app.testing.MediaStoreFixtures
-import me.lvca.alba.app.testing.OnboardingRule
-import me.lvca.alba.app.testing.UI_WAIT
 import me.lvca.alba.app.testing.openGalleryMedia
 import me.lvca.alba.app.testing.scrollToGalleryMedia
-import me.lvca.alba.app.testing.waitForGalleryMedia
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.model.BatchItemState
 import org.junit.Assert.*
@@ -28,14 +23,12 @@ import java.util.zip.ZipInputStream
 
 /** Copies Alba publishes to the phone gallery: saved selections and Live Photo pairs. */
 class PhoneCopiesTest {
-    @get:Rule(order = 0) val onboarding = OnboardingRule()
-    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
+    @get:Rule val app = AlbaAppRule()
+    private val compose get() = app.compose
     private fun phoneCopies(): Set<android.net.Uri> =
         MediaStoreFixtures.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "${MediaStore.MediaColumns.RELATIVE_PATH} = ?", "Pictures/Alba/")
 
     @Test fun selectedCloudPhotosAreSavedAsPublicPhoneCopies() {
-        compose.waitForGalleryMedia()
         val before = phoneCopies()
         val graph = (compose.activity.application as AlbaApplication).graph
         val previousBatches = runBlocking { graph.batches.observe().first().map { it.batchId }.toSet() }
@@ -55,17 +48,17 @@ class PhoneCopiesTest {
     }
 
     @Test fun smartLiveCollectionPlaybackOfflinePairAndExportsWork() = runBlocking {
-        compose.scrollToGalleryMedia("fixture:icloud:0020")
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
-        compose.onNodeWithTag("collections-grid").performScrollToNode(hasText("Live Photos"))
-        compose.onNodeWithText("Live Photos").assertIsDisplayed()
-        compose.onNodeWithText("Live Photos").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+        compose.onNodeWithTag("collections-grid").performScrollToNode(hasTestTag("collection-live_photos"))
+        compose.onNodeWithTag("collection-live_photos").assertIsDisplayed()
+        compose.onNodeWithTag("collection-live_photos").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
         compose.openGalleryMedia("fixture:icloud:0020")
-        compose.onNodeWithText("Play Live Photo").performClick()
-        compose.waitUntil(UI_WAIT) {
+        compose.onNodeWithTag("viewer-live").assertContentDescriptionEquals("Play Live Photo").performClick()
+        compose.waitUntil(LONG_WAIT) {
             compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Playing")).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Show still photo").performClick()
+        // The same button now offers the still photo again.
+        compose.onNodeWithTag("viewer-live").assertContentDescriptionEquals("Show still photo").performClick()
         val repository = (compose.activity.application as AlbaApplication).graph.galleryRepository
         repository.keepOriginalOffline("fixture:icloud:0020")
         val media = repository.observeGallery().first().first { it.id == "fixture:icloud:0020" }

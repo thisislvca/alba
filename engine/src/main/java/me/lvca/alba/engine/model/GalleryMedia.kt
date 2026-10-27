@@ -17,6 +17,7 @@ data class GalleryCollection(val id: String, val name: String, val parentId: Str
 data class GalleryQuery(
     val origin: MediaOrigin? = null,
     val collectionId: String? = null,
+    /** What the user typed in Search, parsed by [GallerySearch]: file names, titles, captions, dates and photo types. */
     val filename: String = "",
     val fromDate: java.time.LocalDate? = null,
     val throughDate: java.time.LocalDate? = null,
@@ -27,18 +28,33 @@ data class GalleryQuery(
 ) {
     fun apply(items: List<GalleryMedia>, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): List<GalleryMedia> {
         val comparator = compareBy<GalleryMedia> { it.dateMillis(date) }.thenBy { it.id }
+        val search = GallerySearch.parse(filename)
+        // Hidden photos appear only in Hidden (and, once deleted, in Recently Deleted), never in the library, albums,
+        // other collections or search.
+        val hiddenOnly = collectionId == HIDDEN
         return items.filter { item ->
-            val date = java.time.Instant.ofEpochMilli(item.dateMillis(this.date)).atZone(zone).toLocalDate()
-            item.isTrashed == trashOnly &&
+            val millis = item.dateMillis(this.date)
+            val date = java.time.Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+            inPlace(item, hiddenOnly) &&
                 (!item.isShared || collectionId?.startsWith(SharedMediaIdentity.PREFIX) == true || offlineOnly) &&
                 (origin == null || item.origin == origin) &&
                 (!offlineOnly || item.availability == MediaAvailability.ORIGINAL_CACHED) &&
-                (collectionId == null || if (collectionId == FAVORITES) item.isFavorite else collectionId in item.collectionIds) &&
-                item.fileName.contains(filename.trim(), ignoreCase = true) &&
+                (collectionId == null || hiddenOnly || if (collectionId == FAVORITES) item.isFavorite else collectionId in item.collectionIds) &&
+                search.matches(item, millis, zone) &&
                 (fromDate == null || date >= fromDate) && (throughDate == null || date <= throughDate)
         }.sortedWith(if (sort == GallerySort.NEWEST) comparator.reversed() else comparator)
     }
-    companion object { const val FAVORITES = "smart:favorites" }
+
+    /** In the trash for a trash query, and in Hidden exactly when the query is Hidden (the trash shows both). */
+    private fun inPlace(item: GalleryMedia, hiddenOnly: Boolean) =
+        item.isTrashed == trashOnly && (trashOnly || item.isHidden == hiddenOnly)
+
+    companion object {
+        const val FAVORITES = "smart:favorites"
+
+        /** iCloud's Hidden album. The UI opens it only after the user unlocks it. */
+        const val HIDDEN = "smart:hidden"
+    }
 }
 
 enum class MediaAvailability {
@@ -77,8 +93,15 @@ data class GalleryMedia(
     val expiresAtEpochMillis: Long? = null,
     val linkedDeviceId: String? = null,
     val linkedDeviceReference: String? = null,
-
-)
+    /** In iCloud's Hidden album: shown only there, never in the library, albums or search. */
+    val isHidden: Boolean = false,
+    val details: MediaDetails = MediaDetails(),
+    /** How many photos this item stands for when it is shown as a stacked burst's key photo, else 0. */
+    val burstCount: Int = 0,
+) {
+    /** File name, title and caption, normalized once for search. Not part of equality. */
+    internal val searchHaystack: String by lazy { GallerySearch.normalize(fileName + " " + details.searchableText) }
+}
 
 object AvailabilityResolver {
     fun resolve(

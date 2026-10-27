@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Unlocks the Hidden album with the phone's fingerprint, face or screen lock. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
@@ -71,7 +73,6 @@
                 <data android:host="www.icloud.com.cn" />
                 <data android:host="icloud.com.cn" />
                 <data android:pathPrefix="/shared/album/" />
-                <data android:pathPrefix="/photos/" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -86,6 +87,67 @@
                 <data android:mimeType="video/*" />
             </intent-filter>
         </activity>
+        <!-- New shared albums also link as /photos#/sharedalbums/sc,…, but /photos is iCloud Photos' web home. Only Android 15
+             and later can match the fragment, so this alias is enabled there alone and claims shared-album fragments only. The path sits inside each group: a
+             path on the filter itself would match on its own and claim the plain /photos home. -->
+        <activity-alias
+            android:name=".SharedAlbumWebLink"
+            android:enabled="@bool/shared_album_fragment_links"
+            android:exported="true"
+            android:targetActivity=".MainActivity"
+            tools:targetApi="35">
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="photos.icloud.com" />
+                <data android:host="www.icloud.com" />
+                <data android:host="icloud.com" />
+                <data android:host="photos.icloud.com.cn" />
+                <data android:host="www.icloud.com.cn" />
+                <data android:host="icloud.com.cn" />
+                <uri-relative-filter-group>
+                    <data android:pathPrefix="/photos" />
+                    <data android:fragmentPrefix="sc," />
+                </uri-relative-filter-group>
+                <uri-relative-filter-group>
+                    <data android:pathPrefix="/photos" />
+                    <data android:fragmentPrefix="/sc," />
+                </uri-relative-filter-group>
+                <uri-relative-filter-group>
+                    <data android:pathPrefix="/photos" />
+                    <data android:fragmentPrefix="sharedalbums/sc," />
+                </uri-relative-filter-group>
+                <uri-relative-filter-group>
+                    <data android:pathPrefix="/photos" />
+                    <data android:fragmentPrefix="/sharedalbums/sc," />
+                </uri-relative-filter-group>
+            </intent-filter>
+        </activity-alias>
+        <!-- Before Android 15 a filter cannot match the fragment, so there the only way to open an invitation link that
+             arrives as /photos#/sharedalbums/sc,… is to claim /photos. Alba then hands any link that is not a shared album
+             back to the browser, through a chooser that leaves Alba out. -->
+        <activity-alias
+            android:name=".SharedAlbumPathLink"
+            android:enabled="@bool/shared_album_path_links"
+            android:exported="true"
+            android:targetActivity=".MainActivity">
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="photos.icloud.com" />
+                <data android:host="www.icloud.com" />
+                <data android:host="icloud.com" />
+                <data android:host="photos.icloud.com.cn" />
+                <data android:host="www.icloud.com.cn" />
+                <data android:host="icloud.com.cn" />
+                <data android:path="/photos" />
+                <data android:pathPrefix="/photos/" />
+            </intent-filter>
+        </activity-alias>
         <!-- Launchers pin icons by component name; keep the name used before the package rename. -->
         <activity-alias
             android:name="dev.mela.app.MainActivity"

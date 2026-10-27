@@ -34,9 +34,11 @@ internal class SharedAlbumSession(
     fun checkSession(expected: AppleSessionSnapshot) {
         check(session().let { it.dsid == expected.dsid && it.clientId == expected.clientId }) { "Account changed. Refresh shared albums." }
     }
-    suspend fun request(url: String, body: JsonObject, write: Boolean = false): JsonObject =
-        requestElement(url, body, write) as? JsonObject ?: error("Apple returned an invalid shared album response.")
-    suspend fun requestElement(url: String, body: JsonObject, write: Boolean = false): JsonElement {
+    suspend fun request(url: String, body: JsonObject, write: Boolean = false, recordErrors: Boolean = false): JsonObject =
+        requestElement(url, body, write, recordErrors) as? JsonObject ?: error("Apple returned an invalid shared album response.")
+
+    /** A write fails on any record-level error unless [recordErrors] lets the caller read them itself. */
+    suspend fun requestElement(url: String, body: JsonObject, write: Boolean = false, recordErrors: Boolean = false): JsonElement {
         operationSession?.let(::checkSession)
         val current = bound()
         if (write) check(authorized()) { "Sign in before changing shared albums." }
@@ -53,7 +55,7 @@ internal class SharedAlbumSession(
         val element = Json.parseToJsonElement(response.body)
         val root = element as? JsonObject ?: return element
         check(!CloudKitErrors.rejectedRequest(root)) { "Apple could not load shared albums." }
-        if (write) {
+        if (write && !recordErrors) {
             for (key in listOf("records", "zones")) {
                 check((root[key] as? JsonArray).orEmpty().none { (it as? JsonObject)?.get("serverErrorCode") != null }) {
                 "Apple could not confirm the shared album change. Refresh before retrying."
@@ -62,6 +64,6 @@ internal class SharedAlbumSession(
         }
         return root
     }
-    suspend fun ck(scope: String, path: String, body: JsonObject, write: Boolean = false): JsonObject =
-        request(client.databaseUrl(bound(), scope, path), body, write)
+    suspend fun ck(scope: String, path: String, body: JsonObject, write: Boolean = false, recordErrors: Boolean = false): JsonObject =
+        request(client.databaseUrl(bound(), scope, path), body, write, recordErrors)
 }

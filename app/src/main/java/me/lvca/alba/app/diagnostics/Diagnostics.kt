@@ -294,7 +294,7 @@ class SentryAlbaDiagnostics(context: Context) : AlbaDiagnostics, AccountTelemetr
         val SAFE_ATTRIBUTE_VALUES = setOf(
             "automatic_backup", "batch", "foreground", "background", "process_started",
             "picker_upload", "upload", "offline", "share", "save", "export", "storage_cleanup",
-            "favorite", "album", "cloud_trash", "shared_album", "connection_check",
+            "favorite", "album", "cloud_trash", "hide", "shared_album", "connection_check",
         )
         val SAFE_ACCOUNT_EXTRAS = setOf(
             "session_age_hours",

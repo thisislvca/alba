@@ -34,7 +34,7 @@ class DemoFeatureCoverageTest {
         val sample = FixtureICloudCatalogSource(includeSharedAlbums = true, openVideo = { byteArrayOf(1, 2, 3).inputStream() })
         val source = me.lvca.alba.protocol.photos.AccountAwareICloudCatalogSource(sample, live, { true }) { null }
         assertEquals("demo-library", source.accountLabel)
-        assertEquals(20, source.fetchPage(null, 100).records.size)
+        assertEquals(22, source.fetchPage(null, 100).records.size)
         source.setFavorite(photo, true)
         source.createAlbum("Local demo album")
         source.changeSharedAlbum(owner, SharedCommand(SharedAction.INVITE, value = "sample@example.invalid"), "sample-invite")
@@ -57,9 +57,9 @@ class DemoFeatureCoverageTest {
         source.setCloudTrashed(listOf(photo), true)
         assertTrue(source.recentlyDeleted().any { it.id == photo && it.isTrashed })
         assertFalse(source.fetchPage(null, 100).records.any { it.id == photo })
-        assertTrue(photo in source.changes(source.captureSyncToken(), emptyList()).deletedRecordNames)
+        assertTrue(photo in source.changes(source.captureSyncToken(), me.lvca.alba.engine.source.KnownCloudRecords.NONE).deletedRecordNames)
         source.setCloudTrashed(listOf(photo), false)
-        assertTrue(source.changes(source.captureSyncToken(), emptyList()).upserts.any { it.id == photo })
+        assertTrue(source.changes(source.captureSyncToken(), me.lvca.alba.engine.source.KnownCloudRecords.NONE).upserts.any { it.id == photo })
         source.setFavorite(photo, false)
         source.removeFromAlbum(album.id, listOf(photo))
         assertFalse(photo in source.collections().members.getValue(album.id))
@@ -188,7 +188,7 @@ class DemoFeatureCoverageTest {
         source.setCloudTrashed(listOf(saved.id), true)
         assertTrue(source.recentlyDeleted().any { it.id == saved.id })
         source.setCloudTrashed(listOf(saved.id), false)
-        assertTrue(source.changes(source.captureSyncToken(), emptyList()).upserts.any { it.id == saved.id })
+        assertTrue(source.changes(source.captureSyncToken(), me.lvca.alba.engine.source.KnownCloudRecords.NONE).upserts.any { it.id == saved.id })
     }
 
     @Test fun mediaReadsUseBundledVideoAndStorageIsExplicitlySampleData() = runBlocking {

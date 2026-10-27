@@ -7,12 +7,14 @@ import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
+import me.lvca.alba.engine.model.SHARED_POST_PREVIEW_PHOTOS
 import me.lvca.alba.engine.model.SharedActivityPage
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedAlbumManagement
 import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SharedDiscussion
 import me.lvca.alba.engine.model.SharedInvitation
+import me.lvca.alba.engine.model.SharedPostPreview
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.source.MediaRead
 
@@ -21,6 +23,9 @@ interface InvitationActions {
     suspend fun pendingSharedInvitations(): List<SharedInvitation>
     suspend fun resolveSharedInvitation(url: String): SharedInvitation
     suspend fun respondSharedInvitation(invitationId: String, accept: Boolean)
+
+    /** The person has looked at their pending invitations, which clears the badge. */
+    fun markInvitationsRead() {}
 }
 
 /** Reading and changing a shared album. */
@@ -28,9 +33,22 @@ interface SharedActions {
     suspend fun sharedActivity(albumId: String, rank: Int): SharedActivityPage
     suspend fun sharedPostDiscussion(postId: String): SharedDiscussion
     suspend fun sharedPostPhotos(postId: String): List<String>
+
+    /** Previews of a page of posts in one read. */
+    suspend fun sharedPostPreviews(postIds: List<String>): Map<String, SharedPostPreview> =
+        postIds.associateWith { id -> sharedPostPhotos(id).let { SharedPostPreview(it.take(SHARED_POST_PREVIEW_PHOTOS), it.size) } }
     suspend fun sharedManagement(albumId: String): SharedAlbumManagement
     suspend fun sharedDiscussion(id: String): SharedDiscussion
     suspend fun changeSharedAlbum(albumId: String, command: SharedCommand)
+
+    /** Turns the Shared Album activity notifications on or off. */
+    fun setSharedActivityNotifications(enabled: Boolean) {}
+
+    /** Alba asked Android for notification permission. */
+    fun sharedNotificationsAsked() {}
+
+    /** The gallery opened what a notification asked for. */
+    fun consumeSharedOpen() {}
 }
 
 /** Alba's own storage on this phone. */
@@ -53,6 +71,12 @@ interface BrowseActions {
     fun requestDevicePhotos()
     fun openAccount()
 
+    /** Asks the user to unlock with their fingerprint, face or screen lock, then opens the Hidden album. */
+    fun openHidden()
+
+    /** Shows every photo of a burst in place of its key photo, or stacks it again. */
+    fun expandBurst(burstId: String, expanded: Boolean)
+
     /** Opens the Backup page: status, the queue, failed items with Retry, and settings. */
     fun openBackup()
 
@@ -72,12 +96,17 @@ interface LibraryEditActions {
     fun confirmRemoveFromAlbum(albumId: String, mediaIds: List<String>)
     fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean)
 
+    /** Moves iCloud photos into or out of the Hidden album, with Undo. */
+    fun setHidden(mediaIds: List<String>, hidden: Boolean)
+
     /** One confirmation for a selection of phone and iCloud items: each goes to its own trash. */
     fun confirmMixedTrash(items: List<GalleryMedia>)
 
     /** Asks Android to move phone copies to its trash, or to restore them from it. */
     fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean)
-    fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>)
+
+    /** Posts [mediaIds] to a shared album, with [caption] where the album supports captions. */
+    fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>, caption: String = "")
     fun createSharedAlbum(name: String, generation: SharedAlbumGeneration)
 }
 
@@ -116,6 +145,12 @@ interface ViewerActions {
     fun saveToGallery(media: GalleryMedia)
     fun exportOriginal(media: GalleryMedia)
     fun exportLivePhoto(media: GalleryMedia)
+
+    /** Shares a Live Photo's motion clip as a video. */
+    fun shareLiveVideo(media: GalleryMedia)
+
+    /** Saves a Live Photo's motion clip to the phone gallery as a video. */
+    fun saveLiveVideo(media: GalleryMedia)
     fun keepOriginalOffline(mediaId: String)
     fun removeCachedOriginal(mediaId: String)
     fun cancelOfflineDownload()

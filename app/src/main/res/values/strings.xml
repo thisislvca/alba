@@ -305,8 +305,6 @@
     <string name="selection_upload_short">Upload</string>
     <string name="screenshots">Screenshots</string>
     <string name="search">Search</string>
-    <string name="search_by_filename_or_narrow_your_library_by_date_and_media_type">Search by filename, or narrow your library by date and media type.</string>
-    <string name="search_filenames">Search filenames</string>
     <string name="select_all_shown">Select all shown</string>
     <string name="send_another_code">Send another code</string>
     <string name="session_expired">Your iCloud session expired. Sign in again to reconnect.</string>
@@ -620,7 +618,7 @@
     <string name="shared_cover">Make album cover</string>
     <string name="shared_remove_photo">Remove from shared album</string>
     <string name="shared_confirm_title">Confirm shared album change</string>
-    <string name="shared_confirm_delete">This deletes the shared album and its contents for all participants. Items already saved to personal libraries remain. This cannot be undone.</string>
+    <string name="shared_confirm_delete">Everyone you shared this album with loses it too. It is deleted with all its photos, videos and comments for every participant. Items already saved to personal libraries remain. This cannot be undone.</string>
     <string name="shared_confirm_leave">You will lose access to this album. Copies already saved to your personal library remain.</string>
     <string name="shared_confirm_remove">This removes the shared copy for all participants. It does not delete a personal-library original.</string>
     <string name="shared_confirm_access">This changes who can access the album or what participants can do. Confirm only if these are the permissions you want.</string>
@@ -639,7 +637,7 @@
     <string name="shared_person_contributor">Contributor</string>
     <string name="shared_person_viewer">Viewer</string>
     <string name="shared_invitations">Shared album invitations</string>
-    <string name="shared_invitation_help">Accept or decline pending legacy invitations. For a new album, paste its iCloud Photos link to preview it before joining. Other invitation links can be opened in iCloud.</string>
+    <string name="shared_invitation_help">Invitations to legacy albums appear here to join or decline. An invitation to a new shared album arrives as a link: open it from your email or Messages and choose Alba, or paste it below to preview the album before joining.</string>
     <string name="shared_invitation_link">New album link</string>
     <string name="shared_invitation_preview">Preview invitation</string>
     <string name="shared_accept">Join album</string>
@@ -780,6 +778,102 @@
     <string name="label_with_detail">%1$s · %2$s</string>
     <!-- The first and last month of a scrollable timeline. -->
     <string name="month_span">%1$s – %2$s</string>
+    <string name="shared_notification_channel">Shared Albums</string>
+    <string name="shared_notification_new_photos">New photos in %1$s</string>
+    <string name="shared_new_activity">New activity</string>
+    <string name="shared_activity_notifications">Shared Album activity notifications</string>
+    <string name="shared_activity_notifications_detail">New invitations and new photos, checked a few times a day. Applies to all your shared albums.</string>
+    <string name="shared_notifications_off_in_android">Android isn’t allowing Alba’s notifications.</string>
+    <string name="shared_added_to_album">Added to %1$s</string>
+    <string name="album_sort_recent">Most recent photo</string>
+    <string name="album_sort_name">Album name</string>
+    <string name="album_sort_oldest">Least recent photo</string>
+    <string name="shared_caption">Caption (optional)</string>
+    <string name="shared_caption_legacy">Legacy shared albums don’t support captions.</string>
+    <string name="shared_caption_note">Everyone in the album sees the caption with these items.</string>
+    <string name="shared_more_photos">+%1$d</string>
+    <string name="shared_post_open">Open post</string>
+    <string name="shared_section_link">Link</string>
+    <string name="shared_section_settings">Settings</string>
+    <string name="shared_share_link">Share link</string>
+    <string name="shared_share_invite_link">Share invitation link %1$d</string>
+    <string name="shared_add_people">Choose from contacts</string>
+    <string name="shared_contact_failed">Could not read an email address from that contact.</string>
+    <string name="shared_block">Block</string>
+    <string name="shared_confirm_block">This removes the person from the album and stops them from requesting access again. You can undo the block in Declined people.</string>
+    <string name="shared_empty_title">Your shared album is ready</string>
+    <string name="shared_empty_body">Add photos and videos, then invite people to see them and add their own.</string>
+    <string name="shared_invite_people">Invite people</string>
+    <string name="incoming_destination">Add to</string>
+    <string name="incoming_destination_library">iCloud library</string>
+    <string name="incoming_destination_shared">Shared album</string>
+    <string name="incoming_choose_shared">Choose a shared album</string>
+    <string name="incoming_no_shared_albums">There are no shared albums you can add to.</string>
+    <string name="incoming_album_note">To add these to one of your own albums, upload them to the library first, then use Add to album.</string>
+    <string name="incoming_add_to_shared">Add to %1$s</string>
+    <string name="incoming_adding_to_shared">Adding to %1$s…</string>
+    <string name="incoming_sent_library">Sent to your iCloud library. Follow progress in transfers.</string>
+    <string name="incoming_sent_shared">Added to %1$s.</string>
+    <string name="incoming_shared_failed">Could not confirm adding to %1$s. Check the album before trying again.</string>
+    <plurals name="shared_notification_invitations"><item quantity="one">New shared album invitation</item><item quantity="other">%d new shared album invitations</item></plurals>
+    <plurals name="shared_notification_new_items"><item quantity="one">%d new photo or video</item><item quantity="other">%d new photos and videos</item></plurals>
+    <plurals name="shared_post_items_title"><item quantity="one">Post %d item</item><item quantity="other">Post %d items</item></plurals>
+    <plurals name="shared_live_photos_excluded"><item quantity="one">%d Live Photo is not shown: legacy albums can’t keep its motion.</item><item quantity="other">%d Live Photos are not shown: legacy albums can’t keep their motion.</item></plurals>
+    <plurals name="shared_reactions"><item quantity="one">%d reaction</item><item quantity="other">%d reactions</item></plurals>
+    <string name="shared_posted_without_caption">Posted without caption. Apple didn’t accept the caption for this album.</string>
+    <string name="shared_notification_public">New Shared Album activity</string>
+    <string name="shared_allow_notifications">Allow notifications</string>
+    <!-- Hidden: iCloud's Hidden album, locked behind the phone's unlock. -->
+    <string name="hidden">Hidden</string>
+    <string name="hidden_locked">Unlock to view</string>
+    <string name="hidden_unlock_title">Unlock Hidden</string>
+    <string name="hidden_unlock_subtitle">Use your fingerprint, face or screen lock</string>
+    <string name="hidden_needs_screen_lock">Set a screen lock on this phone to open Hidden.</string>
+    <string name="hidden_unlock_failed">Couldn\'t unlock Hidden. Try again.</string>
+    <string name="hidden_empty">Photos you hide in iCloud appear here.</string>
+    <string name="hide">Hide</string>
+    <string name="unhide">Unhide</string>
+    <string name="hidden_refresh_unavailable">Hidden couldn\'t be checked. It shows what Alba last saw.</string>
+    <string name="hidden_change_failed">Couldn\'t confirm the change to Hidden. Refresh before retrying.</string>
+    <plurals name="hidden_moved">
+        <item quantity="one">Moved to Hidden</item>
+        <item quantity="other">%1$d moved to Hidden</item>
+    </plurals>
+    <plurals name="unhidden_moved">
+        <item quantity="one">Moved back to your library</item>
+        <item quantity="other">%1$d moved back to your library</item>
+    </plurals>
+    <!-- Search -->
+    <string name="search_your_photos">Search your photos</string>
+    <string name="search_landing_body">Search file names, titles, captions and albums, or try a month, a year or a type like \"videos 2024\" or \"june\".</string>
+    <string name="search_matching_albums">Albums</string>
+    <!-- Photo types and bursts -->
+    <string name="raw_badge">RAW</string>
+    <plurals name="burst_view_photos">
+        <item quantity="one">View %1$d photo in burst</item>
+        <item quantity="other">View %1$d photos in burst</item>
+    </plurals>
+    <string name="burst_stack">Show only the burst\'s key photo</string>
+    <plurals name="burst_photo_count">
+        <item quantity="one">Burst, %1$d photo</item>
+        <item quantity="other">Burst, %1$d photos</item>
+    </plurals>
+    <!-- Photo details -->
+    <string name="photo_caption">Caption</string>
+    <string name="photo_taken">Taken</string>
+    <string name="photo_added">Added to iCloud</string>
+    <string name="photo_duration">Duration</string>
+    <string name="photo_format">Format</string>
+    <string name="photo_lens">Lens</string>
+    <string name="photo_altitude">%1$s m above sea level</string>
+    <string name="open_in_maps">Open in Maps</string>
+    <string name="no_maps_app">No maps app can open this place.</string>
+    <!-- A capture time with its time zone, such as "Jul 20, 2026, 21:48 · GMT+02:00". -->
+    <string name="time_with_zone">%1$s · %2$s</string>
+    <!-- Live Photos -->
+    <string name="share_as_video">Share as video</string>
+    <string name="save_as_video">Save as video</string>
+    <string name="message_saved_the_motion_clip_as_a_video">Saved the motion clip to your phone gallery as a video</string>
     <string name="backup_failed_notification_body">Open Backup to see why and retry.</string>
     <string name="backup_paused_sign_in_title">Backup paused: sign in</string>
     <string name="backup_paused_sign_in_body">Sign in to iCloud again so backup can continue. Nothing on this phone is affected.</string>
@@ -1032,5 +1126,15 @@
     <plurals name="trash_days_left">
         <item quantity="one">1 day left</item>
         <item quantity="other">%1$d days left</item>
+    </plurals>
+    <string name="catalog_scan_large_library">This can take a while for large libraries.</string>
+    <string name="catalog_scan_notification">Loading your iCloud library</string>
+    <plurals name="catalog_scan_progress">
+        <item quantity="one">%1$s photo loaded</item>
+        <item quantity="other">%1$s photos loaded</item>
+    </plurals>
+    <plurals name="catalog_scan_progress_of_total">
+        <item quantity="one">%1$s of %2$s photo loaded</item>
+        <item quantity="other">%1$s of %2$s photos loaded</item>
     </plurals>
 </resources>

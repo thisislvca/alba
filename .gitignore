@@ -21,3 +21,7 @@ fastlane/report.xml
 
 # Temporary Google workload identity credentials
 gha-creds-*.json
+
+# JVM crash dumps
+hs_err_pid*.log
+replay_pid*.log

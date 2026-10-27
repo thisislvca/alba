@@ -19,17 +19,27 @@ class AccountAwareICloudCatalogSource(
     override suspend fun sharedActivity(id: String, rank: Int) = currentSource().sharedActivity(id, rank)
     override suspend fun sharedPostDiscussion(id: String) = currentSource().sharedPostDiscussion(id)
     override suspend fun sharedPostPhotos(id: String) = currentSource().sharedPostPhotos(id)
+    override suspend fun sharedPostPreviews(ids: List<String>) = currentSource().sharedPostPreviews(ids)
     override suspend fun pendingSharedInvitations() = currentSource().pendingSharedInvitations()
     override suspend fun resolveSharedInvitation(url: String) = currentSource().resolveSharedInvitation(url)
     override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String) = currentSource().respondSharedInvitation(id, accept, operationId)
     override suspend fun sharedManagement(id: String) = currentSource().sharedManagement(id)
     override suspend fun sharedDiscussion(mediaId: String) = currentSource().sharedDiscussion(mediaId)
     override suspend fun changeSharedAlbum(id: String, command: me.lvca.alba.engine.model.SharedCommand, operationId: String) = currentSource().changeSharedAlbum(id, command, operationId)
-    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String) = currentSource().contributeToSharedAlbum(id, mediaIds, operationId)
-    override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource, operationId: String) = currentSource().uploadSharedPhoto(albumId, fileName, source, operationId)
+    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String) =
+        currentSource().contributeToSharedAlbum(id, mediaIds, operationId, caption)
+    override suspend fun uploadSharedPhoto(
+        albumId: String,
+        fileName: String,
+        source: me.lvca.alba.engine.model.OneShotUploadSource,
+        operationId: String,
+        caption: String,
+    ) = currentSource().uploadSharedPhoto(albumId, fileName, source, operationId, caption)
     override suspend fun sharedAlbums() = currentSource().sharedAlbums()
     override suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration) = currentSource().createSharedAlbum(name, operationId, generation)
     override suspend fun recentlyDeleted() = currentSource().recentlyDeleted()
+    override suspend fun hiddenMedia() = currentSource().hiddenMedia()
+    override suspend fun setHidden(mediaIds: List<String>, hidden: Boolean) = currentSource().setHidden(mediaIds, hidden)
     override suspend fun removeFromAlbum(id: String, mediaIds: List<String>) = currentSource().removeFromAlbum(id, mediaIds)
     override suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean) = currentSource().setCloudTrashed(mediaIds, trashed)
     override suspend fun setFavorite(mediaId: String, favorite: Boolean) = currentSource().setFavorite(mediaId, favorite)
@@ -41,7 +51,9 @@ class AccountAwareICloudCatalogSource(
     override suspend fun storageUsage() = currentSource().storageUsage()
     override suspend fun writeMotion(mediaId: String, output: OutputStream) = sourceForMedia(mediaId).writeMotion(mediaId, output)
     override suspend fun captureSyncToken() = currentSource().captureSyncToken()
-    override suspend fun changes(token: String, known: List<me.lvca.alba.engine.source.RemoteMediaRecord>) = currentSource().changes(token, known)
+    override suspend fun changes(token: String, known: me.lvca.alba.engine.source.KnownCloudRecords) = currentSource().changes(token, known)
+    override suspend fun libraryItemCount() = currentSource().libraryItemCount()
+    override suspend fun libraryRecords(assetRecordNames: List<String>) = currentSource().libraryRecords(assetRecordNames)
     override suspend fun collections() = currentSource().collections()
     override suspend fun openPlayback(mediaId: String, position: Long, length: Long) = sourceForMedia(mediaId).openPlayback(mediaId, position, length)
 

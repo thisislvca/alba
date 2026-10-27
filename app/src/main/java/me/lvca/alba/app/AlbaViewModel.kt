@@ -13,7 +13,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -58,6 +62,7 @@ class AlbaViewModel(
     private val effectQueue = EffectQueue()
     private val network = dependencies.network.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val runner = MediaActionRunner(viewModelScope, dependencies.diagnostics, messages)
+    private val catalogSync = dependencies.catalogSync
     private val diagnostics = dependencies.diagnostics
 
     internal val previews: PreviewController = PreviewController(
@@ -116,8 +121,8 @@ class AlbaViewModel(
 
     internal val edits: LibraryEditsController = LibraryEditsController(dependencies.repository, runner, messages, gallery)
 
-    internal val sharedAlbums: SharedAlbumsController = SharedAlbumsController(savedState, dependencies.repository, dependencies.accountManager,
-        dependencies.diagnostics, runner, messages, gallery)
+    internal val sharedAlbums: SharedAlbumsController = SharedAlbumsController(viewModelScope, savedState, dependencies.repository,
+        dependencies.accountManager, dependencies.diagnostics, runner, messages, gallery, dependencies.sharedActivity)
 
     internal val phoneStorage: PhoneStorageController = PhoneStorageController(viewModelScope, dependencies.repository, transfers, previews, runner, messages)
 
@@ -164,6 +169,16 @@ class AlbaViewModel(
 
     init {
         sync.start()
+        // An unfinished first read of the library also runs as background work whenever a refresh runs it, as at its
+        // start or after signing in again, so leaving Alba does not lose it. Scheduling is idempotent.
+        viewModelScope.launch {
+            sync.state.map { it.isRefreshing && it.catalogScan != null && dependencies.accountManager.session.value != null }
+                .distinctUntilChanged().collect { running ->
+                if (running) catalogSync.schedule(expedited = true)
+            }
+        }
+        // Each finished refresh also rechecks invitations, for the badge on the invitations inbox.
+        sync.state.map { it.lastRefreshedAt }.distinctUntilChanged().drop(1).onEach { sharedAlbums.checkInvitations() }.launchIn(viewModelScope)
     }
 
     fun dismissMessage() = messages.clear()
@@ -176,6 +191,13 @@ class AlbaViewModel(
 
     fun localOperationFailed() = messages.show(R.string.local_action_failed)
 
+    /** Opens Hidden once the user unlocked it, or says why it stayed locked. */
+    internal fun hiddenUnlockAnswered(result: me.lvca.alba.app.platform.UnlockResult) = when (result) {
+        me.lvca.alba.app.platform.UnlockResult.UNLOCKED -> gallery.openUnlockedHidden()
+        me.lvca.alba.app.platform.UnlockResult.NO_SCREEN_LOCK -> messages.show(R.string.hidden_needs_screen_lock)
+        me.lvca.alba.app.platform.UnlockResult.FAILED -> messages.show(R.string.hidden_unlock_failed)
+        me.lvca.alba.app.platform.UnlockResult.CANCELED -> Unit
+    }
     fun editedCopyNotUploaded() = messages.show(R.string.edited_copy_not_uploaded)
 
     fun setDiagnosticsEnabled(enabled: Boolean) = diagnostics.setEnabled(enabled)
@@ -251,6 +273,7 @@ class AlbaViewModel(
     /** Stops everything that belongs to the outgoing account and waits for it to end. */
     private suspend fun cancelCloudWork() {
         transfers.cancelActiveBatches()
+        catalogSync.cancel()
         val jobs = buildList<Job> {
             sync.cancel()?.let(::add)
             addAll(previews.cancel())

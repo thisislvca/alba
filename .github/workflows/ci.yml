@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    # Nightly, so the full device suite, the minSdk device and the compact phone still cover main between merges.
+    # Nightly, for the minimum SDK device and the compact phone, which only nightly and manual runs cover.
     - cron: '17 3 * * *'
   workflow_dispatch:
     inputs:
@@ -18,9 +18,10 @@ permissions:
   contents: read
 
 concurrency:
-  # The event is part of the key so a nightly run and a push to main do not cancel each other.
+  # The event is part of the key so a nightly run and a push to main do not cancel each other. Only a pull request's
+  # newer push cancels its older run; every push to main finishes its full device run, however quickly merges follow.
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   android:
@@ -29,6 +30,10 @@ jobs:
     if: github.repository != 'thisislvca/mela-archive' && !inputs.record-screenshots
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    outputs:
+      # true when the only problem is golden images; a same-repository pull request then gets them updated
+      # (update-screenshots). The job itself still fails, as it always has, so nothing else can hide behind this.
+      update-goldens: ${{ steps.classify.outputs.update-goldens }}
     env:
       ALBA_SENTRY_DSN: ''
       ALBA_SENTRY_PROPERTIES: /tmp/alba-ci-no-sentry.properties
@@ -36,11 +41,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: '.nvmrc'
           package-manager-cache: false
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '21'
@@ -64,16 +69,35 @@ jobs:
           else
             echo "mode=record" >> "$GITHUB_OUTPUT"
           fi
-      - name: Build and JVM tests
+      - name: Build
         id: build
         run: >-
           ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :engine:assembleDebugAndroidTest
-          :protocol-icloud-web:assembleDebugAndroidTest testDebugUnitTest
-          -Proborazzi.test.${{ steps.screenshots.outputs.mode }}=true
-          :app:assembleRelease :benchmark:assembleBenchmark :benchmark:assembleProfile --no-daemon --console=plain
+          :protocol-icloud-web:assembleDebugAndroidTest :app:assembleRelease :benchmark:assembleBenchmark
+          :benchmark:assembleProfile --no-daemon --console=plain
+      # --continue runs every module's tests even when one fails, so "only screenshots failed" is judged on all of them.
+      - name: JVM tests
+        id: tests
+        if: ${{ !cancelled() }}
+        run: >-
+          ./gradlew testDebugUnitTest -Proborazzi.test.${{ steps.screenshots.outputs.mode }}=true
+          --continue --no-daemon --console=plain
       - name: Lint and static analysis
+        id: lint
         if: ${{ !cancelled() }}
         run: ./gradlew lintDebug detekt ktlintCheck --no-daemon --console=plain
+      # From the JUnit XML and Roborazzi's results summary, not the logs: true only when every failed test is a
+      # screenshot difference (changed, or new without a golden), or when goldens are left over from removed tests, and
+      # the build and the static checks passed.
+      - name: Classify the failures
+        id: classify
+        if: ${{ !cancelled() }}
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          MODE: ${{ steps.screenshots.outputs.mode }}
+        run: node scripts/screenshot_changes.mjs classify | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Summarize JVM tests
         if: ${{ !cancelled() }}
         run: >-
@@ -81,7 +105,7 @@ jobs:
           | xargs -0 node scripts/device_test_summary.mjs "JVM tests" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload screenshots
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           # Verify mode: the new images and their differences from the goldens. Record mode: the new goldens.
           name: screenshots
@@ -92,7 +116,7 @@ jobs:
           retention-days: 14
       - name: Upload JVM test reports
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: jvm-test-reports
           path: |
@@ -106,23 +130,52 @@ jobs:
             "commit them under app/src/test/screenshots, or run CI with 'record-screenshots' on this branch."
           exit 1
 
-  record-screenshots:
-    # Manual: Actions > CI > Run workflow > pick the branch > tick "record-screenshots". Records every golden on Linux,
-    # where CI verifies them, and commits the result to that branch. Never on main: goldens reach main through review.
-    name: Record screenshot goldens
+  update-screenshots:
+    # The usual way goldens change. When a pull request from a branch of this repository fails only because screenshots
+    # differ (see "Classify the failures" above), this job records every golden on Linux, commits the changed images to
+    # the PR branch as the repository's GitHub App, and comments on the PR which screens changed. The push starts a new
+    # run, which cancels this one (PR concurrency) and is the one that counts. A reviewer accepts the images by merging,
+    # after looking at them in Files changed. Never for forks, main, pushes or the nightly: those fail as always.
+    #
+    # The commit is pushed with a token from the App (secrets ALBA_BOT_APP_ID and ALBA_BOT_PRIVATE_KEY): a GITHUB_TOKEN
+    # push would start no workflows. GITHUB_TOKEN only comments, which is why this job alone has pull-requests: write.
+    name: Update screenshot goldens
+    needs: android
     if: >-
-      github.repository != 'thisislvca/mela-archive' && inputs.record-screenshots
-      && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
+      ${{ !cancelled() && needs.android.outputs.update-goldens == 'true' && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
-      contents: write
+      contents: read
+      pull-requests: write
+    outputs:
+      pushed: ${{ steps.push.outcome == 'success' }}
     env:
       ALBA_SENTRY_DSN: ''
       ALBA_SENTRY_PROPERTIES: /tmp/alba-ci-no-sentry.properties
     steps:
+      # Needs the scripts, so it comes after the checkout below; the secrets check still runs before the long recording.
+      # The merge of the PR into its base is what the JVM job verified. No credentials stay in the checkout.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Require the GitHub App secrets
+        env:
+          APP_ID: ${{ secrets.ALBA_BOT_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.ALBA_BOT_PRIVATE_KEY }}
+        run: bash scripts/ci_goldens.sh require-secrets
+      # A PR whose head is already a bot golden update and still differs would loop: fail loudly instead.
+      - name: Check this run is current and cannot loop
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/ci_goldens.sh guard "$HEAD_SHA"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '21'
@@ -132,28 +185,89 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Record goldens
-        run: |
-          rm -rf app/src/test/screenshots
-          ./gradlew :app:testDebugUnitTest --tests '*Screenshots' -Proborazzi.test.record=true --no-daemon --console=plain
-      - name: Commit goldens
+        id: record
+        uses: ./.github/actions/record-goldens
+      - name: Move the goldens onto the pull request head
+        run: bash scripts/ci_goldens.sh to-head
+      - name: Commit and push the goldens
+        id: push
+        uses: ./.github/actions/push-goldens
+        with:
+          app-id: ${{ secrets.ALBA_BOT_APP_ID }}
+          private-key: ${{ secrets.ALBA_BOT_PRIVATE_KEY }}
+          branch: ${{ github.event.pull_request.head.ref }}
+          pr-number: ${{ github.event.pull_request.number }}
+      # Only reached if the push did not start a new run that cancelled this one.
+      - name: Report the failure on the pull request
+        if: ${{ failure() }}
         env:
-          BRANCH: ${{ github.ref_name }}
-        run: |
-          test "$BRANCH" != main
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A app/src/test/screenshots
-          if git diff --cached --quiet; then echo "The goldens are unchanged."; exit 0; fi
-          git commit -m 'test: record screenshot goldens on Linux'
-          git push origin "HEAD:$BRANCH"
-          echo "Committed new goldens to $BRANCH. Commits pushed by Actions do not start CI; push again or re-run it." \
-            >> "$GITHUB_STEP_SUMMARY"
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash scripts/ci_goldens.sh comment-failed "$PR_NUMBER"
+
+  record-screenshots:
+    # Manual fallback (forks, or a branch without a pull request): Actions > CI > Run workflow > pick the branch > tick
+    # "record-screenshots". Records every golden on Linux, where CI verifies them, and commits the result to that branch
+    # with the same steps as update-screenshots. Never on main: goldens reach main through review.
+    #
+    # The commit is pushed with the App's token (see update-screenshots). That push cannot loop back here: recording
+    # runs only on a manual workflow_dispatch, never on push or pull_request, and a dispatch made by any bot, the App
+    # included, is refused.
+    name: Record screenshot goldens
+    if: >-
+      github.repository != 'thisislvca/mela-archive' && github.event_name == 'workflow_dispatch'
+      && inputs.record-screenshots && !endsWith(github.actor, '[bot]')
+      && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # The push uses the App's token, not GITHUB_TOKEN, which only needs to read.
+    permissions:
+      contents: read
+    env:
+      ALBA_SENTRY_DSN: ''
+      ALBA_SENTRY_PROPERTIES: /tmp/alba-ci-no-sentry.properties
+    steps:
+      # No credentials stay in the checkout: the App token is used only by the push.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # No fallback to GITHUB_TOKEN: its push would leave the branch without CI on the new goldens.
+      - name: Require the GitHub App secrets
+        env:
+          APP_ID: ${{ secrets.ALBA_BOT_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.ALBA_BOT_PRIVATE_KEY }}
+        run: bash scripts/ci_goldens.sh require-secrets
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Record goldens
+        id: record
+        uses: ./.github/actions/record-goldens
+      - name: Commit and push the goldens
+        if: steps.record.outputs.changed == 'true'
+        uses: ./.github/actions/push-goldens
+        with:
+          app-id: ${{ secrets.ALBA_BOT_APP_ID }}
+          private-key: ${{ secrets.ALBA_BOT_PRIVATE_KEY }}
+          branch: ${{ github.ref_name }}
 
   instrumentation:
-    # Pull requests run the @Smoke device tests on the Pixel 9 at the target API level. Pushes to main, the nightly
-    # schedule and manual runs run every device test there, and the smoke tests on the minimum SDK and a compact phone.
-    # Dropping devices from the matrix, rather than skipping a job, keeps the result "Android checks" requires
-    # meaningful on pull requests.
+    # Pull requests and pushes to main run every app, engine and protocol device test on the Pixel 9 at the target API
+    # level. The nightly schedule runs the @Smoke tests on the minimum SDK and a compact phone (main's pushes already
+    # cover the Pixel 9); manual runs do all three. Dropping devices from the matrix, rather than skipping a job, keeps
+    # the result "Android checks" requires meaningful.
     name: ${{ matrix.title }}
     if: github.repository != 'thisislvca/mela-archive' && !inputs.record-screenshots
     runs-on: ubuntu-24.04
@@ -162,7 +276,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"device":"pixel9Api36","suite":"smoke","title":"Android 36 smoke device tests"}]' || '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"},{"device":"pixel9Api30","suite":"smoke","title":"Android 30 smoke device tests"},{"device":"compactApi36","suite":"smoke","title":"Compact phone smoke device tests"}]') }}
+        include: ${{ fromJSON(github.event_name == 'schedule' && '[{"device":"pixel9Api30","suite":"smoke","title":"Android 30 smoke device tests"},{"device":"compactApi36","suite":"smoke","title":"Compact phone smoke device tests"}]'
+          || github.event_name == 'workflow_dispatch' && '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"},{"device":"pixel9Api30","suite":"smoke","title":"Android 30 smoke device tests"},{"device":"compactApi36","suite":"smoke","title":"Compact phone smoke device tests"}]'
+          || '[{"device":"pixel9Api36","suite":"all","title":"Android 36 device tests"}]') }}
     env:
       ALBA_SENTRY_DSN: ''
       ALBA_SENTRY_PROPERTIES: /tmp/alba-ci-no-sentry.properties
@@ -170,11 +286,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: '.nvmrc'
           package-manager-cache: false
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '21'
@@ -208,7 +324,7 @@ jobs:
         run: bash scripts/ci_device_tests.sh protocol-icloud-web "${{ matrix.device }}" "${{ matrix.title }} (protocol-icloud-web)"
       - name: Upload device test reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-device-tests-${{ matrix.device }}
           path: |
@@ -221,13 +337,24 @@ jobs:
   checks:
     name: Android checks
     if: always() && github.repository != 'thisislvca/mela-archive' && !inputs.record-screenshots
-    needs: [android, instrumentation]
+    needs: [android, update-screenshots, instrumentation]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       # instrumentation is a matrix; its result is success only if every device that ran passed.
+      #
+      # A pull request whose goldens were just pushed is the exception: its commit is superseded by the pushed one,
+      # whose own run decides. This run is normally cancelled by that run (concurrency); if it is not, it does not report
+      # the old commit's screenshot failure, or its device tests, which the new run repeats, as the result.
       - name: Require all checks
         env:
           BUILD_RESULT: ${{ needs.android.result }}
           DEVICE_RESULT: ${{ needs.instrumentation.result }}
-        run: test "$BUILD_RESULT" = success && test "$DEVICE_RESULT" = success
+          UPDATE_RESULT: ${{ needs.update-screenshots.result }}
+          PUSHED: ${{ needs.update-screenshots.outputs.pushed }}
+        run: |
+          if [ "$UPDATE_RESULT" = success ] && [ "$PUSHED" = true ]; then
+            echo "Screenshots updated: the commit pushed to this branch is checked by its own run." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          test "$BUILD_RESULT" = success && test "$DEVICE_RESULT" = success

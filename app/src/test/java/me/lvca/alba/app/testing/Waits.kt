@@ -20,6 +20,17 @@ internal const val UI_WAIT = 10_000L
 /** Repository and transfer work. */
 internal const val LONG_WAIT = 10_000L
 
+/**
+ * Waits for [condition] on state outside the UI, such as the repository after an edit. The app's coroutines resume on
+ * the main looper, which Robolectric runs only while Compose synchronizes, so each check synchronizes first; a plain
+ * `waitUntil` on such a condition would never let them finish.
+ */
+internal fun ComposeTestRule.waitUntilSettled(timeoutMillis: Long = LONG_WAIT, condition: () -> Boolean) =
+    waitUntil(timeoutMillis) {
+        waitForIdle()
+        condition()
+    }
+
 /** Navigation, recreation and the viewer transition settle asynchronously; assert only once the node is on screen. */
 internal fun ComposeTestRule.waitUntilDisplayed(matcher: SemanticsMatcher): SemanticsNodeInteraction {
     waitUntil(LONG_WAIT) { runCatching { onNode(matcher).assertIsDisplayed() }.isSuccess }

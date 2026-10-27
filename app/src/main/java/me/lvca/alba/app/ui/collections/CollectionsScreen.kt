@@ -6,9 +6,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +36,7 @@ import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.mosaicCell
 import me.lvca.alba.app.ui.localizedTitle
+import me.lvca.alba.app.ui.shared.LocalSharedActivity
 import me.lvca.alba.engine.model.*
 
 internal enum class CollectionsPage(val title: Int) {
@@ -46,14 +50,13 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
     summaries: Map<String, CollectionPreview>, scroll: LazyGridState, preview: (String) -> Unit,
     openPage: (CollectionsPage) -> Unit, openFolder: (String) -> Unit, openCollection: (String) -> Unit, openOffline: () -> Unit,
     openSharedInvitations: () -> Unit = {}, createSharedAlbum: () -> Unit = {}, openTrash: () -> Unit = {}, openCloudTrash: () -> Unit = {},
-    createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: Dp = 16.dp) {
-    val albums = remember(gallery.collections, folder, page) { gallery.collections.filter {
-        when (page) {
-            CollectionsPage.SHARED -> it.shared != null
-            CollectionsPage.DEVICE -> it.id.startsWith("device-folder:")
-            else -> it.parentId == folder && it.isPersonal
-        }
-    } }
+    createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: Dp = 16.dp, openHidden: () -> Unit = {}) {
+    var sort by rememberSaveable { mutableStateOf(AlbumSort.RECENT) }
+    val sortable = page != CollectionsPage.DEVICE
+    val albums = remember(gallery.collections, folder, page, sort, summaries) {
+        pageCollections(gallery.collections, folder, page, sort.takeIf { sortable }, summaries)
+    }
+    val activity = LocalSharedActivity.current
     LazyVerticalGrid(columns = GridCells.Adaptive(150.dp), state = scroll, modifier = Modifier.fillMaxSize().testTag("collections-grid"),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = bottomSpace), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xl)) {
         if (page == null && folder == null) {
@@ -61,12 +64,16 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                 val shortcutGap = 10.dp
                 Column(verticalArrangement = Arrangement.spacedBy(shortcutGap)) {
                     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(shortcutGap)) {
-                        ShortcutCard(stringResource(R.string.favorites), Modifier.weight(1f), { ICloudIcon(R.drawable.icloud_favorites) }) { openCollection(GalleryQuery.FAVORITES) }
-                        ShortcutCard(stringResource(R.string.offline), Modifier.weight(1f), { Icon(AlbaIcons.DownloadForOffline, null) }, openOffline)
+                        ShortcutCard(stringResource(R.string.favorites), Modifier.weight(1f).testTag("collection-favorites"),
+                            { ICloudIcon(R.drawable.icloud_favorites) }) { openCollection(GalleryQuery.FAVORITES) }
+                        ShortcutCard(stringResource(R.string.offline), Modifier.weight(1f).testTag("collection-offline"),
+                            { Icon(AlbaIcons.DownloadForOffline, null) }, openOffline)
                     }
                     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(shortcutGap)) {
-                        ShortcutCard(stringResource(R.string.phone_trash), Modifier.weight(1f), { Icon(AlbaIcons.DeleteOutline, null) }, openTrash)
-                        ShortcutCard(stringResource(R.string.icloud_recently_deleted), Modifier.weight(1f), { Icon(AlbaIcons.CloudQueue, null) }, openCloudTrash)
+                        ShortcutCard(stringResource(R.string.phone_trash), Modifier.weight(1f).testTag("collection-phone-trash"),
+                            { Icon(AlbaIcons.DeleteOutline, null) }, openTrash)
+                        ShortcutCard(stringResource(R.string.icloud_recently_deleted), Modifier.weight(1f).testTag("collection-cloud-trash"),
+                            { Icon(AlbaIcons.CloudQueue, null) }, openCloudTrash)
                     }
                 }
             }
@@ -74,7 +81,11 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                 MosaicCard(stringResource(R.string.albums), summaries["hub:albums"]?.media.orEmpty(), previewRetryVersion, preview, "collection-albums", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.ALBUMS) }
             }
             item {
-                MosaicCard(stringResource(R.string.shared_albums), summaries["hub:shared"]?.media.orEmpty(), previewRetryVersion, preview, "collection-shared", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.SHARED) }
+                val covers = summaries["hub:shared"]?.media.orEmpty()
+                val icon = painterResource(R.drawable.icloud_shared_albums)
+                MosaicCard(stringResource(R.string.shared_albums), covers, previewRetryVersion, preview, "collection-shared", icon) {
+                    openPage(CollectionsPage.SHARED)
+                }
             }
             item {
                 MosaicCard(stringResource(R.string.on_this_phone), summaries["hub:device"]?.media.orEmpty(), previewRetryVersion, preview, "collection-device", rememberVectorPainter(AlbaIcons.PhoneAndroid)) { openPage(CollectionsPage.DEVICE) }
@@ -92,8 +103,16 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                 AlbaCard {
                     SmartCollection.entries.filter { it != SmartCollection.VIDEOS }.forEachIndexed { index, smart ->
                         if (index > 0) AlbaDivider(Modifier.padding(start = 60.dp))
-                        CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) }) { openCollection(smart.id) }
+                        CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) },
+                            Modifier.testTag("collection-${smart.name.lowercase()}")) { openCollection(smart.id) }
                     }
+                }
+            }
+            // Like iOS, Hidden sits apart and shows no count or covers until it is unlocked.
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                AlbaCard(Modifier.testTag("collection-hidden")) {
+                    CollectionRow(stringResource(R.string.hidden), stringResource(R.string.hidden_locked),
+                        icon = { Icon(Icons.Outlined.Lock, null) }, onClick = openHidden)
                 }
             }
         } else {
@@ -101,11 +120,16 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(pluralStringResource(R.plurals.album_count, albums.size, albums.size),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    if (sortable && albums.size > 1) AlbumSortMenu(sort) { sort = it }
                     if (page == CollectionsPage.SHARED) {
-                        IconButton(onClick = openSharedInvitations, enabled = canEdit) { Icon(Icons.Outlined.Email, stringResource(R.string.shared_invitations)) }
+                        InvitationsButton(activity.unreadInvitations, canEdit, openSharedInvitations)
                         IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_create)) }
                     } else if (page != CollectionsPage.DEVICE) {
-                        TextButton(onClick = createAlbum, enabled = canEdit) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(R.string.new_album)) }
+                        TextButton(onClick = createAlbum, enabled = canEdit, modifier = Modifier.testTag("new-album")) {
+                            Icon(Icons.Outlined.Add, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(AlbaSpacing.xs))
+                            Text(stringResource(R.string.new_album))
+                        }
                     }
                 }
             }
@@ -121,12 +145,57 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                     val children = gallery.collections.filter { it.parentId == album.id }
                     CollectionPreview(children.size, children.flatMap { summaries[it.id]?.media.orEmpty() }.take(6))
                 } else summaries[album.id]
-                AlbumCard(album, summary, previewRetryVersion, preview) { if (album.isFolder) openFolder(album.id) else openCollection(album.id) }
+                AlbumCard(album, summary, previewRetryVersion, preview, unread = album.id in activity.unreadAlbums) {
+                    if (album.isFolder) openFolder(album.id) else openCollection(album.id)
+                }
             }
         }
         if (page == null || page == CollectionsPage.DEVICE) item(span = { GridItemSpan(maxLineSpan) }) {
             CollectionRow(stringResource(R.string.this_phone), if (gallery.limitedPhotoAccess) stringResource(R.string.change_selected_phone_photos) else if (gallery.deviceMediaAccess) stringResource(R.string.manage_photo_access) else stringResource(R.string.choose_photos_to_include),
                 icon = { Icon(AlbaIcons.PhoneAndroid, null) }, onClick = requestPhotos)
+        }
+    }
+}
+
+/** The albums [page] lists, in [sort] order when the page is sortable; recency is the newest photo in an album or folder. */
+internal fun pageCollections(collections: List<GalleryCollection>, folder: String?, page: CollectionsPage?, sort: AlbumSort?,
+    summaries: Map<String, CollectionPreview>): List<GalleryCollection> {
+    val shown = collections.filter {
+        when (page) {
+            CollectionsPage.SHARED -> it.shared != null
+            CollectionsPage.DEVICE -> it.id.startsWith("device-folder:")
+            else -> it.parentId == folder && it.isPersonal
+        }
+    }
+    return sort?.apply(shown) { album ->
+        val members = if (album.isFolder) collections.filter { it.parentId == album.id }.map { it.id } else listOf(album.id)
+        members.mapNotNull { summaries[it]?.media?.maxOfOrNull(GalleryMedia::capturedAtEpochMillis) }.maxOrNull()
+    } ?: shown
+}
+
+/** The invitations inbox, with a count of invitations not looked at yet. */
+@Composable
+private fun InvitationsButton(unread: Int, enabled: Boolean, open: () -> Unit) {
+    IconButton(onClick = open, enabled = enabled, modifier = Modifier.testTag("shared-invitations-button")) {
+        BadgedBox(badge = { if (unread > 0) Badge(Modifier.testTag("shared-invitations-badge")) { Text(unread.toString()) } }) {
+            Icon(Icons.Outlined.Email, stringResource(R.string.shared_invitations))
+        }
+    }
+}
+
+@Composable
+private fun AlbumSortMenu(sort: AlbumSort, change: (AlbumSort) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }, modifier = Modifier.testTag("album-sort")) {
+            Icon(AlbaIcons.SwapVert, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(sort.label))
+        }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            AlbumSort.entries.forEach { option ->
+                DropdownMenuItem(text = { Text(stringResource(option.label)) }, onClick = { open = false; change(option) },
+                    trailingIcon = if (option == sort) ({ Icon(Icons.Outlined.Check, null) }) else null,
+                    modifier = Modifier.testTag("album-sort-${option.name}"))
+            }
         }
     }
 }
@@ -169,8 +238,9 @@ private fun ShortcutCard(title: String, modifier: Modifier, icon: @Composable ()
 }
 
 @Composable
-internal fun CollectionRow(title: String, subtitle: String?, count: Int? = null, icon: @Composable () -> Unit, onClick: () -> Unit) {
-    AlbaListRow(title, onClick, subtitle = subtitle, leading = icon, shape = MaterialTheme.shapes.small,
+internal fun CollectionRow(title: String, subtitle: String?, count: Int? = null, icon: @Composable () -> Unit,
+    modifier: Modifier = Modifier, onClick: () -> Unit) {
+    AlbaListRow(title, onClick, modifier, subtitle = subtitle, leading = icon, shape = MaterialTheme.shapes.small,
         contentPadding = PaddingValues(horizontal = AlbaSpacing.xs, vertical = AlbaSpacing.sm),
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {

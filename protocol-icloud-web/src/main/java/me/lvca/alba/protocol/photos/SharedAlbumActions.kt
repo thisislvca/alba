@@ -120,6 +120,8 @@ internal class SharedAlbumActions(
                 state.requests.none { it.id == command.subject } && state.blocked.any { it.id == command.subject }
             }
             SharedAction.UNBLOCK -> management().blocked.none { it.id == command.subject }
+            // One share update removes the person and blocks them, so their absence confirms both.
+            SharedAction.BLOCK -> management().participants.none { it.id == command.subject }
             SharedAction.REMOVE_PARTICIPANT -> management().participants.none { it.id == command.subject }
             SharedAction.ROLE -> management().participants.any {
                 it.id in setOf(command.subject, pending.text("recordName")) && it.role == when (command.value) {

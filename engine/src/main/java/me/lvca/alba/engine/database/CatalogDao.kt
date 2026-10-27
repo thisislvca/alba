@@ -6,6 +6,9 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/** A library row a full read did not see, with its iCloud asset record name. */
+data class UnseenRow(val mediaId: String, val assetRecordName: String?)
+
 data class DisplayLink(val cloudId: String, val deviceId: String, val accountId: String)
 
 private const val CATALOG_WITH_CACHE = """
@@ -37,7 +40,15 @@ SELECT c.mediaId,
     c.deviceFolderName,
     c.localFavorite,
     c.isTrashed,
-    c.expiresAtEpochMillis
+    c.expiresAtEpochMillis,
+    c.isHidden,
+    c.caption,
+    c.description,
+    c.latitude,
+    c.longitude,
+    c.altitude,
+    c.timeZoneOffsetSeconds,
+    c.burstId
 FROM catalog_items c
 LEFT JOIN media_cache cache ON cache.mediaId = c.mediaId AND cache.resourceFingerprint = c.resourceFingerprint
 """
@@ -130,4 +141,103 @@ interface CatalogDao {
 
     @Upsert
     suspend fun upsertCheckpoint(checkpoint: CatalogCheckpointEntity)
+}
+
+/**
+ * What syncing the iCloud library needs: the unfinished first read, and queries that page through the catalog or change
+ * it in place instead of loading it whole, so memory stays flat in the library's size.
+ */
+@Dao
+interface CatalogSyncDao {
+    /** Up to [limit] iCloud rows after [after] in media id order, for walking the catalog in pages. */
+    @Query(CATALOG_WITH_CACHE + " WHERE c.origin = 'ICLOUD' AND c.mediaId > :after ORDER BY c.mediaId LIMIT :limit")
+    suspend fun cloudItemsAfter(after: String, limit: Int): List<CatalogItemEntity>
+
+    /** iCloud rows whose media id starts with [prefix], such as one account's shared-album items. */
+    @Query(CATALOG_WITH_CACHE + " WHERE c.origin = 'ICLOUD' AND substr(c.mediaId, 1, length(:prefix)) = :prefix")
+    suspend fun cloudItemsWithPrefix(prefix: String): List<CatalogItemEntity>
+
+    /** The Hidden album's last rows for the account whose media ids start with [prefix]. */
+    @Query(CATALOG_WITH_CACHE + """ WHERE c.origin = 'ICLOUD' AND c.isHidden = 1 AND c.isTrashed = 0
+        AND substr(c.mediaId, 1, length(:prefix)) = :prefix""")
+    suspend fun hiddenCloudItems(prefix: String): List<CatalogItemEntity>
+
+    /** The library assets that belong to iCloud master record [master], to resolve a change to the master. */
+    @Query("""SELECT assetRecordName FROM catalog_items WHERE origin = 'ICLOUD' AND masterRecordName = :master
+        AND assetRecordName IS NOT NULL AND isTrashed = 0 AND mediaId NOT LIKE 'shared:%'""")
+    suspend fun assetRecordNames(master: String): List<String>
+
+    /**
+     * Up to [limit] of the account's library rows after [after] that the read [scanId] has not seen, to check by name
+     * whether they still exist. Recently Deleted and Hidden have their own snapshots.
+     */
+    @Query("""SELECT mediaId, assetRecordName FROM catalog_items WHERE origin = 'ICLOUD'
+        AND substr(mediaId, 1, length(:prefix)) = :prefix AND lastSeenScanId != :scanId AND lastSeenScanId != ''
+        AND isTrashed = 0 AND isHidden = 0
+        AND mediaId > :after ORDER BY mediaId LIMIT :limit""")
+    suspend fun unseenLibraryRows(prefix: String, scanId: String, after: String, limit: Int): List<UnseenRow>
+
+    @Query("DELETE FROM catalog_checkpoints WHERE scope = :scope")
+    suspend fun deleteCheckpoint(scope: String)
+
+    @Query("SELECT COUNT(*) FROM catalog_items WHERE origin = 'ICLOUD'")
+    suspend fun cloudCount(): Int
+
+    @Query("SELECT mediaId FROM catalog_items WHERE origin = 'ICLOUD' AND mediaId IN (:ids)")
+    suspend fun existingIds(ids: List<String>): List<String>
+
+    /**
+     * Marks the library rows for these iCloud record names as no longer seen; publishing removes them unless a
+     * snapshot read in the same refresh, such as Recently Deleted, still lists them.
+     */
+    @Query("""UPDATE catalog_items SET lastSeenScanId = '' WHERE origin = 'ICLOUD' AND mediaId NOT LIKE 'shared:%'
+        AND (assetRecordName IN (:assetNames) OR masterRecordName IN (:masterNames) OR mediaId IN (:mediaIds))""")
+    suspend fun unstampRecords(assetNames: List<String>, masterNames: List<String>, mediaIds: List<String>)
+
+    /** Marks these rows as seen by the read [scanId], keeping them when it publishes. */
+    @Query("UPDATE catalog_items SET lastSeenScanId = :scanId WHERE mediaId IN (:ids)")
+    suspend fun stampRows(ids: List<String>, scanId: String)
+
+    /** Marks every iCloud row a finished library read did not see. */
+    @Query("UPDATE catalog_items SET lastSeenScanId = '' WHERE origin = 'ICLOUD' AND lastSeenScanId != :scanId")
+    suspend fun unstampOutsideScan(scanId: String)
+
+    /** Marks the rows that Recently Deleted and shared albums replace whole on every refresh. */
+    @Query("UPDATE catalog_items SET lastSeenScanId = '' WHERE origin = 'ICLOUD' AND (isTrashed = 1 OR mediaId LIKE 'shared:%')")
+    suspend fun unstampSnapshots()
+
+    @Query("DELETE FROM catalog_items WHERE origin = 'ICLOUD' AND lastSeenScanId = ''")
+    suspend fun deleteUnstamped()
+
+    /** Every cached file an iCloud row still points at, for pruning the cache without loading the catalog. */
+    @Query("""
+        SELECT m.previewCachePath FROM media_cache m JOIN catalog_items c ON c.mediaId = m.mediaId
+            AND c.resourceFingerprint = m.resourceFingerprint WHERE c.origin = 'ICLOUD' AND m.previewCachePath IS NOT NULL
+        UNION ALL SELECT m.viewerCachePath FROM media_cache m JOIN catalog_items c ON c.mediaId = m.mediaId
+            AND c.resourceFingerprint = m.resourceFingerprint WHERE c.origin = 'ICLOUD' AND m.viewerCachePath IS NOT NULL
+        UNION ALL SELECT m.originalCachePath FROM media_cache m JOIN catalog_items c ON c.mediaId = m.mediaId
+            AND c.resourceFingerprint = m.resourceFingerprint WHERE c.origin = 'ICLOUD' AND m.originalCachePath IS NOT NULL
+        UNION ALL SELECT m.motionCachePath FROM media_cache m JOIN catalog_items c ON c.mediaId = m.mediaId
+            AND c.resourceFingerprint = m.resourceFingerprint WHERE c.origin = 'ICLOUD' AND m.motionCachePath IS NOT NULL
+    """)
+    suspend fun cloudCachePaths(): List<String>
+
+    @Query("SELECT * FROM catalog_scans WHERE account = :account")
+    suspend fun scan(account: String): CatalogScanEntity?
+
+    @Query("SELECT * FROM catalog_scans")
+    fun observeScans(): Flow<List<CatalogScanEntity>>
+
+    @Upsert
+    suspend fun upsertScan(scan: CatalogScanEntity)
+
+    @Query("DELETE FROM catalog_scans WHERE account = :account")
+    suspend fun deleteScan(account: String)
+
+    /** A read under any other account is discarded: it never continues after an account change. */
+    @Query("DELETE FROM catalog_scans WHERE account != :account")
+    suspend fun deleteOtherScans(account: String)
+
+    @Query("DELETE FROM catalog_scans")
+    suspend fun deleteScans()
 }

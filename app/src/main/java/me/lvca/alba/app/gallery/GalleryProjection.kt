@@ -1,5 +1,7 @@
 package me.lvca.alba.app.gallery
 
+import me.lvca.alba.engine.model.BurstIndex
+import me.lvca.alba.engine.model.BurstStacks
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.GalleryDate
 import me.lvca.alba.engine.model.GalleryMedia
@@ -29,6 +31,10 @@ internal data class GalleryCatalog(
     val deviceCount: Int,
     /** Phone folders that hold at least one photo outside the trash, as browsable collections. */
     val deviceFolders: List<GalleryCollection>,
+    /** Every burst in the library, so stacks keep their size and key photo in every view. */
+    val bursts: BurstIndex = BurstIndex.EMPTY,
+    /** Phone photos whose iCloud copy is hidden. */
+    val hiddenDeviceCopies: Set<String> = emptySet(),
 )
 
 /** The catalog narrowed by a query, with its month sections. */
@@ -60,7 +66,7 @@ internal fun projectGalleryCatalog(
         if (!hasDeviceAccess && media.origin == MediaOrigin.DEVICE) return@forEach
 
         when (media.origin) {
-            MediaOrigin.ICLOUD -> if (!media.isShared) cloudCount += 1
+            MediaOrigin.ICLOUD -> if (!media.isShared && !media.isHidden) cloudCount += 1
             MediaOrigin.DEVICE -> deviceCount += 1
         }
         val visibleMedia = if (hasDeviceAccess) media else media.copy(linkedDeviceId = null, linkedDeviceReference = null)
@@ -72,7 +78,8 @@ internal fun projectGalleryCatalog(
         }
     }
 
-    return GalleryCatalog(catalogItems, byId, cloudCount, deviceCount, deviceFolders.values.toList())
+    return GalleryCatalog(catalogItems, byId, cloudCount, deviceCount, deviceFolders.values.toList(), BurstIndex.of(catalogItems),
+        catalogItems.mapNotNullTo(HashSet()) { item -> item.linkedDeviceId?.takeIf { item.isHidden } })
 }
 
 /** Projects the library for a query. Incremental, so keep one instance per observer and call it from one thread. */
@@ -86,13 +93,19 @@ internal class GalleryProjection {
         hasDeviceAccess: Boolean,
         accountState: ICloudAccountState,
         zone: ZoneId = ZoneId.systemDefault(),
+        expandedBursts: Set<String> = emptySet(),
     ): ProjectedGallery {
         val catalog = projectGalleryCatalog(allItems, hasDeviceAccess, accountState)
         val matching = queryProjection.apply(catalog.items, query)
         // The unfiltered library shows a backed-up phone photo once, as its iCloud copy.
         val linked = if (query.origin == null && query.collectionId == null && hasDeviceAccess)
             matching.mapNotNull { it.linkedDeviceId }.toSet() else emptySet()
-        val visible = if (linked.isEmpty()) matching else matching.filterNot { it.id in linked }
+        // A phone photo backed up as a now hidden iCloud photo is hidden with it, everywhere.
+        val hiddenCopies = if (hasDeviceAccess) catalog.hiddenDeviceCopies else emptySet()
+        val unlinked = if (linked.isEmpty() && hiddenCopies.isEmpty()) matching
+            else matching.filterNot { it.id in linked || it.id in hiddenCopies }
+        // Like Photos, a burst shows as one photo; Recently Deleted lists each deleted frame.
+        val visible = if (query.trashOnly) unlinked else BurstStacks.stack(unlinked, catalog.bursts, expandedBursts)
         return ProjectedGallery(catalog, visible, sectionProjection.apply(visible, query.date, zone), accountState)
     }
 }

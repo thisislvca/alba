@@ -97,10 +97,11 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit, initialPag
 
                 Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(top = AlbaSpacing.md, bottom = AlbaSpacing.md),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
-                    Button(onClick = { if (page == 0) page = 1 else onConnect() }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                    Button(onClick = { if (page == 0) page = 1 else onConnect() },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("welcome-primary")) {
                         Text(stringResource(if (page == 0) R.string.welcome_continue else R.string.welcome_connect))
                     }
-                    TextButton(onClick = onDemo, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    TextButton(onClick = onDemo, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("welcome-demo")) {
                         Text(stringResource(R.string.welcome_demo))
                     }
                     Text(stringResource(R.string.welcome_demo_hint), style = MaterialTheme.typography.bodySmall,

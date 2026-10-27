@@ -6,8 +6,8 @@ Alba uses Google Play App Signing for `me.lvca.alba`. Google holds the app signi
 
 1. Merge into `main` and wait for Android CI on that exact commit to pass.
 2. Run [Prepare alpha release](https://github.com/thisislvca/alba/actions/workflows/prepare-app-release.yml) on `main` with channel `alpha` and a version such as `0.1.1` and release notes of at most 500 characters.
-3. Approve the `release-signing` deployment after reviewing the source commit. A fresh runner signs the unsigned AAB, deletes the temporary key immediately, and records GitHub build provenance. A separate runner uploads it to Play internal testing. After that upload succeeds, the GitHub release is published as a prerelease, labelled `Alba 0.1.1 Alpha (build N)`. Failed or skipped uploads leave the candidate draft.
-4. Test the Play internal build on your phone.
+3. Approve the `release-signing` deployment after reviewing the source commit. A fresh runner signs the unsigned AAB, deletes the temporary key immediately, and records GitHub build provenance. A separate runner uploads it to Play internal testing and promotes the same build to Closed testing – Alpha, where testers who joined the closed test get it once Google's review finishes (usually a few hours). After that succeeds, the GitHub release is published as a prerelease, labelled `Alba 0.1.1 Alpha (build N)`. Failed or skipped uploads leave the candidate draft.
+4. Test the build on your phone (internal testing has it within minutes).
 5. Run [Promote tested build to stable](https://github.com/thisislvca/alba/actions/workflows/publish-app-release.yml) with the candidate tag, then approve the `play-production` deployment. This promotes the existing internal build without rebuilding it and marks the same GitHub release stable, removing the Alpha label.
 
 The Android version name stays `0.1.1` across alpha builds; the workflow run counter supplies a higher version code each time. No version-bump commit or separate alpha counter is needed. Tags retain `app/v0.1.1-build.N` and point to the exact tested main commit. Channel metadata is carried in the attested release manifest; older candidates without it remain promotable.

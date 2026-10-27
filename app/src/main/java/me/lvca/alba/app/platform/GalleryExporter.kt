@@ -66,14 +66,18 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
         return File(root, UUID.randomUUID().toString()).apply { check(mkdirs()) }
     }
 
-    /** Only completed copies in this directory are exposed to the chosen share target. */
-    suspend fun prepareShare(items: List<GalleryMedia>): Intent = withContext(Dispatchers.IO) {
+    /**
+     * Only completed copies in this directory are exposed to the chosen share target. With [motion], each Live Photo
+     * is shared as its motion clip, a video.
+     */
+    suspend fun prepareShare(items: List<GalleryMedia>, motion: Boolean = false): Intent = withContext(Dispatchers.IO) {
         require(items.isNotEmpty() && items.size <= 50) { StoredMessage.CHOOSE_BETWEEN_1_AND_50_PHOTOS_TO_SHARE_AT_ONCE.code }
+        require(!motion || items.all { it.kind == MediaKind.LIVE_PHOTO }) { StoredMessage.THIS_PHOTO_HAS_NO_MOTION_CLIP.code }
         val directory = newShareDirectory()
         try {
-            val uris = copyOriginals(items, directory)
+            val uris = copyOriginals(items, directory, motion)
             currentCoroutineContext().ensureActive()
-            val mimes = items.map { it.mimeType }.distinct()
+            val mimes = items.map { if (motion) it.motionMimeType else it.mimeType }.distinct()
             val mime = if (mimes.size == 1) mimes.single() else if (mimes.all { it.startsWith("image/") }) "image/*"
                 else if (mimes.all { it.startsWith("video/") }) "video/*" else "*/*"
             Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
@@ -92,13 +96,13 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
     }
 
     /** Copies each original into [directory], downloading iCloud originals when needed, within space limits. */
-    private suspend fun copyOriginals(items: List<GalleryMedia>, directory: File): List<Uri> {
+    private suspend fun copyOriginals(items: List<GalleryMedia>, directory: File, motion: Boolean = false): List<Uri> {
         val context = currentCoroutineContext()
         var total = 0L
         var nextSpaceCheck = 0L
         val uris = items.mapIndexed { index, media ->
             currentCoroutineContext().ensureActive()
-            val file = File(directory, "${index + 1}-${exportName(media)}")
+            val file = File(directory, "${index + 1}-${exportName(media, motion)}")
             file.outputStream().use { raw ->
                 val output = object : OutputStream() {
                     override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
@@ -120,7 +124,7 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
                     val uri = requireNotNull(media.originalReference) { "Phone photo is no longer available." }.toUri()
                     require(uri.scheme == "content")
                     checkNotNull(resolver.openInputStream(uri)).use { it.copyTo(output) }
-                } else repository.exportOriginal(media.id, output)
+                } else repository.exportOriginal(media.id, output, motion)
             }
             FileProvider.getUriForFile(appContext, "${appContext.packageName}.shares", file)
         }
@@ -132,9 +136,18 @@ class GalleryExporter(context: Context, private val repository: OriginalExporter
         Unit
     }
 
-    suspend fun saveToGallery(media: GalleryMedia) = withContext(Dispatchers.IO) {
-        // Both Live Photo resources are written before either is made visible.
-        val copies = (if (media.kind == MediaKind.LIVE_PHOTO) listOf(false, true) else listOf(false)).map { motion ->
+    /**
+     * Saves [media] to the phone gallery. Both Live Photo resources are written before either is made visible; with
+     * [motionOnly], only a Live Photo's motion clip is saved, as a video.
+     */
+    suspend fun saveToGallery(media: GalleryMedia, motionOnly: Boolean = false) = withContext(Dispatchers.IO) {
+        require(!motionOnly || media.kind == MediaKind.LIVE_PHOTO) { StoredMessage.THIS_PHOTO_HAS_NO_MOTION_CLIP.code }
+        val parts = when {
+            motionOnly -> listOf(true)
+            media.kind == MediaKind.LIVE_PHOTO -> listOf(false, true)
+            else -> listOf(false)
+        }
+        val copies = parts.map { motion ->
             val mime = if (motion) media.motionMimeType else media.mimeType
             val collection = if (mime.startsWith("video/")) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
                 else MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)

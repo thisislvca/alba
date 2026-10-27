@@ -27,6 +27,8 @@ import me.lvca.alba.engine.model.SharedInvitation
 internal fun SharedInvitations(actions: InvitationActions, dismiss: () -> Unit, initialUrl: String = "", invalidLink: Boolean = false, demo: Boolean = false) {
     val invitations = rememberLoadable(initial = emptyList<SharedInvitation>()) { actions.pendingSharedInvitations() }
     val pending = invitations.value
+    // Opening the inbox clears the badge once the current invitations are known.
+    LaunchedEffect(invitations.loading) { if (!invitations.loading && !invitations.failed) actions.markInvitationsRead() }
     var resolved by remember { mutableStateOf<SharedInvitation?>(null) }
     var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }
     var acting by remember { mutableStateOf(false) }

@@ -103,6 +103,34 @@ internal class LibraryEditsController(
         }
     }
 
+    /**
+     * Moves photos into or out of Hidden. Like a move to the trash, they leave the current view at once and the message
+     * offers Undo; a failure brings them back.
+     */
+    fun setHidden(mediaIds: List<String>, hidden: Boolean, undo: Boolean = false) {
+        val ids = mediaIds.distinct()
+        if (ids.isEmpty()) return
+        val start: (MediaActionKey, Int, suspend () -> Unit) -> Any = if (undo) runner::startAfter else runner::start
+        start(MediaActionKey(MediaAction.HIDE), R.string.hidden_change_failed) {
+            require(ids.size in 1..MAX_EDIT_ITEMS)
+            val moved = ids.toSet()
+            gallery.clearSelection()
+            if (!undo) gallery.beginRemoval(moved)
+            try {
+                repository.setHidden(ids, hidden)
+                // Undo is offered only once iCloud confirmed the move.
+                if (!undo) messages.show(UiMessage.Undoable(UiMessage.quantity(if (hidden) R.plurals.hidden_moved else R.plurals.unhidden_moved,
+                    ids.size), UndoAction.Hidden(ids, hidden)))
+                withTimeoutOrNull(CATALOG_CATCH_UP_MILLIS) {
+                    repository.observeGallery().first { items -> items.none { it.id in moved && it.isHidden != hidden } }
+                }
+            } finally { if (!undo) gallery.endRemoval(moved) }
+        }
+    }
+
+    /** Undo for [setHidden]: waits for that move to finish, then moves the photos back. */
+    fun undoHidden(mediaIds: List<String>, hidden: Boolean) = setHidden(mediaIds, !hidden, undo = true)
+
     fun createAlbum(name: String) {
         runner.start(MediaActionKey(MediaAction.ALBUM), R.string.message_could_not_confirm_the_new_album_refresh_before_retrying) {
             val album = repository.createAlbum(name)

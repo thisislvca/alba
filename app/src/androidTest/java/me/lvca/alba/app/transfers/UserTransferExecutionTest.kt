@@ -1,15 +1,12 @@
 package me.lvca.alba.app.transfers
 
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.AlbaViewModel
-import me.lvca.alba.app.MainActivity
-import me.lvca.alba.app.testing.FailureCapture
+import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.LONG_WAIT
-import me.lvca.alba.app.testing.OnboardingRule
 import me.lvca.alba.app.testing.Smoke
 import me.lvca.alba.app.testing.scrollToGalleryMedia
 import me.lvca.alba.app.work.UserTransferScheduler
@@ -23,16 +20,14 @@ import org.junit.Rule
 import org.junit.Test
 
 class UserTransferExecutionTest {
-    @get:Rule(order = 0) val onboarding = OnboardingRule()
-    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule(order = 2) val failureCapture = FailureCapture { compose }
+    @get:Rule val app = AlbaAppRule()
+    private val compose get() = app.compose
 
     @Smoke @Test fun persistedTransfersCompleteAfterARefreshAndThroughThePlatformRunner() {
         val graph = (compose.activity.application as AlbaApplication).graph
         val id = "fixture:icloud:0001"
-        // Refreshing after the app resumes schedules transfers that were persisted earlier.
+        // A transfer persisted earlier (here, after the catalog was loaded) is scheduled by the next library refresh.
         val persisted = runBlocking {
-            graph.galleryRepository.refresh(false)
             graph.galleryRepository.removeCachedOriginal(id)
             graph.batches.enqueue(BatchAction.KEEP_OFFLINE, listOf(id))
         }
@@ -57,7 +52,6 @@ class UserTransferExecutionTest {
         val graph = (compose.activity.application as AlbaApplication).graph
         val id = "fixture:icloud:0001"
         val previous = runBlocking {
-            graph.galleryRepository.refresh(false)
             graph.galleryRepository.removeCachedOriginal(id)
             graph.batches.observe().first().map { it.batchId }.toSet()
         }
@@ -75,9 +69,7 @@ class UserTransferExecutionTest {
     @Test fun notificationCancelStopsQueuedItemsBeforeThePlatformRunnerCanResumeThem() {
         val graph = (compose.activity.application as AlbaApplication).graph
         val id = "fixture:icloud:0001"
-        compose.scrollToGalleryMedia(id)
         val batch = runBlocking {
-            graph.galleryRepository.refresh(false)
             graph.galleryRepository.removeCachedOriginal(id)
             graph.batches.enqueue(BatchAction.KEEP_OFFLINE, listOf(id))
         }

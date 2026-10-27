@@ -20,8 +20,17 @@ enum class AppleProtocolError {
     TOO_MANY_ATTEMPTS,
 }
 
-class AppleProtocolException(
+open class AppleProtocolException(
     val error: AppleProtocolError,
     message: String,
     cause: Throwable? = null,
 ) : Exception(message, cause)
+
+/**
+ * Apple asked Alba to slow down: HTTP 429 or 503, or a CloudKit THROTTLED, TRY_AGAIN_LATER or ZONE_BUSY error.
+ * [retryAfterMillis] is the wait Apple asked for, when it said. A library read waits and tries again.
+ */
+class AppleThrottledException(
+    message: String,
+    override val retryAfterMillis: Long?,
+) : AppleProtocolException(AppleProtocolError.NETWORK, message), me.lvca.alba.engine.source.ThrottledFailure

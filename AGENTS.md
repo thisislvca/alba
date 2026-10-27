@@ -20,20 +20,25 @@ Notes for coding agents and contributors. Product direction is in [VISION.md](VI
 
 - Put a test in the lowest layer that can show the behaviour: plain JVM, Robolectric UI from fixed state (`setAlbaContent`), screenshot goldens, and only then a device test. A device test that doesn't need a device is in the wrong layer.
 - Locally, run the JVM layers before pushing. Run a device test class only when a change touches device-only behaviour, and only the classes it affects. Never run the whole device suite locally: CI runs it.
-- CI runs `@Smoke` device tests on every pull request, and every device test plus API 30 and a compact phone on `main` and nightly. A test that passes only on the retry is listed as flaky in the job summary. Fix it at the root, don't add waits.
+- CI runs every device test on the Pixel 9 (API 36) on every pull request and push to `main`; nightly and manual runs add the `@Smoke` tests on API 30 and a compact phone. `@Smoke` is the fast subset for local runs. A test that passes only on the retry is listed as flaky in the job summary. Fix it at the root, don't add waits.
+- Whole-app tests use `AlbaAppRule` (JVM and device): it loads the demo catalog into the repository before the activity starts and holds Compose until it is on screen, so never wait for the initial library. A journey with no device-only step (MediaStore, permissions, real intents, system dialogs, WorkManager, video playback, real rendering or system bars) belongs in the JVM `AlbaAppRule` tests.
 - Tests must not depend on screen size or wall-clock timing. Put the UI in a known state (scroll by key, fixed state, the test clock) rather than nudging or sleeping. Local devices and CI both use a Pixel 9 profile.
+- Find what a test clicks, types into, scrolls to or waits on by `testTag`; add a stable tag to the UI when one is missing. Match text only where the test checks the wording, as `LocalizationTest` does.
 - Never weaken an assertion to make a test pass. When behaviour changes on purpose, change the test to check the new behaviour.
 
 ## Screenshot goldens
 
 Goldens are recorded and compared on Linux in CI, with a zero-pixel threshold. A local run renders them but doesn't compare.
 
-When a change alters how a screen looks on purpose:
+When a change alters how a screen looks on purpose, push it:
 
-1. Push. CI's JVM job fails, and its `screenshots` artifact shows the new images and the differences.
-2. Check the differences are the ones you meant.
-3. In GitHub, open Actions > CI > Run workflow, pick the branch and tick "record-screenshots". That run commits the new goldens to the branch.
-4. Push again or re-run the checks: commits made by Actions don't start CI.
+1. CI's JVM job fails on the differing screens. If those are the only failures (no other test, build, lint, detekt or ktlint failure), an "Update screenshot goldens" job records every golden on Linux, commits the changed images under `app/src/test/screenshots` to your branch as the repository's GitHub App (`test: update screenshot goldens`), and comments on the pull request with the changed, new and removed screens by variant. The push starts a fresh run, which replaces the old one.
+2. Open the pull request's Files changed, look at the images and check they're the differences you meant.
+3. Merge once the new run is green. Merging accepts the images.
+
+Goldens left over from a removed screenshot test are deleted the same way. This works for branches of this repository only. For a fork, or a branch without a pull request, open Actions > CI > Run workflow, pick the branch and tick "record-screenshots": it records and pushes the same way. If the head commit is already a bot golden update and the screenshots still differ, rendering isn't deterministic: CI fails instead of committing again, so fix what varies.
+
+Both paths push with the App's token, because a push with the default `GITHUB_TOKEN` starts no CI. The App's ID and private key are the repository secrets `ALBA_BOT_APP_ID` and `ALBA_BOT_PRIVATE_KEY`. Without them the update fails and names the missing one; there is no fallback. To create them, register a GitHub App with Contents: read and write on this repository, install it there, and store its ID and a generated private key (the whole `.pem` file) as those two secrets.
 
 Never commit goldens recorded on a Mac.
 

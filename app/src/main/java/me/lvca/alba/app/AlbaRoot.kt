@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -52,11 +53,15 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.print.PrintHelper
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
+import me.lvca.alba.app.gallery.withBurstFrames
 import me.lvca.alba.app.intake.IncomingRequest
 import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
+import me.lvca.alba.app.intake.albaComponents
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.platform.ExportDocument
+import me.lvca.alba.app.platform.HiddenLock
+import me.lvca.alba.app.platform.HiddenScreenGuard
 import me.lvca.alba.app.platform.MobileDataChoice
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PendingExport
@@ -86,7 +91,11 @@ import me.lvca.alba.app.ui.gallery.backupBadges
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
 import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
 import me.lvca.alba.app.ui.onboarding.WelcomeScreen
+import me.lvca.alba.app.ui.shared.LocalNotificationAccess
+import me.lvca.alba.app.ui.shared.LocalSharedActivity
+import me.lvca.alba.app.ui.shared.NotificationAccess
 import me.lvca.alba.app.ui.shared.SharedInvitations
+import me.lvca.alba.app.work.canNotify
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.GalleryMedia
@@ -95,6 +104,7 @@ import me.lvca.alba.engine.model.LocalMediaCategory
 import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedCommand
+import me.lvca.alba.engine.model.SharedUploadFile
 import me.lvca.alba.engine.model.SystemConsentCallback
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -235,6 +245,7 @@ private fun AlbaMain(
     val previewStorageLow by viewModel.previews.storageLow.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnosticsConsent.collectAsStateWithLifecycle()
+    val sharedActivity by viewModel.sharedAlbums.activity.collectAsStateWithLifecycle()
     val currentIncoming by rememberUpdatedState(incoming)
     val shareTitle by rememberUpdatedState(stringResource(R.string.share))
 
@@ -256,6 +267,14 @@ private fun AlbaMain(
             deviceLibraryChanges(context.contentResolver).debounce(350).collect { viewModel.sync.deviceLibraryChanged() }
         }
     }
+    // Hidden locks again whenever Alba leaves the screen, as on iOS.
+    // A rotation stops the activity too; that is not leaving Alba.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { if (activity?.isChangingConfigurations != true) viewModel.gallery.lockHidden() }
+    // Locking on stop comes after Android's Recents snapshot, so hidden photos are kept out of it, and out of
+    // screenshots and recordings, while they are on screen.
+    HiddenScreenGuard(activity, gallery.query.collectionId == GalleryQuery.HIDDEN || gallery.selectedMedia?.isHidden == true)
+    val unlockTitle = stringResource(R.string.hidden_unlock_title)
+    val unlockSubtitle = stringResource(R.string.hidden_unlock_subtitle)
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         recheckDevicePhotoAccess()
         viewModel.setDeviceMediaAccess(hasDevicePhotoAccess, hasLimitedPhotoAccess(Build.VERSION.SDK_INT, context::granted))
@@ -300,8 +319,36 @@ private fun AlbaMain(
     // still starts it after a rotation or process death during Android's dialog.
     var awaitingNotificationAnswer by rememberSaveable { mutableStateOf(false) }
     var notificationAnswered by remember { mutableStateOf(false) }
+    // The Shared Albums switch and first-visit prompt ask through the same launcher. Saved, so an answer that arrives
+    // after a rotation still reaches the setting.
+    var awaitingSharedNotificationAnswer by rememberSaveable { mutableStateOf(false) }
+    var notificationsGranted by remember { mutableStateOf(canNotify(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { notificationsGranted = canNotify(context) }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        notificationsGranted = canNotify(context)
+        if (awaitingSharedNotificationAnswer) {
+            awaitingSharedNotificationAnswer = false
+            viewModel.sharedAlbums.setNotifications(notificationsGranted)
+        }
         if (awaitingNotificationAnswer) notificationAnswered = true
+    }
+    val notificationAccess = remember(notificationsGranted, notificationPermission) {
+        val openSettings = {
+            runCatching {
+                context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+            }
+            Unit
+        }
+        NotificationAccess(notificationsGranted, request = {
+            // Asked here, so the first manual transfer or backup does not ask again.
+            viewModel.transfers.backup.notificationsAsked()
+            if (!notificationsGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                awaitingSharedNotificationAnswer = true
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else if (!notificationsGranted) openSettings() else viewModel.sharedAlbums.setNotifications(true)
+        }, openSettings = openSettings)
     }
     val mediaLocationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val target = pendingUpload
@@ -416,6 +463,8 @@ private fun AlbaMain(
                 })
             }
 
+            override fun unlockHidden() = HiddenLock.unlock(context, unlockTitle, unlockSubtitle, viewModel::hiddenUnlockAnswered)
+
             override fun edit(media: GalleryMedia) { editingId = media.id }
             override fun confirm(next: RootDialog) { dialog = next }
         }
@@ -468,7 +517,26 @@ private fun AlbaMain(
             upload = { uris ->
                 onIncomingChange(currentIncoming.copy(returnToCaller = false))
                 uploadPicked(context, viewModel, uris)
+            },
+            sharedAlbums = gallery.collections.filter { it.shared?.canContribute == true },
+            addToShared = { albumId, items, caption, done ->
+                onIncomingChange(currentIncoming.copy(returnToCaller = false))
+                val resolver = context.contentResolver
+                val files = items.map { item ->
+                    SharedUploadFile(item.name) { output -> requireNotNull(resolver.openInputStream(item.uri)).use { it.copyTo(output) } }
+                }
+                val key = items.map { it.uri.toString() }.sorted().hashCode().toString()
+                viewModel.sharedAlbums.contributeFilesToSharedAlbum(albumId, files, key, caption, done)
             })
+    }
+    (incoming.request as? IncomingRequest.Browser)?.let { request ->
+        LaunchedEffect(request) { openInBrowser(context, request.url); closeIncoming() }
+    }
+    (incoming.request as? IncomingRequest.SharedActivity)?.let { request ->
+        LaunchedEffect(request) {
+            viewModel.sharedAlbums.requestOpen(request.albumId, request.invitations)
+            onIncomingChange(IncomingSession.None)
+        }
     }
     (incoming.request as? IncomingRequest.Invitation)?.takeUnless { incomingSuspended }?.let { request ->
         IncomingInvitation(request.link, session.accountState, actions, ::closeIncoming, ::connectForIncoming)
@@ -491,7 +559,7 @@ private fun AlbaMain(
         onDismissRequest = { dialog = null },
         title = { Text(stringResource(R.string.demo_upload_title)) },
         text = { Text(stringResource(R.string.demo_upload_disclosure)) },
-        confirmButton = { TextButton(onClick = { dialog = null; viewModel.transfers.uploadDemoSample() }) {
+        confirmButton = { TextButton(onClick = { dialog = null; viewModel.transfers.uploadDemoSample() }, modifier = Modifier.testTag("demo-upload-sample")) {
             Text(stringResource(R.string.demo_upload_sample))
         } },
         dismissButton = { TextButton(onClick = {
@@ -515,7 +583,8 @@ private fun AlbaMain(
     val backupBadges = rememberUpdatedState(remember(transfers.backup.enabled, transfers.uploadsByMediaId) {
         backupBadges(transfers.backup.enabled, transfers.uploadsByMediaId)
     })
-    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalBackupBadges provides backupBadges) {
+    CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalBackupBadges provides backupBadges,
+        LocalSharedActivity provides sharedActivity, LocalNotificationAccess provides notificationAccess) {
         AlbaApp(
             gallery = gallery,
             session = session,
@@ -629,6 +698,16 @@ private fun AlbaMain(
     }
 }
 
+/** Hands a web link back to a browser, leaving Alba out of the choice so it cannot loop back here. */
+private fun openInBrowser(context: Context, url: String) {
+    val view = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+    val alba = albaComponents(context.packageManager, context.packageName, url)
+    runCatching {
+        context.startActivity(Intent.createChooser(view, null).putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, alba)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
 /** Uploads media the user picked or shared, keeping read access for the durable upload queue. */
 private fun uploadPicked(context: Context, viewModel: AlbaViewModel, uris: List<Uri>) {
     uris.forEach { uri -> runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
@@ -672,8 +751,8 @@ private fun ConfirmRemoval(title: Int, body: Int, count: Int, dismiss: () -> Uni
         onDismissRequest = dismiss,
         title = { Text(stringResource(title)) },
         text = { Text(pluralStringResource(body, count, count)) },
-        confirmButton = { TextButton(onClick = confirm) { Text(stringResource(title)) } },
-        dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } },
+        confirmButton = { TextButton(onClick = confirm, modifier = Modifier.testTag("confirm-removal")) { Text(stringResource(title)) } },
+        dismissButton = { TextButton(onClick = dismiss, modifier = Modifier.testTag("cancel-removal")) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -692,8 +771,12 @@ private fun BackupDisclosure(setup: BackupSetup, storageFull: Boolean, accept: (
                     color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("backup-storage-full-warning"))
             }
         },
-        confirmButton = { Button(onClick = accept) { Text(stringResource(R.string.welcome_continue)) } },
-        dismissButton = { OutlinedButton(onClick = dismiss) { Text(stringResource(R.string.not_now)) } },
+        confirmButton = {
+            Button(onClick = accept, modifier = Modifier.testTag("backup-disclosure-accept")) { Text(stringResource(R.string.welcome_continue)) }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = dismiss, modifier = Modifier.testTag("backup-disclosure-dismiss")) { Text(stringResource(R.string.not_now)) }
+        },
     )
 }
 
@@ -719,6 +802,9 @@ internal interface PlatformRequests {
     /** Asks Android to restore phone items that Alba moved to its trash. */
     fun restoreOnPhone(contentUris: List<String>)
     fun exportDocument(media: GalleryMedia, livePair: Boolean)
+
+    /** Asks the user to unlock with the phone's biometrics or screen lock before Hidden opens. */
+    fun unlockHidden()
     fun edit(media: GalleryMedia)
     fun confirm(next: RootDialog)
 }
@@ -740,6 +826,7 @@ private class AlbaRootActions(
     override fun undo(action: UndoAction) = when (action) {
         is UndoAction.CloudTrash -> edits.undoCloudTrash(action.mediaIds)
         is UndoAction.PhoneTrash -> platform.restoreOnPhone(action.contentUris)
+        is UndoAction.Hidden -> edits.undoHidden(action.mediaIds, action.hidden)
         is UndoAction.MixedTrash -> {
             edits.undoCloudTrash(action.cloud.mediaIds)
             platform.restoreOnPhone(action.phone.contentUris)
@@ -759,18 +846,26 @@ private class AlbaRootActions(
     override fun openAccount() = account.openAccount()
     override fun openBackup() = account.openAccount(ProfilePage.BACKUP)
     override fun startDemo() = account.startDemo()
+    override fun openHidden() = platform.unlockHidden()
+    override fun expandBurst(burstId: String, expanded: Boolean) = gallery.expandBurst(burstId, expanded)
 
-    override fun setFavorite(mediaId: String, favorite: Boolean) = edits.setFavorite(mediaId, favorite)
-    override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = edits.setFavorites(mediaIds, favorite)
+    /** Every photo of each stacked burst among [ids], so an edit on a burst's photo edits the whole burst. */
+    private fun frames(ids: List<String>) = gallery.current.withBurstFrames(ids)
+
+    override fun setFavorite(mediaId: String, favorite: Boolean) = frames(listOf(mediaId)).let { ids ->
+        if (ids.size == 1) edits.setFavorite(mediaId, favorite) else edits.setFavorites(ids, favorite)
+    }
+    override fun setFavorites(mediaIds: List<String>, favorite: Boolean) = edits.setFavorites(frames(mediaIds), favorite)
     override fun createAlbum(name: String) = edits.createAlbum(name)
-    override fun createAlbumWithPhotos(name: String, mediaIds: List<String>) = edits.createAlbumWithPhotos(name, mediaIds)
+    override fun createAlbumWithPhotos(name: String, mediaIds: List<String>) = edits.createAlbumWithPhotos(name, frames(mediaIds))
     override fun renameAlbum(albumId: String, name: String) = edits.renameAlbum(albumId, name)
     override fun deleteAlbum(albumId: String) = edits.deleteAlbum(albumId)
-    override fun addToAlbum(albumId: String, mediaIds: List<String>) = edits.addToAlbum(albumId, mediaIds)
+    override fun addToAlbum(albumId: String, mediaIds: List<String>) = edits.addToAlbum(albumId, frames(mediaIds))
     override fun confirmRemoveFromAlbum(albumId: String, mediaIds: List<String>) =
-        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmRemoveFromAlbum(albumId, mediaIds.toList())) else Unit
+        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmRemoveFromAlbum(albumId, frames(mediaIds))) else Unit
+    override fun setHidden(mediaIds: List<String>, hidden: Boolean) = edits.setHidden(frames(mediaIds), hidden)
     override fun confirmCloudTrash(mediaIds: List<String>, trashed: Boolean) =
-        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmCloudTrash(mediaIds.toList(), trashed)) else Unit
+        if (mediaIds.isNotEmpty()) platform.confirm(RootDialog.ConfirmCloudTrash(frames(mediaIds), trashed)) else Unit
     override fun trashOnPhone(items: List<GalleryMedia>, restore: Boolean) = platform.trashOnPhone(items, restore)
     override fun confirmMixedTrash(items: List<GalleryMedia>) {
         val cloudIds = items.filter { it.origin == MediaOrigin.ICLOUD }.map { it.id }
@@ -781,7 +876,7 @@ private class AlbaRootActions(
             else -> platform.confirm(RootDialog.ConfirmMixedTrash(cloudIds, phoneIds))
         }
     }
-    override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>) = shared.contributeToSharedAlbum(albumId, mediaIds)
+    override fun contributeToSharedAlbum(albumId: String, mediaIds: List<String>, caption: String) = shared.contributeToSharedAlbum(albumId, mediaIds, caption)
     override fun createSharedAlbum(name: String, generation: SharedAlbumGeneration) = shared.createSharedAlbum(name, generation)
 
     override fun runBatch(action: BatchAction) = when (action) {
@@ -808,6 +903,8 @@ private class AlbaRootActions(
     override fun saveToGallery(media: GalleryMedia) = viewModel.exports.saveToGallery(media)
     override fun exportOriginal(media: GalleryMedia) = platform.exportDocument(media, livePair = false)
     override fun exportLivePhoto(media: GalleryMedia) = platform.exportDocument(media, livePair = true)
+    override fun shareLiveVideo(media: GalleryMedia) = viewModel.exports.shareLiveVideo(media)
+    override fun saveLiveVideo(media: GalleryMedia) = viewModel.exports.saveLiveVideo(media)
     override fun keepOriginalOffline(mediaId: String) = platform.beforeTransfer(PendingTransfer.KeepOffline(mediaId))
     override fun removeCachedOriginal(mediaId: String) = transfers.removeCachedOriginal(mediaId)
     override fun cancelOfflineDownload() = transfers.cancelOfflineDownload()
@@ -840,6 +937,11 @@ private class AlbaRootActions(
     override suspend fun sharedActivity(albumId: String, rank: Int) = shared.sharedActivity(albumId, rank)
     override suspend fun sharedPostDiscussion(postId: String) = shared.sharedPostDiscussion(postId)
     override suspend fun sharedPostPhotos(postId: String) = shared.sharedPostPhotos(postId)
+    override suspend fun sharedPostPreviews(postIds: List<String>) = shared.sharedPostPreviews(postIds)
+    override fun setSharedActivityNotifications(enabled: Boolean) = shared.setNotifications(enabled)
+    override fun sharedNotificationsAsked() = shared.notificationsAsked()
+    override fun consumeSharedOpen() = shared.consumeOpen()
+    override fun markInvitationsRead() = shared.markInvitationsRead()
     override suspend fun sharedManagement(albumId: String) = shared.sharedManagement(albumId)
     override suspend fun sharedDiscussion(id: String) = shared.sharedDiscussion(id)
     override suspend fun changeSharedAlbum(albumId: String, command: SharedCommand) = shared.changeSharedAlbum(albumId, command)

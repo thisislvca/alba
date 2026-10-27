@@ -40,6 +40,7 @@ import me.lvca.alba.app.ui.designsystem.theme.heroTitle
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.itemCount
 import me.lvca.alba.app.ui.localizedName
+import me.lvca.alba.app.ui.shared.LocalSharedActivity
 import me.lvca.alba.engine.model.*
 
 internal data class CollectionPreview(val count: Int = 0, val media: List<GalleryMedia> = emptyList())
@@ -119,7 +120,7 @@ internal fun OwnerAvatar(name: String?, modifier: Modifier = Modifier) {
 
 @Composable
 internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, retry: Int,
-    preview: (String) -> Unit, modifier: Modifier = Modifier, featured: Boolean = false, open: () -> Unit) {
+    preview: (String) -> Unit, modifier: Modifier = Modifier, featured: Boolean = false, unread: Boolean = false, open: () -> Unit) {
     Surface(onClick = open, modifier = modifier.testTag("${if (album.shared != null) "shared-" else ""}album-${album.id}"),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.background) {
@@ -127,6 +128,7 @@ internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, re
             Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(MaterialTheme.shapes.medium)) {
                 AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), coverMediaId = album.coverMediaId)
                 if (album.shared != null) OwnerAvatar(album.shared?.ownerName, Modifier.align(Alignment.TopStart).padding(10.dp))
+                if (unread) UnreadDot(album.id, Modifier.align(Alignment.TopEnd).padding(10.dp))
                 if (featured) {
                     val onMedia = AlbaTheme.colors.onMedia
                     MediaScrim(Modifier.fillMaxWidth().height(100.dp).align(Alignment.BottomCenter), MediaScrimStrength.Strong)
@@ -145,6 +147,15 @@ internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, re
     }
 }
 
+/** Marks a shared album with photos added since it was last opened. */
+@Composable
+private fun UnreadDot(albumId: String, modifier: Modifier) {
+    val label = stringResource(R.string.shared_new_activity)
+    Box(modifier.size(12.dp).background(MaterialTheme.colorScheme.surface, CircleShape).padding(2.dp)
+        .background(MaterialTheme.colorScheme.primary, CircleShape)
+        .semantics { contentDescription = label }.testTag("unread-$albumId"))
+}
+
 @Composable
 internal fun SharedAlbumsStrip(albums: List<GalleryCollection>, summaries: Map<String, CollectionPreview>, retry: Int,
     preview: (String) -> Unit, open: (String) -> Unit, seeAll: () -> Unit) {
@@ -156,7 +167,8 @@ internal fun SharedAlbumsStrip(albums: List<GalleryCollection>, summaries: Map<S
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(albums, key = { it.id }) { album ->
-                AlbumCard(album, summaries[album.id], retry, preview, Modifier.width(164.dp), featured = true) { open(album.id) }
+                AlbumCard(album, summaries[album.id], retry, preview, Modifier.width(164.dp), featured = true,
+                    unread = album.id in LocalSharedActivity.current.unreadAlbums) { open(album.id) }
             }
         }
     }

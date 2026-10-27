@@ -24,6 +24,8 @@ data class RemoteMediaRecord(
     val addedAtEpochMillis: Long? = null,
     val isTrashed: Boolean = false,
     val byteCount: Long? = null,
+    val isHidden: Boolean = false,
+    val details: me.lvca.alba.engine.model.MediaDetails = me.lvca.alba.engine.model.MediaDetails(),
 )
 
 data class CloudChanges(val upserts: List<RemoteMediaRecord>, val deletedRecordNames: Set<String>,
@@ -31,6 +33,31 @@ data class CloudChanges(val upserts: List<RemoteMediaRecord>, val deletedRecordN
 data class CollectionSnapshot(val collections: List<GalleryCollection>, val members: Map<String, Set<String>>)
 data class SharedCatalogSnapshot(val records: List<RemoteMediaRecord>, val collections: CollectionSnapshot)
 class CatalogResetRequired : Exception("The library needs a fresh snapshot")
+
+/**
+ * A failure where iCloud asked Alba to slow down: HTTP 429 or 503, or a CloudKit THROTTLED or TRY_AGAIN_LATER error.
+ * [retryAfterMillis] is the wait iCloud asked for, when it said.
+ */
+interface ThrottledFailure {
+    val retryAfterMillis: Long?
+}
+
+/**
+ * The library rows Alba already has, looked up on demand so a library change never needs the whole catalog in memory.
+ */
+fun interface KnownCloudRecords {
+    /** The asset record names of the library items made from iCloud master record [masterRecordName]. */
+    suspend fun assetRecordNames(masterRecordName: String): List<String>
+
+    companion object {
+        val NONE = KnownCloudRecords { emptyList() }
+
+        /** Known rows from a list, for small sources and tests. */
+        fun of(records: List<RemoteMediaRecord>) = KnownCloudRecords { master ->
+            records.filter { it.masterRecordName == master }.mapNotNull { it.assetRecordName }
+        }
+    }
+}
 interface MediaRead : java.io.Closeable {
     val input: InputStream
     val length: Long
@@ -42,12 +69,52 @@ data class CloudCatalogPage(
     val changeToken: String,
 )
 
-interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations {
+/** iCloud's Hidden album, which the main library feed leaves out. */
+interface HiddenAlbumSource {
+    /** The Hidden album's assets, each with [RemoteMediaRecord.isHidden] set. */
+    suspend fun hiddenMedia(): List<RemoteMediaRecord> = emptyList()
+    suspend fun setHidden(mediaIds: List<String>, hidden: Boolean): Unit = error("Hiding photos is unavailable")
+}
+
+/** What the first full read needs besides pages: the library's size for its progress, and checking unseen items. */
+interface LibraryScanSource {
+    /** How many items the library's main feed holds, when iCloud can say so in one cheap request; null otherwise. */
+    suspend fun libraryItemCount(): Int? = null
+
+    /**
+     * Looks these asset record names up by name rather than by position. A full read pages by position, so an item can
+     * shift past a page boundary while it runs; a row the read did not see is removed only when this says it is
+     * [LibraryLookup.gone]. Null when the source cannot look items up and its pages never shift.
+     */
+    suspend fun libraryRecords(assetRecordNames: List<String>): LibraryLookup? = null
+}
+
+/**
+ * What a lookup by name found: the [present] library items, and the names iCloud said for certain are [gone] (not
+ * found, or deleted). A name in neither, such as one that came back with a temporary error, is kept as it is.
+ */
+data class LibraryLookup(val present: List<RemoteMediaRecord>, val gone: Set<String>)
+
+/** The source no longer accepts a saved page cursor, as when an iCloud continuation marker expired. */
+class CatalogCursorRejected(message: String) : Exception(message)
+
+/** A full read that cannot finish as it is, such as one whose cursors repeat. It is discarded; its rows stay. */
+class CatalogScanAbandoned(message: String) : IllegalStateException(message)
+
+interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations, HiddenAlbumSource, LibraryScanSource {
     suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource): Unit = error("Shared save is unavailable")
+
+    /**
+     * Uploads one file to a shared album; [caption] is written to its post where the album supports captions. Returns
+     * false when the post was made without the caption.
+     */
     suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource,
-        operationId: String): Unit = error("Shared upload is unavailable")
+        operationId: String, caption: String = ""): Boolean = error("Shared upload is unavailable")
     suspend fun sharedAlbums(): SharedCatalogSnapshot = SharedCatalogSnapshot(emptyList(), CollectionSnapshot(emptyList(), emptyMap()))
-    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String): Unit = error("Shared contribution is unavailable")
+
+    /** Returns false when the post was made without its [caption]. */
+    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String = ""): Boolean =
+        error("Shared contribution is unavailable")
     suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration = me.lvca.alba.engine.model.SharedAlbumGeneration.MODERN): GalleryCollection = error("Shared album creation is unavailable")
     suspend fun removeFromAlbum(id: String, mediaIds: List<String>): Unit = error("Album editing is unavailable")
     suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean): Unit = error("iCloud trash is unavailable")
@@ -66,7 +133,7 @@ interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations {
     suspend fun fetchPage(cursor: String?, limit: Int): CloudCatalogPage
 
     suspend fun captureSyncToken(): String? = null
-    suspend fun changes(token: String, known: List<RemoteMediaRecord>): CloudChanges = throw CatalogResetRequired()
+    suspend fun changes(token: String, known: KnownCloudRecords): CloudChanges = throw CatalogResetRequired()
     suspend fun collections(): CollectionSnapshot = CollectionSnapshot(emptyList(), emptyMap())
     suspend fun openPlayback(mediaId: String, position: Long, length: Long): MediaRead =
         error("Playback is unavailable for this source")

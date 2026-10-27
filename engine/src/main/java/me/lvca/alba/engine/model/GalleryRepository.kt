@@ -8,7 +8,15 @@ data class RefreshSummary(
     val deviceItemCount: Int,
     val refreshedAtEpochMillis: Long,
     val sharedAlbumsUnavailable: Boolean = false,
+    /** Hidden could not be read completely; the last hidden photos are kept until a later refresh succeeds. */
+    val hiddenUnavailable: Boolean = false,
 )
+
+/**
+ * A first full read of the iCloud library while it runs: [loadedCount] items so far, out of [totalCount] when iCloud
+ * said how many there are.
+ */
+data class CatalogScanProgress(val loadedCount: Int, val totalCount: Int? = null)
 
 /** Reading the catalog does not imply permission to edit or export originals. */
 interface GalleryReader {
@@ -19,6 +27,12 @@ interface GalleryReader {
     suspend fun refreshDevice()
     suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary
     suspend fun clearCloudCatalog()
+
+    /** The signed-in account's unfinished first library read, or null when there is none. */
+    fun observeCatalogScan(): Flow<CatalogScanProgress?> = kotlinx.coroutines.flow.flowOf(null)
+
+    /** Continues an unfinished first library read, as background work does; null when there is none to continue. */
+    suspend fun resumeCatalogScan(): RefreshSummary? = null
 }
 
 interface OriginalExporter {
@@ -42,21 +56,39 @@ interface GalleryEdits {
     suspend fun removeFromAlbum(id: String, mediaIds: List<String>)
     suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean)
     suspend fun setFavorite(mediaId: String, favorite: Boolean)
+
+    /** Moves iCloud photos into or out of the Hidden album. */
+    suspend fun setHidden(mediaIds: List<String>, hidden: Boolean)
     suspend fun createAlbum(name: String): GalleryCollection
     suspend fun deleteAlbum(id: String)
     suspend fun renameAlbum(id: String, name: String)
     suspend fun addToAlbum(id: String, mediaIds: List<String>)
 }
 
+/** A file to add to a shared album: its display name and a way to copy its bytes. */
+class SharedUploadFile(val name: String, val write: (java.io.OutputStream) -> Unit)
+
 /** All gallery capabilities are required here; partial consumers use the smaller interfaces above. */
 interface GalleryRepository : GalleryReader, GalleryMediaAccess, GalleryEdits, SharedAlbumOperations {
-    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String)
+    /**
+     * Adds library or phone items to a shared album as one post, with [caption] where the album supports one. Returns
+     * false when the post was made without the caption.
+     */
+    suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String = ""): Boolean
+
+    /** Adds files another app shared with Alba to a shared album; they are not in the catalog. False as above. */
+    suspend fun contributeFilesToSharedAlbum(id: String, files: List<SharedUploadFile>, operationId: String, caption: String = ""): Boolean =
+        error("Shared contribution is unavailable")
+
+    /** Shared albums' item counts read from Apple, for the background activity check; publishes nothing. */
+    suspend fun sharedAlbumCounts(): List<SharedAlbumCount> = error("Shared albums are unavailable")
     suspend fun createSharedAlbum(name: String, operationId: String, generation: SharedAlbumGeneration = SharedAlbumGeneration.MODERN): GalleryCollection
     suspend fun accountProfile(): CloudAccountProfile?
     suspend fun storageUsage(): CloudStorageUsage
     override suspend fun sharedActivity(id: String, rank: Int): SharedActivityPage
     override suspend fun sharedPostDiscussion(id: String): SharedDiscussion
     override suspend fun sharedPostPhotos(id: String): List<String>
+    override suspend fun sharedPostPreviews(ids: List<String>): Map<String, SharedPostPreview>
     override suspend fun pendingSharedInvitations(): List<SharedInvitation>
     override suspend fun resolveSharedInvitation(url: String): SharedInvitation
     override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String)
