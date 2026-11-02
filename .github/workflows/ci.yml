@@ -53,7 +53,7 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0'
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - name: Check notices and scripts
         run: |
           cmp THIRD_PARTY_NOTICES.md app/src/main/res/raw/third_party_notices.txt
@@ -183,7 +183,7 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0'
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - name: Record goldens
         id: record
         uses: ./.github/actions/record-goldens
@@ -251,7 +251,7 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0'
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - name: Record goldens
         id: record
         uses: ./.github/actions/record-goldens
@@ -298,7 +298,7 @@ jobs:
         with:
           packages: 'platform-tools emulator platforms;android-37.0 build-tools;37.0.0'
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - name: Enable KVM
         run: sudo chmod 666 /dev/kvm
       - name: Build test APKs before starting emulators
