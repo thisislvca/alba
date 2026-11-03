@@ -18,6 +18,9 @@ enum class AppleProtocolError {
 
     /** Apple refused the attempt because of too many recent tries (HTTP 429). */
     TOO_MANY_ATTEMPTS,
+
+    /** iCloud Photos is still indexing this library; it is not empty and a later retry will work. */
+    LIBRARY_PREPARING,
 }
 
 open class AppleProtocolException(

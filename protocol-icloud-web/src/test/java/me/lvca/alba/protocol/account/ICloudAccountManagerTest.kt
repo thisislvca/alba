@@ -190,6 +190,15 @@ class ICloudAccountManagerTest {
         assertEquals(1, store.clears)
     }
 
+    @Test fun `a 2xx validation that no longer trusts the session ends as sign in again not offline`() = runBlocking {
+        val store = MemoryStore()
+        val manager = ICloudAccountManager(AppleAuthenticationService(ValidationTransport(200, trusted = false)), store)
+        manager.restore()
+        assertEquals(SessionStatus.EXPIRED, (manager.state.value as ICloudAccountState.SignedIn).status)
+        assertEquals(SNAPSHOT, store.saved)
+        assertNull(manager.authorizedSession)
+    }
+
     @Test fun `failed reauthentication preserves cached account identity`() = runBlocking {
         val store = MemoryStore()
         val manager = ICloudAccountManager(AppleAuthenticationService(ValidationTransport(0)), store)
@@ -293,11 +302,15 @@ class ICloudAccountManagerTest {
             cookieLifetimes += cookieLifetime
         }
     }
-    private class ValidationTransport(var code: Int, private val photosAvailable: Boolean = true) : AppleHttpTransport {
+    private class ValidationTransport(
+        var code: Int,
+        private val photosAvailable: Boolean = true,
+        private val trusted: Boolean = true,
+    ) : AppleHttpTransport {
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
             if (code == 0) throw IOException("Offline")
             val services = if (photosAvailable) """{"ckdatabasews":{"url":"https://p01-ckdatabasews.icloud.com"}}""" else "{}"
-            return AppleHttpResponse(code, emptyMap(), """{"dsInfo":{"dsid":"123","hsaVersion":2},"hsaTrustedBrowser":true,"webservices":$services}""")
+            return AppleHttpResponse(code, emptyMap(), """{"dsInfo":{"dsid":"123","hsaVersion":2},"hsaTrustedBrowser":$trusted,"webservices":$services}""")
         }
         override suspend fun stream(url: String, output: OutputStream) = error("Unused")
         override fun snapshotCookies() = emptyList<PersistedCookie>()

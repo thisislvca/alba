@@ -293,9 +293,19 @@ class LiveICloudCatalogSourceTest {
         assertTrue(transport.streamedUrls.isEmpty())
     }
 
+    @Test
+    fun `a library Apple is still indexing is a retryable preparing error, not an empty library`() = runBlocking {
+        val source = LiveICloudCatalogSource(FakePhotosTransport(indexingState = "RUNNING"), sessionProvider = { SESSION })
+
+        val error = runCatching { source.fetchPage(null, limit = 1) }.exceptionOrNull()
+
+        assertEquals(AppleProtocolError.LIBRARY_PREPARING, (error as AppleProtocolException).error)
+    }
+
     private class FakePhotosTransport(
         private val webAccessDisabled: Boolean = false,
         private val firstPage: String = PHOTO_PAGE,
+        private val indexingState: String = "FINISHED",
     ) : AppleHttpTransport {
         val photoQueries = mutableListOf<String>()
         val streamedUrls = mutableListOf<String>()
@@ -308,7 +318,7 @@ class LiveICloudCatalogSourceTest {
 
                 request.body.orEmpty().contains("CheckIndexingState") -> response(
                     """
-                    {"records":[{"fields":{"state":{"value":"FINISHED"}}}]}
+                    {"records":[{"fields":{"state":{"value":"$indexingState"}}}]}
                     """.trimIndent(),
                 )
 

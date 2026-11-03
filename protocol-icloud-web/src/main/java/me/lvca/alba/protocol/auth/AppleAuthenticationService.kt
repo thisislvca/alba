@@ -191,8 +191,7 @@ class AppleAuthenticationService internal constructor(
                         }.toString(),
                     ),
                 )
-                if (verification.code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
-                if (verification.code !in 200..299) throw invalidTwoFactorCode()
+                requireAcceptedSecurityCode(verification)
                 true
             }
         }
@@ -228,9 +227,26 @@ class AppleAuthenticationService internal constructor(
                 }.toString(),
             ),
         )
-        if (verification.code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
-        if (verification.code !in 200..299) throw invalidTwoFactorCode()
+        requireAcceptedSecurityCode(verification)
         return true
+    }
+
+    /**
+     * Apple answers a valid code with 2xx, or with 409 and `securityCode.valid: true` in the body.
+     * A 409 without that verdict, and any other non-2xx, is a wrong code; 429 is rate limiting.
+     */
+    private fun requireAcceptedSecurityCode(verification: AppleHttpResponse) {
+        if (verification.code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
+        if (verification.code in 200..299) return
+        if (verification.code == HTTP_CONFLICT && verification.reportsValidSecurityCode()) return
+        throw invalidTwoFactorCode()
+    }
+
+    private fun AppleHttpResponse.reportsValidSecurityCode(): Boolean {
+        val securityCode = runCatching {
+            Json.parseToJsonElement(body).jsonObject["securityCode"] as? JsonObject
+        }.getOrNull() ?: return false
+        return (securityCode["valid"] as? JsonPrimitive)?.contentOrNull == "true"
     }
 
     private suspend fun resendTwoFactorInternal() {
@@ -590,6 +606,7 @@ class AppleAuthenticationService internal constructor(
 
     private companion object {
         const val HTTP_TWO_FACTOR_REQUIRED = 409
+        const val HTTP_CONFLICT = 409
         const val HTTP_TOO_MANY_REQUESTS = 429
         const val IDMS_ENDPOINT = "https://idmsa.apple.com"
         const val AUTH_ENDPOINT = "$IDMS_ENDPOINT/appleauth/auth"
