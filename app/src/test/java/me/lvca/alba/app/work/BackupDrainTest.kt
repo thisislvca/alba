@@ -24,6 +24,25 @@ class BackupDrainTest {
     }
 
     @Test
+    fun anUploadThatIsReadyButDoesNotStartBacksOffAndThenEndsTheRun() {
+        // A READY upload whose iCloud cursor read fails: each pass says work is due now, and nothing moves.
+        val drain = BackupDrain(start, foreground = true)
+        var now = start
+        val waits = generateSequence { drain.nextWait(summary(next = now), now)?.also { now += it } }.toList()
+        assertEquals(listOf(15_000L, 30_000L, 60_000L, 60_000L, 60_000L, 60_000L), waits)
+        assertTrue("Never a pass straight after one that moved nothing", waits.all { it > 0 })
+    }
+
+    @Test
+    fun aPassThatMovesTheQueueEndsTheBackoff() {
+        val drain = BackupDrain(start, foreground = true)
+        assertEquals(15_000L, drain.nextWait(summary(next = start), start))
+        assertEquals(30_000L, drain.nextWait(summary(next = start), start))
+        assertEquals(0L, drain.nextWait(summary(invoked = 1), start))
+        assertEquals(15_000L, drain.nextWait(summary(next = start), start))
+    }
+
+    @Test
     fun theRunEndsWhenNothingIsDueOrIsDueTooLate() {
         val drain = BackupDrain(start, foreground = false)
         assertNull("Nothing left", drain.nextWait(summary(), start + 1_000))

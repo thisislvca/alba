@@ -31,13 +31,24 @@ internal class BackupDrain(private val startedAt: Long, val foreground: Boolean)
     /** The run is cut off here, even mid-upload; the upload is then verified or retried, never replayed blindly. */
     val hardLimitMillis: Long = if (foreground) FOREGROUND_LIMIT_MILLIS else BACKGROUND_LIMIT_MILLIS
 
-    /** How long to wait before the next pass, or null to end the run. */
+    /** Passes in a row that moved nothing, though work was due; reset by any pass that moves the queue. */
+    private var idlePasses = 0
+
+    /**
+     * How long to wait before the next pass, or null to end the run. A pass that moved nothing never leads straight
+     * to another: work that is due but did not start, such as an upload whose iCloud cursor read failed, waits
+     * [IDLE_BACKOFF_MILLIS] longer each time, and the run ends after [MAX_IDLE_PASSES] such passes.
+     */
     fun nextWait(summary: WakeSummary, now: Long): Long? {
         val left = budgetMillis - (now - startedAt)
-        if (left <= 0) return null
-        if (summary.progressed) return 0
-        val wait = ((summary.nextWorkAtEpochMillis ?: return null) - now).coerceAtLeast(0)
-        return wait.takeIf { it <= MAX_IDLE_WAIT_MILLIS && it < left }
+        val next = summary.nextWorkAtEpochMillis
+        return when {
+            left <= 0 -> null
+            summary.progressed -> 0L.also { idlePasses = 0 }
+            next == null || ++idlePasses > MAX_IDLE_PASSES -> null
+            else -> maxOf((next - now).coerceAtLeast(0), IDLE_BACKOFF_MILLIS[(idlePasses - 1).coerceAtMost(IDLE_BACKOFF_MILLIS.lastIndex)])
+                .takeIf { it <= MAX_IDLE_WAIT_MILLIS && it < left }
+        }
     }
 
     companion object {
@@ -53,6 +64,12 @@ internal class BackupDrain(private val startedAt: Long, val foreground: Boolean)
 
         /** Waits longer than this end the run; a scheduled wake-up continues later. */
         private const val MAX_IDLE_WAIT_MILLIS = 2 * MINUTE
+
+        /** The least wait after passes that moved nothing, growing with each one in a row. */
+        private val IDLE_BACKOFF_MILLIS = longArrayOf(15_000L, 30_000L, MINUTE)
+
+        /** Passes in a row that moved nothing before the run ends. */
+        private const val MAX_IDLE_PASSES = 6
     }
 }
 
