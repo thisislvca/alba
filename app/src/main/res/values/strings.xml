@@ -683,8 +683,9 @@
     <string name="about_missing_support">A safe diagnostic export for support.</string>
     <string name="about_notices">Third-party notices</string>
     <string name="about_hide_notices">Hide notices</string>
+    <string name="icloud_photos_still_preparing">iCloud Photos is still preparing this library. Try again in a few minutes.</string>
     <string name="icloud_photos_is_not_active">iCloud Photos isn’t active</string>
-    <string name="icloud_web_only_explanation">Your Apple Account sign-in worked, but Apple has not enabled iCloud Photos for this account. New accounts created on the web may have web-only access.</string>
+    <string name="icloud_web_only_explanation">Your Apple Account sign-in worked, but Apple did not offer iCloud Photos for this session. That happens when iCloud Photos has never been turned on, for new web-only accounts, and sometimes for accounts with a device on an iOS beta. Check again in a few minutes.</string>
     <string name="how_to_activate_icloud_photos">Activate it once on an Apple device</string>
     <string name="activate_icloud_photos_steps">Sign in on an iPhone, iPad, or Mac, then turn on iCloud Photos in that device’s iCloud settings. Return to Alba and check again.</string>
     <string name="icloud_plus_not_required">iCloud+ is optional. Activating the full iCloud account already includes 5 GB of free storage.</string>

@@ -19,6 +19,14 @@ class AppleEndpointPolicyTest {
         // Host suffixes match whole labels only.
         assertRejected("https://noticloud.com/setup")
         assertRejected("https://127.0.0.1/setup")
+        // Not https, or no host, or not a URL at all.
+        assertRejected("ftp://setup.icloud.com/setup")
+        assertRejected("file:///setup")
+        assertRejected("//setup.icloud.com/setup")
+        assertRejected("/setup")
+        assertRejected("https://")
+        assertRejected("https://[")
+        assertRejected("")
     }
 
     private fun assertAllowed(url: String) {

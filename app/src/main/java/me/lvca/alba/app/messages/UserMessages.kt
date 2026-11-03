@@ -67,6 +67,7 @@ internal fun Throwable.toUserMessage(@StringRes fallback: Int): UiMessage = when
         AppleProtocolError.WEB_ACCESS_DISABLED -> R.string.web_access_off_message
         AppleProtocolError.SECURITY_KEY_REQUIRED -> R.string.sign_in_error_security_key
         AppleProtocolError.TOO_MANY_ATTEMPTS -> R.string.sign_in_error_too_many_attempts
+        AppleProtocolError.LIBRARY_PREPARING -> R.string.icloud_photos_still_preparing
     })
     else -> localizedStoredMessage(message, fallback)
 }

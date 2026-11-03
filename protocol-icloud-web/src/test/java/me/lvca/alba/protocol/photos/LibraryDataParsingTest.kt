@@ -54,6 +54,22 @@ class LibraryDataParsingTest {
         assertEquals("BURST-1", photo.toRemoteMediaRecord("id", 0, 0).details.burstId)
     }
 
+    @Test fun twoAssetsSharingOneMasterAreBothKept() {
+        val body = """{"records":[
+            {"recordName":"photo-a","recordType":"CPLAsset","recordChangeTag":"a1","fields":{"masterRef":{"value":{"recordName":"master"}},
+                "assetDate":{"value":1777777777000}}},
+            {"recordName":"photo-b","recordType":"CPLAsset","recordChangeTag":"b1","fields":{"masterRef":{"value":{"recordName":"master"}},
+                "assetDate":{"value":1777777778000}}},
+            {"recordName":"master","recordType":"CPLMaster","recordChangeTag":"m1","fields":{
+                "itemType":{"value":"public.heic"},"filenameEnc":{"value":"SU1HXzEuSEVJQw=="},
+                "resOriginalRes":{"value":{"downloadURL":"https://cws.icloud-content.com/original"}}}}]}"""
+
+        val page = CloudKitPhotoResponseParser().parse(body)
+
+        assertEquals(2, page.logicalAssetCount)
+        assertEquals(setOf("photo-a", "photo-b"), page.photos.map { it.assetRecordName }.toSet())
+    }
+
     @Test fun missingOrUnsetDetailsStayEmpty() {
         val photo = CloudKitPhotoResponseParser().parse(page(""",
             "locationEnc":{"value":"$nullIsland"},"captionEnc":{"value":"  "},"timeZoneOffset":{"value":999999}""")).photos.single()

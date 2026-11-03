@@ -131,6 +131,25 @@ class LibraryEditingTest {
         assertEquals(2, transport.requests.count { it.url.contains("records/modify") })
     }
 
+    @Test fun everyLibraryEditFailsWhenAHttp200ReportsAPerRecordServerErrorCode() = runBlocking {
+        val transport = EditingTransport()
+        val source = LiveICloudCatalogSource(transport, { session }, isAuthorized = { true })
+        val id = "icloud:${source.accountLabel}:photo"
+        transport.reject = true
+        val edits = mapOf<String, suspend () -> Unit>(
+            "favorite" to { source.setFavorite(id, true) },
+            "hide" to { source.setHidden(listOf(id), true) },
+            "trash" to { source.setCloudTrashed(listOf(id), true) },
+            "create album" to { source.createAlbum("Trip") },
+            "rename album" to { source.renameAlbum("album", "Renamed") },
+            "delete album" to { source.deleteAlbum("album") },
+            "add to album" to { source.addToAlbum("album", listOf(id)) },
+        )
+        for ((name, edit) in edits) {
+            assertTrue("$name must not report success", runCatching { edit() }.isFailure)
+        }
+    }
+
     @Test fun smartCollectionsUseUpstreamIndexesIncludingSeparateBurstIndex() = runBlocking {
         val transport = EditingTransport()
         val source = LiveICloudCatalogSource(transport, { session }, isAuthorized = { true })
