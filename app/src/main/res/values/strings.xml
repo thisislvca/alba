@@ -747,6 +747,9 @@
     <string name="about_upcoming_older_detail">Include older photos, with item counts and size estimates before starting.</string>
     <string name="about_limitations">Compatibility details</string>
     <string name="about_hide_limitations">Hide compatibility details</string>
+    <string name="backup_progress_channel">Backup progress</string>
+    <string name="backup_progress_notification_title">Backing up to iCloud</string>
+    <string name="backup_progress_notification_count">%1$d of %2$d backed up</string>
     <string name="transfer_channel">Photo transfers</string>
     <string name="transfer_notification_title">Transferring photos</string>
     <string name="transfer_notification_body">Open Alba to see progress.</string>

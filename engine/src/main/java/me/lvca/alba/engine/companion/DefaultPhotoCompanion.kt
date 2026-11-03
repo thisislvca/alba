@@ -183,7 +183,7 @@ class DefaultPhotoCompanion(
         val moreWork = dueAt != null || ready
         if (ready) scheduler.scheduleSoon()
         else if (dueAt != null) scheduler.scheduleAt(dueAt)
-        WakeSummary(recovered, reconciled, stagedAutomatic, invoked, moreWork)
+        WakeSummary(recovered, reconciled, stagedAutomatic, invoked, moreWork, nextWorkAtEpochMillis = if (ready) now() else dueAt)
     }
 
     override suspend fun prepareTrash(

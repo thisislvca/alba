@@ -33,6 +33,7 @@ import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UserSelectedPhoto
+import me.lvca.alba.engine.model.WakeReason
 import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.DeviceMediaRecord
 import me.lvca.alba.engine.source.ExactOriginalEvidence
@@ -346,8 +347,9 @@ class BackupJournalTest {
         assertEquals(TransferViewState.WAITING, waiting.state)
         assertEquals(StoredMessage.UPLOAD_INTERRUPTED_TRYING_AGAIN.code, waiting.message)
 
-        photos.syncNow()
+        val idle = photos.wake(WakeReason.BACKGROUND)
         assertEquals("The fresh attempt waits out its backoff", 1, protocol.uploadStarts)
+        assertEquals("A background run knows when to come back", clock + Reconciler.retryBackoffMillis(0), idle.nextWorkAtEpochMillis)
 
         clock += Reconciler.retryBackoffMillis(0)
         photos.syncNow()

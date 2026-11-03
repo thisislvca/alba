@@ -251,7 +251,12 @@ data class WakeSummary(
     val stagedAutomaticTransfers: Int,
     val invokedTransfers: Int,
     val moreWorkScheduled: Boolean,
-)
+    /** When the next pass has something to do: now when an upload is ready, else the next check or retry. */
+    val nextWorkAtEpochMillis: Long? = null,
+) {
+    /** Whether this pass moved anything forward, so another pass right away may move more. */
+    val progressed: Boolean get() = reconciledTransfers + stagedAutomaticTransfers + invokedTransfers > 0
+}
 
 interface MaintenanceWakeup {
     suspend fun wake(reason: WakeReason): WakeSummary

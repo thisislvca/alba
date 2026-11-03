@@ -751,6 +751,9 @@
     <string name="about_upcoming_older_detail">Includere le foto già presenti, con numero di elementi e spazio stimato prima di iniziare.</string>
     <string name="about_limitations">Dettagli sulla compatibilità</string>
     <string name="about_hide_limitations">Nascondi dettagli sulla compatibilità</string>
+    <string name="backup_progress_channel">Avanzamento del backup</string>
+    <string name="backup_progress_notification_title">Backup su iCloud in corso</string>
+    <string name="backup_progress_notification_count">%1$d di %2$d salvati</string>
     <string name="transfer_channel">Trasferimenti foto</string>
     <string name="transfer_notification_title">Trasferimento foto</string>
     <string name="transfer_notification_body">Apri Alba per vedere i progressi.</string>
