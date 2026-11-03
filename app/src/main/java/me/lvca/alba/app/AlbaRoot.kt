@@ -60,6 +60,7 @@ import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
 import me.lvca.alba.app.intake.albaComponents
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.app.platform.ExportDocument
+import me.lvca.alba.app.platform.FREE_UP_SPACE_ENABLED
 import me.lvca.alba.app.platform.HiddenLock
 import me.lvca.alba.app.platform.HiddenScreenGuard
 import me.lvca.alba.app.platform.MobileDataChoice
@@ -676,10 +677,10 @@ private fun AlbaMain(
         awaitingNotificationAnswer = false
         platform.askNext(TransferPrompt.NOTIFICATIONS)
     }
-    if (transfers.freeUpSpace.leftover > 0) ContinueFreeUpSpace(transfers.freeUpSpace.leftover,
+    if (FREE_UP_SPACE_ENABLED && transfers.freeUpSpace.leftover > 0) ContinueFreeUpSpace(transfers.freeUpSpace.leftover,
         resume = viewModel.transfers.backup::continueFreeUp, discard = viewModel.transfers.backup::cancelFreeUp)
     // Wherever "Free up space" started, its progress and Cancel show here.
-    transfers.freeUpSpace.takeIf { it.checking && !it.awaitingConsent }?.let { run ->
+    transfers.freeUpSpace.takeIf { FREE_UP_SPACE_ENABLED && it.checking && !it.awaitingConsent }?.let { run ->
         FreeUpSpaceProgress(run, cancel = viewModel.transfers.backup::cancelFreeUp)
     }
     when (transferPrompt) {

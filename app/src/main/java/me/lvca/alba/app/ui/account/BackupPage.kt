@@ -39,6 +39,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.demo.DemoTransferMode
 import me.lvca.alba.app.messages.localizedStoredMessage
+import me.lvca.alba.app.platform.FREE_UP_SPACE_ENABLED
 import me.lvca.alba.app.platform.PHONE_TRASH_LIMIT
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.AccountScreenActions
@@ -107,11 +108,13 @@ internal fun BackupPage(
 
     if (!demo) {
         Spacer(Modifier.height(AlbaSpacing.xl))
-        AlbaCard {
-            BackupRow(stringResource(R.string.free_up_space_title), stringResource(R.string.free_up_space_row), AlbaIcons.DeleteSweep,
-                "backup-free-up-space") { onNavigate(ProfilePage.FREE_UP_SPACE) }
+        if (FREE_UP_SPACE_ENABLED) {
+            AlbaCard {
+                BackupRow(stringResource(R.string.free_up_space_title), stringResource(R.string.free_up_space_row), AlbaIcons.DeleteSweep,
+                    "backup-free-up-space") { onNavigate(ProfilePage.FREE_UP_SPACE) }
+            }
+            Spacer(Modifier.height(AlbaSpacing.xl))
         }
-        Spacer(Modifier.height(AlbaSpacing.xl))
         BackupSettingsCard(transfers, backup.enabled && backup.scope == BackupScope.CAMERA_MEDIA, actions, onNavigate)
     }
 
@@ -335,7 +338,7 @@ internal fun DeviceFoldersPage(transfers: TransferState, actions: AccountScreenA
  */
 @Composable
 internal fun FreeUpSpacePage(transfers: TransferState, actions: AccountScreenActions) {
-    LaunchedEffect(Unit) { actions.loadFreeUpSpace() }
+    LaunchedEffect(Unit) { if (FREE_UP_SPACE_ENABLED) actions.loadFreeUpSpace() }
     val context = LocalContext.current
     val state = transfers.freeUpSpace
     val candidates = state.candidates
@@ -402,11 +405,11 @@ private fun DemoControls(session: SessionState, transfers: TransferState, action
         modifier = Modifier.fillMaxWidth().testTag("demo-backup-pause-wifi")) {
         Text(stringResource(R.string.demo_backup_pause_wifi))
     }
-    OutlinedButton(onClick = { confirmCleanup = true }, modifier = Modifier.fillMaxWidth().testTag("demo-cleanup-preview"),
+    if (FREE_UP_SPACE_ENABLED) OutlinedButton(onClick = { confirmCleanup = true }, modifier = Modifier.fillMaxWidth().testTag("demo-cleanup-preview"),
         enabled = transfers.queue.isNotEmpty() && transfers.queue.all { row -> row.state == TransferViewState.VERIFIED }) {
         Text(stringResource(R.string.demo_cleanup_preview))
     }
-    if (confirmCleanup) AlertDialog(onDismissRequest = { confirmCleanup = false },
+    if (FREE_UP_SPACE_ENABLED && confirmCleanup) AlertDialog(onDismissRequest = { confirmCleanup = false },
         title = { Text(stringResource(R.string.demo_cleanup_preview)) },
         text = { Text(stringResource(R.string.demo_cleanup_disclosure)) },
         confirmButton = {
