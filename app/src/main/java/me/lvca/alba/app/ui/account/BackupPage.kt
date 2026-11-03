@@ -258,7 +258,13 @@ private fun IncludeExistingCard(destination: String, include: () -> Unit) {
     if (confirm) AlertDialog(
         onDismissRequest = { confirm = false },
         title = { Text(stringResource(R.string.backup_existing_row_title)) },
-        text = { Text(stringResource(R.string.backup_existing_confirm_body, destination)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+                Text(stringResource(R.string.backup_existing_confirm_body, destination))
+                Text(stringResource(R.string.backup_existing_data_note), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("backup-existing-data-note"))
+            }
+        },
         confirmButton = {
             TextButton(onClick = { confirm = false; include() }, modifier = Modifier.testTag("backup-include-existing-confirm")) {
                 Text(stringResource(R.string.backup_existing_confirm_button))

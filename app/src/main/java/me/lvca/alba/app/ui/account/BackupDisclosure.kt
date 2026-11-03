@@ -54,6 +54,11 @@ internal fun BackupDisclosure(
                     BackupExistingChoice(stringResource(R.string.backup_existing_choice_new), null,
                         selected = !includeExisting, tag = "backup-choice-new-only") { includeExisting = false }
                 }
+                // Each upload is verified by downloading it back, so the whole library costs about twice its size.
+                if (!setup.demo && includeExisting) {
+                    Text(stringResource(R.string.backup_existing_data_note), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("backup-existing-data-note"))
+                }
                 if (!setup.demo) Text(stringResource(R.string.backup_disclosure_notifications), style = MaterialTheme.typography.bodySmall)
                 // Warn before the user commits: with a full iCloud nothing can back up until there is space.
                 if (storageFull && !setup.demo) Text(stringResource(R.string.backup_disclosure_storage_full),

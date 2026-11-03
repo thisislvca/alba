@@ -959,6 +959,7 @@
     <string name="backup_existing_confirm_body">Alba eseguirà anche il backup di foto e video già presenti nella cartella della fotocamera e nelle cartelle scelte, dai più recenti, caricando gli originali identici su %1$s. Può richiedere un po’ di tempo. Usa il Wi-Fi, a meno che tu non consenta i dati mobili.</string>
     <string name="backup_existing_confirm_button">Esegui backup</string>
     <string name="backup_screenshots_folder">Screenshot</string>
+    <string name="backup_existing_data_note">Ogni caricamento viene verificato scaricandolo di nuovo da iCloud, quindi il backup dell’intera libreria usa circa il doppio delle sue dimensioni in dati. Il backup usa solo il Wi-Fi, a meno che tu non consenta i dati mobili.</string>
     <string name="backup_device_folders">Backup delle cartelle del dispositivo</string>
     <string name="backup_device_folders_intro">Le nuove foto e i nuovi video della fotocamera vengono sempre salvati. Attiva altre cartelle, come Screenshot o WhatsApp Images, per salvare anche i nuovi elementi al loro interno.</string>
     <string name="backup_device_folders_empty">Nessun’altra cartella con foto o video.</string>

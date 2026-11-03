@@ -152,6 +152,7 @@ class BackupPageTest {
         render(TransferState(backup = on), includeExistingInBackup = { included++ })
         compose.onNodeWithTag("backup-include-existing").performScrollTo().performClick()
         assertEquals("Nothing starts before the user confirms", 0, included)
+        compose.onNodeWithText(context.getString(R.string.backup_existing_data_note)).assertIsDisplayed()
         compose.onNodeWithTag("backup-include-existing-confirm").performClick()
         assertEquals(1, included)
     }
@@ -172,6 +173,7 @@ class BackupPageTest {
             }
         }
         compose.onNodeWithTag("backup-choice-existing").assertIsSelected()
+        compose.onNodeWithText(context.getString(R.string.backup_existing_data_note)).assertIsDisplayed()
         compose.onNodeWithTag("backup-disclosure-accept").performClick()
         compose.onNodeWithTag("backup-choice-new-only").performClick()
         compose.onNodeWithTag("backup-choice-new-only").assertIsSelected()
