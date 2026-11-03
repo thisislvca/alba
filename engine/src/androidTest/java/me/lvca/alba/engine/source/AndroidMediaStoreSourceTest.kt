@@ -224,9 +224,12 @@ class AndroidMediaStoreSourceTest {
 
             val names = mutableListOf<String>()
             var cursor: ExistingMediaCursor? = null
+            val seen = mutableSetOf<Long>()
             do {
                 val page = source.discoverExistingMedia(cursor, 1, BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline)
                 names += page.items.map { it.record.fileName }
+                // Each page must move past the last: a cursor that does not advance would read forever.
+                page.items.forEach { assertTrue("Read twice: ${it.record.fileName}", seen.add(it.record.mediaStoreId)) }
                 cursor = page.items.lastOrNull()?.cursor ?: cursor
             } while (page.moreComing)
             assertEquals(

@@ -179,8 +179,10 @@ class AndroidMediaStoreSource(
         // Newest first by capture time, or by when it was added without one; the id breaks ties, so a page never
         // repeats or skips an item. The set is fixed at enrollment, so the cursor only ever moves forward.
         val sortKey = "IFNULL(${MediaStore.MediaColumns.DATE_TAKEN}, ${MediaStore.MediaColumns.DATE_ADDED} * 1000)"
+        // Arguments are bound as text, and an expression has no column affinity to convert them, so "+ 0" makes
+        // them numbers: compared as text, every number would sort before the cursor and the page would never move.
         val keyset = if (after == null) "" else
-            " AND ($sortKey < ? OR ($sortKey = ? AND ${MediaStore.MediaColumns._ID} < ?))"
+            " AND ($sortKey < (? + 0) OR ($sortKey = (? + 0) AND ${MediaStore.MediaColumns._ID} < ?))"
         val keysetArgs = after?.let {
             listOf(it.sortKeyEpochMillis.toString(), it.sortKeyEpochMillis.toString(), it.mediaStoreId.toString())
         }.orEmpty()
