@@ -40,15 +40,19 @@ internal class BackupDrain(private val startedAt: Long, val foreground: Boolean)
         return wait.takeIf { it <= MAX_IDLE_WAIT_MILLIS && it < left }
     }
 
-    private companion object {
-        const val MINUTE = 60_000L
-        const val BACKGROUND_BUDGET_MILLIS = 6 * MINUTE
-        const val BACKGROUND_LIMIT_MILLIS = 8 * MINUTE
-        const val FOREGROUND_BUDGET_MILLIS = 60 * MINUTE
-        const val FOREGROUND_LIMIT_MILLIS = 3 * 60 * MINUTE
+    companion object {
+        private const val MINUTE = 60_000L
+
+        /** No run lasts longer than this, whatever it is waiting for. */
+        const val LONGEST_RUN_MILLIS = 3 * 60 * MINUTE + MINUTE
+
+        private const val BACKGROUND_BUDGET_MILLIS = 6 * MINUTE
+        private const val BACKGROUND_LIMIT_MILLIS = 8 * MINUTE
+        private const val FOREGROUND_BUDGET_MILLIS = 60 * MINUTE
+        private const val FOREGROUND_LIMIT_MILLIS = 3 * 60 * MINUTE
 
         /** Waits longer than this end the run; a scheduled wake-up continues later. */
-        const val MAX_IDLE_WAIT_MILLIS = 2 * MINUTE
+        private const val MAX_IDLE_WAIT_MILLIS = 2 * MINUTE
     }
 }
 

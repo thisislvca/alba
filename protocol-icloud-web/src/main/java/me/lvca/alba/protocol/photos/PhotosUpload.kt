@@ -211,17 +211,25 @@ internal class PhotosUpload(
          * id names that way, such as UTC+5:30 away from that zone, falls back to what iCloud web sends.
          */
         internal fun uploadZone(phone: ZoneId, uploadedAt: Instant, capturedAt: Instant, captureOffsetMinutes: Int?): Pair<String, Int> {
-            val asICloudWeb = phone.id to phone.rules.getOffset(uploadedAt).totalSeconds / 60
+            val asICloudWeb = phone.id to phone.rules.getOffset(uploadedAt).totalSeconds / SECONDS_PER_MINUTE
             if (captureOffsetMinutes == null) return asICloudWeb
+            val hours = captureOffsetMinutes / MINUTES_PER_HOUR
             val zone = when {
-                phone.rules.getOffset(capturedAt).totalSeconds == captureOffsetMinutes * 60 -> phone.id
+                phone.rules.getOffset(capturedAt).totalSeconds == captureOffsetMinutes * SECONDS_PER_MINUTE -> phone.id
                 captureOffsetMinutes == 0 -> "Etc/UTC"
-                captureOffsetMinutes % 60 == 0 && captureOffsetMinutes / 60 in -12..14 ->
-                    "Etc/GMT" + (if (captureOffsetMinutes > 0) "-" else "+") + kotlin.math.abs(captureOffsetMinutes / 60)
+                captureOffsetMinutes % MINUTES_PER_HOUR == 0 && hours in FIXED_ZONE_HOURS ->
+                    // IANA's Etc/GMT zones invert the sign: Etc/GMT-9 is UTC+9.
+                    "Etc/GMT" + (if (hours > 0) "-" else "+") + kotlin.math.abs(hours)
                 else -> return asICloudWeb
             }
             return zone to captureOffsetMinutes
         }
+
+        private const val SECONDS_PER_MINUTE = 60
+        private const val MINUTES_PER_HOUR = 60
+
+        /** The whole-hour offsets the Etc/GMT zones name, UTC-12 to UTC+14. */
+        private val FIXED_ZONE_HOURS = -12..14
 
         val RESUMABLE = setOf("RESERVING", "RESERVED", "RECEIPT_SAVED", "ACCEPTED")
 

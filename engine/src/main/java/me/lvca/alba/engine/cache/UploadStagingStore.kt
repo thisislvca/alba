@@ -7,9 +7,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.OneShotUploadSource
-import me.lvca.alba.engine.source.DeviceOriginalEvidence
 import me.lvca.alba.engine.source.CaptureTime
 import me.lvca.alba.engine.source.CaptureTimes
+import me.lvca.alba.engine.source.DeviceOriginalEvidence
 import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.UploadMediaFormat
 import me.lvca.alba.engine.source.UploadMediaValidator

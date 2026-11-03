@@ -45,8 +45,13 @@ class LiveTransferModeTest {
         assertEquals(setOf("device-folder:external_primary:3"), preferences.settings.value.deviceFolders)
     }
 
-    private fun mode() = LiveTransferMode(photos, GalleryBatchActions(unexpected<LibraryDao>(), unexpected<OfflineMediaStore>(), photos, account = { "account" }),
-        TransferScheduler {}, UserMessages(), preferences)
+    private fun mode() = LiveTransferMode(
+        photos,
+        GalleryBatchActions(unexpected<LibraryDao>(), unexpected<OfflineMediaStore>(), photos, account = { "account" }),
+        TransferScheduler {},
+        UserMessages(),
+        preferences,
+    )
 
     private class FakePhotos : PhotoCompanion by unexpected() {
         val view = MutableStateFlow(BackupView(enabled = false))

@@ -33,15 +33,14 @@ class BackupWakeWorker(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val app = applicationContext as AlbaApplication
-        val foreground = tryForeground(app)
-        val drain = BackupDrain(startedAt = System.currentTimeMillis(), foreground = foreground)
-        return withTimeoutOrNull(drain.hardLimitMillis) { runPasses(app, drain) } ?: Result.retry()
+        val startedAt = System.currentTimeMillis()
+        return withTimeoutOrNull(BackupDrain.LONGEST_RUN_MILLIS) { runPasses(app, startedAt) } ?: Result.retry()
     }
 
-    private suspend fun runPasses(app: AlbaApplication, drain: BackupDrain): Result {
+    private suspend fun runPasses(app: AlbaApplication, startedAt: Long): Result {
         val span = app.diagnostics.start(
             DiagnosticOperation.MAINTENANCE_WAKE,
-            mapOf(DiagnosticAttribute.REASON to if (drain.foreground) "background-foreground" else "background"),
+            mapOf(DiagnosticAttribute.REASON to "background"),
         )
         return try {
             if (app.graph.accountManager.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE) {
@@ -62,35 +61,28 @@ class BackupWakeWorker(
                     return Result.success()
                 }
             }
-            var passes = 0
-            var recovered = 0
-            var reconciled = 0
-            var invoked = 0
-            var staged = 0
-            while (true) {
-                val summary = app.graph.maintenance.wake(WakeReason.BACKGROUND)
-                passes += 1
-                recovered += summary.recoveredInvocations
-                reconciled += summary.reconciledTransfers
-                invoked += summary.invokedTransfers
-                staged += summary.stagedAutomaticTransfers
-                if (drain.foreground) updateProgress(app)
-                val waitMillis = drain.nextWait(summary, System.currentTimeMillis()) ?: break
-                if (waitMillis > 0) delay(waitMillis)
+            // Decided once the session is restored, since what is left to back up depends on the account.
+            val drain = BackupDrain(startedAt, foreground = tryForeground(app))
+            val totals = drainQueue(app, drain, startedAt)
+            if (totals == null) {
+                // Cut off mid-pass: an upload it stopped is verified or retried from the journal, never replayed blindly.
+                span.finish(DiagnosticOutcome.CANCELLED)
+                Result.retry()
+            } else {
+                // Storage full and failed items need the user; routine progress posts nothing.
+                report(app, signInNeeded = false)
+                span.finish(
+                    DiagnosticOutcome.SUCCESS,
+                    mapOf(
+                        DiagnosticAttribute.RECOVERED_COUNT to totals.recovered,
+                        DiagnosticAttribute.RECONCILED_COUNT to totals.reconciled,
+                        DiagnosticAttribute.STAGED_COUNT to totals.staged,
+                        DiagnosticAttribute.INVOKED_COUNT to totals.invoked,
+                        DiagnosticAttribute.MORE_WORK to (totals.passes > 1),
+                    ),
+                )
+                Result.success()
             }
-            // Storage full and failed items need the user; routine progress posts nothing.
-            report(app, signInNeeded = false)
-            span.finish(
-                DiagnosticOutcome.SUCCESS,
-                mapOf(
-                    DiagnosticAttribute.RECOVERED_COUNT to recovered,
-                    DiagnosticAttribute.RECONCILED_COUNT to reconciled,
-                    DiagnosticAttribute.STAGED_COUNT to staged,
-                    DiagnosticAttribute.INVOKED_COUNT to invoked,
-                    DiagnosticAttribute.MORE_WORK to (passes > 1),
-                ),
-            )
-            Result.success()
         } catch (cancelled: CancellationException) {
             span.finish(DiagnosticOutcome.CANCELLED)
             throw cancelled
@@ -101,6 +93,32 @@ class BackupWakeWorker(
                 report(app, signInNeeded = true)
                 Result.success()
             } else Result.retry()
+        }
+    }
+
+    /** What one run did, for diagnostics. */
+    private data class DrainTotals(var passes: Int = 0, var recovered: Int = 0, var reconciled: Int = 0, var invoked: Int = 0, var staged: Int = 0)
+
+    /** Runs passes until [drain] ends the run; null when the run was cut off at its hard limit. */
+    private suspend fun drainQueue(app: AlbaApplication, drain: BackupDrain, startedAt: Long): DrainTotals? {
+        val totals = DrainTotals()
+        var progressShownAt = System.currentTimeMillis()
+        return withTimeoutOrNull(drain.hardLimitMillis - (System.currentTimeMillis() - startedAt)) {
+            while (true) {
+                val summary = app.graph.maintenance.wake(WakeReason.BACKGROUND)
+                totals.passes += 1
+                totals.recovered += summary.recoveredInvocations
+                totals.reconciled += summary.reconciledTransfers
+                totals.invoked += summary.invokedTransfers
+                totals.staged += summary.stagedAutomaticTransfers
+                if (drain.foreground && System.currentTimeMillis() - progressShownAt >= PROGRESS_INTERVAL_MILLIS) {
+                    updateProgress(app)
+                    progressShownAt = System.currentTimeMillis()
+                }
+                val waitMillis = drain.nextWait(summary, System.currentTimeMillis()) ?: break
+                if (waitMillis > 0) delay(waitMillis)
+            }
+            totals
         }
     }
 
@@ -150,5 +168,8 @@ class BackupWakeWorker(
 
     private companion object {
         val QUEUED = setOf(TransferViewState.WAITING, TransferViewState.UPLOADING)
+
+        /** Counting progress reads every covered item, so the notification is refreshed at most this often. */
+        const val PROGRESS_INTERVAL_MILLIS = 30_000L
     }
 }

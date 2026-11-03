@@ -53,6 +53,7 @@ import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.timestampLabel
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferViewState
@@ -89,7 +90,7 @@ internal fun BackupPage(
         Spacer(Modifier.height(18.dp))
     }
     BackupStatusCard(session, transfers, status, actions, onNavigate)
-    if (!demo && backup.enabled && backup.scope == BackupScope.CAMERA_MEDIA && !backup.includesExisting) {
+    if (!demo && backup.offersExisting) {
         Spacer(Modifier.height(AlbaSpacing.xl))
         IncludeExistingCard(backup.destinationLabel ?: signedIn?.appleId.orEmpty(), actions::includeExistingInBackup)
     }
@@ -239,6 +240,9 @@ private fun StatusAction(status: BackupStatus, actions: AccountScreenActions, on
         else -> Unit
     }
 }
+
+/** Backup of the current scope is on for new items only, so backing up what was already there can be offered. */
+private val BackupView.offersExisting: Boolean get() = enabled && scope == BackupScope.CAMERA_MEDIA && !includesExisting
 
 /**
  * Offered to someone who turned backup on for new items only: back up what was already on the phone too, after asking

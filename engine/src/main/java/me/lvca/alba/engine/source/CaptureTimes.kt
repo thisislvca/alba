@@ -48,8 +48,8 @@ object CaptureTimes {
         val offset = offsetTimeOriginal?.trim()?.let { runCatching { ZoneOffset.of(it) }.getOrNull() } ?: return null
         val time = runCatching { LocalDateTime.parse(local, EXIF_DATE_TIME) }.getOrNull() ?: return null
         val millis = subsecTimeOriginal?.trim()?.takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
-            ?.padEnd(3, '0')?.take(3)?.toLong() ?: 0L
-        return CaptureTime(time.toInstant(offset).toEpochMilli() + millis, offset.totalSeconds / 60)
+            ?.padEnd(MILLIS_DIGITS, '0')?.take(MILLIS_DIGITS)?.toLong() ?: 0L
+        return CaptureTime(time.toInstant(offset).toEpochMilli() + millis, offset.totalSeconds / SECONDS_PER_MINUTE)
     }
 
     /**
@@ -61,9 +61,9 @@ object CaptureTimes {
         val mvhd = findBox(input, moov.first, moov.second, "mvhd") ?: return null
         input.seek(mvhd.first)
         val version = input.readUnsignedByte()
-        input.skipBytes(3)
-        val seconds = if (version == 1) input.readLong() else input.readInt().toLong() and 0xffffffffL
-        (seconds - SECONDS_1904_TO_1970).takeIf { seconds > 0L && it > 0L }?.times(1_000L)
+        input.skipBytes(FLAGS_BYTES)
+        val seconds = if (version == LONG_TIMES_VERSION) input.readLong() else input.readInt().toLong() and UINT32_MASK
+        (seconds - SECONDS_1904_TO_1970).takeIf { seconds > 0L && it > 0L }?.times(MILLIS_PER_SECOND)
     }
 
     /** The content range (start, end) of the first [type] box between [start] and [end], scanning siblings only. */
@@ -71,12 +71,12 @@ object CaptureTimes {
         var position = start
         while (position + BOX_HEADER <= end) {
             input.seek(position)
-            var size = input.readInt().toLong() and 0xffffffffL
-            val name = ByteArray(4).also(input::readFully).toString(Charsets.ISO_8859_1)
+            var size = input.readInt().toLong() and UINT32_MASK
+            val name = ByteArray(BOX_TYPE_BYTES).also(input::readFully).toString(Charsets.ISO_8859_1)
             var header = BOX_HEADER
             if (size == 1L) {
                 size = input.readLong()
-                header += 8
+                header += Long.SIZE_BYTES
             } else if (size == 0L) {
                 size = end - position
             }
@@ -89,5 +89,12 @@ object CaptureTimes {
 
     private val EXIF_DATE_TIME = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss")
     private const val BOX_HEADER = 8L
+    private const val BOX_TYPE_BYTES = 4
+    private const val FLAGS_BYTES = 3
+    private const val LONG_TIMES_VERSION = 1
+    private const val UINT32_MASK = 0xffffffffL
+    private const val MILLIS_DIGITS = 3
+    private const val MILLIS_PER_SECOND = 1_000L
+    private const val SECONDS_PER_MINUTE = 60
     private const val SECONDS_1904_TO_1970 = 2_082_844_800L
 }

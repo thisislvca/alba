@@ -93,7 +93,6 @@ internal fun testAlbaActions(
         override fun openBackup() = onOpenBackup()
         override fun retryAfterStorageFull() = onRetryStorage()
         override fun includeExistingInBackup() = onIncludeExisting()
-        override fun setBackupIncludesExisting(include: Boolean) = Unit
         override fun accountPageShown() = Unit
         override fun loadDeviceFolders() = Unit
         override fun refreshBackupStatus() = Unit

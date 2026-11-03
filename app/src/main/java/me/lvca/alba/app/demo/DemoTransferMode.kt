@@ -63,9 +63,6 @@ internal class DemoTransferMode(
         if (isDemo()) demo.finish(draftId)
     }
 
-    /** The demo's sample photos are all new; there is no older library to add. */
-    override suspend fun includeExistingInBackup() = Unit
-
     override suspend fun disableBackup() = reset()
 
     /** The demo's backup screen drives its scenarios through reserved transfer ids. */

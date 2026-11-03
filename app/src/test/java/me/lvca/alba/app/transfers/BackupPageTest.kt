@@ -3,9 +3,7 @@ package me.lvca.alba.app.transfers
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOn
@@ -27,9 +25,9 @@ import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.ui.account.BackupDisclosure
 import me.lvca.alba.app.ui.account.DeviceFoldersPage
-import me.lvca.alba.app.ui.account.backedUpFolderNames
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
 import me.lvca.alba.app.ui.account.ProfilePage
+import me.lvca.alba.app.ui.account.backedUpFolderNames
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.gallery.BackupBadge
 import me.lvca.alba.app.ui.gallery.BackupStatusChip
@@ -166,20 +164,19 @@ class BackupPageTest {
 
     @Test
     fun theDisclosureBacksUpExistingItemsByDefaultAndCanBeNarrowed() {
-        val choices = mutableListOf<Boolean>()
-        var setup by mutableStateOf(BackupSetup(BackupDraftId("draft"), "alex@example.com"))
+        val accepted = mutableListOf<Boolean>()
         compose.setContent {
             AlbaTheme(darkTheme = false) {
-                BackupDisclosure(setup, storageFull = false, accept = {}, dismiss = {}, chooseExisting = {
-                    choices += it
-                    setup = setup.copy(includeExisting = it)
-                })
+                BackupDisclosure(BackupSetup(BackupDraftId("draft"), "alex@example.com"), storageFull = false,
+                    accept = { accepted += it }, dismiss = {})
             }
         }
         compose.onNodeWithTag("backup-choice-existing").assertIsSelected()
+        compose.onNodeWithTag("backup-disclosure-accept").performClick()
         compose.onNodeWithTag("backup-choice-new-only").performClick()
         compose.onNodeWithTag("backup-choice-new-only").assertIsSelected()
-        assertEquals(listOf(false), choices)
+        compose.onNodeWithTag("backup-disclosure-accept").performClick()
+        assertEquals(listOf(true, false), accepted)
     }
 
     @Test

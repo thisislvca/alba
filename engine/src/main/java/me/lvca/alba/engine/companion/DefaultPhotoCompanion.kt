@@ -38,6 +38,10 @@ import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
 
+/** How long the user's transfer job waits, at least and at most, for an upload's retry backoff before looking again. */
+private const val MIN_BACKOFF_WAIT_MILLIS = 1_000L
+private const val MAX_BACKOFF_WAIT_MILLIS = 60_000L
+
 /**
  * The photo companion: wires account binding, intake, upload, reconciliation, backup and trash, and runs them
  * in order on each maintenance wake.
@@ -111,7 +115,7 @@ class DefaultPhotoCompanion(
                 // An upload proven not received waits out its backoff; keep the job alive rather than failing it.
                 val retryAt = transferDao.earliestRetryDue(account.accountId, now(), allowAutomatic = false)
                     ?: throw java.io.IOException("Could not start the queued upload")
-                kotlinx.coroutines.delay((retryAt - now()).coerceIn(1_000L, 60_000L))
+                kotlinx.coroutines.delay((retryAt - now()).coerceIn(MIN_BACKOFF_WAIT_MILLIS, MAX_BACKOFF_WAIT_MILLIS))
             }
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
         }

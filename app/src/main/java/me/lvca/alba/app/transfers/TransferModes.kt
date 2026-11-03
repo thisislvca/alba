@@ -45,9 +45,6 @@ internal interface TransferMode {
     suspend fun beginBackup(): BackupDraft
     suspend fun acceptBackup(draftId: BackupDraftId): BackupSetupEffect
     suspend fun finishBackup(draftId: BackupDraftId, includeExisting: Boolean)
-
-    /** Backup also covers what was on the phone when it was turned on. */
-    suspend fun includeExistingInBackup()
     suspend fun disableBackup()
     suspend fun continuePastUnresolved(transferId: TransferId)
 
@@ -93,11 +90,6 @@ internal class LiveTransferMode(
         // Backup turned on afresh starts with the screenshots folders; agreeing again keeps the folders already chosen.
         if (turningOn && view.enabled) preferences.update { it.copy(deviceFolders = it.deviceFolders + DeviceFolder.SCREENSHOTS) }
         messages.show(localizedStoredMessage(view.message))
-    }
-
-    override suspend fun includeExistingInBackup() {
-        photos.changeBackup(BackupChange.IncludeExisting)
-        messages.show(R.string.backup_existing_started)
     }
 
     override suspend fun disableBackup() {

@@ -199,9 +199,6 @@ interface AccountActions {
     /** Backup also covers what was on the phone before it was turned on. */
     fun includeExistingInBackup()
 
-    /** The user chose, in the backup disclosure, whether existing photos and videos back up too. */
-    fun setBackupIncludesExisting(include: Boolean)
-
     /** The account screen showed a page something outside it asked for. */
     fun accountPageShown()
     fun setBackupSettings(settings: BackupSettings)

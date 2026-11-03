@@ -251,9 +251,11 @@ internal class TransferController(
      * Accepts the backup disclosure. Runs in the ViewModel's scope, so a rotation cannot cancel it after the companion
      * recorded the acceptance; a permission request reaches the UI as an [AlbaEffect].
      */
-    fun acceptBackupDisclosure() {
-        val current = currentSetup() ?: return
-        if (current.awaitingPermissions) return
+    fun acceptBackupDisclosure(includeExisting: Boolean = true) {
+        val shown = currentSetup() ?: return
+        if (shown.awaitingPermissions) return
+        // Saved with the setup, so the choice survives the permission request and process death.
+        val current = shown.copy(includeExisting = includeExisting).also(backupSetup::save)
         scope.launch {
             val effect = try {
                 modeFor(current.draftId).acceptBackup(current.draftId)
@@ -289,23 +291,6 @@ internal class TransferController(
         val current = currentSetup() ?: return
         clearSetup()
         finishBackup(current.draftId, current.includeExisting)
-    }
-
-    /** The user chose, before accepting the disclosure, whether what is already on the phone backs up too. */
-    fun setBackupIncludesExisting(include: Boolean) {
-        val current = currentSetup()?.takeUnless { it.awaitingPermissions } ?: return
-        backupSetup.save(current.copy(includeExisting = include))
-    }
-
-    /** Widens backup to what was already on the phone when it was turned on. */
-    fun includeExistingInBackup() {
-        val mode = mode
-        scope.launch {
-            try { mode.includeExistingInBackup() } catch (error: Exception) {
-                if (error is CancellationException) throw error
-                messages.show(error.toUserMessage(R.string.message_could_not_change_backup_settings))
-            }
-        }
     }
 
     fun dismissBackupSetup() = clearSetup()

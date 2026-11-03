@@ -37,7 +37,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.lvca.alba.app.ui.account.BackupDisclosure
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -79,6 +78,7 @@ import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.app.ui.AlbaApp
 import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.app.ui.InvitationActions
+import me.lvca.alba.app.ui.account.BackupDisclosure
 import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
@@ -665,8 +665,7 @@ private fun AlbaMain(
     }
     transfers.backupSetup?.takeUnless { it.awaitingPermissions }?.let { setup ->
         BackupDisclosure(setup, storageFull = session.accountInfo.storage?.let { !it.isDemo && it.usedBytes >= it.totalBytes } == true,
-            accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup,
-            chooseExisting = viewModel.transfers::setBackupIncludesExisting)
+            accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
     }
     LaunchedEffect(notificationAnswered) {
         if (!notificationAnswered) return@LaunchedEffect
@@ -897,8 +896,7 @@ private class AlbaRootActions(
     override fun retryRestore() = viewModel.sync.refresh()
     override fun enableAutomaticBackup() = transfers.beginAutomaticBackup()
     override fun disableAutomaticBackup() = transfers.disableAutomaticBackup()
-    override fun includeExistingInBackup() = transfers.includeExistingInBackup()
-    override fun setBackupIncludesExisting(include: Boolean) = transfers.setBackupIncludesExisting(include)
+    override fun includeExistingInBackup() = transfers.backup.includeExistingInBackup()
     override fun demoBackupAction(transferId: TransferId) = transfers.continuePastUnresolved(transferId)
     override fun accountPageShown() = account.accountPageShown()
     override fun setBackupSettings(settings: BackupSettings) = transfers.backup.setBackupSettings(settings)

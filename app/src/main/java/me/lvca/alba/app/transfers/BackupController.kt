@@ -24,6 +24,7 @@ import me.lvca.alba.app.messages.toUserMessage
 import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.MobileDataChoice
 import me.lvca.alba.app.platform.PHONE_TRASH_LIMIT
+import me.lvca.alba.engine.model.BackupChange
 import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.DeviceFolder
@@ -104,6 +105,21 @@ internal class BackupController(
                 messages.show(expected.toUserMessage(R.string.message_could_not_change_backup_settings))
             }
             refreshBackupStatus()
+        }
+    }
+
+    /** Widens backup to what was already on the phone when it was turned on. The demo has no older library. */
+    fun includeExistingInBackup() {
+        if (isDemo()) return
+        scope.launch {
+            try {
+                withContext(io) { photos.changeBackup(BackupChange.IncludeExisting) }
+                messages.show(R.string.backup_existing_started)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (expected: Exception) {
+                messages.show(expected.toUserMessage(R.string.message_could_not_change_backup_settings))
+            }
         }
     }
 
