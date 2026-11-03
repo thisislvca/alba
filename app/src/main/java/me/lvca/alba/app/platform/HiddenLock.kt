@@ -18,6 +18,12 @@ import androidx.compose.runtime.DisposableEffect
  */
 internal val HIDE_EDITS_ENABLED: Boolean get() = me.lvca.alba.app.BuildConfig.DEBUG
 
+/**
+ * Whether "Free up space" (deleting phone copies once they are backed up) is offered. It is on only in debug builds
+ * until backup has been proven on real accounts.
+ */
+internal val FREE_UP_SPACE_ENABLED: Boolean get() = me.lvca.alba.app.BuildConfig.DEBUG
+
 /** What came of asking the user to unlock Hidden. */
 internal enum class UnlockResult { UNLOCKED, CANCELED, NO_SCREEN_LOCK, FAILED }
 
