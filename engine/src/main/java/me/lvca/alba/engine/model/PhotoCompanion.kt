@@ -113,7 +113,17 @@ data class DeviceFolder(
     val relativePath: String,
     val itemCount: Int,
     val isCamera: Boolean,
-)
+    /** A screenshots folder, which [SCREENSHOTS] covers on every volume, whether or not it exists yet. */
+    val isScreenshots: Boolean = false,
+) {
+    companion object {
+        /**
+         * Chosen in [BackupSettings.deviceFolders], it covers Pictures/Screenshots and DCIM/Screenshots by path, so
+         * a screenshots folder made after backup was turned on is covered too. New enrollments start with it.
+         */
+        const val SCREENSHOTS = "device-folder-path:screenshots"
+    }
+}
 
 /** Manual uploads finished and still to go in the current run. */
 data class TransferProgress(val done: Int, val total: Int)

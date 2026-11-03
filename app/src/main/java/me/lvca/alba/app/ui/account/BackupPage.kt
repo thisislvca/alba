@@ -53,6 +53,7 @@ import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.timestampLabel
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -297,12 +298,28 @@ private fun BackupSettingsCard(transfers: TransferState, folders: Boolean, actio
         SettingSwitch(stringResource(R.string.backup_pause), stringResource(R.string.backup_pause_detail),
             settings.paused, "backup-pause") { actions.setBackupSettings(settings.copy(paused = it)) }
         if (folders) {
+            LaunchedEffect(Unit) { actions.loadDeviceFolders() }
             AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
+            val names = backedUpFolderNames(settings.deviceFolders, transfers.deviceFolders, stringResource(R.string.backup_screenshots_folder))
+            val extra = settings.deviceFolders.size
             BackupRow(stringResource(R.string.backup_device_folders),
-                pluralStringResource(R.plurals.backup_device_folders_detail, settings.deviceFolders.size, settings.deviceFolders.size),
+                names?.joinToString(", ") ?: pluralStringResource(R.plurals.backup_device_folders_detail, extra, extra),
                 AlbaIcons.PhotoLibrary, "backup-device-folders") { onNavigate(ProfilePage.BACKUP_FOLDERS) }
         }
     }
+}
+
+/**
+ * The folders backup covers, by name: the camera, the screenshots folders when chosen (named [screenshots] if the phone
+ * has none yet), then the other chosen folders. Null until the phone's folders are known.
+ */
+internal fun backedUpFolderNames(chosen: Set<String>, folders: List<DeviceFolder>?, screenshots: String): List<String>? {
+    if (folders == null) return null
+    val camera = folders.filter { it.isCamera }.map { it.name }.distinct()
+    val shots = if (DeviceFolder.SCREENSHOTS in chosen) listOf(screenshots) else emptyList()
+    val others = folders.filter { !it.isCamera && it.id in chosen && !(it.isScreenshots && DeviceFolder.SCREENSHOTS in chosen) }
+        .map { it.name }
+    return (camera + shots + others).distinct()
 }
 
 @Composable
@@ -346,7 +363,9 @@ internal fun DeviceFoldersPage(transfers: TransferState, actions: AccountScreenA
     AlbaCard(modifier = Modifier.testTag("backup-folder-list")) {
         folders.forEachIndexed { index, folder ->
             if (index > 0) AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
-            val chosen = folder.isCamera || folder.id in settings.deviceFolders
+            // Screenshots folders are chosen together, by path, so one made later is covered too.
+            val screenshots = folder.isScreenshots && DeviceFolder.SCREENSHOTS in settings.deviceFolders
+            val chosen = folder.isCamera || folder.id in settings.deviceFolders || screenshots
             SettingSwitch(
                 title = if (folder.isCamera) stringResource(R.string.backup_camera_folder, folder.name) else folder.name,
                 detail = pluralStringResource(R.plurals.backup_folder_items, folder.itemCount, folder.itemCount),
@@ -354,7 +373,10 @@ internal fun DeviceFoldersPage(transfers: TransferState, actions: AccountScreenA
                 tag = "backup-folder-${folder.name}",
                 enabled = !folder.isCamera,
             ) { on ->
-                actions.setBackupSettings(settings.copy(deviceFolders = if (on) settings.deviceFolders + folder.id else settings.deviceFolders - folder.id))
+                val ids = if (folder.isScreenshots) setOf(folder.id, DeviceFolder.SCREENSHOTS) else setOf(folder.id)
+                val next = if (on) settings.deviceFolders + (if (folder.isScreenshots) setOf(DeviceFolder.SCREENSHOTS) else ids)
+                else settings.deviceFolders - ids
+                actions.setBackupSettings(settings.copy(deviceFolders = next))
             }
         }
     }

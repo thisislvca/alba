@@ -11,6 +11,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.DeviceFolder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -175,6 +176,9 @@ class AndroidMediaStoreSourceTest {
             val withFolder = source.discoverEligibleMedia(null, 200, BackupScope.CAMERA_MEDIA, setOf(screenshots.id), enrolledAt, baseline)
             assertEquals(setOf("alba-camera.png", "alba-camera.jpg", "alba-screenshot.png"), withFolder.items.map { it.fileName }.toSet())
             assertEquals(3, source.eligibleMediaIds(BackupScope.CAMERA_MEDIA, setOf(screenshots.id), enrolledAt, baseline).size)
+            assertTrue(screenshots.isScreenshots)
+            val byPath = source.discoverEligibleMedia(null, 200, BackupScope.CAMERA_MEDIA, setOf(DeviceFolder.SCREENSHOTS), enrolledAt, baseline)
+            assertEquals(setOf("alba-camera.png", "alba-camera.jpg", "alba-screenshot.png"), byPath.items.map { it.fileName }.toSet())
         } finally {
             inserted.forEach { resolver.delete(it, null, null) }
         }

@@ -3,6 +3,7 @@ package me.lvca.alba.engine.source
 import me.lvca.alba.engine.model.BackupNetwork
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupSettings
+import me.lvca.alba.engine.model.DeviceFolder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -28,6 +29,22 @@ class BackupFoldersTest {
         val (selection, args) = BackupFolders.selection(setOf(screenshots, sdCard, "not-a-folder"))
         assertEquals(2, Regex("bucket_id = \\?").findAll(selection).count())
         assertEquals(BackupFolders.CAMERA_PATHS + listOf("external_primary", "-1313584517", "1234-5678", "42"), args)
+    }
+
+    @Test
+    fun screenshotsAreCoveredByPathOnEveryVolumeOnlyWhenChosen() {
+        listOf("Pictures/Screenshots/", "DCIM/Screenshots/", "pictures/screenshots/").forEach { assertTrue(it, BackupFolders.isScreenshots(it)) }
+        assertFalse(BackupFolders.isScreenshots("Pictures/Screenshots/Old/"))
+
+        val (without, withoutArgs) = BackupFolders.selection(emptySet())
+        assertEquals(BackupFolders.CAMERA_PATHS, withoutArgs)
+        assertEquals(BackupFolders.CAMERA_PATHS.size, without.count { it == '?' })
+
+        val (with, withArgs) = BackupFolders.selection(setOf(DeviceFolder.SCREENSHOTS))
+        assertEquals(BackupFolders.CAMERA_PATHS + BackupFolders.SCREENSHOT_PATHS, withArgs)
+        assertEquals(withArgs.size, with.count { it == '?' })
+        assertNull("It is not a bucket", BackupFolders.parse(DeviceFolder.SCREENSHOTS))
+        assertTrue("An older JPEG consent stays camera only", BackupFolders.extraFolders(BackupScope.CAMERA_JPEGS, setOf(DeviceFolder.SCREENSHOTS)).isEmpty())
     }
 
     @Test

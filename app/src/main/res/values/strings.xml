@@ -942,6 +942,7 @@
     <string name="backup_existing_row_detail">Only items added since backup was turned on back up now.</string>
     <string name="backup_existing_confirm_body">Alba will also back up the photos and videos that were already in your camera folder and chosen folders, newest first, by uploading their exact originals to %1$s. This can take a while. It uses Wi-Fi unless you allow mobile data.</string>
     <string name="backup_existing_confirm_button">Back up</string>
+    <string name="backup_screenshots_folder">Screenshots</string>
     <string name="backup_device_folders">Back up device folders</string>
     <string name="backup_device_folders_intro">New photos and videos from your camera always back up. Turn on other folders, such as Screenshots or WhatsApp Images, to back up new items in them too.</string>
     <string name="backup_device_folders_empty">No other folders with photos or videos.</string>

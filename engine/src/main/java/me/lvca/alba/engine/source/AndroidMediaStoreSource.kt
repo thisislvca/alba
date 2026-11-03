@@ -268,6 +268,7 @@ class AndroidMediaStoreSource(
                     relativePath = path,
                     itemCount = 1,
                     isCamera = BackupFolders.isCamera(path),
+                    isScreenshots = BackupFolders.isScreenshots(path),
                 )
             }
         }
