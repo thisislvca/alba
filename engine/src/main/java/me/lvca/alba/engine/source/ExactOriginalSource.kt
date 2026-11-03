@@ -18,6 +18,8 @@ data class ExactOriginalEvidence(
     val byteCount: Long,
     val sha256Hex: String,
     val lastModifiedAtEpochMillis: Long? = null,
+    /** MediaStore's DATE_TAKEN, when the source has one. */
+    val dateTakenEpochMillis: Long? = null,
 )
 
 data class LocalDiscoveryCheckpoint(

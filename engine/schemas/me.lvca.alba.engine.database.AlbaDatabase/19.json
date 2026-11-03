@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 19,
-    "identityHash": "8cbceb05a69b5e9bf2ceca9ed20f3c54",
+    "identityHash": "0c36c84cbb518c8c42e063145e426d33",
     "entities": [
       {
         "tableName": "catalog_items",
@@ -546,7 +546,7 @@
       },
       {
         "tableName": "staged_sources",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stagedSourceId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `authorityType` TEXT NOT NULL, `authorityId` TEXT NOT NULL, `enrollmentId` TEXT, `enrollmentRevision` INTEGER, `mediaId` TEXT, `contentUri` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `lineageKey` TEXT NOT NULL, `sourceRevision` TEXT NOT NULL, `originalAcquisition` TEXT NOT NULL, `originalFormatRequested` INTEGER NOT NULL, `unredacted` INTEGER NOT NULL, `jpegHeaderValidated` INTEGER NOT NULL, `ownedFileToken` TEXT NOT NULL, `byteCount` INTEGER NOT NULL, `sha256Hex` TEXT NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, `releasedAtEpochMillis` INTEGER, `lastModifiedAtEpochMillis` INTEGER, PRIMARY KEY(`stagedSourceId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stagedSourceId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `authorityType` TEXT NOT NULL, `authorityId` TEXT NOT NULL, `enrollmentId` TEXT, `enrollmentRevision` INTEGER, `mediaId` TEXT, `contentUri` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `lineageKey` TEXT NOT NULL, `sourceRevision` TEXT NOT NULL, `originalAcquisition` TEXT NOT NULL, `originalFormatRequested` INTEGER NOT NULL, `unredacted` INTEGER NOT NULL, `jpegHeaderValidated` INTEGER NOT NULL, `ownedFileToken` TEXT NOT NULL, `byteCount` INTEGER NOT NULL, `sha256Hex` TEXT NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, `releasedAtEpochMillis` INTEGER, `lastModifiedAtEpochMillis` INTEGER, `capturedAtEpochMillis` INTEGER, `captureOffsetMinutes` INTEGER, PRIMARY KEY(`stagedSourceId`))",
         "fields": [
           {
             "fieldPath": "stagedSourceId",
@@ -685,6 +685,16 @@
           {
             "fieldPath": "lastModifiedAtEpochMillis",
             "columnName": "lastModifiedAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "capturedAtEpochMillis",
+            "columnName": "capturedAtEpochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "captureOffsetMinutes",
+            "columnName": "captureOffsetMinutes",
             "affinity": "INTEGER"
           }
         ],
@@ -2683,7 +2693,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8cbceb05a69b5e9bf2ceca9ed20f3c54')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0c36c84cbb518c8c42e063145e426d33')"
     ]
   }
 }

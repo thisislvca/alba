@@ -33,7 +33,9 @@ internal class PhotosUpload(
     private val binding: me.lvca.alba.engine.model.AccountBinding? = null,
     private val checkAuthorized: () -> Unit = {},
     private val lastModifiedAtEpochMillis: Long? = null,
+    private val captureOffsetMinutes: Int? = null,
     private val now: () -> Instant = { Instant.now() },
+    private val phoneZone: () -> ZoneId = { ZoneId.systemDefault() },
     private val zoneName: String = PrimarySyncZone.NAME,
     private val assetBatchId: String? = null,
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
@@ -64,13 +66,13 @@ internal class PhotosUpload(
             val uploadedAt = now()
             val instant = Instant.ofEpochMilli(saved["lastModDate"]?.jsonPrimitive?.long
                 ?: lastModifiedAtEpochMillis ?: uploadedAt.toEpochMilli())
-            val zone = ZoneId.systemDefault()
+            val (zoneId, offsetMinutes) = uploadZone(phoneZone(), uploadedAt, instant, captureOffsetMinutes)
             saved = JsonObject(saved + mapOf(
                 "fileName" to JsonPrimitive(fileName),
                 "lastModDate" to JsonPrimitive(instant.toEpochMilli()),
-                "localTimeZoneId" to JsonPrimitive(zone.id),
-                // iCloud web uses the upload-time offset, even for a winter-dated source.
-                "timeZoneOffset" to JsonPrimitive(-zone.rules.getOffset(uploadedAt).totalSeconds / 60),
+                "localTimeZoneId" to JsonPrimitive(zoneId),
+                // Minutes west of UTC, as JavaScript's getTimezoneOffset() gives them to iCloud web.
+                "timeZoneOffset" to JsonPrimitive(-offsetMinutes),
             ))
             if (previous != null) binding?.let { journal?.save(it, attemptId, UploadCheckpoint(previous.phase, saved.toString())) }
         }
@@ -201,6 +203,26 @@ internal class PhotosUpload(
     private fun malformed(message: String): Nothing =
         throw AppleProtocolException(AppleProtocolError.MALFORMED_RESPONSE, message)
     companion object {
+        /**
+         * The zone and offset (minutes east of UTC) registered with an upload. iCloud web sends the browser's zone and
+         * its offset at upload time, even for a winter-dated file; without a recorded capture offset Alba does the same
+         * with the phone's zone. With one, the capture's own offset is sent, named by the phone's zone when that zone
+         * had the same offset then, else by the matching fixed-offset IANA zone (Etc/GMT-9 is UTC+9). An offset no IANA
+         * id names that way, such as UTC+5:30 away from that zone, falls back to what iCloud web sends.
+         */
+        internal fun uploadZone(phone: ZoneId, uploadedAt: Instant, capturedAt: Instant, captureOffsetMinutes: Int?): Pair<String, Int> {
+            val asICloudWeb = phone.id to phone.rules.getOffset(uploadedAt).totalSeconds / 60
+            if (captureOffsetMinutes == null) return asICloudWeb
+            val zone = when {
+                phone.rules.getOffset(capturedAt).totalSeconds == captureOffsetMinutes * 60 -> phone.id
+                captureOffsetMinutes == 0 -> "Etc/UTC"
+                captureOffsetMinutes % 60 == 0 && captureOffsetMinutes / 60 in -12..14 ->
+                    "Etc/GMT" + (if (captureOffsetMinutes > 0) "-" else "+") + kotlin.math.abs(captureOffsetMinutes / 60)
+                else -> return asICloudWeb
+            }
+            return zone to captureOffsetMinutes
+        }
+
         val RESUMABLE = setOf("RESERVING", "RESERVED", "RECEIPT_SAVED", "ACCEPTED")
 
         /**

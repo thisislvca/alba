@@ -8,6 +8,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.source.DeviceOriginalEvidence
+import me.lvca.alba.engine.source.CaptureTime
+import me.lvca.alba.engine.source.CaptureTimes
 import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.UploadMediaFormat
 import me.lvca.alba.engine.source.UploadMediaValidator
@@ -33,6 +35,8 @@ data class StagedExactOriginal(
     val byteCount: Long,
     val sha256Hex: String,
     val evidence: ExactOriginalEvidence,
+    /** Read from the staged bytes, which are never changed; null when nothing dates the item. */
+    val captureTime: CaptureTime? = null,
 )
 
 /** The staged bytes are gone or no longer match their recorded size and digest. Reading again cannot fix it. */
@@ -113,6 +117,7 @@ class UploadStagingStore(
             val format = UploadMediaFormat.detect(header)
             require(evidence.formatValidated && evidence.mimeType == format.mimeType) { "Staged media format changed" }
             UploadMediaValidator.validate(temporary, format)
+            val captureTime = CaptureTimes.read(temporary, format.mimeType, evidence.dateTakenEpochMillis, evidence.lastModifiedAtEpochMillis)
             moveAtomically(temporary, destination)
             syncDirectory()
             StagedExactOriginal(
@@ -120,6 +125,7 @@ class UploadStagingStore(
                 byteCount = evidence.byteCount,
                 sha256Hex = stagedDigest,
                 evidence = evidence,
+                captureTime = captureTime,
             )
         } catch (error: Throwable) {
             temporary.delete()

@@ -405,6 +405,20 @@ class BackupJournalTest {
     }
 
     @Test
+    fun iCloudIsGivenTheCaptureTimeRatherThanWhenTheFileWasLastModified() = runBlocking {
+        source.items += item(1, "taken.jpg", "image/jpeg").also { source.dateTaken[it.contentUri] = 1_600_000_000_000L }
+        source.items += item(2, "undated.jpg", "image/jpeg")
+        val photos = enrolled()
+
+        repeat(2) { photos.syncNow() }
+
+        assertEquals(
+            listOf(Triple("taken.jpg", 1_600_000_000_000L, null), Triple("undated.jpg", MODIFIED_AT, null)),
+            protocol.preparedDates,
+        )
+    }
+
+    @Test
     fun existingPhotosBackUpNewestFirstAfterWhatIsNew() = runBlocking {
         source.existing += item(10, "old.jpg", "image/jpeg", capturedAt = 100)
         source.existing += item(11, "newest-existing.jpg", "image/jpeg", capturedAt = 300)
@@ -518,6 +532,9 @@ class BackupJournalTest {
         /** Content URIs whose bytes are those of another item's media store id. */
         val sameBytes = mutableMapOf<String, Long>()
         var existingPagesRead = 0
+
+        /** MediaStore's DATE_TAKEN by content URI; items without one have only their modification date. */
+        val dateTaken = mutableMapOf<String, Long>()
         val refusals = mutableMapOf<String, String>()
         val changed = mutableSetOf<String>()
         val unreadable = mutableSetOf<String>()
@@ -599,6 +616,7 @@ class BackupJournalTest {
                 contentUri = contentUri, displayName = name, mimeType = "image/jpeg", lineageKey = "lineage:$contentUri",
                 sourceRevision = "rev", acquisitionMethod = "TEST", originalFormatRequested = true, unredacted = true,
                 formatValidated = true, byteCount = bytes.size.toLong(), sha256Hex = sha256(bytes),
+                lastModifiedAtEpochMillis = MODIFIED_AT, dateTakenEpochMillis = dateTaken[contentUri],
             )
         }
     }
@@ -615,6 +633,7 @@ class BackupJournalTest {
         var interruptedAfterRegistration = false
         private val interrupted = mutableSetOf<String>()
         val uploadedNames = mutableListOf<String>()
+        val preparedDates = mutableListOf<Triple<String, Long?, Int?>>()
         private val uploads = mutableMapOf<String, ByteArray>()
 
         override suspend fun canResume(binding: AccountBinding, attemptId: String) = attemptId !in interrupted
@@ -625,7 +644,10 @@ class BackupJournalTest {
 
         override suspend fun prepareOriginal(
             binding: AccountBinding, fileName: String, source: OneShotUploadSource, lastModifiedAtEpochMillis: Long?,
+            captureOffsetMinutes: Int?,
         ): PreparedICloudUpload = object : PreparedICloudUpload {
+            init { preparedDates += Triple(fileName, lastModifiedAtEpochMillis, captureOffsetMinutes) }
+
             override suspend fun startOnce(attemptId: String): UploadAcceptance {
                 uploadStarts += 1
                 if (storageFull) throw ICloudStorageFullException()
@@ -669,6 +691,7 @@ class BackupJournalTest {
 
     private companion object {
         const val NOW = 1_000_000L
+        const val MODIFIED_AT = 1_700_000_000_000L
 
         fun bytes(id: Long) = byteArrayOf(-1, -40, -1, 1, 2, 3, id.toByte())
 

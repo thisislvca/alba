@@ -483,6 +483,8 @@ internal class TransferIntake(
                         unredacted = staged.evidence.unredacted,
                         formatValidated = staged.evidence.formatValidated,
                         lastModifiedAtEpochMillis = staged.evidence.lastModifiedAtEpochMillis,
+                        capturedAtEpochMillis = staged.captureTime?.epochMillis,
+                        captureOffsetMinutes = staged.captureTime?.offsetMinutes,
                         ownedFileToken = staged.ownedFileToken,
                         byteCount = staged.byteCount,
                         sha256Hex = staged.sha256Hex,

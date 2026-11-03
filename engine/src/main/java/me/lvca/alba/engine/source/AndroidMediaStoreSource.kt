@@ -501,6 +501,7 @@ class AndroidMediaStoreSource(
             unredacted = !isMediaStore || has(Manifest.permission.ACCESS_MEDIA_LOCATION),
             formatValidated = true,
             lastModifiedAtEpochMillis = after.lastModifiedAtEpochMillis,
+            dateTakenEpochMillis = after.dateTakenEpochMillis,
             byteCount = byteCount,
             sha256Hex = digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) },
         )
@@ -532,6 +533,7 @@ class AndroidMediaStoreSource(
                     displayName = displayNameHint ?: displayName ?: "selected-media",
                     lastModifiedAtEpochMillis = cursor.longOrNull(MediaStore.MediaColumns.DATE_MODIFIED)?.takeIf { it > 0L }?.let { it * 1000L }
                         ?: cursor.longOrNull(android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED)?.takeIf { it > 0L },
+                    dateTakenEpochMillis = cursor.longOrNull(MediaStore.MediaColumns.DATE_TAKEN)?.takeIf { it > 0L },
                     revision = if (uri.authority == MediaStore.AUTHORITY) {
                         val version = MediaStore.getVersion(appContext, MediaStore.VOLUME_EXTERNAL)
                         mediaStoreRevision(version, volume, rowId, generation, size)
@@ -569,6 +571,7 @@ class AndroidMediaStoreSource(
         val revision: String,
         val lineageKey: String,
         val lastModifiedAtEpochMillis: Long? = null,
+        val dateTakenEpochMillis: Long? = null,
     )
 
     private companion object {

@@ -89,7 +89,7 @@ internal class UploadInvoker(
             return 0
         }
         val prepared = try {
-            protocol.prepareOriginal(binding, source.displayName, uploadSource, source.lastModifiedAtEpochMillis)
+            protocol.prepareOriginal(binding, source.displayName, uploadSource, source.uploadDate, source.captureOffsetMinutes)
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             transferDao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.COULD_NOT_PREPARE_THE_ICLOUD_UPLOAD.code)
@@ -297,7 +297,7 @@ internal class UploadInvoker(
                 StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN,
             )
             if (authority.waitsForNetwork(transfer.authorityType, source.isVideo)) return@withLock
-            val prepared = protocol.prepareOriginal(binding, source.displayName, openStaged(source), source.lastModifiedAtEpochMillis)
+            val prepared = protocol.prepareOriginal(binding, source.displayName, openStaged(source), source.uploadDate, source.captureOffsetMinutes)
             if (!canWriteNow(transfer.authorityType, source.isVideo) || !isStillSending(transfer.transferId)) {
                 prepared.cancel()
                 return@withLock
@@ -408,6 +408,12 @@ internal class UploadInvoker(
  */
 private fun Throwable.failsEveryRetry(): Boolean =
     isFinalRefusal() || this is IllegalStateException || this is IllegalArgumentException
+
+/**
+ * The date iCloud is given for the original: its capture time, or, for a source staged before capture times were kept,
+ * its modification date as before, so a resumed upload registers the same date it saved.
+ */
+internal val StagedSourceEntity.uploadDate: Long? get() = capturedAtEpochMillis ?: lastModifiedAtEpochMillis
 
 /** Staged videos follow the video setting for mobile data; everything else counts as a photo. */
 internal val StagedSourceEntity.isVideo: Boolean get() = mimeType.startsWith("video/")

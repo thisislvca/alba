@@ -354,6 +354,8 @@ interface ICloudPhotoProtocol {
         fileName: String,
         source: OneShotUploadSource,
         lastModifiedAtEpochMillis: Long? = null,
+        /** The capture's offset east of UTC in minutes, when the original records one; else the phone's zone is used. */
+        captureOffsetMinutes: Int? = null,
     ): PreparedICloudUpload
 
     suspend fun uploadProcessingStatus(

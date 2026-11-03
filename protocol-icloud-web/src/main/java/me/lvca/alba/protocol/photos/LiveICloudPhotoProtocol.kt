@@ -93,6 +93,7 @@ class LiveICloudPhotoProtocol(
         fileName: String,
         source: OneShotUploadSource,
         lastModifiedAtEpochMillis: Long?,
+        captureOffsetMinutes: Int?,
     ): PreparedICloudUpload {
         val session = requireBoundSession(binding)
         val root = session.webservices[UPLOAD_SERVICE]
@@ -108,6 +109,7 @@ class LiveICloudPhotoProtocol(
             fileName = safeFileName(fileName),
             source = source,
             lastModifiedAtEpochMillis = lastModifiedAtEpochMillis,
+            captureOffsetMinutes = captureOffsetMinutes,
             persistSession = { cloudKit.persist(session, it) },
             journal = uploadJournal,
             binding = binding,

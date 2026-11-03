@@ -432,6 +432,22 @@ class LiveICloudPhotoProtocolTest {
     }
 
     @Test
+    fun `a recorded capture offset is registered with the capture date instead of the phone's current offset`() = runBlocking {
+        val transport = ScriptedTransport()
+        val binding = AccountBinding("account", 1, 1)
+        val capturedAt = 1_688_180_400_000L // July 1, 2023, 12:00 in Tokyo
+        PhotosUpload(transport, SESSION, "https://p99-photosupload.icloud.com", "tokyo.jpg", CountingSource(JPEG),
+            persistSession = {}, binding = binding, lastModifiedAtEpochMillis = capturedAt, captureOffsetMinutes = 540,
+            now = { java.time.Instant.parse("2026-09-23T12:00:00Z") }, phoneZone = { java.time.ZoneId.of("Europe/Rome") },
+        ).startOnce("tokyo")
+        val registration = Json.parseToJsonElement(transport.requests.last { it.url.contains("putAsset") }.body!!).jsonObject
+        val file = registration["files"]!!.jsonArray.single().jsonObject
+        assertEquals(capturedAt, file["lastModDate"]!!.jsonPrimitive.long)
+        assertEquals("Minutes west of UTC, as iCloud web sends them", -540, file["timeZoneOffset"]!!.jsonPrimitive.int)
+        assertEquals("Etc/GMT-9", registration["localTimeZoneId"]!!.jsonPrimitive.content)
+    }
+
+    @Test
     fun `fallback date stays frozen and changed supplied metadata is rejected`() = runBlocking {
         for (changed in listOf("none", "filename", "date")) {
             val transport = ScriptedTransport()

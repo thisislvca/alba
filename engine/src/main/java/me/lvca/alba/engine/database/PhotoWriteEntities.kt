@@ -52,6 +52,10 @@ data class StagedSourceEntity(
     val createdAtEpochMillis: Long,
     val releasedAtEpochMillis: Long? = null,
     val lastModifiedAtEpochMillis: Long? = null,
+    /** When the item was captured, read from the staged original or MediaStore; the date iCloud is given. */
+    val capturedAtEpochMillis: Long? = null,
+    /** The capture's offset east of UTC in minutes, when the original records it. */
+    val captureOffsetMinutes: Int? = null,
 )
 
 @Entity(
