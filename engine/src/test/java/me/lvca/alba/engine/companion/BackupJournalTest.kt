@@ -14,7 +14,9 @@ import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.CatalogItemEntity
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
+import me.lvca.alba.engine.model.BackupChange
 import me.lvca.alba.engine.model.BackupNetwork
+import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.CandidatePage
@@ -31,10 +33,14 @@ import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UserSelectedPhoto
+import me.lvca.alba.engine.model.WakeReason
 import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.DeviceMediaRecord
 import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.ExactOriginalSource
+import me.lvca.alba.engine.source.ExistingMedia
+import me.lvca.alba.engine.source.ExistingMediaCursor
+import me.lvca.alba.engine.source.ExistingMediaPage
 import me.lvca.alba.engine.source.LocalDiscoveryCheckpoint
 import me.lvca.alba.engine.source.LocalDiscoveryPage
 import me.lvca.alba.engine.source.LocalTrashState
@@ -64,9 +70,17 @@ class BackupJournalTest {
     private var elapsed = 5_000_000L
     private var network = BackupNetwork.UNMETERED
     private var settings = BackupSettings()
+
+    /** When set, the network turns metered on the check after this many more. */
+    private var meteredAfterChecks: Int? = null
     private val policy = object : AutomaticBackupPolicy {
-        override fun isUnmetered() = network == BackupNetwork.UNMETERED
-        override fun network() = network
+        override fun isUnmetered() = network() == BackupNetwork.UNMETERED
+        override fun network(): BackupNetwork {
+            meteredAfterChecks?.let { left ->
+                if (left == 0) { network = BackupNetwork.METERED; meteredAfterChecks = null } else meteredAfterChecks = left - 1
+            }
+            return network
+        }
         override fun settings() = settings
     }
 
@@ -330,13 +344,237 @@ class BackupJournalTest {
         assertEquals(2, progress.eligible)
     }
 
+    @Test
+    fun anUploadInterruptedBeforeRegistrationStartsAFreshAttemptAfterABackoff() = runBlocking {
+        source.items += item(1, "video.mp4", "image/jpeg")
+        val photos = enrolled()
+        protocol.interruptions = 1
+
+        photos.syncNow()
+        val waiting = photos.observeTransfers().first().single()
+        assertEquals(TransferViewState.WAITING, waiting.state)
+        assertEquals(StoredMessage.UPLOAD_INTERRUPTED_TRYING_AGAIN.code, waiting.message)
+
+        val idle = photos.wake(WakeReason.BACKGROUND)
+        assertEquals("The fresh attempt waits out its backoff", 1, protocol.uploadStarts)
+        assertEquals("A background run knows when to come back", clock + Reconciler.retryBackoffMillis(0), idle.nextWorkAtEpochMillis)
+
+        clock += Reconciler.retryBackoffMillis(0)
+        photos.syncNow()
+        assertEquals(2, protocol.uploadStarts)
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        val transferId = photos.observeTransfers().first().single().id.value
+        val attempts = database.query("SELECT attemptId, predecessorAttemptId FROM upload_attempts WHERE transferId = ?", arrayOf(transferId)).use { rows ->
+            buildList { while (rows.moveToNext()) add(rows.getString(0) to rows.getString(1)) }
+        }
+        assertEquals(2, attempts.size)
+        assertEquals("The fresh attempt names the one it replaces", attempts.first { it.second == null }.first, attempts.first { it.second != null }.second)
+        assertEquals("Nothing is suppressed", 0, database.query("SELECT COUNT(*) FROM upload_suppressions", null).use { it.moveToFirst(); it.getInt(0) })
+    }
+
+    @Test
+    fun automaticRetriesStopAfterTheCapAndTheUserCanRetry() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        protocol.interruptions = Reconciler.MAX_AUTOMATIC_RETRIES + 1
+
+        repeat(Reconciler.MAX_AUTOMATIC_RETRIES + 1) {
+            photos.syncNow()
+            clock += Reconciler.retryBackoffMillis(it)
+        }
+        val stopped = photos.observeTransfers().first().single()
+        assertEquals(TransferViewState.NEEDS_ATTENTION, stopped.state)
+        assertEquals(StoredMessage.UPLOAD_INTERRUPTED_REPEATEDLY.code, stopped.message)
+        assertTrue("Nothing reached iCloud, so the user can retry", stopped.retryable)
+        assertEquals(Reconciler.MAX_AUTOMATIC_RETRIES + 1, protocol.uploadStarts)
+        photos.syncNow()
+        assertEquals("No automatic attempt after the cap", Reconciler.MAX_AUTOMATIC_RETRIES + 1, protocol.uploadStarts)
+
+        photos.backup.retryTransfer(stopped.id)
+        photos.syncNow()
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+    }
+
+    @Test
+    fun retryingAfterTheCapReleasesTheOldStagedCopy() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        protocol.interruptions = Reconciler.MAX_AUTOMATIC_RETRIES + 1
+        repeat(Reconciler.MAX_AUTOMATIC_RETRIES + 1) {
+            photos.syncNow()
+            clock += Reconciler.retryBackoffMillis(it)
+        }
+        val stopped = photos.observeTransfers().first().single()
+
+        // Retried at once, before any later pass could release the stopped item's copy.
+        photos.backup.retryTransfer(stopped.id)
+
+        val unreleased = database.query("SELECT COUNT(*) FROM staged_sources WHERE releasedAtEpochMillis IS NULL", null)
+            .use { it.moveToFirst(); it.getInt(0) }
+        assertEquals("Only the new transfer's copy is kept", 1, unreleased)
+        val files = java.io.File(context.filesDir, "upload_staging").listFiles().orEmpty().filter { it.name.endsWith(".original") }
+        assertEquals(1, files.size)
+    }
+
+    @Test
+    fun aNetworkChangeAfterAnUploadWasArmedReleasesItWithoutWaiting() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        // The network turns metered between arming the attempt and sending it: the check before arming still sees Wi-Fi,
+        // the one after it sees mobile data. Nothing left the phone.
+        protocol.onCaptureChangeToken = { meteredAfterChecks = 1 }
+        photos.syncNow()
+        protocol.onCaptureChangeToken = {}
+
+        val waiting = photos.observeTransfers().first().single()
+        assertEquals(TransferViewState.WAITING, waiting.state)
+        assertEquals("Nothing was sent", 0, protocol.uploadStarts)
+        assertEquals("Nothing is suppressed", 0, database.query("SELECT COUNT(*) FROM upload_suppressions", null).use { it.moveToFirst(); it.getInt(0) })
+
+        network = BackupNetwork.UNMETERED
+        photos.syncNow()
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        assertEquals(1, protocol.uploadStarts)
+    }
+
+    @Test
+    fun pendingWorkLeavesOutItemsBackupCannotDoOnItsOwn() = runBlocking {
+        (1L..12L).forEach { source.items += item(it, "$it.avif", "image/avif") }
+        source.items += item(20, "a.jpg", "image/jpeg")
+        source.items += item(21, "b.jpg", "image/jpeg")
+        val photos = enrolled()
+        assertEquals("Nothing discovered yet: all of it is to do", 14, photos.backup.backupProgress().pending)
+
+        val startedAt = clock
+        photos.syncNow()
+
+        val progress = photos.backup.backupProgress()
+        assertEquals(14, progress.eligible)
+        assertEquals("Twelve unsupported items are skipped, not pending; one photo is left", 1, progress.pending)
+        assertEquals(1, photos.backup.verifiedSince(startedAt))
+    }
+
+    @Test
+    fun anUploadThatMayHaveBeenRegisteredIsCheckedAndNeverSentAgain() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        protocol.interruptions = 1
+        protocol.interruptedAfterRegistration = true
+
+        photos.syncNow()
+        assertEquals(TransferViewState.CHECKING_ICLOUD, photos.observeTransfers().first().single().state)
+        clock += RECONCILIATION_DEADLINE_MILLIS
+        photos.syncNow()
+        photos.syncNow()
+
+        assertEquals(TransferViewState.UNRESOLVED, photos.observeTransfers().first().single().state)
+        assertEquals(1, protocol.uploadStarts)
+    }
+
+    @Test
+    fun iCloudIsGivenTheCaptureTimeRatherThanWhenTheFileWasLastModified() = runBlocking {
+        source.items += item(1, "taken.jpg", "image/jpeg").also { source.dateTaken[it.contentUri] = 1_600_000_000_000L }
+        source.items += item(2, "undated.jpg", "image/jpeg")
+        val photos = enrolled()
+
+        repeat(2) { photos.syncNow() }
+
+        assertEquals(
+            listOf(Triple("taken.jpg", 1_600_000_000_000L, null), Triple("undated.jpg", MODIFIED_AT, null)),
+            protocol.preparedDates,
+        )
+    }
+
+    @Test
+    fun existingPhotosBackUpNewestFirstAfterWhatIsNew() = runBlocking {
+        source.existing += item(10, "old.jpg", "image/jpeg", capturedAt = 100)
+        source.existing += item(11, "newest-existing.jpg", "image/jpeg", capturedAt = 300)
+        source.existing += item(12, "middle.jpg", "image/jpeg", capturedAt = 200)
+        source.items += item(1, "new.jpg", "image/jpeg")
+        val photos = enrolled(includeExisting = true)
+        assertTrue(photos.observeBackup().first().includesExisting)
+
+        repeat(5) { photos.syncNow() }
+
+        assertEquals(listOf("new.jpg", "newest-existing.jpg", "middle.jpg", "old.jpg"), protocol.uploadedNames)
+        assertTrue(photos.observeTransfers().first().all { it.state == TransferViewState.VERIFIED })
+        assertEquals(BackupProgress(4, 4), photos.backup.backupProgress())
+    }
+
+    @Test
+    fun onlyNewItemsBackUpUntilTheUserIncludesExistingOnes() = runBlocking {
+        source.existing += item(10, "old.jpg", "image/jpeg", capturedAt = 100)
+        source.items += item(1, "new.jpg", "image/jpeg")
+        val photos = enrolled()
+
+        repeat(3) { photos.syncNow() }
+        assertEquals(listOf("new.jpg"), protocol.uploadedNames)
+        assertEquals("Progress counts only what backup covers", 1, photos.backup.backupProgress().eligible)
+
+        val widened = photos.changeBackup(BackupChange.IncludeExisting)
+        assertTrue(widened.includesExisting)
+        repeat(2) { photos.syncNow() }
+        assertEquals(listOf("new.jpg", "old.jpg"), protocol.uploadedNames)
+        assertEquals(2, photos.backup.backupProgress().backedUp)
+    }
+
+    @Test
+    fun anExistingCopyOfBytesAlreadyBackedUpIsNotUploadedAgain() = runBlocking {
+        source.items += item(1, "IMG_1.jpg", "image/jpeg")
+        source.existing += item(10, "IMG_1 (copy).jpg", "image/jpeg", capturedAt = 100).also { source.sameBytes[it.contentUri] = 1 }
+        source.existing += item(11, "other.jpg", "image/jpeg", capturedAt = 50)
+        val photos = enrolled(includeExisting = true)
+
+        repeat(4) { photos.syncNow() }
+
+        assertEquals(listOf("IMG_1.jpg", "other.jpg"), protocol.uploadedNames)
+    }
+
+    @Test
+    fun anExistingItemRedatedPastTheCursorDuringTheReadIsStillBackedUp() = runBlocking {
+        source.existing += item(10, "newest.jpg", "image/jpeg", capturedAt = 300)
+        source.existing += item(11, "middle.jpg", "image/jpeg", capturedAt = 200)
+        source.existing += item(12, "oldest.jpg", "image/jpeg", capturedAt = 100)
+        val photos = enrolled(includeExisting = true)
+        photos.syncNow()
+        assertEquals(listOf("newest.jpg"), protocol.uploadedNames)
+
+        // Edited to a capture time newer than where the read is: it is now behind the cursor.
+        val index = source.existing.indexOfFirst { it.fileName == "oldest.jpg" }
+        source.existing[index] = source.existing[index].copy(capturedAtEpochMillis = 400)
+        repeat(4) { photos.syncNow() }
+
+        assertEquals(setOf("newest.jpg", "middle.jpg", "oldest.jpg"), protocol.uploadedNames.toSet())
+        assertEquals(3, protocol.uploadedNames.size)
+        val reads = source.existingPagesRead
+        repeat(2) { photos.syncNow() }
+        assertEquals("A complete scan is not read again", reads, source.existingPagesRead)
+    }
+
+    @Test
+    fun aLargeExistingLibraryIsReadAFewPagesAPassAndResumesWhereItStopped() = runBlocking {
+        // Nothing here can be staged, so each pass reads its page budget and saves where it got to.
+        (100L..399L).forEach { source.existing += item(it, "$it.avif", "image/avif", capturedAt = it) }
+        val photos = enrolled(includeExisting = true)
+
+        photos.syncNow()
+        assertEquals(10, source.existingPagesRead)
+        assertEquals(200, photos.observeTransfers().first().size)
+
+        photos.syncNow()
+        assertEquals("The second pass starts after the first one's last item", 15, source.existingPagesRead)
+        assertEquals(300, photos.observeTransfers().first().size)
+        assertEquals(0, protocol.uploadStarts)
+    }
+
     private suspend fun enrolled(
         scope: BackupScope = BackupScope.CAMERA_MEDIA,
         photos: DefaultPhotoCompanion = companion(),
+        includeExisting: Boolean = false,
     ): DefaultPhotoCompanion {
         val draft = photos.beginBackupEnrollment(scope)
         photos.acceptBackupDisclosure(draft.id)
-        photos.finishBackupEnrollment(draft.id)
+        photos.finishBackupEnrollment(draft.id, includeExisting)
         return photos
     }
 
@@ -351,10 +589,10 @@ class BackupJournalTest {
         elapsedRealtime = { elapsed },
     )
 
-    private fun item(id: Long, name: String, mime: String, refuse: String? = null) = DeviceMediaRecord(
+    private fun item(id: Long, name: String, mime: String, refuse: String? = null, capturedAt: Long = NOW + id) = DeviceMediaRecord(
         id = "device:external:$id",
         fileName = name,
-        capturedAtEpochMillis = NOW + id,
+        capturedAtEpochMillis = capturedAt,
         width = 10,
         height = 10,
         contentUri = "content://media/external/images/media/$id",
@@ -375,6 +613,16 @@ class BackupJournalTest {
 
     private class FakeSource(private val context: Context) : ExactOriginalSource {
         val items = mutableListOf<DeviceMediaRecord>()
+
+        /** Items already on the phone at enrollment; only [discoverExistingMedia] returns them. */
+        val existing = mutableListOf<DeviceMediaRecord>()
+
+        /** Content URIs whose bytes are those of another item's media store id. */
+        val sameBytes = mutableMapOf<String, Long>()
+        var existingPagesRead = 0
+
+        /** MediaStore's DATE_TAKEN by content URI; items without one have only their modification date. */
+        val dateTaken = mutableMapOf<String, Long>()
         val refusals = mutableMapOf<String, String>()
         val changed = mutableSetOf<String>()
         val unreadable = mutableSetOf<String>()
@@ -402,9 +650,24 @@ class BackupJournalTest {
             )
         }
 
+        override suspend fun discoverExistingMedia(
+            cursor: ExistingMediaCursor?, limit: Int, scope: BackupScope, folders: Set<String>,
+            addedAfterEpochMillis: Long, enrollmentBaseline: LocalDiscoveryCheckpoint?,
+        ): ExistingMediaPage {
+            existingPagesRead += 1
+            val newestFirst = existing.sortedWith(compareByDescending<DeviceMediaRecord> { it.capturedAtEpochMillis }.thenByDescending { it.mediaStoreId })
+                .map { ExistingMedia(it, ExistingMediaCursor("v1", it.capturedAtEpochMillis, it.mediaStoreId)) }
+            val remaining = if (cursor == null) newestFirst else newestFirst.filter {
+                it.cursor.sortKeyEpochMillis < cursor.sortKeyEpochMillis ||
+                    (it.cursor.sortKeyEpochMillis == cursor.sortKeyEpochMillis && it.cursor.mediaStoreId < cursor.mediaStoreId)
+            }
+            return ExistingMediaPage(remaining.take(limit), remaining.size > limit)
+        }
+
         override suspend fun eligibleMediaIds(
             scope: BackupScope, folders: Set<String>, addedAfterEpochMillis: Long, enrollmentBaseline: LocalDiscoveryCheckpoint?,
-        ) = items.map { it.id }.toSet()
+            includeExisting: Boolean,
+        ) = (items + if (includeExisting) existing else emptyList()).map { it.id }.toSet()
 
         override suspend fun copySelected(contentUri: String, displayNameHint: String?, output: OutputStream) =
             evidence(contentUri, displayNameHint ?: "selected.jpg", output)
@@ -412,7 +675,7 @@ class BackupJournalTest {
         override suspend fun copyMediaStoreItem(contentUri: String, expectedRevision: String, output: OutputStream): ExactOriginalEvidence {
             refusals[contentUri]?.let { throw UnsupportedUploadException(it) }
             check(contentUri !in unreadable) { "unreadable" }
-            return evidence(contentUri, items.firstOrNull { it.contentUri == contentUri }?.fileName ?: "camera.jpg", output)
+            return evidence(contentUri, (items + existing).firstOrNull { it.contentUri == contentUri }?.fileName ?: "camera.jpg", output)
         }
 
         override suspend fun hashMediaStoreItem(contentUri: String, expectedRevision: String): ExactOriginalEvidence {
@@ -433,13 +696,15 @@ class BackupJournalTest {
         override suspend fun readTrashState(contentUri: String): LocalTrashState? = LocalTrashState(true, null)
 
         private fun evidence(contentUri: String, name: String, output: OutputStream?, override: ByteArray? = null): ExactOriginalEvidence {
-            val id = items.firstOrNull { it.contentUri == contentUri }?.mediaStoreId ?: contentUri.hashCode().toLong()
+            val id = sameBytes[contentUri] ?: (items + existing).firstOrNull { it.contentUri == contentUri }?.mediaStoreId
+                ?: contentUri.hashCode().toLong()
             val bytes = override ?: bytes(id)
             output?.write(bytes)
             return ExactOriginalEvidence(
                 contentUri = contentUri, displayName = name, mimeType = "image/jpeg", lineageKey = "lineage:$contentUri",
                 sourceRevision = "rev", acquisitionMethod = "TEST", originalFormatRequested = true, unredacted = true,
                 formatValidated = true, byteCount = bytes.size.toLong(), sha256Hex = sha256(bytes),
+                lastModifiedAtEpochMillis = MODIFIED_AT, dateTakenEpochMillis = dateTaken[contentUri],
             )
         }
     }
@@ -448,18 +713,39 @@ class BackupJournalTest {
     private class FakeProtocol : ICloudPhotoProtocol {
         var storageFull = false
         var uploadStarts = 0
+
+        /** How many more uploads stop while their bytes are sent, before registration. */
+        var interruptions = 0
+
+        /** Whether an interrupted upload had already sent its registration, so it may be in iCloud. */
+        var interruptedAfterRegistration = false
+        private val interrupted = mutableSetOf<String>()
+        val uploadedNames = mutableListOf<String>()
+        val preparedDates = mutableListOf<Triple<String, Long?, Int?>>()
         private val uploads = mutableMapOf<String, ByteArray>()
 
-        override suspend fun canResume(binding: AccountBinding, attemptId: String) = true
+        override suspend fun canResume(binding: AccountBinding, attemptId: String) = attemptId !in interrupted
+        override suspend fun registrationNeverSent(binding: AccountBinding, attemptId: String) =
+            attemptId in interrupted && !interruptedAfterRegistration
         override fun currentDestination() = ICloudDestination("account", "session", "test@example.com")
-        override suspend fun captureChangeToken(binding: AccountBinding) = "before"
+        var onCaptureChangeToken: () -> Unit = {}
+        override suspend fun captureChangeToken(binding: AccountBinding) = "before".also { onCaptureChangeToken() }
 
         override suspend fun prepareOriginal(
             binding: AccountBinding, fileName: String, source: OneShotUploadSource, lastModifiedAtEpochMillis: Long?,
+            captureOffsetMinutes: Int?,
         ): PreparedICloudUpload = object : PreparedICloudUpload {
+            init { preparedDates += Triple(fileName, lastModifiedAtEpochMillis, captureOffsetMinutes) }
+
             override suspend fun startOnce(attemptId: String): UploadAcceptance {
                 uploadStarts += 1
                 if (storageFull) throw ICloudStorageFullException()
+                if (interruptions > 0) {
+                    interruptions -= 1
+                    interrupted += attemptId
+                    throw java.io.IOException("connection reset while sending bytes")
+                }
+                uploadedNames += fileName
                 uploads[attemptId] = source.openOnce().use { it.readBytes() }
                 return UploadAcceptance("request", "master:$attemptId", "asset:$attemptId", false)
             }
@@ -494,6 +780,7 @@ class BackupJournalTest {
 
     private companion object {
         const val NOW = 1_000_000L
+        const val MODIFIED_AT = 1_700_000_000_000L
 
         fun bytes(id: Long) = byteArrayOf(-1, -40, -1, 1, 2, 3, id.toByte())
 

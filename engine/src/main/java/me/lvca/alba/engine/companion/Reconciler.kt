@@ -25,6 +25,12 @@ import java.util.UUID
 /**
  * Looks for an uncertain upload in iCloud by exact bytes. One exact match verifies it; several, or none by the
  * deadline, end it unresolved and suppress the bytes so Alba never uploads them again.
+ *
+ * One case is not uncertain: an attempt Apple never accepted, whose write journal proves it never sent the request
+ * that registers a photo, and for which a complete read of the library's changes since it started shows no exact copy.
+ * iCloud did not receive it, so the transfer goes back to READY for a fresh attempt after a backoff, up to
+ * [MAX_AUTOMATIC_RETRIES] times; after that it waits for the user's Retry. Nothing is suppressed, since nothing of it is
+ * in iCloud.
  */
 internal class Reconciler(
     private val database: AlbaDatabase,
@@ -127,6 +133,8 @@ internal class Reconciler(
                 source,
                 allMatches.single().toCandidate(),
             )
+            allMatches.isEmpty() && acceptance == null && protocol.registrationNeverSent(binding, attemptId) ->
+                retryProvenNotReceived(binding, transfer, attempt)
             allMatches.size > 1 -> markUnresolved(
                 transfer,
                 attempt,
@@ -218,6 +226,20 @@ internal class Reconciler(
         stages.release(source)
     }
 
+    /** iCloud did not receive [attempt]: start afresh after a backoff, or, with retries used up, leave it to the user. */
+    private suspend fun retryProvenNotReceived(binding: AccountBinding, transfer: TransferEntity, attempt: UploadAttemptEntity) {
+        val retries = transfer.automaticRetries
+        database.withTransaction {
+            val changed = if (retries < MAX_AUTOMATIC_RETRIES) {
+                transferDao.retryAfterProvenNotReceived(transfer.transferId, attempt.attemptId, now() + retryBackoffMillis(retries), now())
+            } else {
+                transferDao.stopRetryingProvenNotReceived(transfer.transferId, attempt.attemptId, now())
+            }
+            check(changed == 1)
+            check(transferDao.releaseWriteSlot(binding.accountId, attempt.attemptId) == 1)
+        }
+    }
+
     private suspend fun markUnresolved(
         transfer: TransferEntity,
         attempt: UploadAttemptEntity,
@@ -270,8 +292,16 @@ internal class Reconciler(
         .digest(values.joinToString("\u0000").toByteArray(Charsets.UTF_8))
         .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
-    private companion object {
-        const val RECONCILIATION_READ_RETRY_MILLIS = 15 * 1_000L
-        const val RECONCILIATION_PAGE_LIMIT = 200
+    companion object {
+        private const val RECONCILIATION_READ_RETRY_MILLIS = 15 * 1_000L
+        private const val RECONCILIATION_PAGE_LIMIT = 200
+
+        /** Fresh attempts after ones proven not received, before the user is asked. */
+        internal const val MAX_AUTOMATIC_RETRIES = 3
+
+        private val RETRY_BACKOFF_MILLIS = longArrayOf(60_000L, 5 * 60_000L, 15 * 60_000L)
+
+        /** How long to wait before the fresh attempt that follows [retries] earlier ones. */
+        internal fun retryBackoffMillis(retries: Int): Long = RETRY_BACKOFF_MILLIS[retries.coerceIn(0, RETRY_BACKOFF_MILLIS.lastIndex)]
     }
 }

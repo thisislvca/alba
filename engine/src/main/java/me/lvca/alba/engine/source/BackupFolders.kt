@@ -2,6 +2,7 @@ package me.lvca.alba.engine.source
 
 import android.provider.MediaStore
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.DeviceFolder
 
 /**
  * Which MediaStore rows automatic backup reads: the camera folder on every volume, including SD cards, plus the
@@ -16,6 +17,11 @@ internal object BackupFolders {
     val CAMERA_PATHS = listOf("dcim/camera/", "dcim/100andro/", "dcim/100media/", "dcim/opencamera/")
 
     fun isCamera(relativePath: String?): Boolean = relativePath?.lowercase() in CAMERA_PATHS
+
+    /** Relative paths, lower case, where Android and phone makers save screenshots. */
+    val SCREENSHOT_PATHS = listOf("pictures/screenshots/", "dcim/screenshots/")
+
+    fun isScreenshots(relativePath: String?): Boolean = relativePath?.lowercase() in SCREENSHOT_PATHS
 
     /** The id a folder keeps across scans: its volume and MediaStore bucket. */
     fun folderId(volume: String, bucketId: String): String = "$ID_PREFIX:$volume:$bucketId"
@@ -49,11 +55,15 @@ internal object BackupFolders {
         BackupScope.CAMERA_MEDIA -> CAMERA_PATHS
     }
 
-    /** A SQL predicate and its arguments selecting [cameraPaths] and the chosen [folders]. */
+    /**
+     * A SQL predicate and its arguments selecting [cameraPaths] and the chosen [folders]: buckets by volume and id, and
+     * the screenshots folders by path when [DeviceFolder.SCREENSHOTS] is chosen.
+     */
     fun selection(folders: Set<String>, cameraPaths: List<String> = CAMERA_PATHS): Pair<String, List<String>> {
-        val camera = "LOWER(${MediaStore.MediaColumns.RELATIVE_PATH}) IN (${cameraPaths.joinToString { "?" }})"
+        val paths = cameraPaths + if (DeviceFolder.SCREENSHOTS in folders) SCREENSHOT_PATHS else emptyList()
+        val camera = "LOWER(${MediaStore.MediaColumns.RELATIVE_PATH}) IN (${paths.joinToString { "?" }})"
         val chosen = folders.mapNotNull(::parse)
-        val args = cameraPaths + chosen.flatMap { (volume, bucket) -> listOf(volume, bucket) }
+        val args = paths + chosen.flatMap { (volume, bucket) -> listOf(volume, bucket) }
         val extra = chosen.joinToString(separator = "") {
             " OR (${MediaStore.MediaColumns.VOLUME_NAME} = ? AND ${MediaStore.MediaColumns.BUCKET_ID} = ?)"
         }

@@ -88,12 +88,16 @@ data class BackupView(
     val disclosureCurrent: Boolean = true,
     /** When iCloud refused an upload for lack of storage; backup waits instead of failing item by item. */
     val storageFullSinceEpochMillis: Long? = null,
+    /** Whether backup also covers what was on the phone before it was turned on, not only what is added after. */
+    val includesExisting: Boolean = false,
 )
 
 /** How much of what automatic backup covers is verified in iCloud. */
 data class BackupProgress(
     val backedUp: Int,
     val eligible: Int,
+    /** Items backup can still do on its own: not yet discovered, or queued, sending or being checked. */
+    val pending: Int = 0,
 )
 
 /** Phone items with a current exact iCloud proof, which Android's trash could take off the phone. */
@@ -111,13 +115,26 @@ data class DeviceFolder(
     val relativePath: String,
     val itemCount: Int,
     val isCamera: Boolean,
-)
+    /** A screenshots folder, which [SCREENSHOTS] covers on every volume, whether or not it exists yet. */
+    val isScreenshots: Boolean = false,
+) {
+    companion object {
+        /**
+         * Chosen in [BackupSettings.deviceFolders], it covers Pictures/Screenshots and DCIM/Screenshots by path, so
+         * a screenshots folder made after backup was turned on is covered too. New enrollments start with it.
+         */
+        const val SCREENSHOTS = "device-folder-path:screenshots"
+    }
+}
 
 /** Manual uploads finished and still to go in the current run. */
 data class TransferProgress(val done: Int, val total: Int)
 
 sealed interface BackupChange {
     data object Disable : BackupChange
+
+    /** Back up what was already on the phone when backup was turned on, newest first, as well as what is added later. */
+    data object IncludeExisting : BackupChange
 }
 
 @JvmInline
@@ -160,7 +177,8 @@ interface PhotoCompanion {
 
     suspend fun acceptBackupDisclosure(draft: BackupDraftId): BackupSetupEffect
 
-    suspend fun finishBackupEnrollment(draft: BackupDraftId): BackupView
+    /** Turns backup on; with [includeExisting] it also backs up what is already on the phone, newest first. */
+    suspend fun finishBackupEnrollment(draft: BackupDraftId, includeExisting: Boolean = false): BackupView
 
     suspend fun changeBackup(change: BackupChange): BackupView
 
@@ -210,6 +228,9 @@ interface BackupControls {
     /** How much of what backup covers is verified, counted from the phone and the journal. */
     suspend fun backupProgress(): BackupProgress
 
+    /** How many automatic backups were verified at or after [sinceEpochMillis]; cheap enough to ask often. */
+    suspend fun verifiedSince(sinceEpochMillis: Long): Int = 0
+
     /** Folders on the phone that hold photos or videos, for choosing what backup includes. */
     suspend fun deviceFolders(): List<DeviceFolder>
 
@@ -245,7 +266,12 @@ data class WakeSummary(
     val stagedAutomaticTransfers: Int,
     val invokedTransfers: Int,
     val moreWorkScheduled: Boolean,
-)
+    /** When the next pass has something to do: now when an upload is ready, else the next check or retry. */
+    val nextWorkAtEpochMillis: Long? = null,
+) {
+    /** Whether this pass moved anything forward, so another pass right away may move more. */
+    val progressed: Boolean get() = reconciledTransfers + stagedAutomaticTransfers + invokedTransfers > 0
+}
 
 interface MaintenanceWakeup {
     suspend fun wake(reason: WakeReason): WakeSummary
@@ -327,6 +353,13 @@ interface ICloudPhotoProtocol {
     fun isWriteAuthorized(): Boolean = true
 
     suspend fun canResume(binding: AccountBinding, attemptId: String): Boolean = false
+
+    /**
+     * True only when the protocol's own write journal proves [attemptId] never sent the request that registers a
+     * photo in the library, so iCloud cannot have received it as a library item. False when it may have, or when the
+     * journal cannot tell.
+     */
+    suspend fun registrationNeverSent(binding: AccountBinding, attemptId: String): Boolean = false
     fun currentDestination(): ICloudDestination?
 
     suspend fun captureChangeToken(binding: AccountBinding): String
@@ -336,6 +369,8 @@ interface ICloudPhotoProtocol {
         fileName: String,
         source: OneShotUploadSource,
         lastModifiedAtEpochMillis: Long? = null,
+        /** The capture's offset east of UTC in minutes, when the original records one; else the phone's zone is used. */
+        captureOffsetMinutes: Int? = null,
     ): PreparedICloudUpload
 
     suspend fun uploadProcessingStatus(

@@ -12,7 +12,8 @@ import me.lvca.alba.engine.model.BackupDraftId
  */
 internal class BackupSetupStore(private val savedState: SavedStateHandle) {
     private val current = MutableStateFlow(savedState.get<String>(DRAFT)?.let {
-        BackupSetup(BackupDraftId(it), savedState[DESTINATION] ?: "", savedState[AWAITING_PERMISSIONS] ?: false)
+        BackupSetup(BackupDraftId(it), savedState[DESTINATION] ?: "", savedState[AWAITING_PERMISSIONS] ?: false,
+            savedState[INCLUDE_EXISTING] ?: true)
     })
     val setup: StateFlow<BackupSetup?> = current.asStateFlow()
 
@@ -27,6 +28,7 @@ internal class BackupSetupStore(private val savedState: SavedStateHandle) {
         savedState[DRAFT] = value.draftId.value
         savedState[DESTINATION] = value.destinationLabel
         savedState[AWAITING_PERMISSIONS] = value.awaitingPermissions
+        savedState[INCLUDE_EXISTING] = value.includeExisting
         current.value = value
     }
 
@@ -45,6 +47,7 @@ internal class BackupSetupStore(private val savedState: SavedStateHandle) {
         savedState.remove<String>(DRAFT)
         savedState.remove<String>(DESTINATION)
         savedState.remove<Boolean>(AWAITING_PERMISSIONS)
+        savedState.remove<Boolean>(INCLUDE_EXISTING)
         savedState.remove<ArrayList<String>>(UNLAUNCHED_PERMISSIONS)
         current.value = null
     }
@@ -53,6 +56,7 @@ internal class BackupSetupStore(private val savedState: SavedStateHandle) {
         const val DRAFT = "backupDraft"
         const val DESTINATION = "backupDestination"
         const val AWAITING_PERMISSIONS = "backupAwaitingPermissions"
+        const val INCLUDE_EXISTING = "backupIncludeExisting"
         const val UNLAUNCHED_PERMISSIONS = "backupUnlaunchedPermissions"
     }
 }

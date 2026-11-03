@@ -131,6 +131,7 @@ interface TransferDao {
                (s.mimeType NOT LIKE 'video/%' AND :allowAutomaticPhotos))
           AND (:allowManual OR t.authorityType != 'MANUAL')
           AND (t.leaseExpiresAtEpochMillis IS NULL OR t.leaseExpiresAtEpochMillis < :now)
+          AND (t.notBeforeEpochMillis IS NULL OR t.notBeforeEpochMillis <= :now)
         ORDER BY CASE t.authorityType WHEN 'MANUAL' THEN 0 ELSE 1 END,
                  t.createdAtEpochMillis, t.transferId
         LIMIT 1
@@ -284,6 +285,78 @@ interface TransferDao {
     @Query("SELECT * FROM transfers WHERE state = 'SENDING'")
     suspend fun findInterruptedSending(): List<TransferEntity>
 
+    /**
+     * The attempt was proven never to have reached iCloud: the transfer is READY again, without an attempt, after
+     * [notBefore]. Its staged original is kept, and the next attempt links back to this one.
+     */
+    @Query(
+        """
+        UPDATE transfers
+        SET state = 'READY', stateVersion = stateVersion + 1, activeAttemptId = NULL,
+            leaseToken = NULL, leaseExpiresAtEpochMillis = NULL,
+            reconciliationDueAtEpochMillis = NULL, reconciliationDeadlineEpochMillis = NULL,
+            reconciliationChangeToken = NULL,
+            automaticRetries = automaticRetries + 1, notBeforeEpochMillis = :notBefore,
+            updatedAtEpochMillis = :now, message = :message
+        WHERE transferId = :transferId AND activeAttemptId = :attemptId
+          AND state IN ('OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE')
+        """,
+    )
+    suspend fun retryAfterProvenNotReceived(
+        transferId: String,
+        attemptId: String,
+        notBefore: Long,
+        now: Long,
+        message: String = StoredMessage.UPLOAD_INTERRUPTED_TRYING_AGAIN.code,
+    ): Int
+
+    /**
+     * The attempt was proven never to have reached iCloud, but automatic retries are used up: the user decides. Nothing
+     * of it is in iCloud, so it is retryable like an item that sent nothing.
+     */
+    @Query(
+        """
+        UPDATE transfers
+        SET state = 'NEEDS_ATTENTION', stateVersion = stateVersion + 1, activeAttemptId = NULL,
+            leaseToken = NULL, leaseExpiresAtEpochMillis = NULL,
+            reconciliationDueAtEpochMillis = NULL, reconciliationDeadlineEpochMillis = NULL,
+            reconciliationChangeToken = NULL, notBeforeEpochMillis = NULL,
+            updatedAtEpochMillis = :now, message = :message
+        WHERE transferId = :transferId AND activeAttemptId = :attemptId
+          AND state IN ('OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE')
+        """,
+    )
+    suspend fun stopRetryingProvenNotReceived(
+        transferId: String,
+        attemptId: String,
+        now: Long,
+        message: String = StoredMessage.UPLOAD_INTERRUPTED_REPEATEDLY.code,
+    ): Int
+
+    /** An attempt armed but never sent: the transfer goes to [state] without it, as if it had not been armed. */
+    @Query(
+        """
+        UPDATE transfers
+        SET state = :state, stateVersion = stateVersion + 1, activeAttemptId = NULL,
+            leaseToken = NULL, leaseExpiresAtEpochMillis = NULL,
+            updatedAtEpochMillis = :now, message = :message
+        WHERE transferId = :transferId AND activeAttemptId = :attemptId AND state = 'SENDING'
+        """,
+    )
+    suspend fun releaseUnsentAttempt(transferId: String, attemptId: String, state: TransferState, now: Long, message: String): Int
+
+    /** When the first READY transfer waiting out a retry backoff may start, if any is waiting. */
+    @Query("""
+        SELECT MIN(notBeforeEpochMillis) FROM transfers
+        WHERE accountId = :accountId AND state = 'READY' AND notBeforeEpochMillis > :now
+          AND (:allowManual OR authorityType != 'MANUAL') AND (:allowAutomatic OR authorityType != 'AUTOMATIC')
+    """)
+    suspend fun earliestRetryDue(accountId: String, now: Long, allowAutomatic: Boolean = true, allowManual: Boolean = true): Long?
+
+    /** The transfer's most recent attempt, which a fresh attempt names as its predecessor. */
+    @Query("SELECT attemptId FROM upload_attempts WHERE transferId = :transferId ORDER BY authorizedAtEpochMillis DESC, attemptId DESC LIMIT 1")
+    suspend fun findLatestAttemptId(transferId: String): String?
+
     @Query(
         """
         SELECT * FROM transfers
@@ -407,9 +480,11 @@ interface TransferDao {
                (s.mimeType LIKE 'video/%' AND :allowAutomaticVideos) OR
                (s.mimeType NOT LIKE 'video/%' AND :allowAutomaticPhotos))
           AND (:allowManual OR t.authorityType != 'MANUAL')
+          AND (t.notBeforeEpochMillis IS NULL OR t.notBeforeEpochMillis <= :now)
     """)
     suspend fun countRunnableReady(
         accountId: String,
+        now: Long,
         allowAutomaticPhotos: Boolean,
         allowAutomaticVideos: Boolean = allowAutomaticPhotos,
         allowManual: Boolean = true,
@@ -446,6 +521,28 @@ interface TransferDao {
 
     @Query("SELECT mediaId FROM transfers WHERE accountId = :accountId AND state = 'VERIFIED' AND mediaId IS NOT NULL")
     suspend fun findVerifiedMediaIds(accountId: String): List<String>
+
+    /** Phone items with any journal row: verified, queued, failed or skipped. */
+    @Query("SELECT DISTINCT mediaId FROM transfers WHERE accountId = :accountId AND mediaId IS NOT NULL")
+    suspend fun findJournaledMediaIds(accountId: String): List<String>
+
+    /** Automatic transfers still on their way: queued, sending or being checked in iCloud. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND authorityType = 'AUTOMATIC'
+          AND state IN ('READY', 'SENDING', 'OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE')
+        """,
+    )
+    suspend fun countActiveAutomatic(accountId: String): Int
+
+    /** Automatic transfers verified at or after [since]. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND authorityType = 'AUTOMATIC'
+          AND state = 'VERIFIED' AND verifiedAtEpochMillis >= :since
+        """,
+    )
+    suspend fun countVerifiedAutomaticSince(accountId: String, since: Long): Int
 
     /** Manual uploads finished since [since], and those still to run, for the transfer notification. */
     @Query(

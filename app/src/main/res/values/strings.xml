@@ -20,7 +20,7 @@
     <string name="back_to_gallery">Back to gallery</string>
     <string name="back_to_library">Back to library</string>
     <string name="back_up_new_photos">Back up new photos?</string>
-    <string name="backup_disclosure">Alba will back up new photos and videos from your camera folder, and from any folders you choose, by uploading their exact originals directly to %1$s. Backup uses Wi-Fi unless you allow mobile data in its settings. It pauses when access, consent or the account changes.</string>
+    <string name="backup_disclosure">Alba will back up photos and videos from your camera folder, and from any folders you choose, by uploading their exact originals directly to %1$s. Backup uses Wi-Fi unless you allow mobile data in its settings. It pauses when access, consent or the account changes.</string>
     <string name="backup_on_for">On for %1$s. New supported originals are staged, uploaded once, and verified.</string>
     <string name="backups">Backups</string>
     <string name="batch_done">%1$s · done: %2$d/%3$d</string>
@@ -558,6 +558,8 @@
     <string name="upload_unsupported_codec">This video codec is not supported for upload. Use H.264 or HEVC with AAC audio.</string>
     <string name="upload_invalid_media">This media file could not be validated. The original has not been uploaded.</string>
     <string name="upload_processing">iCloud is processing this file. The original is still on this phone.</string>
+    <string name="upload_interrupted_trying_again">The upload stopped before iCloud received it. Alba will try again.</string>
+    <string name="upload_interrupted_repeatedly">The upload stopped several times before iCloud received it. Retry when the connection is steady.</string>
     <string name="upload_processing_failed">iCloud could not process this file. The original is still on this phone. This upload will not be repeated.</string>
     <string name="upload_stage_failed">Could not stage this file; check file access and the upload queue</string>
     <string name="shared_albums">Shared albums</string>
@@ -745,6 +747,9 @@
     <string name="about_upcoming_older_detail">Include older photos, with item counts and size estimates before starting.</string>
     <string name="about_limitations">Compatibility details</string>
     <string name="about_hide_limitations">Hide compatibility details</string>
+    <string name="backup_progress_channel">Backup progress</string>
+    <string name="backup_progress_notification_title">Backing up to iCloud</string>
+    <string name="backup_progress_notification_count">%1$d of %2$d backed up</string>
     <string name="transfer_channel">Photo transfers</string>
     <string name="transfer_notification_title">Transferring photos</string>
     <string name="transfer_notification_body">Open Alba to see progress.</string>
@@ -928,6 +933,17 @@
     <string name="backup_while_roaming_detail">Uses mobile data abroad, which may cost more.</string>
     <string name="backup_pause">Pause backup</string>
     <string name="backup_pause_detail">Stops automatic uploads until you turn this off.</string>
+    <string name="backup_disclosure_title">Turn on backup?</string>
+    <string name="backup_existing_choice_all">Back up existing photos and videos too</string>
+    <string name="backup_existing_choice_all_detail">Newest first, after anything new. Items Alba already backed up are not uploaded again.</string>
+    <string name="backup_existing_choice_new">Only new ones</string>
+    <string name="backup_existing_started">Existing photos and videos will back up, newest first.</string>
+    <string name="backup_existing_row_title">Back up existing photos and videos</string>
+    <string name="backup_existing_row_detail">Only items added since backup was turned on back up now.</string>
+    <string name="backup_existing_confirm_body">Alba will also back up the photos and videos that were already in your camera folder and chosen folders, newest first, by uploading their exact originals to %1$s. This can take a while. It uses Wi-Fi unless you allow mobile data.</string>
+    <string name="backup_existing_confirm_button">Back up</string>
+    <string name="backup_screenshots_folder">Screenshots</string>
+    <string name="backup_existing_data_note">Each upload is checked by downloading it back from iCloud, so backing up the whole library uses about twice its size in data. Backup uses Wi-Fi only unless you allow mobile data.</string>
     <string name="backup_device_folders">Back up device folders</string>
     <string name="backup_device_folders_intro">New photos and videos from your camera always back up. Turn on other folders, such as Screenshots or WhatsApp Images, to back up new items in them too.</string>
     <string name="backup_device_folders_empty">No other folders with photos or videos.</string>

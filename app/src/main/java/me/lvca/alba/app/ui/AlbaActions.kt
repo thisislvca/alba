@@ -196,6 +196,9 @@ interface AccountActions {
     fun enableAutomaticBackup()
     fun disableAutomaticBackup()
 
+    /** Backup also covers what was on the phone before it was turned on. */
+    fun includeExistingInBackup()
+
     /** The account screen showed a page something outside it asked for. */
     fun accountPageShown()
     fun setBackupSettings(settings: BackupSettings)

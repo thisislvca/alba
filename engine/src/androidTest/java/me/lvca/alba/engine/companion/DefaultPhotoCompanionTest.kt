@@ -752,6 +752,7 @@ class DefaultPhotoCompanionTest {
             fileName: String,
             source: OneShotUploadSource,
             lastModifiedAtEpochMillis: Long?,
+            captureOffsetMinutes: Int?,
         ): PreparedICloudUpload {
             beforePrepare()
             preparedDate = lastModifiedAtEpochMillis

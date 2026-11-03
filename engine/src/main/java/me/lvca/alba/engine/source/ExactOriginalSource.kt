@@ -18,6 +18,8 @@ data class ExactOriginalEvidence(
     val byteCount: Long,
     val sha256Hex: String,
     val lastModifiedAtEpochMillis: Long? = null,
+    /** MediaStore's DATE_TAKEN, when the source has one. */
+    val dateTakenEpochMillis: Long? = null,
 )
 
 data class LocalDiscoveryCheckpoint(
@@ -30,6 +32,27 @@ data class LocalDiscoveryCheckpoint(
 data class LocalDiscoveryPage(
     val items: List<DeviceMediaRecord>,
     val checkpoint: LocalDiscoveryCheckpoint,
+    val moreComing: Boolean,
+)
+
+/**
+ * Where reading the items that were on the phone before enrollment continues: the last item read, by capture time
+ * (or, without one, the time it was added) and MediaStore id, newest first. Only valid for [volumeVersion].
+ */
+data class ExistingMediaCursor(
+    val volumeVersion: String,
+    val sortKeyEpochMillis: Long,
+    val mediaStoreId: Long,
+)
+
+/** One item read from the phone's existing library, and the cursor that continues after it. */
+data class ExistingMedia(
+    val record: DeviceMediaRecord,
+    val cursor: ExistingMediaCursor,
+)
+
+data class ExistingMediaPage(
+    val items: List<ExistingMedia>,
     val moreComing: Boolean,
 )
 
@@ -76,12 +99,30 @@ interface ExactOriginalSource {
         enrollmentBaseline: LocalDiscoveryCheckpoint? = null,
     ): LocalDiscoveryPage = error("This source cannot enforce automatic backup scope")
 
-    /** The ids of every item [discoverEligibleMedia] covers, regardless of checkpoint, for counting progress. */
+    /**
+     * Returns the items [scope] covers in the camera folder and the chosen [folders] that were already on the phone at
+     * enrollment, the complement of [discoverEligibleMedia]: newest first, one page after [cursor] at a time, so the
+     * library is never held in memory. A cursor from another MediaStore version starts again from the newest item.
+     */
+    suspend fun discoverExistingMedia(
+        cursor: ExistingMediaCursor?,
+        limit: Int,
+        scope: BackupScope,
+        folders: Set<String>,
+        addedAfterEpochMillis: Long,
+        enrollmentBaseline: LocalDiscoveryCheckpoint? = null,
+    ): ExistingMediaPage = ExistingMediaPage(emptyList(), moreComing = false)
+
+    /**
+     * The ids of every item [discoverEligibleMedia] covers, regardless of checkpoint, for counting progress. With
+     * [includeExisting], also those [discoverExistingMedia] covers.
+     */
     suspend fun eligibleMediaIds(
         scope: BackupScope,
         folders: Set<String>,
         addedAfterEpochMillis: Long,
         enrollmentBaseline: LocalDiscoveryCheckpoint? = null,
+        includeExisting: Boolean = false,
     ): Set<String> = emptySet()
 
     /** Folders holding photos or videos on every volume, the camera first. */

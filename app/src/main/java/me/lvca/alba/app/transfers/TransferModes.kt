@@ -2,6 +2,7 @@ package me.lvca.alba.app.transfers
 
 import android.net.Uri
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import me.lvca.alba.app.R
 import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.messages.localizedStoredMessage
@@ -14,6 +15,7 @@ import me.lvca.alba.engine.model.BackupDraftId
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupSetupEffect
 import me.lvca.alba.engine.model.BackupView
+import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.PhotoCompanion
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
@@ -42,7 +44,7 @@ internal interface TransferMode {
 
     suspend fun beginBackup(): BackupDraft
     suspend fun acceptBackup(draftId: BackupDraftId): BackupSetupEffect
-    suspend fun finishBackup(draftId: BackupDraftId)
+    suspend fun finishBackup(draftId: BackupDraftId, includeExisting: Boolean)
     suspend fun disableBackup()
     suspend fun continuePastUnresolved(transferId: TransferId)
 
@@ -82,8 +84,12 @@ internal class LiveTransferMode(
             if (effect is BackupSetupEffect.Refused) messages.show(localizedStoredMessage(effect.reason))
         }
 
-    override suspend fun finishBackup(draftId: BackupDraftId) {
-        messages.show(localizedStoredMessage(photos.finishBackupEnrollment(draftId).message))
+    override suspend fun finishBackup(draftId: BackupDraftId, includeExisting: Boolean) {
+        val turningOn = !photos.observeBackup().first().enabled
+        val view = photos.finishBackupEnrollment(draftId, includeExisting)
+        // Backup turned on afresh starts with the screenshots folders; agreeing again keeps the folders already chosen.
+        if (turningOn && view.enabled) preferences.update { it.copy(deviceFolders = it.deviceFolders + DeviceFolder.SCREENSHOTS) }
+        messages.show(localizedStoredMessage(view.message))
     }
 
     override suspend fun disableBackup() {

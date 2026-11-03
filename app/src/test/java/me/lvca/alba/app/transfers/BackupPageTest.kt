@@ -6,6 +6,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -21,16 +23,21 @@ import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.testing.testAlbaActions
+import me.lvca.alba.app.ui.account.BackupDisclosure
+import me.lvca.alba.app.ui.account.DeviceFoldersPage
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
 import me.lvca.alba.app.ui.account.ProfilePage
+import me.lvca.alba.app.ui.account.backedUpFolderNames
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.gallery.BackupBadge
 import me.lvca.alba.app.ui.gallery.BackupStatusChip
 import me.lvca.alba.app.ui.gallery.LocalBackupBadges
 import me.lvca.alba.app.ui.gallery.MediaTile
+import me.lvca.alba.engine.model.BackupDraftId
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.BackupView
+import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
@@ -40,6 +47,7 @@ import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.protocol.account.ICloudAccountState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -139,6 +147,80 @@ class BackupPageTest {
     }
 
     @Test
+    fun backupOfNewItemsOnlyOffersToIncludeExistingOnesAfterAsking() {
+        var included = 0
+        render(TransferState(backup = on), includeExistingInBackup = { included++ })
+        compose.onNodeWithTag("backup-include-existing").performScrollTo().performClick()
+        assertEquals("Nothing starts before the user confirms", 0, included)
+        compose.onNodeWithText(context.getString(R.string.backup_existing_data_note)).assertIsDisplayed()
+        compose.onNodeWithTag("backup-include-existing-confirm").performClick()
+        assertEquals(1, included)
+    }
+
+    @Test
+    fun backupThatIncludesExistingItemsDoesNotOfferItAgain() {
+        render(TransferState(backup = on.copy(includesExisting = true)))
+        compose.onNodeWithTag("backup-include-existing").assertDoesNotExist()
+    }
+
+    @Test
+    fun theDisclosureBacksUpExistingItemsByDefaultAndCanBeNarrowed() {
+        val accepted = mutableListOf<Boolean>()
+        compose.setContent {
+            AlbaTheme(darkTheme = false) {
+                BackupDisclosure(BackupSetup(BackupDraftId("draft"), "alex@example.com"), storageFull = false,
+                    accept = { accepted += it }, dismiss = {})
+            }
+        }
+        compose.onNodeWithTag("backup-choice-existing").assertIsSelected()
+        compose.onNodeWithText(context.getString(R.string.backup_existing_data_note)).assertIsDisplayed()
+        compose.onNodeWithTag("backup-disclosure-accept").performClick()
+        compose.onNodeWithTag("backup-choice-new-only").performClick()
+        compose.onNodeWithTag("backup-choice-new-only").assertIsSelected()
+        compose.onNodeWithTag("backup-disclosure-accept").performClick()
+        assertEquals(listOf(true, false), accepted)
+    }
+
+    @Test
+    fun theBackupPageNamesTheFoldersThatBackUp() {
+        val folders = listOf(
+            DeviceFolder("device-folder:external_primary:1", "Camera", "DCIM/Camera/", 10, isCamera = true),
+            DeviceFolder("device-folder:external_primary:2", "Screenshots", "Pictures/Screenshots/", 4, isCamera = false, isScreenshots = true),
+            DeviceFolder("device-folder:external_primary:3", "WhatsApp Images", "Pictures/WhatsApp Images/", 7, isCamera = false),
+            DeviceFolder("device-folder:external_primary:4", "Downloads", "Download/", 2, isCamera = false),
+        )
+        val settings = BackupSettings(deviceFolders = setOf(DeviceFolder.SCREENSHOTS, "device-folder:external_primary:3"))
+        render(TransferState(backup = on, backupSettings = settings, deviceFolders = folders))
+        compose.onNodeWithText("Camera, ${context.getString(R.string.backup_screenshots_folder)}, WhatsApp Images")
+            .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun folderNamesWaitForThePhonesFoldersAndNameScreenshotsBeforeTheyExist() {
+        assertNull(backedUpFolderNames(setOf(DeviceFolder.SCREENSHOTS), null, "Screenshots"))
+        val camera = DeviceFolder("device-folder:external_primary:1", "Camera", "DCIM/Camera/", 1, isCamera = true)
+        assertEquals(listOf("Camera", "Screenshots"), backedUpFolderNames(setOf(DeviceFolder.SCREENSHOTS), listOf(camera), "Screenshots"))
+        assertEquals(listOf("Camera"), backedUpFolderNames(emptySet(), listOf(camera), "Screenshots"))
+    }
+
+    @Test
+    fun turningOffAScreenshotsFolderTurnsOffScreenshotsEverywhere() {
+        val saved = mutableListOf<BackupSettings>()
+        val shots = DeviceFolder("device-folder:external_primary:2", "Screenshots", "Pictures/Screenshots/", 4, isCamera = false, isScreenshots = true)
+        val settings = BackupSettings(deviceFolders = setOf(DeviceFolder.SCREENSHOTS))
+        compose.setContent {
+            AlbaTheme(darkTheme = false) {
+                androidx.compose.foundation.layout.Column {
+                    DeviceFoldersPage(TransferState(backup = on, backupSettings = settings, deviceFolders = listOf(shots)),
+                        testAlbaActions(setBackupSettings = { saved += it }))
+                }
+            }
+        }
+        compose.onNodeWithTag("backup-folder-Screenshots").assertIsOn().performClick()
+        assertEquals(listOf(BackupSettings(deviceFolders = emptySet())), saved)
+    }
+
+    @Test
     fun mobileDataPromptCanRememberTheAnswer() {
         val answers = mutableListOf<Pair<Boolean, Boolean>>()
         compose.setContent { AlbaTheme(darkTheme = false) { MobileDataPrompt(answer = { use, remember -> answers += use to remember }, dismiss = {}) } }
@@ -157,6 +239,7 @@ class BackupPageTest {
         retryAll: () -> Unit = {},
         setBackupSettings: (BackupSettings) -> Unit = {},
         retryAfterStorageFull: () -> Unit = {},
+        includeExistingInBackup: () -> Unit = {},
     ) {
         compose.setContent {
             AlbaTheme(darkTheme = false) {
@@ -167,7 +250,8 @@ class BackupPageTest {
                     mediaBusy = false,
                     diagnostics = DiagnosticsConsent(),
                     actions = testAlbaActions(retryTransfer = retryTransfer, retryAllTransfers = retryAll,
-                        setBackupSettings = setBackupSettings, retryAfterStorageFull = retryAfterStorageFull),
+                        setBackupSettings = setBackupSettings, retryAfterStorageFull = retryAfterStorageFull,
+                        includeExistingInBackup = includeExistingInBackup),
                 )
             }
         }

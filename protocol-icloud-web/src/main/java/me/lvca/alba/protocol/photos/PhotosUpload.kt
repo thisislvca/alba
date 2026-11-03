@@ -33,7 +33,9 @@ internal class PhotosUpload(
     private val binding: me.lvca.alba.engine.model.AccountBinding? = null,
     private val checkAuthorized: () -> Unit = {},
     private val lastModifiedAtEpochMillis: Long? = null,
+    private val captureOffsetMinutes: Int? = null,
     private val now: () -> Instant = { Instant.now() },
+    private val phoneZone: () -> ZoneId = { ZoneId.systemDefault() },
     private val zoneName: String = PrimarySyncZone.NAME,
     private val assetBatchId: String? = null,
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
@@ -64,13 +66,13 @@ internal class PhotosUpload(
             val uploadedAt = now()
             val instant = Instant.ofEpochMilli(saved["lastModDate"]?.jsonPrimitive?.long
                 ?: lastModifiedAtEpochMillis ?: uploadedAt.toEpochMilli())
-            val zone = ZoneId.systemDefault()
+            val (zoneId, offsetMinutes) = uploadZone(phoneZone(), uploadedAt, instant, captureOffsetMinutes)
             saved = JsonObject(saved + mapOf(
                 "fileName" to JsonPrimitive(fileName),
                 "lastModDate" to JsonPrimitive(instant.toEpochMilli()),
-                "localTimeZoneId" to JsonPrimitive(zone.id),
-                // iCloud web uses the upload-time offset, even for a winter-dated source.
-                "timeZoneOffset" to JsonPrimitive(-zone.rules.getOffset(uploadedAt).totalSeconds / 60),
+                "localTimeZoneId" to JsonPrimitive(zoneId),
+                // Minutes west of UTC, as JavaScript's getTimezoneOffset() gives them to iCloud web.
+                "timeZoneOffset" to JsonPrimitive(-offsetMinutes),
             ))
             if (previous != null) binding?.let { journal?.save(it, attemptId, UploadCheckpoint(previous.phase, saved.toString())) }
         }
@@ -200,5 +202,41 @@ internal class PhotosUpload(
 
     private fun malformed(message: String): Nothing =
         throw AppleProtocolException(AppleProtocolError.MALFORMED_RESPONSE, message)
-    companion object { val RESUMABLE = setOf("RESERVING", "RESERVED", "RECEIPT_SAVED", "ACCEPTED") }
+    companion object {
+        /**
+         * The zone and offset (minutes east of UTC) registered with an upload. iCloud web sends the browser's zone and
+         * its offset at upload time, even for a winter-dated file; without a recorded capture offset Alba does the same
+         * with the phone's zone. With one, the capture's own offset is sent, named by the phone's zone when that zone
+         * had the same offset then, else by the matching fixed-offset IANA zone (Etc/GMT-9 is UTC+9). An offset no IANA
+         * id names that way, such as UTC+5:30 away from that zone, falls back to what iCloud web sends.
+         */
+        internal fun uploadZone(phone: ZoneId, uploadedAt: Instant, capturedAt: Instant, captureOffsetMinutes: Int?): Pair<String, Int> {
+            val asICloudWeb = phone.id to phone.rules.getOffset(uploadedAt).totalSeconds / SECONDS_PER_MINUTE
+            if (captureOffsetMinutes == null) return asICloudWeb
+            val hours = captureOffsetMinutes / MINUTES_PER_HOUR
+            val zone = when {
+                phone.rules.getOffset(capturedAt).totalSeconds == captureOffsetMinutes * SECONDS_PER_MINUTE -> phone.id
+                captureOffsetMinutes == 0 -> "Etc/UTC"
+                captureOffsetMinutes % MINUTES_PER_HOUR == 0 && hours in FIXED_ZONE_HOURS ->
+                    // IANA's Etc/GMT zones invert the sign: Etc/GMT-9 is UTC+9.
+                    "Etc/GMT" + (if (hours > 0) "-" else "+") + kotlin.math.abs(hours)
+                else -> return asICloudWeb
+            }
+            return zone to captureOffsetMinutes
+        }
+
+        private const val SECONDS_PER_MINUTE = 60
+        private const val MINUTES_PER_HOUR = 60
+
+        /** The whole-hour offsets the Etc/GMT zones name, UTC-12 to UTC+14. */
+        private val FIXED_ZONE_HOURS = -12..14
+
+        val RESUMABLE = setOf("RESERVING", "RESERVED", "RECEIPT_SAVED", "ACCEPTED")
+
+        /**
+         * Phases saved before "REGISTERING", which is saved before putAsset is sent. In these the photo was never
+         * registered, so it is not in the library: at most its bytes were sent to content storage, unreferenced.
+         */
+        val BEFORE_REGISTRATION = setOf("RESERVING", "RESERVED", "BYTES_SENDING", "RECEIPT_SAVED")
+    }
 }

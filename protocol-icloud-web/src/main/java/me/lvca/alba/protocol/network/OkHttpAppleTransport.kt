@@ -63,6 +63,17 @@ class OkHttpAppleTransport(
         .proxyAuthenticator(Authenticator.NONE)
         .build()
 
+    /**
+     * Sends an original of any size. The body is streamed from the staged file, and each write to the socket has its
+     * own timeout, so a long video is never cut off for taking long overall; there is no timeout on the whole call.
+     * Apple answers only after the last byte, so its answer may take longer than a JSON request's.
+     */
+    private val uploadClient = writeClient.newBuilder()
+        .writeTimeout(UPLOAD_WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(UPLOAD_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .callTimeout(0, TimeUnit.SECONDS)
+        .build()
+
     override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
         val url = AppleEndpointPolicy.requireAllowed(request.url)
         val builder = Request.Builder()
@@ -198,7 +209,7 @@ class OkHttpAppleTransport(
             .apply { headers.forEach(::header) }
             .post(body)
             .build()
-        return writeClient.newCall(request).awaitMapped { response ->
+        return uploadClient.newCall(request).awaitMapped { response ->
             AppleHttpResponse(
                 code = response.code,
                 headers = response.headers.names().associate { name ->
@@ -265,6 +276,12 @@ class OkHttpAppleTransport(
         const val MAX_DOWNLOAD_REDIRECTS = 5
         const val MAX_JSON_RESPONSE_BYTES = 8 * 1_024 * 1_024
         const val MAX_UPLOAD_RESPONSE_BYTES = 1 * 1_024 * 1_024
+
+        /** One socket write of an upload: a stalled connection fails after this, however large the file. */
+        const val UPLOAD_WRITE_TIMEOUT_SECONDS = 60L
+
+        /** Apple's answer after the last byte of an upload. */
+        const val UPLOAD_RESPONSE_TIMEOUT_SECONDS = 5 * 60L
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         val UPLOAD_MEDIA_TYPE = "text/plain".toMediaType()
         val EMPTY_BODY = ByteArray(0).toRequestBody(null)

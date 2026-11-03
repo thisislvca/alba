@@ -52,6 +52,17 @@ class LiveICloudPhotoProtocol(
         uploadJournal?.load(binding, attemptId)?.phase in PhotosUpload.RESUMABLE
     } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
       catch (_: Exception) { false }
+
+    /**
+     * startOnce saves "RESERVING" before its first request and "REGISTERING" before putAsset, and journal rows are never
+     * deleted, so an attempt with no row sent nothing at all, and one in an earlier phase never registered. Without a
+     * journal, or when a row cannot be read, nothing is proven.
+     */
+    override suspend fun registrationNeverSent(binding: AccountBinding, attemptId: String): Boolean = try {
+        val journal = uploadJournal
+        journal != null && journal.load(binding, attemptId).let { it == null || it.phase in PhotosUpload.BEFORE_REGISTRATION }
+    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+      catch (_: Exception) { false }
     private val json = Json { ignoreUnknownKeys = true }
 
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected)
@@ -88,6 +99,7 @@ class LiveICloudPhotoProtocol(
         fileName: String,
         source: OneShotUploadSource,
         lastModifiedAtEpochMillis: Long?,
+        captureOffsetMinutes: Int?,
     ): PreparedICloudUpload {
         val session = requireBoundSession(binding)
         val root = session.webservices[UPLOAD_SERVICE]
@@ -103,6 +115,7 @@ class LiveICloudPhotoProtocol(
             fileName = safeFileName(fileName),
             source = source,
             lastModifiedAtEpochMillis = lastModifiedAtEpochMillis,
+            captureOffsetMinutes = captureOffsetMinutes,
             persistSession = { cloudKit.persist(session, it) },
             journal = uploadJournal,
             binding = binding,

@@ -89,7 +89,7 @@ internal class UploadInvoker(
             return 0
         }
         val prepared = try {
-            protocol.prepareOriginal(binding, source.displayName, uploadSource, source.lastModifiedAtEpochMillis)
+            protocol.prepareOriginal(binding, source.displayName, uploadSource, source.uploadDate, source.captureOffsetMinutes)
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             transferDao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.COULD_NOT_PREPARE_THE_ICLOUD_UPLOAD.code)
@@ -112,15 +112,18 @@ internal class UploadInvoker(
                 return@withLock armed
             }
 
+            // Neither check below has sent anything for this attempt: startOnce has not run, so no request of it left
+            // the phone. The attempt is let go at once rather than verified for fifteen minutes holding the queue.
             if (authority.waitsForNetwork(leased.authorityType, video)) {
                 prepared.cancel()
-                recordUnknown(armed, "NETWORK_CHANGED_AFTER_COMMIT")
+                releaseUnsent(binding, armed, TransferState.READY, StoredMessage.WAITING_FOR_UPLOAD_AUTHORIZATION_AND_AN_ELIGIBLE_NETWORK)
                 return@withLock armed
             }
             if (leased.authorityType == AUTHORITY_AUTOMATIC &&
                 !authority.stillAuthorizes(leased.enrollmentId, leased.enrollmentRevision, binding)
             ) {
-                recordUnknown(armed, "AUTHORITY_CHANGED_AFTER_COMMIT")
+                prepared.cancel()
+                releaseUnsent(binding, armed, TransferState.NEEDS_ATTENTION, StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED)
                 return@withLock armed
             }
 
@@ -246,6 +249,8 @@ internal class UploadInvoker(
 
         val attemptId = UUID.randomUUID().toString()
         val authorizedAt = now()
+        // A transfer whose earlier attempt was proven not received starts a fresh one that names it.
+        val predecessor = transferDao.findLatestAttemptId(fresh.transferId)
         transferDao.insertAttempt(
             UploadAttemptEntity(
                 attemptId = attemptId,
@@ -255,7 +260,7 @@ internal class UploadInvoker(
                 authEpoch = binding.authEpoch,
                 operationFence = binding.operationFence,
                 preUploadChangeToken = preUploadToken,
-                predecessorAttemptId = null,
+                predecessorAttemptId = predecessor,
                 authorizedAtEpochMillis = authorizedAt,
             ),
         )
@@ -276,7 +281,7 @@ internal class UploadInvoker(
         ) { "Upload authorization lost its compare-and-set" }
         UploadAttemptEntity(
             attemptId, fresh.transferId, fresh.stagedSourceId, binding.accountId,
-            binding.authEpoch, binding.operationFence, preUploadToken, null, authorizedAt,
+            binding.authEpoch, binding.operationFence, preUploadToken, predecessor, authorizedAt,
         )
     }
 
@@ -295,7 +300,7 @@ internal class UploadInvoker(
                 StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN,
             )
             if (authority.waitsForNetwork(transfer.authorityType, source.isVideo)) return@withLock
-            val prepared = protocol.prepareOriginal(binding, source.displayName, openStaged(source), source.lastModifiedAtEpochMillis)
+            val prepared = protocol.prepareOriginal(binding, source.displayName, openStaged(source), source.uploadDate, source.captureOffsetMinutes)
             if (!canWriteNow(transfer.authorityType, source.isVideo) || !isStillSending(transfer.transferId)) {
                 prepared.cancel()
                 return@withLock
@@ -368,6 +373,18 @@ internal class UploadInvoker(
     private suspend fun isStillSending(transferId: String): Boolean =
         transferDao.findTransfer(transferId)?.state == TransferState.SENDING
 
+    /**
+     * Lets go of [attempt], armed but never sent: the transfer goes to [state] without an attempt and the write slot is
+     * freed. The attempt row stays, and the next attempt names it as its predecessor.
+     */
+    private suspend fun releaseUnsent(binding: AccountBinding, attempt: UploadAttemptEntity, state: TransferState, message: StoredMessage) {
+        database.withTransaction {
+            transferDao.insertUncertainty(UploadUncertaintyEntity(attempt.attemptId, "RELEASED_BEFORE_SEND", now()))
+            check(transferDao.releaseUnsentAttempt(attempt.transferId, attempt.attemptId, state, now(), message.code) == 1)
+            check(transferDao.releaseWriteSlot(binding.accountId, attempt.attemptId) == 1)
+        }
+    }
+
     private suspend fun recordUnknown(attempt: UploadAttemptEntity, reason: String) {
         val observedAt = now()
         database.withTransaction {
@@ -406,6 +423,12 @@ internal class UploadInvoker(
  */
 private fun Throwable.failsEveryRetry(): Boolean =
     isFinalRefusal() || this is IllegalStateException || this is IllegalArgumentException
+
+/**
+ * The date iCloud is given for the original: its capture time, or, for a source staged before capture times were kept,
+ * its modification date as before, so a resumed upload registers the same date it saved.
+ */
+internal val StagedSourceEntity.uploadDate: Long? get() = capturedAtEpochMillis ?: lastModifiedAtEpochMillis
 
 /** Staged videos follow the video setting for mobile data; everything else counts as a photo. */
 internal val StagedSourceEntity.isVideo: Boolean get() = mimeType.startsWith("video/")

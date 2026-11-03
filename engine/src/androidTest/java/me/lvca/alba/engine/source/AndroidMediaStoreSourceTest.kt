@@ -11,6 +11,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.DeviceFolder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -175,6 +176,80 @@ class AndroidMediaStoreSourceTest {
             val withFolder = source.discoverEligibleMedia(null, 200, BackupScope.CAMERA_MEDIA, setOf(screenshots.id), enrolledAt, baseline)
             assertEquals(setOf("alba-camera.png", "alba-camera.jpg", "alba-screenshot.png"), withFolder.items.map { it.fileName }.toSet())
             assertEquals(3, source.eligibleMediaIds(BackupScope.CAMERA_MEDIA, setOf(screenshots.id), enrolledAt, baseline).size)
+            assertTrue(screenshots.isScreenshots)
+            val byPath = source.discoverEligibleMedia(null, 200, BackupScope.CAMERA_MEDIA, setOf(DeviceFolder.SCREENSHOTS), enrolledAt, baseline)
+            assertEquals(setOf("alba-camera.png", "alba-camera.jpg", "alba-screenshot.png"), byPath.items.map { it.fileName }.toSet())
+        } finally {
+            inserted.forEach { resolver.delete(it, null, null) }
+        }
+    }
+
+    @Test
+    fun existingLibraryIsTheComplementOfNewItemsReadNewestFirstAPageAtATime() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        grantImageAccess(context)
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .grantRuntimePermission(context.packageName, Manifest.permission.ACCESS_MEDIA_LOCATION)
+        val resolver = context.contentResolver
+        val inserted = mutableListOf<android.net.Uri>()
+        fun insert(name: String, directory: String, takenAt: Long?) {
+            val uri = requireNotNull(resolver.insert(
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, directory)
+                    takenAt?.let { put(MediaStore.Images.Media.DATE_TAKEN, it) }
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                },
+            ))
+            inserted += uri
+            // MediaStore's scanner sets DATE_TAKEN from the file's EXIF when the item is published, so the capture
+            // time is written there, as a camera would.
+            val photo = java.io.File.createTempFile("alba-existing", ".jpg", context.cacheDir)
+            photo.outputStream().use { Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 90, it) }
+            takenAt?.let { millis ->
+                androidx.exifinterface.media.ExifInterface(photo).apply {
+                    val utc = java.time.Instant.ofEpochMilli(millis).atOffset(java.time.ZoneOffset.UTC)
+                    setAttribute(androidx.exifinterface.media.ExifInterface.TAG_DATETIME_ORIGINAL,
+                        utc.format(java.time.format.DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss")))
+                    setAttribute(androidx.exifinterface.media.ExifInterface.TAG_OFFSET_TIME_ORIGINAL, "+00:00")
+                    saveAttributes()
+                }
+            }
+            requireNotNull(resolver.openOutputStream(uri)).use { output -> photo.inputStream().use { it.copyTo(output) } }
+            photo.delete()
+            resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+        }
+        try {
+            insert("alba-existing-2019.jpg", "DCIM/Camera/", 1_546_300_800_000L)
+            insert("alba-existing-2023.jpg", "DCIM/Camera/", 1_672_531_200_000L)
+            insert("alba-existing-2021.jpg", "DCIM/Camera/", 1_609_459_200_000L)
+            insert("alba-existing-elsewhere.jpg", "Pictures/Other/", 1_640_995_200_000L)
+            val source = AndroidMediaStoreSource(context)
+            val enrolledAt = System.currentTimeMillis()
+            val baseline = source.captureEnrollmentBaseline()
+            insert("alba-after-enrollment.jpg", "DCIM/Camera/", 1_700_000_000_000L)
+
+            val names = mutableListOf<String>()
+            var cursor: ExistingMediaCursor? = null
+            val seen = mutableSetOf<Long>()
+            do {
+                val page = source.discoverExistingMedia(cursor, 1, BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline)
+                names += page.items.map { it.record.fileName }
+                // Each page must move past the last: a cursor that does not advance would read forever.
+                page.items.forEach { assertTrue("Read twice: ${it.record.fileName}", seen.add(it.record.mediaStoreId)) }
+                cursor = page.items.lastOrNull()?.cursor ?: cursor
+            } while (page.moreComing)
+            assertEquals(
+                listOf("alba-existing-2023.jpg", "alba-existing-2021.jpg", "alba-existing-2019.jpg"),
+                names.filter { it.startsWith("alba-") },
+            )
+            val new = source.discoverEligibleMedia(null, 200, BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline)
+            assertEquals(listOf("alba-after-enrollment.jpg"), new.items.map { it.fileName }.filter { it.startsWith("alba-") })
+            val all = source.eligibleMediaIds(BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline, includeExisting = true)
+            val onlyNew = source.eligibleMediaIds(BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline)
+            assertTrue(all.containsAll(onlyNew) && all.size >= onlyNew.size + 3)
         } finally {
             inserted.forEach { resolver.delete(it, null, null) }
         }

@@ -38,6 +38,10 @@ import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
 
+/** How long the user's transfer job waits, at least and at most, for an upload's retry backoff before looking again. */
+private const val MIN_BACKOFF_WAIT_MILLIS = 1_000L
+private const val MAX_BACKOFF_WAIT_MILLIS = 60_000L
+
 /**
  * The photo companion: wires account binding, intake, upload, reconciliation, backup and trash, and runs them
  * in order on each maintenance wake.
@@ -70,7 +74,8 @@ class DefaultPhotoCompanion(
     override fun observeBackup() = enrollment.observeBackup()
     override suspend fun beginBackupEnrollment(scope: BackupScope) = enrollment.beginBackupEnrollment(scope)
     override suspend fun acceptBackupDisclosure(draft: BackupDraftId) = enrollment.acceptBackupDisclosure(draft)
-    override suspend fun finishBackupEnrollment(draft: BackupDraftId) = enrollment.finishBackupEnrollment(draft)
+    override suspend fun finishBackupEnrollment(draft: BackupDraftId, includeExisting: Boolean) =
+        enrollment.finishBackupEnrollment(draft, includeExisting)
     override suspend fun changeBackup(change: BackupChange) = enrollment.changeBackup(change)
 
     override fun observeTransfers(): Flow<List<TransferView>> = transferDao.observeTransfers().map { rows ->
@@ -107,7 +112,10 @@ class DefaultPhotoCompanion(
                 // job alive for the queued manual files without replaying that upload.
                 kotlinx.coroutines.delay(((transfer.reconciliationDueAtEpochMillis ?: now()) - now()).coerceIn(1_000L, 15_000L))
             } else if (summary.invokedTransfers == 0) {
-                throw java.io.IOException("Could not start the queued upload")
+                // An upload proven not received waits out its backoff; keep the job alive rather than failing it.
+                val retryAt = transferDao.earliestRetryDue(account.accountId, now(), allowAutomatic = false)
+                    ?: throw java.io.IOException("Could not start the queued upload")
+                kotlinx.coroutines.delay((retryAt - now()).coerceIn(MIN_BACKOFF_WAIT_MILLIS, MAX_BACKOFF_WAIT_MILLIS))
             }
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
         }
@@ -164,10 +172,14 @@ class DefaultPhotoCompanion(
         }
         val invoked = invoker.invokeOne(binding, allowManual, allowAutomatic)
         if (invoked > 0) reconciled += reconciler.reconcileOne(binding)
-        val dueAt = transferDao.earliestReconciliationDue(binding.accountId, now(), authority.mayUseNetwork())
+        val dueAt = listOfNotNull(
+            transferDao.earliestReconciliationDue(binding.accountId, now(), authority.mayUseNetwork()),
+            transferDao.earliestRetryDue(binding.accountId, now(), allowAutomatic = authority.mayUseNetwork(), allowManual = false),
+        ).minOrNull()
         val ready = transferDao.findWriteSlot(binding.accountId) == null && !invoker.isStoragePaused(binding.accountId) &&
             transferDao.countRunnableReady(
                 binding.accountId,
+                now(),
                 allowAutomaticPhotos = authority.canRun(binding, video = false),
                 allowAutomaticVideos = authority.canRun(binding, video = true),
                 allowManual = false,
@@ -175,7 +187,7 @@ class DefaultPhotoCompanion(
         val moreWork = dueAt != null || ready
         if (ready) scheduler.scheduleSoon()
         else if (dueAt != null) scheduler.scheduleAt(dueAt)
-        WakeSummary(recovered, reconciled, stagedAutomatic, invoked, moreWork)
+        WakeSummary(recovered, reconciled, stagedAutomatic, invoked, moreWork, nextWorkAtEpochMillis = if (ready) now() else dueAt)
     }
 
     override suspend fun prepareTrash(
@@ -205,6 +217,9 @@ class DefaultPhotoCompanion(
 
         override suspend fun backupProgress(): BackupProgress =
             accounts.synchronize()?.let { intake.backupProgress(it) } ?: BackupProgress(0, 0)
+
+        override suspend fun verifiedSince(sinceEpochMillis: Long): Int =
+            accounts.synchronize()?.let { intake.verifiedSince(it, sinceEpochMillis) } ?: 0
 
         override suspend fun deviceFolders(): List<DeviceFolder> = originals.deviceFolders()
 

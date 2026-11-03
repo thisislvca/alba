@@ -20,7 +20,7 @@
     <string name="back_to_gallery">Torna alla galleria</string>
     <string name="back_to_library">Torna alla libreria</string>
     <string name="back_up_new_photos">Eseguire il backup delle nuove foto?</string>
-    <string name="backup_disclosure">Alba eseguirà il backup delle nuove foto e dei nuovi video della cartella della fotocamera, e delle cartelle che scegli, caricando gli originali identici direttamente su %1$s. Il backup usa il Wi-Fi, a meno che tu non consenta i dati mobili nelle impostazioni. Si interrompe se cambiano l’accesso, il consenso o l’account.</string>
+    <string name="backup_disclosure">Alba eseguirà il backup di foto e video della cartella della fotocamera, e delle cartelle che scegli, caricando gli originali identici direttamente su %1$s. Il backup usa il Wi-Fi, a meno che tu non consenta i dati mobili nelle impostazioni. Si interrompe se cambiano l’accesso, il consenso o l’account.</string>
     <string name="backup_on_for">Attivo per %1$s. I nuovi originali supportati vengono preparati, caricati una sola volta e verificati.</string>
     <string name="backups">Backup</string>
     <string name="batch_done">%1$s · completati: %2$d/%3$d</string>
@@ -562,6 +562,8 @@
     <string name="upload_unsupported_codec">Questo codec video non è supportato per il caricamento. Usa H.264 o HEVC con audio AAC.</string>
     <string name="upload_invalid_media">Impossibile verificare questo file multimediale. L’originale non è stato caricato.</string>
     <string name="upload_processing">iCloud sta elaborando questo file. L’originale è ancora su questo telefono.</string>
+    <string name="upload_interrupted_trying_again">Il caricamento si è interrotto prima che iCloud lo ricevesse. Alba riproverà.</string>
+    <string name="upload_interrupted_repeatedly">Il caricamento si è interrotto più volte prima che iCloud lo ricevesse. Riprova quando la connessione è stabile.</string>
     <string name="upload_processing_failed">iCloud non ha potuto elaborare questo file. L’originale è ancora su questo telefono. Il caricamento non verrà ripetuto.</string>
     <string name="upload_stage_failed">Impossibile preparare questo file; controlla l’accesso al file e la coda di caricamento</string>
     <string name="shared_albums">Album condivisi</string>
@@ -749,6 +751,9 @@
     <string name="about_upcoming_older_detail">Includere le foto già presenti, con numero di elementi e spazio stimato prima di iniziare.</string>
     <string name="about_limitations">Dettagli sulla compatibilità</string>
     <string name="about_hide_limitations">Nascondi dettagli sulla compatibilità</string>
+    <string name="backup_progress_channel">Avanzamento del backup</string>
+    <string name="backup_progress_notification_title">Backup su iCloud in corso</string>
+    <string name="backup_progress_notification_count">%1$d di %2$d salvati</string>
     <string name="transfer_channel">Trasferimenti foto</string>
     <string name="transfer_notification_title">Trasferimento foto</string>
     <string name="transfer_notification_body">Apri Alba per vedere i progressi.</string>
@@ -944,6 +949,17 @@
     <string name="backup_while_roaming_detail">Usa i dati mobili all’estero, che possono costare di più.</string>
     <string name="backup_pause">Metti in pausa il backup</string>
     <string name="backup_pause_detail">Interrompe i caricamenti automatici finché non lo disattivi.</string>
+    <string name="backup_disclosure_title">Attivare il backup?</string>
+    <string name="backup_existing_choice_all">Esegui anche il backup di foto e video già presenti</string>
+    <string name="backup_existing_choice_all_detail">Dai più recenti, dopo gli elementi nuovi. Gli elementi di cui Alba ha già eseguito il backup non vengono caricati di nuovo.</string>
+    <string name="backup_existing_choice_new">Solo i nuovi</string>
+    <string name="backup_existing_started">Verrà eseguito il backup di foto e video già presenti, dai più recenti.</string>
+    <string name="backup_existing_row_title">Backup di foto e video già presenti</string>
+    <string name="backup_existing_row_detail">Ora viene eseguito il backup solo degli elementi aggiunti dopo l’attivazione.</string>
+    <string name="backup_existing_confirm_body">Alba eseguirà anche il backup di foto e video già presenti nella cartella della fotocamera e nelle cartelle scelte, dai più recenti, caricando gli originali identici su %1$s. Può richiedere un po’ di tempo. Usa il Wi-Fi, a meno che tu non consenta i dati mobili.</string>
+    <string name="backup_existing_confirm_button">Esegui backup</string>
+    <string name="backup_screenshots_folder">Screenshot</string>
+    <string name="backup_existing_data_note">Ogni caricamento viene verificato scaricandolo di nuovo da iCloud, quindi il backup dell’intera libreria usa circa il doppio delle sue dimensioni in dati. Il backup usa solo il Wi-Fi, a meno che tu non consenta i dati mobili.</string>
     <string name="backup_device_folders">Backup delle cartelle del dispositivo</string>
     <string name="backup_device_folders_intro">Le nuove foto e i nuovi video della fotocamera vengono sempre salvati. Attiva altre cartelle, come Screenshot o WhatsApp Images, per salvare anche i nuovi elementi al loro interno.</string>
     <string name="backup_device_folders_empty">Nessun’altra cartella con foto o video.</string>

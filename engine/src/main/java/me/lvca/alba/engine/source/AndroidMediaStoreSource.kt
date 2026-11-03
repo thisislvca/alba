@@ -158,16 +158,72 @@ class AndroidMediaStoreSource(
         )
     }
 
+    override suspend fun discoverExistingMedia(
+        cursor: ExistingMediaCursor?,
+        limit: Int,
+        scope: BackupScope,
+        folders: Set<String>,
+        addedAfterEpochMillis: Long,
+        enrollmentBaseline: LocalDiscoveryCheckpoint?,
+    ): ExistingMediaPage = withContext(Dispatchers.IO) {
+        require(limit in 1..200) { "MediaStore discovery limit must be between 1 and 200" }
+        check(hasAutomaticBackupAccess()) {
+            StoredMessage.AUTOMATIC_BACKUP_NEEDS_FULL_PHOTO_ACCESS_AND_PRECISE_MEDIA_LOCATION_ACCESS.code
+        }
+        val volume = MediaStore.VOLUME_EXTERNAL
+        val version = MediaStore.getVersion(appContext, volume)
+        val after = cursor?.takeIf { it.volumeVersion == version }
+        val (scopeSelection, scopeArgs) = eligibleSelection(
+            scope, folders, addedAfterEpochMillis, enrollmentBaseline, version, Coverage.EXISTING,
+        )
+        // Newest first by capture time, or by when it was added without one; the id breaks ties, so a page never
+        // repeats or skips an item. The set is fixed at enrollment, so the cursor only ever moves forward.
+        val sortKey = "IFNULL(${MediaStore.MediaColumns.DATE_TAKEN}, ${MediaStore.MediaColumns.DATE_ADDED} * 1000)"
+        // Arguments are bound as text, and an expression has no column affinity to convert them, so "+ 0" makes
+        // them numbers: compared as text, every number would sort before the cursor and the page would never move.
+        val keyset = if (after == null) "" else
+            " AND ($sortKey < (? + 0) OR ($sortKey = (? + 0) AND ${MediaStore.MediaColumns._ID} < ?))"
+        val keysetArgs = after?.let {
+            listOf(it.sortKeyEpochMillis.toString(), it.sortKeyEpochMillis.toString(), it.mediaStoreId.toString())
+        }.orEmpty()
+        val queryArgs = Bundle().apply {
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "($scopeSelection)$keyset")
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, (scopeArgs + keysetArgs).toTypedArray())
+            putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, "$sortKey DESC, ${MediaStore.MediaColumns._ID} DESC")
+            putInt(ContentResolver.QUERY_ARG_LIMIT, limit + 1)
+        }
+        val files = MediaStore.Files.getContentUri(volume)
+        val discovered = resolver.query(files, discoveryProjection(), queryArgs, null)?.use { rows ->
+            val records = readRecords(rows, files, version)
+            rows.moveToPosition(-1)
+            val keys = buildList {
+                while (rows.moveToNext()) {
+                    add(rows.longOrNull(MediaStore.MediaColumns.DATE_TAKEN)
+                        ?: (rows.longOrNull(MediaStore.MediaColumns.DATE_ADDED) ?: 0L) * 1_000L)
+                }
+            }
+            records.zip(keys) { record, key -> ExistingMedia(record, ExistingMediaCursor(version, key, record.mediaStoreId)) }
+        }.orEmpty()
+        check(MediaStore.getVersion(appContext, volume) == version) {
+            "MediaStore changed while automatic backup was scanning."
+        }
+        ExistingMediaPage(discovered.take(limit), moreComing = discovered.size > limit)
+    }
+
     override suspend fun eligibleMediaIds(
         scope: BackupScope,
         folders: Set<String>,
         addedAfterEpochMillis: Long,
         enrollmentBaseline: LocalDiscoveryCheckpoint?,
+        includeExisting: Boolean,
     ): Set<String> = withContext(Dispatchers.IO) {
         if (!hasAutomaticBackupAccess()) return@withContext emptySet()
         val volume = MediaStore.VOLUME_EXTERNAL
         val version = MediaStore.getVersion(appContext, volume)
-        val (selection, args) = eligibleSelection(scope, folders, addedAfterEpochMillis, enrollmentBaseline, version)
+        val (selection, args) = eligibleSelection(
+            scope, folders, addedAfterEpochMillis, enrollmentBaseline, version,
+            if (includeExisting) Coverage.ALL else Coverage.NEW,
+        )
         val queryArgs = Bundle().apply {
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
             putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args.toTypedArray())
@@ -214,25 +270,35 @@ class AndroidMediaStoreSource(
                     relativePath = path,
                     itemCount = 1,
                     isCamera = BackupFolders.isCamera(path),
+                    isScreenshots = BackupFolders.isScreenshots(path),
                 )
             }
         }
         counts.values.sortedWith(compareByDescending<DeviceFolder> { it.isCamera }.thenBy { it.name.lowercase() })
     }
 
-    /** Rows [scope] covers in the camera folder and [folders], added after enrollment. Pending rows are never returned. */
+    /** Which side of enrollment a selection covers: items added after it, items already there, or both. */
+    private enum class Coverage { NEW, EXISTING, ALL }
+
+    /**
+     * Rows [scope] covers in the camera folder and [folders], on the [coverage] side of enrollment. NEW and EXISTING
+     * split the same rows by the same baseline, so together they are every covered row exactly once. Pending rows are
+     * never returned.
+     */
     private fun eligibleSelection(
         scope: BackupScope,
         folders: Set<String>,
         addedAfterEpochMillis: Long,
         enrollmentBaseline: LocalDiscoveryCheckpoint?,
         version: String,
+        coverage: Coverage = Coverage.NEW,
     ): Pair<String, List<String>> {
         val enrollmentGeneration = enrollmentBaseline?.takeIf { it.volumeVersion == version }?.generationModified
-        val enrollmentPredicate = if (enrollmentGeneration != null) {
-            "${MediaStore.MediaColumns.GENERATION_ADDED} > ?"
-        } else {
-            "${MediaStore.MediaColumns.DATE_ADDED} > ?"
+        val column = if (enrollmentGeneration != null) MediaStore.MediaColumns.GENERATION_ADDED else MediaStore.MediaColumns.DATE_ADDED
+        val enrollmentPredicate = when (coverage) {
+            Coverage.NEW -> "$column > ?"
+            Coverage.EXISTING -> "$column <= ?"
+            Coverage.ALL -> null
         }
         val (folderSelection, folderArgs) = BackupFolders.selection(BackupFolders.extraFolders(scope, folders), BackupFolders.cameraPaths(scope))
         val mimeTypes = BackupFolders.mimeTypes(scope)
@@ -242,10 +308,11 @@ class AndroidMediaStoreSource(
             ${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (${mediaTypes.joinToString { "?" }})
             $mimeSelection
             AND $folderSelection
-            AND $enrollmentPredicate
+            ${enrollmentPredicate?.let { "AND $it" }.orEmpty()}
         """.trimIndent()
-        return selection to (mediaTypes + mimeTypes.orEmpty() + folderArgs +
-            (enrollmentGeneration ?: (addedAfterEpochMillis / 1_000L)).toString())
+        val enrollmentArgs = if (enrollmentPredicate == null) emptyList() else
+            listOf((enrollmentGeneration ?: (addedAfterEpochMillis / 1_000L)).toString())
+        return selection to (mediaTypes + mimeTypes.orEmpty() + folderArgs + enrollmentArgs)
     }
 
     override suspend fun captureEnrollmentBaseline(): LocalDiscoveryCheckpoint = withContext(Dispatchers.IO) {
@@ -437,6 +504,7 @@ class AndroidMediaStoreSource(
             unredacted = !isMediaStore || has(Manifest.permission.ACCESS_MEDIA_LOCATION),
             formatValidated = true,
             lastModifiedAtEpochMillis = after.lastModifiedAtEpochMillis,
+            dateTakenEpochMillis = after.dateTakenEpochMillis,
             byteCount = byteCount,
             sha256Hex = digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) },
         )
@@ -468,6 +536,7 @@ class AndroidMediaStoreSource(
                     displayName = displayNameHint ?: displayName ?: "selected-media",
                     lastModifiedAtEpochMillis = cursor.longOrNull(MediaStore.MediaColumns.DATE_MODIFIED)?.takeIf { it > 0L }?.let { it * 1000L }
                         ?: cursor.longOrNull(android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED)?.takeIf { it > 0L },
+                    dateTakenEpochMillis = cursor.longOrNull(MediaStore.MediaColumns.DATE_TAKEN)?.takeIf { it > 0L },
                     revision = if (uri.authority == MediaStore.AUTHORITY) {
                         val version = MediaStore.getVersion(appContext, MediaStore.VOLUME_EXTERNAL)
                         mediaStoreRevision(version, volume, rowId, generation, size)
@@ -505,6 +574,7 @@ class AndroidMediaStoreSource(
         val revision: String,
         val lineageKey: String,
         val lastModifiedAtEpochMillis: Long? = null,
+        val dateTakenEpochMillis: Long? = null,
     )
 
     private companion object {

@@ -59,7 +59,7 @@ internal class DemoTransferMode(
         if (isDemo() && demo.accept(draftId)) BackupSetupEffect.RequestMediaPermissions(emptyList())
         else BackupSetupEffect.Refused(StoredMessage.AUTOMATIC_BACKUP_IS_OFF.code)
 
-    override suspend fun finishBackup(draftId: BackupDraftId) {
+    override suspend fun finishBackup(draftId: BackupDraftId, includeExisting: Boolean) {
         if (isDemo()) demo.finish(draftId)
     }
 

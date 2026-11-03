@@ -91,6 +91,8 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.UPLOAD_INVALID_MEDIA -> R.string.upload_invalid_media
     StoredMessage.UPLOAD_PROCESSING -> R.string.upload_processing
     StoredMessage.UPLOAD_PROCESSING_FAILED -> R.string.upload_processing_failed
+    StoredMessage.UPLOAD_INTERRUPTED_TRYING_AGAIN -> R.string.upload_interrupted_trying_again
+    StoredMessage.UPLOAD_INTERRUPTED_REPEATEDLY -> R.string.upload_interrupted_repeatedly
     StoredMessage.UPLOAD_STAGE_FAILED -> R.string.upload_stage_failed
     StoredMessage.ALBA_CURRENTLY_UPLOADS_JPEG_ORIGINALS_ONLY -> R.string.message_alba_currently_uploads_jpeg_originals_only
     StoredMessage.THIS_PHOTO_CHANGED_WHILE_IT_WAS_BEING_STAGED -> R.string.message_this_photo_changed_while_it_was_being_staged

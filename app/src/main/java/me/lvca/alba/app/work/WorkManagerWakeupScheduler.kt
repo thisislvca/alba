@@ -7,7 +7,12 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import me.lvca.alba.app.BackupWakeWorker
 import me.lvca.alba.app.ReconciliationTimerWorker
 import me.lvca.alba.engine.model.BackupSettings
@@ -23,7 +28,16 @@ class WorkManagerWakeupScheduler(
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
 
-    override suspend fun scheduleSoon() {
+    /**
+     * Asks for a backup run soon. A run already waiting covers this request, so at most one waits behind the one
+     * running: a draining run asks after every item, and appending each time would leave a chain of empty runs. A
+     * request made while a run is ending still gets its own run, appended after it.
+     */
+    override suspend fun scheduleSoon(): Unit = enqueueGate.withLock {
+        val states = withContext(Dispatchers.IO) {
+            workManager.getWorkInfosForUniqueWork(IMMEDIATE_WORK_NAME).get().map { it.state }
+        }
+        if (!needsAnotherRun(states)) return@withLock
         val request = OneTimeWorkRequestBuilder<BackupWakeWorker>()
             .setConstraints(connectedNetwork)
             .setInitialDelay(3, TimeUnit.SECONDS)
@@ -33,6 +47,7 @@ class WorkManagerWakeupScheduler(
             ExistingWorkPolicy.APPEND_OR_REPLACE,
             request,
         )
+        Unit
     }
 
     override suspend fun scheduleAt(notBeforeEpochMillis: Long) {
@@ -65,12 +80,18 @@ class WorkManagerWakeupScheduler(
         workManager.cancelUniqueWork(IMMEDIATE_WORK_NAME)
     }
 
+    private val enqueueGate = Mutex()
+
     private companion object {
         // Named before the Alba rename and stored on devices; keep it.
         const val IMMEDIATE_WORK_NAME = "mela-photo-maintenance"
         const val PERIODIC_WORK_NAME = "mela-automatic-photo-backup"
     }
 }
+
+/** Whether a backup run must be enqueued: none is waiting to start, only running or finished ones. */
+internal fun needsAnotherRun(states: List<WorkInfo.State>): Boolean =
+    states.none { it == WorkInfo.State.ENQUEUED || it == WorkInfo.State.BLOCKED }
 
 /** The least the periodic backup pass needs from the network, given what the user allows. */
 internal fun backupNetworkType(settings: BackupSettings): NetworkType = when {
