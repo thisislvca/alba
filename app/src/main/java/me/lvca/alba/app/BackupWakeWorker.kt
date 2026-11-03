@@ -62,7 +62,7 @@ class BackupWakeWorker(
                 }
             }
             // Decided once the session is restored, since what is left to back up depends on the account.
-            val drain = BackupDrain(startedAt, foreground = tryForeground(app))
+            val drain = BackupDrain(startedAt, foreground = tryForeground(app, startedAt))
             val totals = drainQueue(app, drain, startedAt)
             if (totals == null) {
                 // Cut off mid-pass: an upload it stopped is verified or retried from the journal, never replayed blindly.
@@ -126,13 +126,16 @@ class BackupWakeWorker(
      * Runs in the foreground when backup has a lot to do. Android 12 and later refuse this while Alba is in the
      * background unless an exemption applies; the run then continues as ordinary background work.
      */
-    private suspend fun tryForeground(app: AlbaApplication): Boolean = try {
+    private suspend fun tryForeground(app: AlbaApplication, startedAt: Long): Boolean = try {
+        // Counted once per run: it reads every item backup covers. Skipped and failed items are not pending work.
         val progress = app.graph.photos.backup.backupProgress()
+        runTotal = progress.pending
+        runStartedAt = startedAt
         val queuedBytes = app.graph.photos.observeTransfers().first()
             .filter { it.automatic && it.state in QUEUED }.sumOf { it.byteCount }
-        if (!runsInForeground(progress.eligible - progress.backedUp, queuedBytes)) false
+        if (!runsInForeground(progress.pending, queuedBytes)) false
         else {
-            setForeground(foregroundInfo(app, progress.backedUp, progress.eligible))
+            setForeground(foregroundInfo(app, 0, runTotal))
             true
         }
     } catch (cancelled: CancellationException) {
@@ -142,10 +145,11 @@ class BackupWakeWorker(
         false
     }
 
+    /** What this run has verified out of what was pending when it started, from one cheap count. */
     private suspend fun updateProgress(app: AlbaApplication) {
         try {
-            val progress = app.graph.photos.backup.backupProgress()
-            setForeground(foregroundInfo(app, progress.backedUp, progress.eligible))
+            val done = app.graph.photos.backup.verifiedSince(runStartedAt)
+            setForeground(foregroundInfo(app, done, maxOf(runTotal, done)))
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -165,6 +169,10 @@ class BackupWakeWorker(
      */
     private suspend fun report(app: AlbaApplication, signInNeeded: Boolean) =
         app.graph.backupNotifications.report(app.graph.photos, signInNeeded)
+
+    /** What was pending when this run started, and when it started, for its progress line. */
+    private var runTotal = 0
+    private var runStartedAt = 0L
 
     private companion object {
         val QUEUED = setOf(TransferViewState.WAITING, TransferViewState.UPLOADING)

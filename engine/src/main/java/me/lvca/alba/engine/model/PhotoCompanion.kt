@@ -96,6 +96,8 @@ data class BackupView(
 data class BackupProgress(
     val backedUp: Int,
     val eligible: Int,
+    /** Items backup can still do on its own: not yet discovered, or queued, sending or being checked. */
+    val pending: Int = 0,
 )
 
 /** Phone items with a current exact iCloud proof, which Android's trash could take off the phone. */
@@ -225,6 +227,9 @@ interface BackupControls {
 
     /** How much of what backup covers is verified, counted from the phone and the journal. */
     suspend fun backupProgress(): BackupProgress
+
+    /** How many automatic backups were verified at or after [sinceEpochMillis]; cheap enough to ask often. */
+    suspend fun verifiedSince(sinceEpochMillis: Long): Int = 0
 
     /** Folders on the phone that hold photos or videos, for choosing what backup includes. */
     suspend fun deviceFolders(): List<DeviceFolder>

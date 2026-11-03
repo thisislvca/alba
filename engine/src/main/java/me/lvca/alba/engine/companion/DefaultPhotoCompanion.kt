@@ -218,6 +218,9 @@ class DefaultPhotoCompanion(
         override suspend fun backupProgress(): BackupProgress =
             accounts.synchronize()?.let { intake.backupProgress(it) } ?: BackupProgress(0, 0)
 
+        override suspend fun verifiedSince(sinceEpochMillis: Long): Int =
+            accounts.synchronize()?.let { intake.verifiedSince(it, sinceEpochMillis) } ?: 0
+
         override suspend fun deviceFolders(): List<DeviceFolder> = originals.deviceFolders()
 
         override suspend fun backupSettingsChanged() {

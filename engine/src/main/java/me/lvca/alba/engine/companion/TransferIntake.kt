@@ -148,6 +148,9 @@ internal class TransferIntake(
         checkpointId: String,
     ): Int {
         val permissionFingerprint = enrollment.permissionFingerprint
+        val sweepId = "$checkpointId:sweep"
+        val sweep = localAssetDao.findMediaStoreCheckpoint(sweepId)
+        if (sweep?.generationModified == SCAN_COMPLETE) return 0
         var cursor = localAssetDao.findMediaStoreCheckpoint(checkpointId)
             ?.takeIf { it.permissionFingerprint == permissionFingerprint }
             ?.let { ExistingMediaCursor(it.volumeVersion, it.generationModified, it.mediaStoreId) }
@@ -171,10 +174,45 @@ internal class TransferIntake(
                     return 1
                 }
             }
-            if (!page.moreComing) return 0
+            if (!page.moreComing) {
+                finishExistingScan(binding, enrollment, scope, folders, checkpointId, sweepId, sweeps = sweep?.mediaStoreId ?: 0L)
+                return 0
+            }
         }
         runSuspendCatching { scheduler.scheduleSoon() }
         return 0
+    }
+
+    /**
+     * The newest-first read reached the end. An item whose capture time was edited to after the cursor while the read
+     * was going is behind it, so it compares what the existing library holds with the journal: when something has no
+     * row yet, the read starts again from the newest item, at most [MAX_EXISTING_SWEEPS] times, and otherwise the
+     * scan is marked complete, so later passes skip it without reading MediaStore.
+     */
+    private suspend fun finishExistingScan(
+        binding: AccountBinding,
+        enrollment: BackupEnrollmentEntity,
+        scope: BackupScope,
+        folders: Set<String>,
+        checkpointId: String,
+        sweepId: String,
+        sweeps: Long,
+    ) {
+        val all = originals.eligibleMediaIds(scope, folders, enrollment.consentedAtEpochMillis, enrollment.baseline(), includeExisting = true)
+        val added = originals.eligibleMediaIds(scope, folders, enrollment.consentedAtEpochMillis, enrollment.baseline())
+        val journaled = transferDao.findJournaledMediaIds(binding.accountId).toSet()
+        val missed = all.any { it !in added && it !in journaled }
+        val again = missed && sweeps < MAX_EXISTING_SWEEPS
+        localAssetDao.upsertMediaStoreCheckpoint(
+            MediaStoreCheckpointEntity(
+                sweepId, "external", "", enrollment.permissionFingerprint,
+                if (again) SCAN_SWEEPING else SCAN_COMPLETE, sweeps + if (again) 1 else 0, now(),
+            ),
+        )
+        if (again) {
+            localAssetDao.deleteMediaStoreCheckpoint(checkpointId)
+            runSuspendCatching { scheduler.scheduleSoon() }
+        }
     }
 
     /** Records what discovery saw, under the enrollment that is still current. */
@@ -277,8 +315,18 @@ internal class TransferIntake(
             enrollment.consentedAtEpochMillis, enrollment.baseline(), includeExisting = enrollment.includeExisting,
         )
         val verified = transferDao.findVerifiedMediaIds(binding.accountId).toSet()
-        return BackupProgress(backedUp = eligible.count { it in verified }, eligible = eligible.size)
+        val journaled = transferDao.findJournaledMediaIds(binding.accountId).toSet()
+        return BackupProgress(
+            backedUp = eligible.count { it in verified },
+            eligible = eligible.size,
+            // Skipped, failed and unresolved items are not work a run can do on its own, so they are not pending.
+            pending = eligible.count { it !in journaled } + transferDao.countActiveAutomatic(binding.accountId),
+        )
     }
+
+    /** Automatic backups verified at or after [sinceEpochMillis]: a cheap count for a run's progress. */
+    suspend fun verifiedSince(binding: AccountBinding, sinceEpochMillis: Long): Int =
+        transferDao.countVerifiedAutomaticSince(binding.accountId, sinceEpochMillis)
 
     /**
      * Stages again an item that stopped before any attempt was armed, so nothing of it reached Apple. It becomes the
@@ -435,6 +483,7 @@ internal class TransferIntake(
         val sourceId = UUID.randomUUID().toString()
         val transferId = UUID.randomUUID().toString()
         val createdAt = now()
+        var releasedToken: String? = null
         try {
             database.withTransaction {
                 val active = refuseIfNull(accountDao.findActiveAccount(), StoredMessage.SIGN_IN_TO_ICLOUD_BEFORE_UPLOADING)
@@ -442,7 +491,14 @@ internal class TransferIntake(
                 if (replaces != null) {
                     // The old row must still be the one the user retried; a concurrent retry already replaced it.
                     refuseUnless(transferDao.deleteRetried(replaces.transferId) == 1, StoredMessage.THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE)
-                    transferDao.deleteUnattemptedSource(replaces.stagedSourceId)
+                    if (transferDao.deleteUnattemptedSource(replaces.stagedSourceId) == 0) {
+                        // Its attempts keep the row as history, but no transfer uses its staged copy any more: the new
+                        // transfer staged its own, so the old copy is released rather than kept forever.
+                        transferDao.findStagedSource(replaces.stagedSourceId)?.let { old ->
+                            transferDao.markStagesReleased(listOf(old.stagedSourceId), createdAt)
+                            releasedToken = old.ownedFileToken
+                        }
+                    }
                 }
                 if (enrollment != null) {
                     refuseUnless(
@@ -523,6 +579,7 @@ internal class TransferIntake(
             staging.deleteOwned(staged.ownedFileToken)
             throw error
         }
+        releasedToken?.let(staging::deleteOwned)
         if (authorityType == AUTHORITY_AUTOMATIC) runSuspendCatching { scheduler.scheduleSoon() }
         return UploadTicket(TransferId(transferId))
     }
@@ -533,6 +590,11 @@ internal class TransferIntake(
 
         /** Pages of the existing library one pass may read when every item on them is already backed up. */
         const val EXISTING_PAGES_PER_PASS = 10
+
+        /** Reads of the existing library started again to pick up items it passed over, before it is called complete. */
+        const val MAX_EXISTING_SWEEPS = 2L
+        const val SCAN_SWEEPING = 0L
+        const val SCAN_COMPLETE = 1L
         const val MEDIA_STORE_PREFIX = "content://media/"
 
         /** Staging failures after which an item is reported as skipped instead of tried again. */

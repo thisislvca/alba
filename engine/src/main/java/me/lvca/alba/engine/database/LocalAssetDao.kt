@@ -18,4 +18,7 @@ interface LocalAssetDao {
 
     @Upsert
     suspend fun upsertMediaStoreCheckpoint(checkpoint: MediaStoreCheckpointEntity)
+
+    @Query("DELETE FROM media_store_checkpoints WHERE checkpointId = :checkpointId")
+    suspend fun deleteMediaStoreCheckpoint(checkpointId: String)
 }

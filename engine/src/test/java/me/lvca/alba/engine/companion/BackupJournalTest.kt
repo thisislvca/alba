@@ -70,9 +70,17 @@ class BackupJournalTest {
     private var elapsed = 5_000_000L
     private var network = BackupNetwork.UNMETERED
     private var settings = BackupSettings()
+
+    /** When set, the network turns metered on the check after this many more. */
+    private var meteredAfterChecks: Int? = null
     private val policy = object : AutomaticBackupPolicy {
-        override fun isUnmetered() = network == BackupNetwork.UNMETERED
-        override fun network() = network
+        override fun isUnmetered() = network() == BackupNetwork.UNMETERED
+        override fun network(): BackupNetwork {
+            meteredAfterChecks?.let { left ->
+                if (left == 0) { network = BackupNetwork.METERED; meteredAfterChecks = null } else meteredAfterChecks = left - 1
+            }
+            return network
+        }
         override fun settings() = settings
     }
 
@@ -388,6 +396,65 @@ class BackupJournalTest {
     }
 
     @Test
+    fun retryingAfterTheCapReleasesTheOldStagedCopy() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        protocol.interruptions = Reconciler.MAX_AUTOMATIC_RETRIES + 1
+        repeat(Reconciler.MAX_AUTOMATIC_RETRIES + 1) {
+            photos.syncNow()
+            clock += Reconciler.retryBackoffMillis(it)
+        }
+        val stopped = photos.observeTransfers().first().single()
+
+        // Retried at once, before any later pass could release the stopped item's copy.
+        photos.backup.retryTransfer(stopped.id)
+
+        val unreleased = database.query("SELECT COUNT(*) FROM staged_sources WHERE releasedAtEpochMillis IS NULL", null)
+            .use { it.moveToFirst(); it.getInt(0) }
+        assertEquals("Only the new transfer's copy is kept", 1, unreleased)
+        val files = java.io.File(context.filesDir, "upload_staging").listFiles().orEmpty().filter { it.name.endsWith(".original") }
+        assertEquals(1, files.size)
+    }
+
+    @Test
+    fun aNetworkChangeAfterAnUploadWasArmedReleasesItWithoutWaiting() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        // The network turns metered between arming the attempt and sending it: the check before arming still sees Wi-Fi,
+        // the one after it sees mobile data. Nothing left the phone.
+        protocol.onCaptureChangeToken = { meteredAfterChecks = 1 }
+        photos.syncNow()
+        protocol.onCaptureChangeToken = {}
+
+        val waiting = photos.observeTransfers().first().single()
+        assertEquals(TransferViewState.WAITING, waiting.state)
+        assertEquals("Nothing was sent", 0, protocol.uploadStarts)
+        assertEquals("Nothing is suppressed", 0, database.query("SELECT COUNT(*) FROM upload_suppressions", null).use { it.moveToFirst(); it.getInt(0) })
+
+        network = BackupNetwork.UNMETERED
+        photos.syncNow()
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        assertEquals(1, protocol.uploadStarts)
+    }
+
+    @Test
+    fun pendingWorkLeavesOutItemsBackupCannotDoOnItsOwn() = runBlocking {
+        (1L..12L).forEach { source.items += item(it, "$it.avif", "image/avif") }
+        source.items += item(20, "a.jpg", "image/jpeg")
+        source.items += item(21, "b.jpg", "image/jpeg")
+        val photos = enrolled()
+        assertEquals("Nothing discovered yet: all of it is to do", 14, photos.backup.backupProgress().pending)
+
+        val startedAt = clock
+        photos.syncNow()
+
+        val progress = photos.backup.backupProgress()
+        assertEquals(14, progress.eligible)
+        assertEquals("Twelve unsupported items are skipped, not pending; one photo is left", 1, progress.pending)
+        assertEquals(1, photos.backup.verifiedSince(startedAt))
+    }
+
+    @Test
     fun anUploadThatMayHaveBeenRegisteredIsCheckedAndNeverSentAgain() = runBlocking {
         source.items += item(1, "camera.jpg", "image/jpeg")
         val photos = enrolled()
@@ -461,6 +528,27 @@ class BackupJournalTest {
         repeat(4) { photos.syncNow() }
 
         assertEquals(listOf("IMG_1.jpg", "other.jpg"), protocol.uploadedNames)
+    }
+
+    @Test
+    fun anExistingItemRedatedPastTheCursorDuringTheReadIsStillBackedUp() = runBlocking {
+        source.existing += item(10, "newest.jpg", "image/jpeg", capturedAt = 300)
+        source.existing += item(11, "middle.jpg", "image/jpeg", capturedAt = 200)
+        source.existing += item(12, "oldest.jpg", "image/jpeg", capturedAt = 100)
+        val photos = enrolled(includeExisting = true)
+        photos.syncNow()
+        assertEquals(listOf("newest.jpg"), protocol.uploadedNames)
+
+        // Edited to a capture time newer than where the read is: it is now behind the cursor.
+        val index = source.existing.indexOfFirst { it.fileName == "oldest.jpg" }
+        source.existing[index] = source.existing[index].copy(capturedAtEpochMillis = 400)
+        repeat(4) { photos.syncNow() }
+
+        assertEquals(setOf("newest.jpg", "middle.jpg", "oldest.jpg"), protocol.uploadedNames.toSet())
+        assertEquals(3, protocol.uploadedNames.size)
+        val reads = source.existingPagesRead
+        repeat(2) { photos.syncNow() }
+        assertEquals("A complete scan is not read again", reads, source.existingPagesRead)
     }
 
     @Test
@@ -640,7 +728,8 @@ class BackupJournalTest {
         override suspend fun registrationNeverSent(binding: AccountBinding, attemptId: String) =
             attemptId in interrupted && !interruptedAfterRegistration
         override fun currentDestination() = ICloudDestination("account", "session", "test@example.com")
-        override suspend fun captureChangeToken(binding: AccountBinding) = "before"
+        var onCaptureChangeToken: () -> Unit = {}
+        override suspend fun captureChangeToken(binding: AccountBinding) = "before".also { onCaptureChangeToken() }
 
         override suspend fun prepareOriginal(
             binding: AccountBinding, fileName: String, source: OneShotUploadSource, lastModifiedAtEpochMillis: Long?,

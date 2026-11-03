@@ -181,11 +181,16 @@ class LiveICloudPhotoProtocolTest {
     }
 
     @Test
-    fun `an attempt the journal does not know is never proven unregistered`() = runBlocking {
+    fun `an attempt that never started sent nothing, but without a journal nothing is proven`() = runBlocking {
         val protocol = LiveICloudPhotoProtocol(ScriptedTransport(), { SESSION }, uploadJournal = CrashJournal("never"))
         val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
-        assertTrue(!protocol.registrationNeverSent(binding, "unknown"))
+        assertTrue("No journal row: startOnce never saved RESERVING, so no request left", protocol.registrationNeverSent(binding, "unstarted"))
         assertTrue(!LiveICloudPhotoProtocol(ScriptedTransport(), { SESSION }).registrationNeverSent(binding, "unknown"))
+        val unreadable = object : UploadJournal {
+            override suspend fun load(binding: AccountBinding, attempt: String): UploadCheckpoint = error("key lost")
+            override suspend fun save(binding: AccountBinding, attempt: String, checkpoint: UploadCheckpoint) = Unit
+        }
+        assertTrue(!LiveICloudPhotoProtocol(ScriptedTransport(), { SESSION }, uploadJournal = unreadable).registrationNeverSent(binding, "x"))
     }
 
     @Test

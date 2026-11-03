@@ -333,6 +333,18 @@ interface TransferDao {
         message: String = StoredMessage.UPLOAD_INTERRUPTED_REPEATEDLY.code,
     ): Int
 
+    /** An attempt armed but never sent: the transfer goes to [state] without it, as if it had not been armed. */
+    @Query(
+        """
+        UPDATE transfers
+        SET state = :state, stateVersion = stateVersion + 1, activeAttemptId = NULL,
+            leaseToken = NULL, leaseExpiresAtEpochMillis = NULL,
+            updatedAtEpochMillis = :now, message = :message
+        WHERE transferId = :transferId AND activeAttemptId = :attemptId AND state = 'SENDING'
+        """,
+    )
+    suspend fun releaseUnsentAttempt(transferId: String, attemptId: String, state: TransferState, now: Long, message: String): Int
+
     /** When the first READY transfer waiting out a retry backoff may start, if any is waiting. */
     @Query("""
         SELECT MIN(notBeforeEpochMillis) FROM transfers
@@ -509,6 +521,28 @@ interface TransferDao {
 
     @Query("SELECT mediaId FROM transfers WHERE accountId = :accountId AND state = 'VERIFIED' AND mediaId IS NOT NULL")
     suspend fun findVerifiedMediaIds(accountId: String): List<String>
+
+    /** Phone items with any journal row: verified, queued, failed or skipped. */
+    @Query("SELECT DISTINCT mediaId FROM transfers WHERE accountId = :accountId AND mediaId IS NOT NULL")
+    suspend fun findJournaledMediaIds(accountId: String): List<String>
+
+    /** Automatic transfers still on their way: queued, sending or being checked in iCloud. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND authorityType = 'AUTOMATIC'
+          AND state IN ('READY', 'SENDING', 'OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE')
+        """,
+    )
+    suspend fun countActiveAutomatic(accountId: String): Int
+
+    /** Automatic transfers verified at or after [since]. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND authorityType = 'AUTOMATIC'
+          AND state = 'VERIFIED' AND verifiedAtEpochMillis >= :since
+        """,
+    )
+    suspend fun countVerifiedAutomaticSince(accountId: String, since: Long): Int
 
     /** Manual uploads finished since [since], and those still to run, for the transfer notification. */
     @Query(

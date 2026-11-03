@@ -112,15 +112,18 @@ internal class UploadInvoker(
                 return@withLock armed
             }
 
+            // Neither check below has sent anything for this attempt: startOnce has not run, so no request of it left
+            // the phone. The attempt is let go at once rather than verified for fifteen minutes holding the queue.
             if (authority.waitsForNetwork(leased.authorityType, video)) {
                 prepared.cancel()
-                recordUnknown(armed, "NETWORK_CHANGED_AFTER_COMMIT")
+                releaseUnsent(binding, armed, TransferState.READY, StoredMessage.WAITING_FOR_UPLOAD_AUTHORIZATION_AND_AN_ELIGIBLE_NETWORK)
                 return@withLock armed
             }
             if (leased.authorityType == AUTHORITY_AUTOMATIC &&
                 !authority.stillAuthorizes(leased.enrollmentId, leased.enrollmentRevision, binding)
             ) {
-                recordUnknown(armed, "AUTHORITY_CHANGED_AFTER_COMMIT")
+                prepared.cancel()
+                releaseUnsent(binding, armed, TransferState.NEEDS_ATTENTION, StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED)
                 return@withLock armed
             }
 
@@ -369,6 +372,18 @@ internal class UploadInvoker(
 
     private suspend fun isStillSending(transferId: String): Boolean =
         transferDao.findTransfer(transferId)?.state == TransferState.SENDING
+
+    /**
+     * Lets go of [attempt], armed but never sent: the transfer goes to [state] without an attempt and the write slot is
+     * freed. The attempt row stays, and the next attempt names it as its predecessor.
+     */
+    private suspend fun releaseUnsent(binding: AccountBinding, attempt: UploadAttemptEntity, state: TransferState, message: StoredMessage) {
+        database.withTransaction {
+            transferDao.insertUncertainty(UploadUncertaintyEntity(attempt.attemptId, "RELEASED_BEFORE_SEND", now()))
+            check(transferDao.releaseUnsentAttempt(attempt.transferId, attempt.attemptId, state, now(), message.code) == 1)
+            check(transferDao.releaseWriteSlot(binding.accountId, attempt.attemptId) == 1)
+        }
+    }
 
     private suspend fun recordUnknown(attempt: UploadAttemptEntity, reason: String) {
         val observedAt = now()
