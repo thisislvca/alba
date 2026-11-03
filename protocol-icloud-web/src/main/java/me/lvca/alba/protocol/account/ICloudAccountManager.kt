@@ -263,7 +263,8 @@ internal fun Throwable.accountOutcome(): AccountOutcome =
             me.lvca.alba.protocol.auth.AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
             me.lvca.alba.protocol.auth.AppleProtocolError.SECURITY_KEY_REQUIRED,
             me.lvca.alba.protocol.auth.AppleProtocolError.WEB_ACCESS_DISABLED -> AccountOutcome.UNSUPPORTED
-            me.lvca.alba.protocol.auth.AppleProtocolError.TOO_MANY_ATTEMPTS -> AccountOutcome.FAILED
+            me.lvca.alba.protocol.auth.AppleProtocolError.TOO_MANY_ATTEMPTS,
+            me.lvca.alba.protocol.auth.AppleProtocolError.LIBRARY_PREPARING -> AccountOutcome.FAILED
             me.lvca.alba.protocol.auth.AppleProtocolError.NETWORK -> AccountOutcome.NETWORK_ERROR
             me.lvca.alba.protocol.auth.AppleProtocolError.MALFORMED_RESPONSE,
             me.lvca.alba.protocol.auth.AppleProtocolError.PHOTOS_UNAVAILABLE -> AccountOutcome.MALFORMED_RESPONSE

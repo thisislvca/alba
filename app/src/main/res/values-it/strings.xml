@@ -687,8 +687,9 @@
     <string name="about_missing_support">Un’esportazione sicura dei dati diagnostici per l’assistenza.</string>
     <string name="about_notices">Licenze e riconoscimenti</string>
     <string name="about_hide_notices">Nascondi licenze</string>
+    <string name="icloud_photos_still_preparing">Foto di iCloud sta ancora preparando questa libreria. Riprova tra qualche minuto.</string>
     <string name="icloud_photos_is_not_active">Foto di iCloud non è attivo</string>
-    <string name="icloud_web_only_explanation">L’accesso all’Apple Account è riuscito, ma Apple non ha ancora attivato Foto di iCloud per questo account. I nuovi account creati sul web possono avere un accesso limitato al web.</string>
+    <string name="icloud_web_only_explanation">L’accesso all’Apple Account è riuscito, ma Apple non ha reso disponibile Foto di iCloud per questa sessione. Succede se Foto di iCloud non è mai stato attivato, per i nuovi account creati sul web e a volte per gli account con un dispositivo con iOS beta. Controlla di nuovo tra qualche minuto.</string>
     <string name="how_to_activate_icloud_photos">Attiva Foto di iCloud su un dispositivo Apple</string>
     <string name="activate_icloud_photos_steps">Accedi su un iPhone, iPad o Mac, poi attiva Foto di iCloud nelle impostazioni iCloud del dispositivo. Torna su Alba e ricontrolla.</string>
     <string name="icloud_plus_not_required">iCloud+ è facoltativo. Attivando l’account iCloud completo ottieni già 5 GB di spazio gratuito.</string>

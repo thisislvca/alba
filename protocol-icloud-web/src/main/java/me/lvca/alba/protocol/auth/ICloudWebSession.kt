@@ -82,12 +82,25 @@ internal class ICloudWebSession(
             return renew(snapshot)
         }
         check(response.code in 200..299) { "iCloud validation is temporarily unavailable (${response.code})" }
-        val restored = snapshotFromAccountResponse(
-            appleId = snapshot.accountName,
-            clientId = snapshot.clientId,
-            response = response,
-            fallback = snapshot,
-        )
+        val restored = try {
+            snapshotFromAccountResponse(
+                appleId = snapshot.accountName,
+                clientId = snapshot.clientId,
+                response = response,
+                fallback = snapshot,
+            )
+        } catch (error: AppleProtocolException) {
+            // Apple answered 2xx but says the session is no longer trusted. Treat it like a rejected token:
+            // try the token login, then fall back to the "sign in again" state rather than a retry loop.
+            if (error.error != AppleProtocolError.SESSION_EXPIRED) throw error
+            telemetry.record(
+                AccountOperation.VALIDATE,
+                AccountOutcome.EXPIRED,
+                elapsedSince(started),
+                snapshot.cookieLifetimeMetrics(),
+            )
+            return renew(snapshot)
+        }
         telemetry.record(
             AccountOperation.VALIDATE,
             AccountOutcome.SUCCESS,

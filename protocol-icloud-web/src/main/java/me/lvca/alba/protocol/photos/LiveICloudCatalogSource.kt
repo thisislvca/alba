@@ -432,7 +432,7 @@ class LiveICloudCatalogSource(
             ?.fieldText("state")
         if (state != null && state != "FINISHED") {
             throw AppleProtocolException(
-                AppleProtocolError.PHOTOS_UNAVAILABLE,
+                AppleProtocolError.LIBRARY_PREPARING,
                 "iCloud Photos is still preparing this library. Try again in a few minutes.",
             )
         }
