@@ -200,5 +200,13 @@ internal class PhotosUpload(
 
     private fun malformed(message: String): Nothing =
         throw AppleProtocolException(AppleProtocolError.MALFORMED_RESPONSE, message)
-    companion object { val RESUMABLE = setOf("RESERVING", "RESERVED", "RECEIPT_SAVED", "ACCEPTED") }
+    companion object {
+        val RESUMABLE = setOf("RESERVING", "RESERVED", "RECEIPT_SAVED", "ACCEPTED")
+
+        /**
+         * Phases saved before "REGISTERING", which is saved before putAsset is sent. In these the photo was never
+         * registered, so it is not in the library: at most its bytes were sent to content storage, unreferenced.
+         */
+        val BEFORE_REGISTRATION = setOf("RESERVING", "RESERVED", "BYTES_SENDING", "RECEIPT_SAVED")
+    }
 }

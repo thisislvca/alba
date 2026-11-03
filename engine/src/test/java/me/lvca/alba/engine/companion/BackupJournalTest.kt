@@ -336,6 +336,73 @@ class BackupJournalTest {
     }
 
     @Test
+    fun anUploadInterruptedBeforeRegistrationStartsAFreshAttemptAfterABackoff() = runBlocking {
+        source.items += item(1, "video.mp4", "image/jpeg")
+        val photos = enrolled()
+        protocol.interruptions = 1
+
+        photos.syncNow()
+        val waiting = photos.observeTransfers().first().single()
+        assertEquals(TransferViewState.WAITING, waiting.state)
+        assertEquals(StoredMessage.UPLOAD_INTERRUPTED_TRYING_AGAIN.code, waiting.message)
+
+        photos.syncNow()
+        assertEquals("The fresh attempt waits out its backoff", 1, protocol.uploadStarts)
+
+        clock += Reconciler.retryBackoffMillis(0)
+        photos.syncNow()
+        assertEquals(2, protocol.uploadStarts)
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        val transferId = photos.observeTransfers().first().single().id.value
+        val attempts = database.query("SELECT attemptId, predecessorAttemptId FROM upload_attempts WHERE transferId = ?", arrayOf(transferId)).use { rows ->
+            buildList { while (rows.moveToNext()) add(rows.getString(0) to rows.getString(1)) }
+        }
+        assertEquals(2, attempts.size)
+        assertEquals("The fresh attempt names the one it replaces", attempts.first { it.second == null }.first, attempts.first { it.second != null }.second)
+        assertEquals("Nothing is suppressed", 0, database.query("SELECT COUNT(*) FROM upload_suppressions", null).use { it.moveToFirst(); it.getInt(0) })
+    }
+
+    @Test
+    fun automaticRetriesStopAfterTheCapAndTheUserCanRetry() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        protocol.interruptions = Reconciler.MAX_AUTOMATIC_RETRIES + 1
+
+        repeat(Reconciler.MAX_AUTOMATIC_RETRIES + 1) {
+            photos.syncNow()
+            clock += Reconciler.retryBackoffMillis(it)
+        }
+        val stopped = photos.observeTransfers().first().single()
+        assertEquals(TransferViewState.NEEDS_ATTENTION, stopped.state)
+        assertEquals(StoredMessage.UPLOAD_INTERRUPTED_REPEATEDLY.code, stopped.message)
+        assertTrue("Nothing reached iCloud, so the user can retry", stopped.retryable)
+        assertEquals(Reconciler.MAX_AUTOMATIC_RETRIES + 1, protocol.uploadStarts)
+        photos.syncNow()
+        assertEquals("No automatic attempt after the cap", Reconciler.MAX_AUTOMATIC_RETRIES + 1, protocol.uploadStarts)
+
+        photos.backup.retryTransfer(stopped.id)
+        photos.syncNow()
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+    }
+
+    @Test
+    fun anUploadThatMayHaveBeenRegisteredIsCheckedAndNeverSentAgain() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        protocol.interruptions = 1
+        protocol.interruptedAfterRegistration = true
+
+        photos.syncNow()
+        assertEquals(TransferViewState.CHECKING_ICLOUD, photos.observeTransfers().first().single().state)
+        clock += RECONCILIATION_DEADLINE_MILLIS
+        photos.syncNow()
+        photos.syncNow()
+
+        assertEquals(TransferViewState.UNRESOLVED, photos.observeTransfers().first().single().state)
+        assertEquals(1, protocol.uploadStarts)
+    }
+
+    @Test
     fun existingPhotosBackUpNewestFirstAfterWhatIsNew() = runBlocking {
         source.existing += item(10, "old.jpg", "image/jpeg", capturedAt = 100)
         source.existing += item(11, "newest-existing.jpg", "image/jpeg", capturedAt = 300)
@@ -538,10 +605,19 @@ class BackupJournalTest {
     private class FakeProtocol : ICloudPhotoProtocol {
         var storageFull = false
         var uploadStarts = 0
+
+        /** How many more uploads stop while their bytes are sent, before registration. */
+        var interruptions = 0
+
+        /** Whether an interrupted upload had already sent its registration, so it may be in iCloud. */
+        var interruptedAfterRegistration = false
+        private val interrupted = mutableSetOf<String>()
         val uploadedNames = mutableListOf<String>()
         private val uploads = mutableMapOf<String, ByteArray>()
 
-        override suspend fun canResume(binding: AccountBinding, attemptId: String) = true
+        override suspend fun canResume(binding: AccountBinding, attemptId: String) = attemptId !in interrupted
+        override suspend fun registrationNeverSent(binding: AccountBinding, attemptId: String) =
+            attemptId in interrupted && !interruptedAfterRegistration
         override fun currentDestination() = ICloudDestination("account", "session", "test@example.com")
         override suspend fun captureChangeToken(binding: AccountBinding) = "before"
 
@@ -551,6 +627,11 @@ class BackupJournalTest {
             override suspend fun startOnce(attemptId: String): UploadAcceptance {
                 uploadStarts += 1
                 if (storageFull) throw ICloudStorageFullException()
+                if (interruptions > 0) {
+                    interruptions -= 1
+                    interrupted += attemptId
+                    throw java.io.IOException("connection reset while sending bytes")
+                }
                 uploadedNames += fileName
                 uploads[attemptId] = source.openOnce().use { it.readBytes() }
                 return UploadAcceptance("request", "master:$attemptId", "asset:$attemptId", false)

@@ -558,6 +558,8 @@
     <string name="upload_unsupported_codec">This video codec is not supported for upload. Use H.264 or HEVC with AAC audio.</string>
     <string name="upload_invalid_media">This media file could not be validated. The original has not been uploaded.</string>
     <string name="upload_processing">iCloud is processing this file. The original is still on this phone.</string>
+    <string name="upload_interrupted_trying_again">The upload stopped before iCloud received it. Alba will try again.</string>
+    <string name="upload_interrupted_repeatedly">The upload stopped several times before iCloud received it. Retry when the connection is steady.</string>
     <string name="upload_processing_failed">iCloud could not process this file. The original is still on this phone. This upload will not be repeated.</string>
     <string name="upload_stage_failed">Could not stage this file; check file access and the upload queue</string>
     <string name="shared_albums">Shared albums</string>

@@ -108,7 +108,10 @@ class DefaultPhotoCompanion(
                 // job alive for the queued manual files without replaying that upload.
                 kotlinx.coroutines.delay(((transfer.reconciliationDueAtEpochMillis ?: now()) - now()).coerceIn(1_000L, 15_000L))
             } else if (summary.invokedTransfers == 0) {
-                throw java.io.IOException("Could not start the queued upload")
+                // An upload proven not received waits out its backoff; keep the job alive rather than failing it.
+                val retryAt = transferDao.earliestRetryDue(account.accountId, now(), allowAutomatic = false)
+                    ?: throw java.io.IOException("Could not start the queued upload")
+                kotlinx.coroutines.delay((retryAt - now()).coerceIn(1_000L, 60_000L))
             }
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
         }
@@ -165,10 +168,14 @@ class DefaultPhotoCompanion(
         }
         val invoked = invoker.invokeOne(binding, allowManual, allowAutomatic)
         if (invoked > 0) reconciled += reconciler.reconcileOne(binding)
-        val dueAt = transferDao.earliestReconciliationDue(binding.accountId, now(), authority.mayUseNetwork())
+        val dueAt = listOfNotNull(
+            transferDao.earliestReconciliationDue(binding.accountId, now(), authority.mayUseNetwork()),
+            transferDao.earliestRetryDue(binding.accountId, now(), allowAutomatic = authority.mayUseNetwork(), allowManual = false),
+        ).minOrNull()
         val ready = transferDao.findWriteSlot(binding.accountId) == null && !invoker.isStoragePaused(binding.accountId) &&
             transferDao.countRunnableReady(
                 binding.accountId,
+                now(),
                 allowAutomaticPhotos = authority.canRun(binding, video = false),
                 allowAutomaticVideos = authority.canRun(binding, video = true),
                 allowManual = false,

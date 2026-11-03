@@ -333,6 +333,13 @@ interface ICloudPhotoProtocol {
     fun isWriteAuthorized(): Boolean = true
 
     suspend fun canResume(binding: AccountBinding, attemptId: String): Boolean = false
+
+    /**
+     * True only when the protocol's own write journal proves [attemptId] never sent the request that registers a
+     * photo in the library, so iCloud cannot have received it as a library item. False when it may have, or when the
+     * journal cannot tell.
+     */
+    suspend fun registrationNeverSent(binding: AccountBinding, attemptId: String): Boolean = false
     fun currentDestination(): ICloudDestination?
 
     suspend fun captureChangeToken(binding: AccountBinding): String

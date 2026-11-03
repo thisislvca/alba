@@ -246,6 +246,8 @@ internal class UploadInvoker(
 
         val attemptId = UUID.randomUUID().toString()
         val authorizedAt = now()
+        // A transfer whose earlier attempt was proven not received starts a fresh one that names it.
+        val predecessor = transferDao.findLatestAttemptId(fresh.transferId)
         transferDao.insertAttempt(
             UploadAttemptEntity(
                 attemptId = attemptId,
@@ -255,7 +257,7 @@ internal class UploadInvoker(
                 authEpoch = binding.authEpoch,
                 operationFence = binding.operationFence,
                 preUploadChangeToken = preUploadToken,
-                predecessorAttemptId = null,
+                predecessorAttemptId = predecessor,
                 authorizedAtEpochMillis = authorizedAt,
             ),
         )
@@ -276,7 +278,7 @@ internal class UploadInvoker(
         ) { "Upload authorization lost its compare-and-set" }
         UploadAttemptEntity(
             attemptId, fresh.transferId, fresh.stagedSourceId, binding.accountId,
-            binding.authEpoch, binding.operationFence, preUploadToken, null, authorizedAt,
+            binding.authEpoch, binding.operationFence, preUploadToken, predecessor, authorizedAt,
         )
     }
 

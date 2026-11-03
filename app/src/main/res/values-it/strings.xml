@@ -562,6 +562,8 @@
     <string name="upload_unsupported_codec">Questo codec video non è supportato per il caricamento. Usa H.264 o HEVC con audio AAC.</string>
     <string name="upload_invalid_media">Impossibile verificare questo file multimediale. L’originale non è stato caricato.</string>
     <string name="upload_processing">iCloud sta elaborando questo file. L’originale è ancora su questo telefono.</string>
+    <string name="upload_interrupted_trying_again">Il caricamento si è interrotto prima che iCloud lo ricevesse. Alba riproverà.</string>
+    <string name="upload_interrupted_repeatedly">Il caricamento si è interrotto più volte prima che iCloud lo ricevesse. Riprova quando la connessione è stabile.</string>
     <string name="upload_processing_failed">iCloud non ha potuto elaborare questo file. L’originale è ancora su questo telefono. Il caricamento non verrà ripetuto.</string>
     <string name="upload_stage_failed">Impossibile preparare questo file; controlla l’accesso al file e la coda di caricamento</string>
     <string name="shared_albums">Album condivisi</string>

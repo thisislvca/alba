@@ -52,6 +52,11 @@ class LiveICloudPhotoProtocol(
         uploadJournal?.load(binding, attemptId)?.phase in PhotosUpload.RESUMABLE
     } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
       catch (_: Exception) { false }
+
+    override suspend fun registrationNeverSent(binding: AccountBinding, attemptId: String): Boolean = try {
+        uploadJournal?.load(binding, attemptId)?.phase in PhotosUpload.BEFORE_REGISTRATION
+    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+      catch (_: Exception) { false }
     private val json = Json { ignoreUnknownKeys = true }
 
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected)

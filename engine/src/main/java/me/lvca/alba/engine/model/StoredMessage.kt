@@ -84,6 +84,8 @@ enum class StoredMessage(val code: String, val legacyText: String) {
     UPLOAD_UNSUPPORTED_CODEC("upload_unsupported_codec", "This video codec is not supported for upload. Use H.264 or HEVC with AAC audio."),
     UPLOAD_INVALID_MEDIA("upload_invalid_media", "This media file could not be validated. The original has not been uploaded."),
     UPLOAD_PROCESSING("upload_processing", "iCloud is processing this file. The original is still on this phone."),
+    UPLOAD_INTERRUPTED_TRYING_AGAIN("upload_interrupted_trying_again", "The upload stopped before iCloud received it. Alba will try again."),
+    UPLOAD_INTERRUPTED_REPEATEDLY("upload_interrupted_repeatedly", "The upload stopped several times before iCloud received it. Retry when the connection is steady."),
     UPLOAD_PROCESSING_FAILED("upload_processing_failed", "iCloud could not process this file. The original is still on this phone. This upload will not be repeated."),
     UPLOAD_STAGE_FAILED("upload_stage_failed", "Could not stage this file; check file access and the upload queue"),
     ALBA_CURRENTLY_UPLOADS_JPEG_ORIGINALS_ONLY("mela_currently_uploads_jpeg_originals_only", "Mela currently uploads JPEG originals only."),

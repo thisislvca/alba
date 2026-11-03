@@ -57,10 +57,17 @@ abstract class AlbaDatabase : RoomDatabase() {
     abstract fun trashDao(): TrashDao
 
     companion object {
-        /** Lets backup cover what was already on the phone at enrollment. Existing enrollments keep covering new items only. */
+        /**
+         * Lets backup cover what was already on the phone at enrollment, with existing enrollments covering new items
+         * only, and lets a transfer start a fresh attempt after one proven never to have reached iCloud.
+         */
         internal val MIGRATION_18_19 = object : Migration(18, 19) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE backup_enrollments ADD COLUMN includeExisting INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE transfers ADD COLUMN automaticRetries INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE transfers ADD COLUMN notBeforeEpochMillis INTEGER")
+                db.execSQL("DROP INDEX IF EXISTS `index_upload_attempts_transferId`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_upload_attempts_transferId` ON `upload_attempts` (`transferId`)")
             }
         }
 

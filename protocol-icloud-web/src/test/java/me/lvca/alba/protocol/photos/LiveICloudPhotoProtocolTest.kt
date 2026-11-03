@@ -181,6 +181,14 @@ class LiveICloudPhotoProtocolTest {
     }
 
     @Test
+    fun `an attempt the journal does not know is never proven unregistered`() = runBlocking {
+        val protocol = LiveICloudPhotoProtocol(ScriptedTransport(), { SESSION }, uploadJournal = CrashJournal("never"))
+        val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
+        assertTrue(!protocol.registrationNeverSent(binding, "unknown"))
+        assertTrue(!LiveICloudPhotoProtocol(ScriptedTransport(), { SESSION }).registrationNeverSent(binding, "unknown"))
+    }
+
+    @Test
     fun `inflight byte and registration phases cannot be resumed`() = runBlocking {
         for (phase in listOf("BYTES_SENDING", "REGISTERING")) {
             val transport = ScriptedTransport()
@@ -191,6 +199,8 @@ class LiveICloudPhotoProtocolTest {
             assertTrue(runCatching { protocol.prepareOriginal(binding, "photo.jpg", source).startOnce("uncertain") }.isFailure)
             val calls = transport.requests.size
             assertTrue(!protocol.canResume(binding, "uncertain"))
+            // Only an attempt stopped before putAsset is proven never registered; one stopped during it may be.
+            assertEquals(phase == "BYTES_SENDING", protocol.registrationNeverSent(binding, "uncertain"))
             assertTrue(runCatching { protocol.prepareOriginal(binding, "photo.jpg", source).startOnce("uncertain") }.isFailure)
             assertEquals(calls, transport.requests.size)
             assertEquals(if (phase == "BYTES_SENDING") 0 else 1, transport.rawUploadCalls)

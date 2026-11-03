@@ -88,11 +88,19 @@ data class TransferEntity(
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
     val message: String?,
+    /** Fresh attempts started on their own after an earlier one was proven never to have reached iCloud. */
+    @androidx.room.ColumnInfo(defaultValue = "0") val automaticRetries: Int = 0,
+    /** A READY transfer waiting out its retry backoff is not started before this time. */
+    val notBeforeEpochMillis: Long? = null,
 )
 
+/**
+ * Each attempt is sent at most once. A transfer has one attempt, or a chain linked by [UploadAttemptEntity.predecessorAttemptId]
+ * when an earlier attempt was proven never to have reached iCloud.
+ */
 @Entity(
     tableName = "upload_attempts",
-    indices = [Index(value = ["transferId"], unique = true), Index(value = ["accountId"])],
+    indices = [Index(value = ["transferId"]), Index(value = ["accountId"])],
 )
 data class UploadAttemptEntity(
     @PrimaryKey val attemptId: String,

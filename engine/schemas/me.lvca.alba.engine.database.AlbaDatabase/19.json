@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 19,
-    "identityHash": "7682fdd5f61b183f1a68ff3f91ac4197",
+    "identityHash": "8cbceb05a69b5e9bf2ceca9ed20f3c54",
     "entities": [
       {
         "tableName": "catalog_items",
@@ -735,7 +735,7 @@
       },
       {
         "tableName": "transfers",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transferId` TEXT NOT NULL, `stagedSourceId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `authorityType` TEXT NOT NULL, `authorityId` TEXT NOT NULL, `enrollmentId` TEXT, `enrollmentRevision` INTEGER, `mediaId` TEXT, `displayName` TEXT NOT NULL, `state` TEXT NOT NULL, `stateVersion` INTEGER NOT NULL, `activeAttemptId` TEXT, `leaseToken` TEXT, `leaseExpiresAtEpochMillis` INTEGER, `reconciliationDueAtEpochMillis` INTEGER, `reconciliationDeadlineEpochMillis` INTEGER, `reconciliationChangeToken` TEXT, `verifiedAtEpochMillis` INTEGER, `createdAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `message` TEXT, PRIMARY KEY(`transferId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transferId` TEXT NOT NULL, `stagedSourceId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `authorityType` TEXT NOT NULL, `authorityId` TEXT NOT NULL, `enrollmentId` TEXT, `enrollmentRevision` INTEGER, `mediaId` TEXT, `displayName` TEXT NOT NULL, `state` TEXT NOT NULL, `stateVersion` INTEGER NOT NULL, `activeAttemptId` TEXT, `leaseToken` TEXT, `leaseExpiresAtEpochMillis` INTEGER, `reconciliationDueAtEpochMillis` INTEGER, `reconciliationDeadlineEpochMillis` INTEGER, `reconciliationChangeToken` TEXT, `verifiedAtEpochMillis` INTEGER, `createdAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `message` TEXT, `automaticRetries` INTEGER NOT NULL DEFAULT 0, `notBeforeEpochMillis` INTEGER, PRIMARY KEY(`transferId`))",
         "fields": [
           {
             "fieldPath": "transferId",
@@ -863,6 +863,18 @@
             "fieldPath": "message",
             "columnName": "message",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "automaticRetries",
+            "columnName": "automaticRetries",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "notBeforeEpochMillis",
+            "columnName": "notBeforeEpochMillis",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -987,12 +999,12 @@
         "indices": [
           {
             "name": "index_upload_attempts_transferId",
-            "unique": true,
+            "unique": false,
             "columnNames": [
               "transferId"
             ],
             "orders": [],
-            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_upload_attempts_transferId` ON `${TABLE_NAME}` (`transferId`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_upload_attempts_transferId` ON `${TABLE_NAME}` (`transferId`)"
           },
           {
             "name": "index_upload_attempts_accountId",
@@ -2671,7 +2683,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7682fdd5f61b183f1a68ff3f91ac4197')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8cbceb05a69b5e9bf2ceca9ed20f3c54')"
     ]
   }
 }
