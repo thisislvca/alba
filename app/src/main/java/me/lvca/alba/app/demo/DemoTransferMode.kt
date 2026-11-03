@@ -59,9 +59,12 @@ internal class DemoTransferMode(
         if (isDemo() && demo.accept(draftId)) BackupSetupEffect.RequestMediaPermissions(emptyList())
         else BackupSetupEffect.Refused(StoredMessage.AUTOMATIC_BACKUP_IS_OFF.code)
 
-    override suspend fun finishBackup(draftId: BackupDraftId) {
+    override suspend fun finishBackup(draftId: BackupDraftId, includeExisting: Boolean) {
         if (isDemo()) demo.finish(draftId)
     }
+
+    /** The demo's sample photos are all new; there is no older library to add. */
+    override suspend fun includeExistingInBackup() = Unit
 
     override suspend fun disableBackup() = reset()
 

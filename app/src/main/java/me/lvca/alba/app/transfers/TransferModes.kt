@@ -42,7 +42,10 @@ internal interface TransferMode {
 
     suspend fun beginBackup(): BackupDraft
     suspend fun acceptBackup(draftId: BackupDraftId): BackupSetupEffect
-    suspend fun finishBackup(draftId: BackupDraftId)
+    suspend fun finishBackup(draftId: BackupDraftId, includeExisting: Boolean)
+
+    /** Backup also covers what was on the phone when it was turned on. */
+    suspend fun includeExistingInBackup()
     suspend fun disableBackup()
     suspend fun continuePastUnresolved(transferId: TransferId)
 
@@ -82,8 +85,13 @@ internal class LiveTransferMode(
             if (effect is BackupSetupEffect.Refused) messages.show(localizedStoredMessage(effect.reason))
         }
 
-    override suspend fun finishBackup(draftId: BackupDraftId) {
-        messages.show(localizedStoredMessage(photos.finishBackupEnrollment(draftId).message))
+    override suspend fun finishBackup(draftId: BackupDraftId, includeExisting: Boolean) {
+        messages.show(localizedStoredMessage(photos.finishBackupEnrollment(draftId, includeExisting).message))
+    }
+
+    override suspend fun includeExistingInBackup() {
+        photos.changeBackup(BackupChange.IncludeExisting)
+        messages.show(R.string.backup_existing_started)
     }
 
     override suspend fun disableBackup() {

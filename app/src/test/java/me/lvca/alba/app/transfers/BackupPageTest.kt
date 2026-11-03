@@ -3,9 +3,12 @@ package me.lvca.alba.app.transfers
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -21,6 +24,7 @@ import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.testing.testAlbaActions
+import me.lvca.alba.app.ui.account.BackupDisclosure
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
 import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -28,6 +32,7 @@ import me.lvca.alba.app.ui.gallery.BackupBadge
 import me.lvca.alba.app.ui.gallery.BackupStatusChip
 import me.lvca.alba.app.ui.gallery.LocalBackupBadges
 import me.lvca.alba.app.ui.gallery.MediaTile
+import me.lvca.alba.engine.model.BackupDraftId
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.BackupView
@@ -139,6 +144,40 @@ class BackupPageTest {
     }
 
     @Test
+    fun backupOfNewItemsOnlyOffersToIncludeExistingOnesAfterAsking() {
+        var included = 0
+        render(TransferState(backup = on), includeExistingInBackup = { included++ })
+        compose.onNodeWithTag("backup-include-existing").performScrollTo().performClick()
+        assertEquals("Nothing starts before the user confirms", 0, included)
+        compose.onNodeWithTag("backup-include-existing-confirm").performClick()
+        assertEquals(1, included)
+    }
+
+    @Test
+    fun backupThatIncludesExistingItemsDoesNotOfferItAgain() {
+        render(TransferState(backup = on.copy(includesExisting = true)))
+        compose.onNodeWithTag("backup-include-existing").assertDoesNotExist()
+    }
+
+    @Test
+    fun theDisclosureBacksUpExistingItemsByDefaultAndCanBeNarrowed() {
+        val choices = mutableListOf<Boolean>()
+        var setup by mutableStateOf(BackupSetup(BackupDraftId("draft"), "alex@example.com"))
+        compose.setContent {
+            AlbaTheme(darkTheme = false) {
+                BackupDisclosure(setup, storageFull = false, accept = {}, dismiss = {}, chooseExisting = {
+                    choices += it
+                    setup = setup.copy(includeExisting = it)
+                })
+            }
+        }
+        compose.onNodeWithTag("backup-choice-existing").assertIsSelected()
+        compose.onNodeWithTag("backup-choice-new-only").performClick()
+        compose.onNodeWithTag("backup-choice-new-only").assertIsSelected()
+        assertEquals(listOf(false), choices)
+    }
+
+    @Test
     fun mobileDataPromptCanRememberTheAnswer() {
         val answers = mutableListOf<Pair<Boolean, Boolean>>()
         compose.setContent { AlbaTheme(darkTheme = false) { MobileDataPrompt(answer = { use, remember -> answers += use to remember }, dismiss = {}) } }
@@ -157,6 +196,7 @@ class BackupPageTest {
         retryAll: () -> Unit = {},
         setBackupSettings: (BackupSettings) -> Unit = {},
         retryAfterStorageFull: () -> Unit = {},
+        includeExistingInBackup: () -> Unit = {},
     ) {
         compose.setContent {
             AlbaTheme(darkTheme = false) {
@@ -167,7 +207,8 @@ class BackupPageTest {
                     mediaBusy = false,
                     diagnostics = DiagnosticsConsent(),
                     actions = testAlbaActions(retryTransfer = retryTransfer, retryAllTransfers = retryAll,
-                        setBackupSettings = setBackupSettings, retryAfterStorageFull = retryAfterStorageFull),
+                        setBackupSettings = setBackupSettings, retryAfterStorageFull = retryAfterStorageFull,
+                        includeExistingInBackup = includeExistingInBackup),
                 )
             }
         }

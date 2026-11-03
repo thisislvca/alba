@@ -86,6 +86,22 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
+    fun schemaEighteenKeepsEnrollmentsCoveringNewItemsOnly() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 18).use { db ->
+            db.execSQL("INSERT INTO backup_enrollments (enrollmentId,accountId,authorizedAuthEpoch,revision,operationFence,scope," +
+                "disclosureRevision,consentedAtEpochMillis,permissionFingerprint,enabled,updatedAtEpochMillis) " +
+                "VALUES ('enrollment','account',1,1,1,'CAMERA_MEDIA','2026-10-26.1',5,'full:unredacted',1,5)")
+        }
+        helper.runMigrationsAndValidate(DATABASE_NAME, 19, true, AlbaDatabase.MIGRATION_18_19).close()
+        val migrated = AlbaDatabase.create(context)
+        try {
+            val enrollment = requireNotNull(migrated.backupDao().findBackupEnrollment("account"))
+            assertEquals(false, enrollment.includeExisting)
+            assertEquals("CAMERA_MEDIA", enrollment.scope)
+        } finally { migrated.close() }
+    }
+
+    @Test
     fun schemaSeventeenAddsTheResumableLibraryReadKeepingTheCatalogAndToken() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 17).use { db ->
             db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision," +

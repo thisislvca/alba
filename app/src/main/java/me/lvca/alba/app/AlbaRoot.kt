@@ -16,12 +16,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,6 +37,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import me.lvca.alba.app.ui.account.BackupDisclosure
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -669,7 +665,8 @@ private fun AlbaMain(
     }
     transfers.backupSetup?.takeUnless { it.awaitingPermissions }?.let { setup ->
         BackupDisclosure(setup, storageFull = session.accountInfo.storage?.let { !it.isDemo && it.usedBytes >= it.totalBytes } == true,
-            accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup)
+            accept = viewModel.transfers::acceptBackupDisclosure, dismiss = viewModel.transfers::dismissBackupSetup,
+            chooseExisting = viewModel.transfers::setBackupIncludesExisting)
     }
     LaunchedEffect(notificationAnswered) {
         if (!notificationAnswered) return@LaunchedEffect
@@ -754,30 +751,6 @@ private fun ConfirmRemoval(title: Int, body: Int, count: Int, dismiss: () -> Uni
         text = { Text(pluralStringResource(body, count, count)) },
         confirmButton = { TextButton(onClick = confirm, modifier = Modifier.testTag("confirm-removal")) { Text(stringResource(title)) } },
         dismissButton = { TextButton(onClick = dismiss, modifier = Modifier.testTag("cancel-removal")) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
-@Composable
-private fun BackupDisclosure(setup: BackupSetup, storageFull: Boolean, accept: () -> Unit, dismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = dismiss,
-        title = { Text(stringResource(R.string.back_up_new_photos)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(if (setup.demo) stringResource(R.string.demo_backup_disclosure)
-                    else stringResource(R.string.backup_disclosure, setup.destinationLabel))
-                if (!setup.demo) Text(stringResource(R.string.backup_disclosure_notifications), style = MaterialTheme.typography.bodySmall)
-                // Warn before the user commits: with a full iCloud nothing can back up until there is space.
-                if (storageFull && !setup.demo) Text(stringResource(R.string.backup_disclosure_storage_full),
-                    color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("backup-storage-full-warning"))
-            }
-        },
-        confirmButton = {
-            Button(onClick = accept, modifier = Modifier.testTag("backup-disclosure-accept")) { Text(stringResource(R.string.welcome_continue)) }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = dismiss, modifier = Modifier.testTag("backup-disclosure-dismiss")) { Text(stringResource(R.string.not_now)) }
-        },
     )
 }
 
@@ -924,6 +897,8 @@ private class AlbaRootActions(
     override fun retryRestore() = viewModel.sync.refresh()
     override fun enableAutomaticBackup() = transfers.beginAutomaticBackup()
     override fun disableAutomaticBackup() = transfers.disableAutomaticBackup()
+    override fun includeExistingInBackup() = transfers.includeExistingInBackup()
+    override fun setBackupIncludesExisting(include: Boolean) = transfers.setBackupIncludesExisting(include)
     override fun demoBackupAction(transferId: TransferId) = transfers.continuePastUnresolved(transferId)
     override fun accountPageShown() = account.accountPageShown()
     override fun setBackupSettings(settings: BackupSettings) = transfers.backup.setBackupSettings(settings)

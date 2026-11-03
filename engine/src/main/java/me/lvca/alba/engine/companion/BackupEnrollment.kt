@@ -60,6 +60,7 @@ internal class BackupEnrollment(
                 },
                 disclosureCurrent = scope == BackupScope.CURRENT && row.disclosureRevision == BACKUP_DISCLOSURE_REVISION,
                 storageFullSinceEpochMillis = storageFullSince,
+                includesExisting = row.includeExisting,
             )
         }
     }
@@ -107,7 +108,7 @@ internal class BackupEnrollment(
         return BackupSetupEffect.RequestMediaPermissions(automaticBackupPermissions())
     }
 
-    suspend fun finishBackupEnrollment(draft: BackupDraftId): BackupView {
+    suspend fun finishBackupEnrollment(draft: BackupDraftId, includeExisting: Boolean): BackupView {
         val row = refuseIfNull(backupDao.findBackupDraft(draft.value), StoredMessage.BACKUP_SETUP_EXPIRED)
         refuseUnless(row.phase == "CONSENTED", StoredMessage.ACCEPT_THE_BACKUP_DISCLOSURE_FIRST)
         val binding = accounts.requireActive()
@@ -149,6 +150,8 @@ internal class BackupEnrollment(
                     permissionFingerprint = originals.permissionFingerprint(),
                     enabled = true,
                     updatedAtEpochMillis = now(),
+                    // Agreeing again never narrows what backup already covers.
+                    includeExisting = includeExisting || continuing?.includeExisting == true,
                 )
                 backupDao.upsertBackupEnrollment(enrollment)
                 BackupView(
@@ -156,6 +159,7 @@ internal class BackupEnrollment(
                     destinationLabel = active.destinationLabel,
                     scope = BackupScope.valueOf(enrollment.scope),
                     message = StoredMessage.AUTOMATIC_BACKUP_IS_ON.code,
+                    includesExisting = enrollment.includeExisting,
                 )
             }
         }
@@ -166,6 +170,38 @@ internal class BackupEnrollment(
 
     suspend fun changeBackup(change: BackupChange): BackupView = when (change) {
         BackupChange.Disable -> disableAutomaticBackup()
+        BackupChange.IncludeExisting -> includeExisting()
+    }
+
+    /**
+     * Widens the current enrollment to what was already on the phone when it began. The enrollment keeps its id and
+     * revision, so queued items stay authorized; only an enabled enrollment of the current scope, under the active
+     * sign-in, can be widened.
+     */
+    private suspend fun includeExisting(): BackupView {
+        val binding = accounts.requireActive()
+        val view = accounts.gate(binding.accountId).withLock {
+            database.withTransaction {
+                val active = requireNotNull(accountDao.findActiveAccount())
+                refuseUnless(active.toBinding() == binding, StoredMessage.THE_DESTINATION_ACCOUNT_CHANGED_START_BACKUP_SETUP_AGAIN)
+                val current = refuseIfNull(
+                    backupDao.findBackupEnrollment(active.accountId)
+                        ?.takeIf { it.enabled && it.authorizedAuthEpoch == active.authEpoch },
+                    StoredMessage.AUTOMATIC_BACKUP_IS_OFF,
+                )
+                refuseUnless(BackupScope.valueOf(current.scope) == BackupScope.CURRENT, StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED)
+                backupDao.upsertBackupEnrollment(current.copy(includeExisting = true, updatedAtEpochMillis = now()))
+                BackupView(
+                    enabled = true,
+                    destinationLabel = active.destinationLabel,
+                    scope = BackupScope.CURRENT,
+                    message = StoredMessage.AUTOMATIC_BACKUP_IS_ON.code,
+                    includesExisting = true,
+                )
+            }
+        }
+        scheduler.scheduleSoon()
+        return view
     }
 
     private suspend fun disableAutomaticBackup(): BackupView {

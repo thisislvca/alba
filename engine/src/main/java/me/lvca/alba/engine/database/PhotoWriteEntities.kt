@@ -271,6 +271,8 @@ data class BackupEnrollmentEntity(
     val updatedAtEpochMillis: Long,
     val discoveryBaselineVersion: String? = null,
     val discoveryBaselineGeneration: Long? = null,
+    /** Backup also covers what was on the phone at enrollment, read newest first after what is added later. */
+    @androidx.room.ColumnInfo(defaultValue = "0") val includeExisting: Boolean = false,
 )
 
 @Entity(

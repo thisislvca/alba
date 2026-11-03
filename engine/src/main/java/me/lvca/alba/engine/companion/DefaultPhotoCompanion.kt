@@ -70,7 +70,8 @@ class DefaultPhotoCompanion(
     override fun observeBackup() = enrollment.observeBackup()
     override suspend fun beginBackupEnrollment(scope: BackupScope) = enrollment.beginBackupEnrollment(scope)
     override suspend fun acceptBackupDisclosure(draft: BackupDraftId) = enrollment.acceptBackupDisclosure(draft)
-    override suspend fun finishBackupEnrollment(draft: BackupDraftId) = enrollment.finishBackupEnrollment(draft)
+    override suspend fun finishBackupEnrollment(draft: BackupDraftId, includeExisting: Boolean) =
+        enrollment.finishBackupEnrollment(draft, includeExisting)
     override suspend fun changeBackup(change: BackupChange) = enrollment.changeBackup(change)
 
     override fun observeTransfers(): Flow<List<TransferView>> = transferDao.observeTransfers().map { rows ->

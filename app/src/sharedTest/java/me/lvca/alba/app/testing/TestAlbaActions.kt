@@ -64,6 +64,7 @@ internal fun testAlbaActions(
     setBackupSettings: (BackupSettings) -> Unit = {},
     openBackup: () -> Unit = {},
     retryAfterStorageFull: () -> Unit = {},
+    includeExistingInBackup: () -> Unit = {},
     signOut: () -> Unit = {},
     sendCodeBySms: () -> Unit = {},
     confirmMixedTrash: (List<GalleryMedia>) -> Unit = {},
@@ -82,7 +83,7 @@ internal fun testAlbaActions(
     val onRetry = retryTransfer; val onRetryAll = retryAllTransfers; val onCancelUploads = cancelUploads; val onFreeUp = freeUpSpace
     val onSettings = setBackupSettings; val onOpenBackup = openBackup; val onRetryStorage = retryAfterStorageFull
     val onSignOut = signOut; val onSendCodeBySms = sendCodeBySms; val onConfirmMixedTrash = confirmMixedTrash
-    val onUseElsewhere = useElsewhere
+    val onUseElsewhere = useElsewhere; val onIncludeExisting = includeExistingInBackup
     return object : AlbaActions {
         override fun retryTransfer(transferId: TransferId) = onRetry(transferId)
         override fun retryAllTransfers() = onRetryAll()
@@ -91,6 +92,8 @@ internal fun testAlbaActions(
         override fun setBackupSettings(settings: BackupSettings) = onSettings(settings)
         override fun openBackup() = onOpenBackup()
         override fun retryAfterStorageFull() = onRetryStorage()
+        override fun includeExistingInBackup() = onIncludeExisting()
+        override fun setBackupIncludesExisting(include: Boolean) = Unit
         override fun accountPageShown() = Unit
         override fun loadDeviceFolders() = Unit
         override fun refreshBackupStatus() = Unit

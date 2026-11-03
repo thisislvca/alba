@@ -24,6 +24,7 @@ import me.lvca.alba.engine.source.BackupFolders
 import me.lvca.alba.engine.source.DeviceMediaRecord
 import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.ExactOriginalSource
+import me.lvca.alba.engine.source.ExistingMediaCursor
 import me.lvca.alba.engine.source.LocalDiscoveryCheckpoint
 import me.lvca.alba.engine.source.UnsupportedUploadException
 import me.lvca.alba.engine.source.UploadMediaFormat
@@ -78,7 +79,8 @@ internal class TransferIntake(
     }
 
     /**
-     * Stages at most one newly discovered item for automatic backup. Items already in the journal are passed over, and
+     * Stages at most one discovered item for automatic backup: first what was added since enrollment, then, when the
+     * user chose it, what was already on the phone, newest first. Items already in the journal are passed over, and
      * items the uploader refuses are recorded as skipped with their reason, so none silently disappears and none
      * blocks the items after it. Returns how many transfers it queued.
      */
@@ -102,10 +104,91 @@ internal class TransferIntake(
             enrollment.baseline(),
         )
         val scannedAt = now()
+        rememberLocalAssets(binding, enrollment, page.items, scannedAt)
+        suspend fun saveCheckpoint(at: LocalDiscoveryCheckpoint) {
+            localAssetDao.upsertMediaStoreCheckpoint(
+                MediaStoreCheckpointEntity(
+                    checkpointId, at.volumeName, at.volumeVersion,
+                    permissionFingerprint, at.generationModified, at.mediaStoreId, scannedAt,
+                ),
+            )
+        }
+        // Cached rows can belong to an older enrollment; use only the scoped page.
+        for (item in page.items) {
+            val queued = stageOrSkip(binding, enrollment, item)
+            // A failure that may still pass throws before this line, so it never advances past the item.
+            saveCheckpoint(LocalDiscoveryCheckpoint(page.checkpoint.volumeName, page.checkpoint.volumeVersion,
+                item.generationModified, item.mediaStoreId))
+            if (queued) {
+                if (page.moreComing || item != page.items.last() || enrollment.includeExisting) {
+                    runSuspendCatching { scheduler.scheduleSoon() }
+                }
+                return 1
+            }
+        }
+        saveCheckpoint(page.checkpoint)
+        if (page.moreComing) {
+            runSuspendCatching { scheduler.scheduleSoon() }
+            return 0
+        }
+        // New items come first; the existing library is read once nothing new is waiting.
+        return if (enrollment.includeExisting) stageExisting(binding, enrollment, scope, folders, "$checkpointId:existing") else 0
+    }
+
+    /**
+     * Stages at most one item of what was on the phone at enrollment, newest first. It reads at most
+     * [EXISTING_PAGES_PER_PASS] pages a pass, so a library mostly backed up already is passed over quickly without
+     * holding the wake for long. Where it got to is saved after every item, so nothing is read twice or skipped.
+     */
+    private suspend fun stageExisting(
+        binding: AccountBinding,
+        enrollment: BackupEnrollmentEntity,
+        scope: BackupScope,
+        folders: Set<String>,
+        checkpointId: String,
+    ): Int {
+        val permissionFingerprint = enrollment.permissionFingerprint
+        var cursor = localAssetDao.findMediaStoreCheckpoint(checkpointId)
+            ?.takeIf { it.permissionFingerprint == permissionFingerprint }
+            ?.let { ExistingMediaCursor(it.volumeVersion, it.generationModified, it.mediaStoreId) }
+        repeat(EXISTING_PAGES_PER_PASS) {
+            val page = originals.discoverExistingMedia(
+                cursor, AUTO_DISCOVERY_PAGE_SIZE, scope, folders, enrollment.consentedAtEpochMillis, enrollment.baseline(),
+            )
+            val scannedAt = now()
+            rememberLocalAssets(binding, enrollment, page.items.map { it.record }, scannedAt)
+            for (item in page.items) {
+                val queued = stageOrSkip(binding, enrollment, item.record)
+                localAssetDao.upsertMediaStoreCheckpoint(
+                    MediaStoreCheckpointEntity(
+                        checkpointId, item.record.volumeName, item.cursor.volumeVersion, permissionFingerprint,
+                        item.cursor.sortKeyEpochMillis, item.cursor.mediaStoreId, scannedAt,
+                    ),
+                )
+                cursor = item.cursor
+                if (queued) {
+                    runSuspendCatching { scheduler.scheduleSoon() }
+                    return 1
+                }
+            }
+            if (!page.moreComing) return 0
+        }
+        runSuspendCatching { scheduler.scheduleSoon() }
+        return 0
+    }
+
+    /** Records what discovery saw, under the enrollment that is still current. */
+    private suspend fun rememberLocalAssets(
+        binding: AccountBinding,
+        enrollment: BackupEnrollmentEntity,
+        items: List<DeviceMediaRecord>,
+        scannedAt: Long,
+    ) {
+        if (items.isEmpty()) return
         database.withTransaction {
             val current = requireNotNull(backupDao.findBackupEnrollment(binding.accountId))
             require(current == enrollment) { "Backup enrollment changed during discovery" }
-            localAssetDao.upsertLocalAssets(page.items.map { item ->
+            localAssetDao.upsertLocalAssets(items.map { item ->
                 LocalAssetEntity(
                     localAssetId = item.id,
                     volumeName = item.volumeName,
@@ -118,35 +201,19 @@ internal class TransferIntake(
                     mimeType = item.mimeType,
                     byteCount = item.byteCount,
                     capturedAtEpochMillis = item.capturedAtEpochMillis,
-                    permissionFingerprint = permissionFingerprint,
+                    permissionFingerprint = enrollment.permissionFingerprint,
                     lastSeenAtEpochMillis = scannedAt,
                 )
             })
         }
-        suspend fun saveCheckpoint(at: LocalDiscoveryCheckpoint) {
-            localAssetDao.upsertMediaStoreCheckpoint(
-                MediaStoreCheckpointEntity(
-                    checkpointId, at.volumeName, at.volumeVersion,
-                    permissionFingerprint, at.generationModified, at.mediaStoreId, scannedAt,
-                ),
-            )
-        }
-        // Cached rows can belong to an older enrollment; use only the scoped page.
-        for (item in page.items) {
-            val queued = runSuspendCatching { stageDiscovered(binding, enrollment, item) }
-                .getOrElse { error -> skipAfterRepeatedFailures(binding, enrollment, item, error) }
-            transferDao.clearDiscoveryFailure(binding.accountId, item.id)
-            // A failure that may still pass throws before this line, so it never advances past the item.
-            saveCheckpoint(LocalDiscoveryCheckpoint(page.checkpoint.volumeName, page.checkpoint.volumeVersion,
-                item.generationModified, item.mediaStoreId))
-            if (queued) {
-                if (page.moreComing || item != page.items.last()) runSuspendCatching { scheduler.scheduleSoon() }
-                return 1
-            }
-        }
-        saveCheckpoint(page.checkpoint)
-        if (page.moreComing) runSuspendCatching { scheduler.scheduleSoon() }
-        return 0
+    }
+
+    /** Stages [item], or records it as skipped once it has failed [MAX_ITEM_FAILURES] times. Returns whether it queued. */
+    private suspend fun stageOrSkip(binding: AccountBinding, enrollment: BackupEnrollmentEntity, item: DeviceMediaRecord): Boolean {
+        val queued = runSuspendCatching { stageDiscovered(binding, enrollment, item) }
+            .getOrElse { error -> skipAfterRepeatedFailures(binding, enrollment, item, error) }
+        transferDao.clearDiscoveryFailure(binding.accountId, item.id)
+        return queued
     }
 
     /**
@@ -207,7 +274,7 @@ internal class TransferIntake(
         val scope = BackupScope.valueOf(enrollment.scope)
         val eligible = originals.eligibleMediaIds(
             scope, BackupFolders.extraFolders(scope, authority.settings.deviceFolders),
-            enrollment.consentedAtEpochMillis, enrollment.baseline(),
+            enrollment.consentedAtEpochMillis, enrollment.baseline(), includeExisting = enrollment.includeExisting,
         )
         val verified = transferDao.findVerifiedMediaIds(binding.accountId).toSet()
         return BackupProgress(backedUp = eligible.count { it in verified }, eligible = eligible.size)
@@ -459,8 +526,11 @@ internal class TransferIntake(
     }
 
     private companion object {
-        /** Items checked per discovery pass; at most one of them is staged. */
+        /** Items checked per discovery page; at most one of them is staged. */
         const val AUTO_DISCOVERY_PAGE_SIZE = 20
+
+        /** Pages of the existing library one pass may read when every item on them is already backed up. */
+        const val EXISTING_PAGES_PER_PASS = 10
         const val MEDIA_STORE_PREFIX = "content://media/"
 
         /** Staging failures after which an item is reported as skipped instead of tried again. */

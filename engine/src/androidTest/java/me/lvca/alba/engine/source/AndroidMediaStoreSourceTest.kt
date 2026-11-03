@@ -181,6 +181,65 @@ class AndroidMediaStoreSourceTest {
     }
 
     @Test
+    fun existingLibraryIsTheComplementOfNewItemsReadNewestFirstAPageAtATime() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        grantImageAccess(context)
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .grantRuntimePermission(context.packageName, Manifest.permission.ACCESS_MEDIA_LOCATION)
+        val resolver = context.contentResolver
+        val inserted = mutableListOf<android.net.Uri>()
+        fun insert(name: String, directory: String, takenAt: Long?) {
+            val uri = requireNotNull(resolver.insert(
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, directory)
+                    takenAt?.let { put(MediaStore.Images.Media.DATE_TAKEN, it) }
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                },
+            ))
+            inserted += uri
+            requireNotNull(resolver.openOutputStream(uri)).use { output ->
+                Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 90, output)
+            }
+            resolver.update(uri, ContentValues().apply {
+                put(MediaStore.Images.Media.IS_PENDING, 0)
+                takenAt?.let { put(MediaStore.Images.Media.DATE_TAKEN, it) }
+            }, null, null)
+        }
+        try {
+            insert("alba-existing-2019.jpg", "DCIM/Camera/", 1_546_300_800_000L)
+            insert("alba-existing-2023.jpg", "DCIM/Camera/", 1_672_531_200_000L)
+            insert("alba-existing-2021.jpg", "DCIM/Camera/", 1_609_459_200_000L)
+            insert("alba-existing-elsewhere.jpg", "Pictures/Other/", 1_640_995_200_000L)
+            val source = AndroidMediaStoreSource(context)
+            val enrolledAt = System.currentTimeMillis()
+            val baseline = source.captureEnrollmentBaseline()
+            insert("alba-after-enrollment.jpg", "DCIM/Camera/", 1_700_000_000_000L)
+
+            val names = mutableListOf<String>()
+            var cursor: ExistingMediaCursor? = null
+            do {
+                val page = source.discoverExistingMedia(cursor, 1, BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline)
+                names += page.items.map { it.record.fileName }
+                cursor = page.items.lastOrNull()?.cursor ?: cursor
+            } while (page.moreComing)
+            assertEquals(
+                listOf("alba-existing-2023.jpg", "alba-existing-2021.jpg", "alba-existing-2019.jpg"),
+                names.filter { it.startsWith("alba-") },
+            )
+            val new = source.discoverEligibleMedia(null, 200, BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline)
+            assertEquals(listOf("alba-after-enrollment.jpg"), new.items.map { it.fileName }.filter { it.startsWith("alba-") })
+            val all = source.eligibleMediaIds(BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline, includeExisting = true)
+            val onlyNew = source.eligibleMediaIds(BackupScope.CAMERA_MEDIA, emptySet(), enrolledAt, baseline)
+            assertTrue(all.containsAll(onlyNew) && all.size >= onlyNew.size + 3)
+        } finally {
+            inserted.forEach { resolver.delete(it, null, null) }
+        }
+    }
+
+    @Test
     fun galleryRevisionCanStageTheSameRealMediaStoreJpeg() = runBlocking {
         assumeTrue(Build.VERSION.SDK_INT >= 30)
         val context = ApplicationProvider.getApplicationContext<Context>()

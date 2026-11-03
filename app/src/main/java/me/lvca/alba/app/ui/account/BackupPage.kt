@@ -88,6 +88,10 @@ internal fun BackupPage(
         Spacer(Modifier.height(18.dp))
     }
     BackupStatusCard(session, transfers, status, actions, onNavigate)
+    if (!demo && backup.enabled && backup.scope == BackupScope.CAMERA_MEDIA && !backup.includesExisting) {
+        Spacer(Modifier.height(AlbaSpacing.xl))
+        IncludeExistingCard(backup.destinationLabel ?: signedIn?.appleId.orEmpty(), actions::includeExistingInBackup)
+    }
 
     Spacer(Modifier.height(AlbaSpacing.xl))
     ProfileStorage(session, demo = demo, hasAccount = connected, check = actions::checkConnection, labelRes = R.string.cloud_storage)
@@ -233,6 +237,30 @@ private fun StatusAction(status: BackupStatus, actions: AccountScreenActions, on
         }
         else -> Unit
     }
+}
+
+/**
+ * Offered to someone who turned backup on for new items only: back up what was already on the phone too, after asking
+ * once, since it uploads the whole existing library.
+ */
+@Composable
+private fun IncludeExistingCard(destination: String, include: () -> Unit) {
+    var confirm by remember { mutableStateOf(false) }
+    AlbaCard {
+        BackupRow(stringResource(R.string.backup_existing_row_title), stringResource(R.string.backup_existing_row_detail),
+            AlbaIcons.CloudUpload, "backup-include-existing") { confirm = true }
+    }
+    if (confirm) AlertDialog(
+        onDismissRequest = { confirm = false },
+        title = { Text(stringResource(R.string.backup_existing_row_title)) },
+        text = { Text(stringResource(R.string.backup_existing_confirm_body, destination)) },
+        confirmButton = {
+            TextButton(onClick = { confirm = false; include() }, modifier = Modifier.testTag("backup-include-existing-confirm")) {
+                Text(stringResource(R.string.backup_existing_confirm_button))
+            }
+        },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.not_now)) } },
+    )
 }
 
 /** Failed and skipped backup items with their reasons, Retry where nothing was sent, and Retry all. */

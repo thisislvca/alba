@@ -20,7 +20,7 @@
     <string name="back_to_gallery">Torna alla galleria</string>
     <string name="back_to_library">Torna alla libreria</string>
     <string name="back_up_new_photos">Eseguire il backup delle nuove foto?</string>
-    <string name="backup_disclosure">Alba eseguirà il backup delle nuove foto e dei nuovi video della cartella della fotocamera, e delle cartelle che scegli, caricando gli originali identici direttamente su %1$s. Il backup usa il Wi-Fi, a meno che tu non consenta i dati mobili nelle impostazioni. Si interrompe se cambiano l’accesso, il consenso o l’account.</string>
+    <string name="backup_disclosure">Alba eseguirà il backup di foto e video della cartella della fotocamera, e delle cartelle che scegli, caricando gli originali identici direttamente su %1$s. Il backup usa il Wi-Fi, a meno che tu non consenta i dati mobili nelle impostazioni. Si interrompe se cambiano l’accesso, il consenso o l’account.</string>
     <string name="backup_on_for">Attivo per %1$s. I nuovi originali supportati vengono preparati, caricati una sola volta e verificati.</string>
     <string name="backups">Backup</string>
     <string name="batch_done">%1$s · completati: %2$d/%3$d</string>
@@ -944,6 +944,15 @@
     <string name="backup_while_roaming_detail">Usa i dati mobili all’estero, che possono costare di più.</string>
     <string name="backup_pause">Metti in pausa il backup</string>
     <string name="backup_pause_detail">Interrompe i caricamenti automatici finché non lo disattivi.</string>
+    <string name="backup_disclosure_title">Attivare il backup?</string>
+    <string name="backup_existing_choice_all">Esegui anche il backup di foto e video già presenti</string>
+    <string name="backup_existing_choice_all_detail">Dai più recenti, dopo gli elementi nuovi. Gli elementi di cui Alba ha già eseguito il backup non vengono caricati di nuovo.</string>
+    <string name="backup_existing_choice_new">Solo i nuovi</string>
+    <string name="backup_existing_started">Verrà eseguito il backup di foto e video già presenti, dai più recenti.</string>
+    <string name="backup_existing_row_title">Backup di foto e video già presenti</string>
+    <string name="backup_existing_row_detail">Ora viene eseguito il backup solo degli elementi aggiunti dopo l’attivazione.</string>
+    <string name="backup_existing_confirm_body">Alba eseguirà anche il backup di foto e video già presenti nella cartella della fotocamera e nelle cartelle scelte, dai più recenti, caricando gli originali identici su %1$s. Può richiedere un po’ di tempo. Usa il Wi-Fi, a meno che tu non consenta i dati mobili.</string>
+    <string name="backup_existing_confirm_button">Esegui backup</string>
     <string name="backup_device_folders">Backup delle cartelle del dispositivo</string>
     <string name="backup_device_folders_intro">Le nuove foto e i nuovi video della fotocamera vengono sempre salvati. Attiva altre cartelle, come Screenshot o WhatsApp Images, per salvare anche i nuovi elementi al loro interno.</string>
     <string name="backup_device_folders_empty">Nessun’altra cartella con foto o video.</string>

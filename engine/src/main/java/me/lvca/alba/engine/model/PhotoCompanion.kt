@@ -88,6 +88,8 @@ data class BackupView(
     val disclosureCurrent: Boolean = true,
     /** When iCloud refused an upload for lack of storage; backup waits instead of failing item by item. */
     val storageFullSinceEpochMillis: Long? = null,
+    /** Whether backup also covers what was on the phone before it was turned on, not only what is added after. */
+    val includesExisting: Boolean = false,
 )
 
 /** How much of what automatic backup covers is verified in iCloud. */
@@ -118,6 +120,9 @@ data class TransferProgress(val done: Int, val total: Int)
 
 sealed interface BackupChange {
     data object Disable : BackupChange
+
+    /** Back up what was already on the phone when backup was turned on, newest first, as well as what is added later. */
+    data object IncludeExisting : BackupChange
 }
 
 @JvmInline
@@ -160,7 +165,8 @@ interface PhotoCompanion {
 
     suspend fun acceptBackupDisclosure(draft: BackupDraftId): BackupSetupEffect
 
-    suspend fun finishBackupEnrollment(draft: BackupDraftId): BackupView
+    /** Turns backup on; with [includeExisting] it also backs up what is already on the phone, newest first. */
+    suspend fun finishBackupEnrollment(draft: BackupDraftId, includeExisting: Boolean = false): BackupView
 
     suspend fun changeBackup(change: BackupChange): BackupView
 

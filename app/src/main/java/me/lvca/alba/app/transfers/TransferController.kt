@@ -104,6 +104,8 @@ data class BackupSetup(
     val draftId: BackupDraftId,
     val destinationLabel: String,
     val awaitingPermissions: Boolean = false,
+    /** Back up what is already on the phone too, as Google Photos does by default. */
+    val includeExisting: Boolean = true,
 ) {
     val demo: Boolean get() = DemoTransferMode.owns(draftId)
 }
@@ -264,7 +266,7 @@ internal class TransferController(
             when (effect) {
                 is BackupSetupEffect.RequestMediaPermissions -> if (effect.permissions.isEmpty()) {
                     clearSetup()
-                    finishBackup(current.draftId)
+                    finishBackup(current.draftId, current.includeExisting)
                 } else if (currentSetup()?.draftId == current.draftId) {
                     // Only when the user has not dismissed the disclosure while acceptance was in flight. Backup is
                     // when a notification helps (paused, storage full), so Android asks for it here, once.
@@ -286,7 +288,24 @@ internal class TransferController(
     fun backupPermissionsAnswered() {
         val current = currentSetup() ?: return
         clearSetup()
-        finishBackup(current.draftId)
+        finishBackup(current.draftId, current.includeExisting)
+    }
+
+    /** The user chose, before accepting the disclosure, whether what is already on the phone backs up too. */
+    fun setBackupIncludesExisting(include: Boolean) {
+        val current = currentSetup()?.takeUnless { it.awaitingPermissions } ?: return
+        backupSetup.save(current.copy(includeExisting = include))
+    }
+
+    /** Widens backup to what was already on the phone when it was turned on. */
+    fun includeExistingInBackup() {
+        val mode = mode
+        scope.launch {
+            try { mode.includeExistingInBackup() } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                messages.show(error.toUserMessage(R.string.message_could_not_change_backup_settings))
+            }
+        }
     }
 
     fun dismissBackupSetup() = clearSetup()
@@ -398,10 +417,10 @@ internal class TransferController(
         }
     }
 
-    private fun finishBackup(draftId: BackupDraftId) {
+    private fun finishBackup(draftId: BackupDraftId, includeExisting: Boolean) {
         val mode = modeFor(draftId)
         scope.launch {
-            try { mode.finishBackup(draftId) } catch (error: Exception) {
+            try { mode.finishBackup(draftId, includeExisting) } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 messages.show(error.toUserMessage(R.string.message_could_not_enable_backup))
             }
