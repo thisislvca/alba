@@ -92,6 +92,8 @@ data class BackupView(
     val storageFullSinceEpochMillis: Long? = null,
     /** Whether backup also covers what was on the phone before it was turned on, not only what is added after. */
     val includesExisting: Boolean = false,
+    /** Alba paused uploads remotely, for example for an iCloud change; items stay queued until it clears. */
+    val protocolPause: ProtocolPause? = null,
 )
 
 /** How much of what automatic backup covers is verified in iCloud. */

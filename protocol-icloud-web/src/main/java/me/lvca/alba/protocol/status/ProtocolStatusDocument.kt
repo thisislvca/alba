@@ -1,0 +1,178 @@
+package me.lvca.alba.protocol.status
+
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import me.lvca.alba.engine.model.ProtocolArea
+import me.lvca.alba.engine.model.ProtocolPause
+
+/**
+ * Alba's protocol status document, `status/protocol-status.json` in the repository:
+ *
+ * ```json
+ * {
+ *   "schemaVersion": 1,
+ *   "pauses": [
+ *     {
+ *       "id": "2026-11-upload-change",
+ *       "areas": ["uploads"],
+ *       "versions": { "min": "0.1.0", "max": "0.4.2" },
+ *       "message": { "en": "Backup is paused while we update Alba for an iCloud change.", "it": "…" }
+ *     }
+ *   ]
+ * }
+ * ```
+ *
+ * `areas` takes the [ProtocolArea] keys, or `all`; a key this version does not know is ignored, so a newer document
+ * never pauses something an older app cannot name. `versions` is optional, and so is each bound; both are inclusive
+ * and compare app version names as [AppVersion] orders them (a pre-release such as 0.5.0-rc1 is below 0.5.0). `message` is optional: a string, or an object by
+ * language code. Unknown fields are ignored. A document that breaks these rules is refused as a whole, and the app
+ * keeps its last good status, so a typo cannot lift a pause by accident.
+ */
+object ProtocolStatusDocument {
+    /** The schema this version reads. A document with a higher one is read for the fields this version knows. */
+    const val SCHEMA_VERSION = 1
+
+    private const val MAX_ID_LENGTH = 100
+    private const val MAX_MESSAGE_LENGTH = 500
+    private val json = Json { ignoreUnknownKeys = true }
+
+    /** The pauses [document] lists, for every app version. Throws [IllegalArgumentException] for a malformed one. */
+    fun parse(document: String): List<PauseEntry> {
+        val root = runCatching { json.parseToJsonElement(document) }.getOrNull() as? JsonObject
+            ?: throw IllegalArgumentException("The status document is not a JSON object")
+        val schema = (root["schemaVersion"] as? JsonPrimitive)?.content?.toIntOrNull()
+        require(schema != null && schema >= 1) { "The status document has no valid schemaVersion" }
+        val pauses = when (val value = root["pauses"]) {
+            null, JsonNull -> return emptyList()
+            is JsonArray -> value
+            else -> throw IllegalArgumentException("pauses must be a list")
+        }
+        val entries = pauses.mapIndexed { index, element -> entry(index, element) }
+        require(entries.map { it.id }.toSet().size == entries.size) { "Every pause needs its own id" }
+        return entries
+    }
+
+    private fun entry(index: Int, element: JsonElement): PauseEntry {
+        val item = requireNotNull(element as? JsonObject) { "pauses[$index] must be an object" }
+        val id = item.string("id")?.trim()
+        require(!id.isNullOrEmpty() && id.length <= MAX_ID_LENGTH) { "pauses[$index] needs an id of 1 to $MAX_ID_LENGTH characters" }
+        val keys = (item["areas"] as? JsonArray)?.map { area ->
+            requireNotNull((area as? JsonPrimitive)?.takeIf { it.isString }?.content) { "pauses[$index].areas must be strings" }
+        }
+        require(!keys.isNullOrEmpty()) { "pauses[$index] needs at least one area" }
+        val areas = if (ProtocolArea.ALL in keys) ProtocolArea.entries.toSet() else keys.mapNotNull(ProtocolArea::fromKey).toSet()
+        val versions = item["versions"]?.takeUnless { it is JsonNull }?.let { value ->
+            requireNotNull(value as? JsonObject) { "pauses[$index].versions must be an object" }
+        }
+        fun bound(name: String) = versions?.string(name)?.let {
+            requireNotNull(AppVersion.parse(it)) { "pauses[$index].versions.$name is not x.y.z or x.y.z-pre" }
+        }
+        val min = bound("min")
+        val max = bound("max")
+        require(min == null || max == null || min <= max) { "pauses[$index].versions.min is after max" }
+        return PauseEntry(id, areas, min, max, messages(index, item["message"]))
+    }
+
+    private fun messages(index: Int, value: JsonElement?): Map<String, String> {
+        val messages = when (value) {
+            null, JsonNull -> emptyMap()
+            is JsonPrimitive -> {
+                require(value.isString) { "pauses[$index].message must be text" }
+                mapOf("en" to value.content)
+            }
+            is JsonObject -> value.mapValues { (language, text) ->
+                (text as? JsonPrimitive)?.takeIf { it.isString }?.content
+                    ?: throw IllegalArgumentException("pauses[$index].message.$language must be text")
+            }
+            else -> throw IllegalArgumentException("pauses[$index].message must be text or an object by language")
+        }
+        val trimmed = messages.mapValues { it.value.trim() }.filterValues { it.isNotEmpty() }
+        require(trimmed.values.all { it.length <= MAX_MESSAGE_LENGTH }) { "pauses[$index].message is too long" }
+        return trimmed
+    }
+
+    private fun JsonObject.string(name: String): String? = when (val value = this[name]) {
+        null, JsonNull -> null
+        is JsonPrimitive -> value.takeIf { it.isString }?.content ?: throw IllegalArgumentException("$name must be text")
+        else -> throw IllegalArgumentException("$name must be text")
+    }
+}
+
+/** One pause the document lists: the areas it covers, the app versions it applies to, and its message. */
+data class PauseEntry(
+    val id: String,
+    val areas: Set<ProtocolArea>,
+    val minVersion: AppVersion? = null,
+    val maxVersion: AppVersion? = null,
+    val messages: Map<String, String> = emptyMap(),
+) {
+    /**
+     * Whether this pause applies to [version]. An app whose version cannot be read is covered only by a pause that
+     * names no version bound, since it cannot be placed in a range.
+     */
+    fun appliesTo(version: AppVersion?): Boolean = when {
+        minVersion == null && maxVersion == null -> true
+        version == null -> false
+        else -> (minVersion == null || version >= minVersion) && (maxVersion == null || version <= maxVersion)
+    }
+
+    fun toPause(): ProtocolPause = ProtocolPause(id, areas, messages)
+}
+
+/** The pauses in [entries] that apply to [version] and cover at least one area this version knows. */
+fun effectivePauses(entries: List<PauseEntry>, version: AppVersion?): List<ProtocolPause> =
+    entries.filter { it.areas.isNotEmpty() && it.appliesTo(version) }.map(PauseEntry::toPause)
+
+/**
+ * An app version name, `major.minor.patch` with an optional `-pre-release` such as `-rc1` or the debug build's `-dev`.
+ * Versions compare as Semantic Versioning orders them: a pre-release comes before its release, so 0.5.0-rc1 and
+ * 0.5.0-dev are below 0.5.0 and above 0.4.x. Pre-releases of one version compare identifier by identifier, numbers
+ * numerically (rc.2 before rc.10) and before words. A range `"max": "0.5.0"` therefore covers 0.5.0's pre-releases,
+ * and `"min": "0.5.0"` does not.
+ */
+data class AppVersion(val major: Int, val minor: Int, val patch: Int, val preRelease: String? = null) : Comparable<AppVersion> {
+    override fun compareTo(other: AppVersion): Int {
+        val release = compareValuesBy(this, other, AppVersion::major, AppVersion::minor, AppVersion::patch)
+        if (release != 0) return release
+        return when {
+            preRelease == other.preRelease -> 0
+            preRelease == null -> 1
+            other.preRelease == null -> -1
+            else -> comparePreReleases(preRelease.split('.'), other.preRelease.split('.'))
+        }
+    }
+
+    override fun toString(): String = "$major.$minor.$patch" + (preRelease?.let { "-$it" } ?: "")
+
+    companion object {
+        private val PATTERN = Regex(
+            """^(?<major>0|[1-9]\d{0,8})\.(?<minor>0|[1-9]\d{0,8})\.(?<patch>0|[1-9]\d{0,8})""" +
+                """(?:-(?<pre>[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*))?$""",
+        )
+
+        /** [name] as a version, or null unless it is exactly `x.y.z` or `x.y.z-pre.release`. */
+        fun parse(name: String): AppVersion? = PATTERN.matchEntire(name.trim())?.groups?.let { groups ->
+            fun number(group: String) = requireNotNull(groups[group]).value.toInt()
+            AppVersion(number("major"), number("minor"), number("patch"), groups["pre"]?.value)
+        }
+
+        private fun comparePreReleases(left: List<String>, right: List<String>): Int {
+            for ((a, b) in left.zip(right)) {
+                val numberA = a.toLongOrNull()
+                val numberB = b.toLongOrNull()
+                val order = when {
+                    numberA != null && numberB != null -> numberA.compareTo(numberB)
+                    numberA != null -> -1
+                    numberB != null -> 1
+                    else -> a.compareTo(b)
+                }
+                if (order != 0) return order
+            }
+            return left.size.compareTo(right.size)
+        }
+    }
+}

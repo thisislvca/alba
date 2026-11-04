@@ -43,6 +43,8 @@ import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
+import me.lvca.alba.engine.model.ProtocolArea
+import me.lvca.alba.engine.model.ProtocolPause
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
@@ -70,6 +72,20 @@ class BackupPageTest {
         compose.onNodeWithText(context.getString(R.string.backup_paused_storage_title)).assertIsDisplayed()
         compose.onNodeWithTag("backup-storage-retry").performScrollTo().performClick()
         assertEquals(1, retried)
+    }
+
+    @Test
+    fun aRemotePauseShowsTheMaintainersMessageOrAlbasOwn() {
+        val pause = ProtocolPause("upload-change", setOf(ProtocolArea.UPLOADS))
+        val queued = listOf(TransferView(TransferId("a"), "device:1", "beach.jpg", TransferViewState.WAITING, 1, 1, automatic = true))
+        val state = mutableStateOf(TransferState(backup = on.copy(protocolPause = pause), queue = queued))
+        renderState(state)
+
+        compose.onNodeWithText(context.getString(R.string.backup_chip_paused)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.backup_paused_icloud_change_detail)).assertIsDisplayed()
+
+        state.value = state.value.copy(backup = on.copy(protocolPause = pause.copy(messages = mapOf("en" to "Uploads are paused until Friday."))))
+        compose.onNodeWithText("Uploads are paused until Friday.").assertIsDisplayed()
     }
 
     @Test
@@ -251,6 +267,22 @@ class BackupPageTest {
 
     private fun media(id: String) = GalleryMedia(id, "$id.jpg", 0, 1, 1, MediaOrigin.DEVICE, MediaAvailability.DEVICE_ORIGINAL,
         null, "content://media/external/images/media/1", 0, 0)
+
+    private fun renderState(transfers: androidx.compose.runtime.State<TransferState>) {
+        compose.setContent {
+            AlbaTheme(darkTheme = false) {
+                ICloudAccountScreen(
+                    session = SessionState(accountState = account, network = NetworkStatus(true, false), requestedPage = ProfilePage.BACKUP),
+                    transfers = transfers.value,
+                    phoneStorage = PhoneStorageState(),
+                    mediaBusy = false,
+                    diagnostics = DiagnosticsConsent(),
+                    actions = testAlbaActions(),
+                )
+            }
+        }
+        compose.onNodeWithTag("backup-status").assertExists()
+    }
 
     private fun render(
         transfers: TransferState,

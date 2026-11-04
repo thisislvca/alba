@@ -17,3 +17,7 @@ Reports may include app and Android versions, device characteristics, an install
 Photos, filenames, Apple Account identifiers, passwords, verification codes, session tokens, cookies and request contents are excluded. Screenshots, session replay and view-hierarchy collection are disabled.
 
 Requests to Apple are subject to Apple's privacy practices. Alba uses unofficial Apple web APIs and is not affiliated with Apple.
+
+## Protocol status
+
+Before writing to iCloud, Alba checks a small status file on GitHub (raw.githubusercontent.com) that lets its maintainers pause uploads or edits when Apple changes iCloud. The request carries no account, device or photo information, and no cookies; GitHub sees the request's IP address, as with any web request.

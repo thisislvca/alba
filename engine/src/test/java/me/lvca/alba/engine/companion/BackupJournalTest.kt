@@ -7,6 +7,7 @@ import android.content.IntentSender
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.engine.cache.UploadStagingStore
@@ -27,6 +28,9 @@ import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PhoneMetadata
 import me.lvca.alba.engine.model.PhotoCompanionException
 import me.lvca.alba.engine.model.PreparedICloudUpload
+import me.lvca.alba.engine.model.ProtocolArea
+import me.lvca.alba.engine.model.ProtocolPause
+import me.lvca.alba.engine.model.ProtocolStatusGate
 import me.lvca.alba.engine.model.RemoteOriginalObservation
 import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.RemoteRecordRef
@@ -71,6 +75,7 @@ class BackupJournalTest {
     private var elapsed = 5_000_000L
     private var network = BackupNetwork.UNMETERED
     private var settings = BackupSettings()
+    private val remoteStatus = SwitchableStatus()
     private var charging = true
 
     /** When set, the network turns metered on the check after this many more. */
@@ -285,6 +290,60 @@ class BackupJournalTest {
         assertEquals(2, protocol.uploadStarts)
         assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
         assertNull(photos.observeBackup().first().storageFullSinceEpochMillis)
+    }
+
+    @Test
+    fun aRemoteUploadPauseKeepsBackupPendingAndItResumesOnceItClears() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        remoteStatus.pause(ProtocolArea.UPLOADS)
+
+        photos.syncNow()
+        photos.syncNow()
+
+        assertEquals("Nothing is sent while uploads are paused", 0, protocol.uploadStarts)
+        assertTrue("Nothing fails while uploads are paused",
+            photos.observeTransfers().first().all { it.state == TransferViewState.WAITING })
+        val paused = photos.observeBackup().first()
+        assertEquals("pause", paused.protocolPause?.id)
+        assertEquals(StoredMessage.BACKUP_PAUSED_FOR_AN_ICLOUD_CHANGE.code, paused.message)
+        assertEquals(BackupProgress(backedUp = 0, eligible = 1, pending = 1), photos.backup.backupProgress())
+
+        remoteStatus.clear()
+        photos.syncNow()
+
+        assertEquals(1, protocol.uploadStarts)
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        assertNull(photos.observeBackup().first().protocolPause)
+    }
+
+    @Test
+    fun aRemoteUploadPauseKeepsTheUsersUploadsQueued() = runBlocking {
+        val photos = companion()
+        remoteStatus.pause(ProtocolArea.UPLOADS)
+        photos.uploadSelected(UserSelectedPhoto("content://picker/one", "one.jpg"))
+
+        // The transfer job ends rather than failing or retrying in a loop; the upload waits in the queue.
+        photos.runUserUploads()
+        assertEquals(0, protocol.uploadStarts)
+        assertEquals(TransferViewState.WAITING, photos.observeTransfers().first().single().state)
+        assertTrue(photos.hasPendingUserUploads())
+
+        remoteStatus.clear()
+        photos.runUserUploads()
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+    }
+
+    @Test
+    fun aPauseOfAnotherAreaDoesNotStopUploads() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        remoteStatus.pause(ProtocolArea.LIBRARY_EDITS, ProtocolArea.SHARED_ALBUMS)
+
+        photos.syncNow()
+
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        assertNull(photos.observeBackup().first().protocolPause)
     }
 
     @Test
@@ -712,6 +771,7 @@ class BackupJournalTest {
         automaticBackupPolicy = policy,
         now = { clock },
         elapsedRealtime = { elapsed },
+        protocolStatus = remoteStatus,
     )
 
     private fun item(id: Long, name: String, mime: String, refuse: String? = null, capturedAt: Long = NOW + id) = DeviceMediaRecord(
@@ -923,6 +983,15 @@ class BackupJournalTest {
             output.write(bytes)
             return RemoteOriginalObservation("resource", bytes.size.toLong())
         }
+    }
+
+    /** A remote protocol status the test switches by hand. */
+    private class SwitchableStatus : ProtocolStatusGate {
+        private val current = MutableStateFlow<List<ProtocolPause>>(emptyList())
+        override val pauses = current
+        override suspend fun pauseFor(area: ProtocolArea) = current.value.firstOrNull { area in it.areas }
+        fun pause(vararg areas: ProtocolArea) { current.value = listOf(ProtocolPause("pause", areas.toSet())) }
+        fun clear() { current.value = emptyList() }
     }
 
     private object NoOpScheduler : WakeupScheduler {
