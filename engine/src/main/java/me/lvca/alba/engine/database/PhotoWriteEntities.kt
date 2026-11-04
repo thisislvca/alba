@@ -96,6 +96,11 @@ data class TransferEntity(
     @androidx.room.ColumnInfo(defaultValue = "0") val automaticRetries: Int = 0,
     /** A READY transfer waiting out its retry backoff is not started before this time. */
     val notBeforeEpochMillis: Long? = null,
+    /**
+     * What backup found when it looked for these bytes in the iCloud library before uploading, one of the
+     * ExistingCopyCheck results. Null until it has looked, and for uploads it does not look for (the user's own).
+     */
+    val existingCopyCheck: String? = null,
 )
 
 /**

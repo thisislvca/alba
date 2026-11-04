@@ -359,6 +359,8 @@
     <string name="use_a_different_apple_account">Usa un altro Apple Account</string>
     <string name="uses_the_capture_date_when_the_added_date_is_unavailable">Usa la data di scatto quando la data di aggiunta non è disponibile.</string>
     <string name="verified_in_icloud">Verificato in iCloud</string>
+    <string name="already_in_icloud">Già in iCloud</string>
+    <string name="checking_icloud_library_first">Verifica se è già in iCloud</string>
     <string name="verify_and_continue">Verifica e continua</string>
     <string name="videos">Video</string>
     <string name="viewer_position">%1$d / %2$d</string>

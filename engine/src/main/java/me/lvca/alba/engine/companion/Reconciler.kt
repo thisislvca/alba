@@ -5,7 +5,6 @@ import kotlinx.coroutines.CancellationException
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.AssetLinkEntity
 import me.lvca.alba.engine.database.ReconciliationMatchEntity
-import me.lvca.alba.engine.database.RemoteAssetPairEntity
 import me.lvca.alba.engine.database.StagedSourceEntity
 import me.lvca.alba.engine.database.TransferEntity
 import me.lvca.alba.engine.database.TransferState
@@ -19,7 +18,6 @@ import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
-import java.security.MessageDigest
 import java.util.UUID
 
 /**
@@ -169,7 +167,7 @@ internal class Reconciler(
         val observedAt = now()
         database.withTransaction {
             matches.forEach { pair ->
-                val entity = pair.toEntity(binding, observedAt)
+                val entity = pair.toPairEntity(binding, observedAt)
                 verificationDao.insertRemotePair(entity)
                 verificationDao.insertReconciliationMatch(
                     ReconciliationMatchEntity(attemptId, entity.remotePairId, observedAt),
@@ -186,13 +184,13 @@ internal class Reconciler(
         pair: RemotePairCandidate,
     ) {
         val verifiedAt = now()
-        val pairId = stableId(binding.accountId, pair.master.name, pair.asset.name)
+        val pairId = remotePairId(binding, pair)
         val linkId = UUID.randomUUID().toString()
         val proofId = UUID.randomUUID().toString()
         database.withTransaction {
             val fresh = requireNotNull(transferDao.findTransfer(transfer.transferId))
             require(fresh.state in RECONCILABLE_STATES && fresh.activeAttemptId == attempt.attemptId)
-            verificationDao.insertRemotePair(pair.toEntity(binding, verifiedAt))
+            verificationDao.insertRemotePair(pair.toPairEntity(binding, verifiedAt))
             verificationDao.insertAssetLink(
                 AssetLinkEntity(
                     linkId, binding.accountId, transfer.mediaId, source.stagedSourceId,
@@ -267,30 +265,6 @@ internal class Reconciler(
     private fun UploadAcceptanceEntity.toModel() = UploadAcceptance(
         requestUuid, masterRecordName, assetRecordName, duplicateHint, uploadJobId,
     )
-
-    private fun RemotePairCandidate.toEntity(
-        binding: AccountBinding,
-        observedAt: Long,
-    ) = RemoteAssetPairEntity(
-        remotePairId = stableId(binding.accountId, master.name, asset.name),
-        accountId = binding.accountId,
-        observedAuthEpoch = binding.authEpoch,
-        databaseScope = "com.apple.photos.cloud/private",
-        zoneName = "PrimarySync",
-        masterRecordName = master.name,
-        masterChangeTag = master.changeTag,
-        masterDeleted = masterDeleted,
-        assetRecordName = asset.name,
-        assetChangeTag = asset.changeTag,
-        assetDeleted = assetDeleted,
-        relationIsCurrent = relationIsCurrent,
-        originalResourceIdentity = originalResourceIdentity,
-        hydratedAtEpochMillis = observedAt,
-    )
-
-    private fun stableId(vararg values: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(values.joinToString("\u0000").toByteArray(Charsets.UTF_8))
-        .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
     companion object {
         private const val RECONCILIATION_READ_RETRY_MILLIS = 15 * 1_000L

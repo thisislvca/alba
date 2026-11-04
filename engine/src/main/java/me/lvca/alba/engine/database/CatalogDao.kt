@@ -86,6 +86,21 @@ interface CatalogDao {
 
     @Query(CATALOG_WITH_CACHE + " WHERE c.origin = 'ICLOUD'") suspend fun cloudItems(): List<CatalogItemEntity>
     @Query("SELECT * FROM catalog_checkpoints WHERE scope = :scope") suspend fun checkpoint(scope: String): CatalogCheckpointEntity?
+
+    /**
+     * The account's library items, not in Recently Deleted, whose original is [byteCount] bytes. [prefix] is the account's
+     * `icloud:<namespace>:` id prefix, which leaves out shared albums and other accounts.
+     */
+    @Query(
+        """
+        SELECT * FROM catalog_items
+        WHERE byteCount = :byteCount AND origin = 'ICLOUD' AND isTrashed = 0
+          AND substr(mediaId, 1, length(:prefix)) = :prefix
+          AND masterRecordName IS NOT NULL AND assetRecordName IS NOT NULL
+        ORDER BY mediaId LIMIT :limit
+        """,
+    )
+    suspend fun librarySameSize(prefix: String, byteCount: Long, limit: Int): List<CatalogItemEntity>
     @Query(
         """
         SELECT * FROM catalog_items

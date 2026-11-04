@@ -10,6 +10,30 @@ import java.security.MessageDigest
 
 internal fun AccountEntity.toBinding() = AccountBinding(accountId, authEpoch, operationFence)
 
+/** The stable id of [pair] under [binding]'s account. */
+internal fun remotePairId(binding: AccountBinding, pair: RemotePairCandidate): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest(listOf(binding.accountId, pair.master.name, pair.asset.name).joinToString("\u0000").toByteArray(Charsets.UTF_8))
+        .joinToString(separator = "") { byte -> "%02x".format(byte) }
+
+/** [this] pair as observed under [binding] at [observedAt], in the personal library's PrimarySync zone. */
+internal fun RemotePairCandidate.toPairEntity(binding: AccountBinding, observedAt: Long) = RemoteAssetPairEntity(
+    remotePairId = remotePairId(binding, this),
+    accountId = binding.accountId,
+    observedAuthEpoch = binding.authEpoch,
+    databaseScope = "com.apple.photos.cloud/private",
+    zoneName = "PrimarySync",
+    masterRecordName = master.name,
+    masterChangeTag = master.changeTag,
+    masterDeleted = masterDeleted,
+    assetRecordName = asset.name,
+    assetChangeTag = asset.changeTag,
+    assetDeleted = assetDeleted,
+    relationIsCurrent = relationIsCurrent,
+    originalResourceIdentity = originalResourceIdentity,
+    hydratedAtEpochMillis = observedAt,
+)
+
 internal fun RemoteAssetPairEntity.toCandidate() = RemotePairCandidate(
     master = RemoteRecordRef(masterRecordName, masterChangeTag),
     asset = RemoteRecordRef(assetRecordName, assetChangeTag),

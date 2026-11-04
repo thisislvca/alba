@@ -32,6 +32,12 @@ interface CatalogSyncScheduler {
     /** Stops background reading, as when the account is signed out. */
     fun cancel()
 
+    /**
+     * Brings the library up to date in the background even when no first read is under way: backup asks for this before it
+     * decides whether a phone item is already in iCloud.
+     */
+    fun scheduleRefresh() = schedule(expedited = false)
+
     companion object {
         /** Schedules nothing, for tests and the demo. */
         val NONE = object : CatalogSyncScheduler {
@@ -44,8 +50,13 @@ interface CatalogSyncScheduler {
 internal class WorkManagerCatalogSyncScheduler(context: Context) : CatalogSyncScheduler {
     private val workManager by lazy { WorkManager.getInstance(context.applicationContext) }
 
-    override fun schedule(expedited: Boolean) {
+    override fun schedule(expedited: Boolean) = enqueue(expedited, refresh = false)
+
+    override fun scheduleRefresh() = enqueue(expedited = false, refresh = true)
+
+    private fun enqueue(expedited: Boolean, refresh: Boolean) {
         val request = OneTimeWorkRequestBuilder<CatalogSyncWorker>()
+            .setInputData(androidx.work.workDataOf(CatalogSyncWorker.KEY_REFRESH to refresh))
             // A lost connection pauses the read; Android starts it again once the phone is back online.
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
@@ -103,7 +114,11 @@ class CatalogSyncWorker(context: Context, params: WorkerParameters) : CoroutineW
             BackgroundSessionDecision.RETRY -> Result.retry()
             BackgroundSessionDecision.PAUSE -> Result.success()
             BackgroundSessionDecision.RUN -> {
-                app.graph.galleryRepository.resumeCatalogScan()
+                val repository = app.graph.galleryRepository
+                // With no first read to continue, a refresh asked for by backup reads what changed since the last one.
+                if (repository.resumeCatalogScan() == null && inputData.getBoolean(KEY_REFRESH, false)) {
+                    repository.refresh(includeDeviceMedia = false)
+                }
                 Result.success()
             }
         }
@@ -123,11 +138,13 @@ class CatalogSyncWorker(context: Context, params: WorkerParameters) : CoroutineW
         return ForegroundInfo(CATALOG_NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 
-    private companion object {
-        const val CATALOG_NOTIFICATION_ID = 1712
+    companion object {
+        /** Input: refresh the library when there is no first read to continue. */
+        const val KEY_REFRESH = "refresh"
+        private const val CATALOG_NOTIFICATION_ID = 1712
 
         /** About a day of exponential backoff from 30 seconds, capped by WorkManager at five hours. */
-        const val MAX_ATTEMPTS = 10
-        const val SYNC_CHANNEL = "photo-transfers"
+        private const val MAX_ATTEMPTS = 10
+        private const val SYNC_CHANNEL = "photo-transfers"
     }
 }
