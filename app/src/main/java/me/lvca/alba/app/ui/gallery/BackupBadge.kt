@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -25,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -33,6 +33,7 @@ import kotlinx.coroutines.delay
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.MediaScrim
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.TransferView
@@ -102,15 +103,16 @@ internal fun BoxScope.BackupBadgeOverlay(mediaId: String) {
         BackupBadge.QUEUED -> {
             MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(GalleryFeel.TILE_SCRIM_HEIGHT))
             Icon(AlbaIcons.CloudUpload, stringResource(R.string.badge_backup_waiting), tint = onMedia,
-                modifier = Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).size(18.dp)
+                modifier = Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).size(AlbaIconSize.inline)
                     .testTag("backup-badge-queued"))
         }
         BackupBadge.FAILED -> Box(
             Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).size(20.dp)
-                .background(Color.White, CircleShape).testTag("backup-badge-failed"),
+                .background(MaterialTheme.colorScheme.error, CircleShape).testTag("backup-badge-failed"),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(AlbaIcons.CloudOff, stringResource(R.string.badge_backup_failed), tint = FailedRed, modifier = Modifier.size(14.dp))
+            Icon(AlbaIcons.CloudOff, stringResource(R.string.badge_backup_failed), tint = MaterialTheme.colorScheme.onError,
+                modifier = Modifier.size(AlbaIconSize.badge))
         }
         else -> Unit
     }
@@ -119,11 +121,8 @@ internal fun BoxScope.BackupBadgeOverlay(mediaId: String) {
     AnimatedVisibility(showDone && badge == BackupBadge.DONE, Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET),
         enter = EnterTransition.None, exit = if (reducedMotion) ExitTransition.None else fadeOut(tween(DONE_FADE_MILLIS))) {
         Icon(AlbaIcons.CloudDone, stringResource(R.string.badge_backup_done), tint = onMedia,
-            modifier = Modifier.size(18.dp).testTag("backup-badge-done"))
+            modifier = Modifier.size(AlbaIconSize.inline).testTag("backup-badge-done"))
     }
 }
 
 private const val DONE_FADE_MILLIS = 300
-
-/** Google Photos' cloud-off red, legible on the white disc in light and dark themes alike. */
-private val FailedRed = Color(0xFFD93025)

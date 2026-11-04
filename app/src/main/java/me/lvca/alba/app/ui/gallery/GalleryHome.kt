@@ -36,11 +36,13 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -87,6 +89,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaSheetBody
 import me.lvca.alba.app.ui.designsystem.DemoBadge
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.InitialAvatar
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.galleryOverlay
 import me.lvca.alba.app.ui.designsystem.theme.tile
 import me.lvca.alba.app.ui.itemCount
@@ -100,6 +103,7 @@ import me.lvca.alba.app.ui.shared.SharedAlbumActivity
 import me.lvca.alba.app.ui.shared.SharedAlbumControls
 import me.lvca.alba.app.ui.shared.SharedAlbumDetails
 import me.lvca.alba.app.ui.shared.SharedAlbumEmptyState
+import me.lvca.alba.app.ui.shared.SharedAlbumNotice
 import me.lvca.alba.app.ui.shared.SharedContributionPicker
 import me.lvca.alba.app.ui.shared.SharedInvitations
 import me.lvca.alba.app.ui.shared.sharedContributionCandidates
@@ -380,7 +384,7 @@ internal fun GalleryHome(
             if (wide) NavigationRail(Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
                 Spacer(Modifier.height(24.dp))
                 GalleryTab.entries.forEach { destination -> NavigationRailItem(selected = selectedTab() == destination,
-                    onClick = { navigate(destination) }, icon = { Icon(destination.icon(), null, Modifier.size(24.dp)) }, label = { Text(stringResource(destination.title)) },
+                    onClick = { navigate(destination) }, icon = { Icon(destination.icon(), null, Modifier.size(AlbaIconSize.standard)) }, label = { Text(stringResource(destination.title)) },
                     modifier = Modifier.testTag("tab-${destination.name}")) }
             }
             Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll), contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -551,9 +555,12 @@ internal fun GalleryHome(
                                     info = if (collection.shared != null) ({ sheet = GallerySheet.SharedInfo }) else null)
                                 // An empty shared album the person can add to prompts the first steps under its hero.
                                 val addable = canEdit && collection.shared?.canContribute == true
-                                if (addable && gallery.items.isEmpty() && !session.isRefreshing) {
-                                    SharedAlbumEmptyState({ sheet = GallerySheet.SharedPicker },
+                                // Offline, an empty album may only be out of reach; a viewer's empty album says photos will appear.
+                                if (collection.shared != null && gallery.items.isEmpty() && !session.isRefreshing) {
+                                    if (session.network?.online == false) SharedAlbumNotice(unreachable = true, refresh = actions::refresh)
+                                    else if (addable) SharedAlbumEmptyState({ sheet = GallerySheet.SharedPicker },
                                         if (collection.shared?.canManage == true) ({ sheet = GallerySheet.SharedManage }) else null)
+                                    else SharedAlbumNotice(unreachable = false, refresh = actions::refresh)
                                 }
                             }) else if (searchAlbums.isNotEmpty()) ({
                                 MatchingAlbums(searchAlbums, summaries, previewRetryVersion, actions::requestPreview) { album ->
@@ -775,12 +782,18 @@ private fun PhotoGrid(
         }
     }
     val selecting = selection.isNotEmpty()
-    val openOrToggle: (String) -> Unit = remember(grid, anchor, actions, selecting) {
+    val haptics = LocalHapticFeedback.current
+    val latestSelection by rememberUpdatedState(selection)
+    val openOrToggle: (String) -> Unit = remember(grid, anchor, actions, selecting, haptics) {
         { id ->
             if (!selecting) {
                 anchor.visibleWhenOpened = grid.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }
                 actions.openMedia(id)
-            } else actions.toggleSelection(id)
+            } else {
+                // Google Photos ticks on every tap that selects or deselects a photo.
+                haptics.performHapticFeedback(if (id in latestSelection) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                actions.toggleSelection(id)
+            }
         }
     }
     val scope = rememberCoroutineScope()
@@ -808,7 +821,7 @@ private fun PhotoGrid(
             AlbaCard(posed("permission").padding(horizontal = 16.dp, vertical = 12.dp).testTag("phone-photo-prompt"),
                 color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Icon(AlbaIcons.PhoneAndroid, null, Modifier.padding(top = 2.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(AlbaIcons.PhoneAndroid, null, Modifier.padding(top = 2.dp).size(AlbaIconSize.standard), tint = MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(stringResource(R.string.include_photos_from_this_phone), style = MaterialTheme.typography.titleMedium)
                         Text(stringResource(R.string.phone_photo_prompt_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -830,7 +843,8 @@ private fun PhotoGrid(
                 if (isRefreshing && scan != null) LibraryLoading(scan)
                 else if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
                 // Where photos can be added, the album's leading item shows the first steps instead.
-                else if (query.collectionId?.startsWith("shared:") == true) { if (onAddMedia == null) Text(stringResource(R.string.shared_album_empty)) }
+                // A shared album's hero shows its own empty or unreachable state.
+                else if (query.collectionId?.startsWith("shared:") == true) Unit
                 else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
                 else if (query.collectionId == GalleryQuery.HIDDEN) Text(stringResource(R.string.hidden_empty))
                 else if (connectPrompt) ConnectLibrary(connect = actions::openAccount, demo = actions::startDemo)
@@ -885,7 +899,10 @@ private fun PhotoGrid(
         if (onAddMedia != null && items.isNotEmpty()) item(key = "add-media") {
             Surface(onClick = onAddMedia, modifier = posed("add-media").aspectRatio(1f).testTag("album-add-media"),
                 shape = MaterialTheme.shapes.tile, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) }
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(AlbaIconSize.large),
+                        tint = MaterialTheme.colorScheme.primary)
+                }
             }
         }
         if (items.isNotEmpty()) item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {

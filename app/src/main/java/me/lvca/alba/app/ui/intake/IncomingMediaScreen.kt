@@ -17,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -75,7 +74,7 @@ internal fun IncomingMediaScreen(request: IncomingRequest.Media, accountState: I
             onDispose { }
         }
         AlbaTheme(darkTheme = true) {
-            Surface(Modifier.fillMaxSize().testTag("incoming-media"), color = Color.Black, contentColor = Color.White) {
+            Surface(Modifier.fillMaxSize().testTag("incoming-media"), color = AlbaTheme.colors.viewer.immersive, contentColor = AlbaTheme.colors.onMedia) {
                 Column(Modifier.fillMaxSize().statusBarsPadding().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
                     IncomingTopBar(if (request.savedCopy) stringResource(R.string.edited_copy_saved) else items?.getOrNull(pager.currentPage)?.name.orEmpty(),
                         items?.getOrNull(pager.currentPage), close) { shareFailed = it }

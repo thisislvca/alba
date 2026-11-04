@@ -7,7 +7,14 @@ import me.lvca.alba.engine.model.StoredMessage
 internal fun localizedStoredMessage(message: String?, fallback: Int = R.string.operation_needs_attention): UiMessage =
     UiMessage(StoredMessage.decode(message)?.let(::storedMessageResource) ?: fallback)
 
-internal fun storedMessageResource(message: StoredMessage): Int = when (message) {
+/**
+ * The string for [message]. The mapping is split in two only to keep each function short; StoredMessageTest checks
+ * that every entry has a string.
+ */
+internal fun storedMessageResource(message: StoredMessage): Int =
+    firstMessageResources(message) ?: secondMessageResources(message) ?: error("No string for stored message $message")
+
+private fun firstMessageResources(message: StoredMessage): Int? = when (message) {
     StoredMessage.PHONE_STORAGE_LOW -> R.string.phone_storage_low
     StoredMessage.CHECK_PHONE_GALLERY_BEFORE_RETRY -> R.string.check_phone_gallery_before_retry
     StoredMessage.AUTOMATIC_BACKUP_IS_OFF -> R.string.message_automatic_backup_is_off
@@ -67,6 +74,10 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.ACCOUNT_OPERATION_CANCELED_THE_REMAINING_BATCH -> R.string.message_account_operation_canceled_the_remaining_batch
     StoredMessage.ACCOUNT_CHANGED -> R.string.message_account_changed
     StoredMessage.CHECK_THE_UPLOAD_QUEUE_BEFORE_SELECTING_THIS_ITEM_AGAIN -> R.string.message_check_the_upload_queue_before_selecting_this_item_again
+    else -> null
+}
+
+private fun secondMessageResources(message: StoredMessage): Int? = when (message) {
     StoredMessage.QUEUED -> R.string.message_queued
     StoredMessage.COULD_NOT_STAGE_THIS_JPEG_CHECK_FILE_ACCESS_AND_THE_UPLOAD_QUEUE -> R.string.message_could_not_stage_this_jpeg_check_file_access_and_the_upload_queue
     StoredMessage.COULD_NOT_COMPLETE_THIS_ITEM -> R.string.message_could_not_complete_this_item
@@ -111,6 +122,12 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT -> R.string.message_upload_canceled_select_the_file_again_to_upload_it
     StoredMessage.UPLOAD_AVIF_UNSUPPORTED -> R.string.upload_avif_unsupported
     StoredMessage.UPLOAD_IMAGE_SEQUENCE_UNSUPPORTED -> R.string.upload_image_sequence_unsupported
+    StoredMessage.UPLOAD_GIF_NOT_ACCEPTED -> R.string.upload_gif_not_accepted
+    StoredMessage.UPLOAD_RAW_NOT_ACCEPTED -> R.string.upload_raw_not_accepted
+    StoredMessage.UPLOAD_RAW_NOT_ACCEPTED_JPEG_BACKS_UP -> R.string.upload_raw_not_accepted_jpeg_backs_up
+    StoredMessage.UPLOAD_TIFF_NOT_ACCEPTED -> R.string.upload_tiff_not_accepted
+    StoredMessage.UPLOAD_VIDEO_FORMAT_NOT_ACCEPTED -> R.string.upload_video_format_not_accepted
+    StoredMessage.UPLOAD_FORMAT_NOT_ACCEPTED -> R.string.upload_format_not_accepted
     StoredMessage.ICLOUD_STORAGE_FULL -> R.string.icloud_storage_full
     StoredMessage.AUTOMATIC_BACKUP_IS_ON -> R.string.message_automatic_backup_is_on
     StoredMessage.ONLY_ITEMS_THAT_SENT_NOTHING_CAN_BE_RETRIED -> R.string.message_only_items_that_sent_nothing_can_be_retried
@@ -118,4 +135,7 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK -> R.string.could_not_reach_icloud_to_check
     StoredMessage.THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK -> R.string.the_phone_file_changed_after_its_check
     StoredMessage.COULD_NOT_READ_THIS_FILE_ON_THE_PHONE -> R.string.could_not_read_this_file_on_the_phone
+    StoredMessage.ALREADY_IN_ICLOUD -> R.string.already_in_icloud
+    StoredMessage.CHECKING_ICLOUD_LIBRARY_FIRST -> R.string.checking_icloud_library_first
+    else -> null
 }

@@ -137,4 +137,7 @@ internal object GalleryFeel {
      * shorter than its generic 200 ms fade (photos_animations_fade_in) so fast scrolling never looks washed out.
      */
     const val TILE_FADE_IN_MILLIS = 150
+
+    /** A rotating album cover's slow cross-fade to the next photo. Reduced motion swaps covers at once. */
+    const val COVER_CROSSFADE_MILLIS = 900
 }

@@ -7,6 +7,9 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -130,5 +133,24 @@ class ViewerControlsTest {
         compose.onNodeWithTag("viewer-more").performClick()
         compose.onNodeWithTag("viewer-menu-details").performClick()
         compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
+    }
+
+    @Test fun aPhotoWithNoPreviewSaysSoInTheMiddleAndOffersTryAgain() {
+        val requested = mutableListOf<String>()
+        val actions = object : GalleryStateActions(gallery.copy(selectedMedia = photo)) {
+            override fun requestPreview(mediaId: String) { requested += mediaId }
+        }
+        compose.setAlbaContent(actions.state, ScreenshotFixtures.signedIn, actions)
+        // The fixtures have no preview files, so the viewer has nothing to show for the photo.
+        // Neighbouring pages are composed too; check the open photo's.
+        val onThisPhoto = hasAnyAncestor(hasTestTag("viewer-image-${photo.id}"))
+        val status = compose.onNode(hasTestTag("viewer-photo-status") and onThisPhoto).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val image = compose.onNodeWithTag("viewer-image-${photo.id}").fetchSemanticsNode().boundsInRoot
+        assertEquals(image.center.x, status.center.x, 2f)
+        assertEquals(image.center.y, status.center.y, 2f)
+        compose.onNode(hasText(text(R.string.photo_preview_unavailable)) and onThisPhoto).assertIsDisplayed()
+        compose.runOnIdle { requested.clear() }
+        compose.onNode(hasTestTag("retry-preview") and onThisPhoto).assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals(listOf(photo.id), requested) }
     }
 }

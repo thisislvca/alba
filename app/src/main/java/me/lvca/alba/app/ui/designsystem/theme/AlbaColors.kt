@@ -27,9 +27,35 @@ internal data class AlbaColors(
     /** Initial avatars on album covers. */
     val avatar: Color,
     val onAvatar: Color,
+    /** The photo viewer's canvas, chrome and details panel. */
+    val viewer: ViewerColors,
     /** The account card and its artwork, which keep their own palette in both themes. */
     val profile: ProfileColors,
 )
+
+/** Neutral viewer surfaces that keep the media in focus: white or black canvas with soft greys around it. */
+@Immutable
+internal data class ViewerColors(
+    val canvas: Color,
+    val foreground: Color,
+    val secondary: Color,
+    val card: Color,
+    val chip: Color,
+    val disabled: Color,
+    /** Behind a playing video or hidden chrome, black in both themes like Google Photos. */
+    val immersive: Color = Color.Black,
+    /** Video controls drawn over the video itself or the black canvas. */
+    val videoOnDark: VideoControlColors = VideoControlsOnDark,
+    /** Video controls drawn over the light canvas. */
+    val videoOnLight: VideoControlColors = VideoControlsOnLight,
+)
+
+/** Video controls pick their ink by what is behind them (the video or the viewer canvas), not by theme alone. */
+@Immutable
+internal data class VideoControlColors(val ink: Color, val track: Color)
+
+private val VideoControlsOnDark = VideoControlColors(ink = Color(0xFFF4F4F4), track = Color(0xFF929292))
+private val VideoControlsOnLight = VideoControlColors(ink = Color(0xFF30323A), track = Color(0xFF838489))
 
 /** The profile hero card is a fixed illustration, so its colours do not change with the theme. */
 @Immutable
@@ -83,6 +109,10 @@ internal val LightAlbaColors = AlbaColors(
     sheetHandle = Color(0xFFDADCE6),
     avatar = Color(0xFFEEECE8),
     onAvatar = Color(0xFF35383C),
+    viewer = ViewerColors(
+        canvas = Color.White, foreground = Color(0xFF30323A), secondary = Color(0xFF5D5F68),
+        card = Color(0xFFEDEDF6), chip = Color(0xFFE3E3EA), disabled = Color(0xFF9A9BA0),
+    ),
     profile = ProfileColors(),
 )
 
@@ -96,6 +126,10 @@ internal val DarkAlbaColors = AlbaColors(
     sheetHandle = Color(0xFF4A4D57),
     avatar = Color(0xFF3A3D44),
     onAvatar = Color(0xFFE5E8EF),
+    viewer = ViewerColors(
+        canvas = Color.Black, foreground = Color(0xFFE3E3E3), secondary = Color(0xFFC4C7C5),
+        card = Color(0xFF1F1F1F), chip = Color(0xFF303030), disabled = Color(0xFF777777),
+    ),
     profile = ProfileColors(),
 )
 

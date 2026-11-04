@@ -2,6 +2,8 @@ package me.lvca.alba.app.ui.onboarding
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,7 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -31,7 +32,9 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaFeatureRow
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
+import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 
 /** The second page, which offers connecting iCloud or trying the demo. */
 internal const val WELCOME_CHOICES_PAGE = 1
@@ -61,18 +64,24 @@ internal fun WelcomeScreen(onConnect: () -> Unit, onDemo: () -> Unit, initialPag
                         style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
+                // Reduced motion swaps the page at once instead of cross-fading it.
+                val reducedMotion = reduceGalleryMotion()
                 AnimatedContent(page, modifier = Modifier.then(if (!compact) Modifier.weight(1f) else Modifier).fillMaxWidth(),
-                    transitionSpec = { fadeIn(tween(180, 80)).togetherWith(fadeOut(tween(100))) }, label = "welcome-page") { current ->
+                    transitionSpec = {
+                        if (reducedMotion) EnterTransition.None.togetherWith(ExitTransition.None)
+                        else fadeIn(tween(180, 80)).togetherWith(fadeOut(tween(100)))
+                    }, label = "welcome-page") { current ->
                     Column(Modifier.then(if (compact) Modifier.fillMaxWidth() else Modifier.fillMaxSize().verticalScroll(rememberScrollState()))
                         .padding(top = AlbaSpacing.xxl, bottom = AlbaSpacing.xl)) {
                         Surface(shape = MaterialTheme.shapes.extraLarge,
-                            color = if (current == 0) Color.White else MaterialTheme.colorScheme.primaryContainer,
+                            // The logo sits on the lightest surface: white in light mode, a raised dark tile in dark mode.
+                            color = if (current == 0) MaterialTheme.colorScheme.surfaceContainerLowest else MaterialTheme.colorScheme.primaryContainer,
                             shadowElevation = if (current == 0) 1.dp else 0.dp,
                             modifier = Modifier.size(100.dp)) {
                             Box(contentAlignment = Alignment.Center) {
                                 if (current == 0) Image(painterResource(R.drawable.alba_logo_mark), null,
                                     modifier = Modifier.size(100.dp))
-                                else Icon(Icons.Outlined.Lock, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                                else Icon(Icons.Outlined.Lock, null, modifier = Modifier.size(AlbaIconSize.display), tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                         Spacer(Modifier.height(AlbaSpacing.xxl))

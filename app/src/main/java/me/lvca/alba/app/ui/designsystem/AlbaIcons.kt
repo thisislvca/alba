@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 
 internal object AlbaIcons {
@@ -454,5 +455,5 @@ internal fun FavoriteIcon(favorite: Boolean, contentDescription: String?, modifi
 
 @Composable
 internal fun ICloudIcon(@DrawableRes resource: Int) {
-    Icon(painterResource(resource), contentDescription = null, tint = AlbaTheme.colors.accent, modifier = Modifier.size(24.dp))
+    Icon(painterResource(resource), contentDescription = null, tint = AlbaTheme.colors.accent, modifier = Modifier.size(AlbaIconSize.standard))
 }

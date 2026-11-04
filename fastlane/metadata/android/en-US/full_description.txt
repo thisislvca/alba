@@ -1,0 +1,34 @@
+Alba brings your iCloud photo library to Android. Browse your photos and videos, back up your phone to iCloud and keep using your Shared Albums, without a Mac or an iPhone at hand.
+
+YOUR LIBRARY
+• Browse your iCloud Photos library alongside the photos on your phone
+• Watch videos and Live Photos
+• Find photos by file name, caption, album, month or type
+• Use albums, Favorites, Hidden and Recently Deleted
+
+BACKUP
+• Back up photos and videos from your camera and the folders you choose
+• Include the photos and videos already on your phone, newest first
+• Originals go straight to iCloud and are checked there before they count as backed up
+• Uses Wi-Fi unless you allow mobile data; interrupted uploads retry on their own
+
+SHARED ALBUMS
+• Create shared albums, invite people and add photos and videos
+• Join albums shared with you, comment and react
+
+ON YOUR PHONE
+• Keep originals offline, save them to your gallery or share them with other apps
+• Crop, rotate, adjust and filter photos, then save an edited copy
+
+PRIVATE BY DESIGN
+Your phone connects directly to Apple. Alba has no server for your photos or credentials, never saves your password and has no ads or behavioral analytics. Your sign-in is kept encrypted on your phone.
+
+TRY IT FIRST
+The demo works without an account, with sample photos and a simulated backup.
+
+GOOD TO KNOW
+• Requires Android 11 or later and an Apple Account with iCloud Photos turned on
+• Supports standard two-factor authentication. Accounts that use security keys or Advanced Data Protection aren’t supported yet, and neither is iCloud Shared Photo Library
+• Alba is experimental. It uses Apple’s unofficial web APIs, so features can break when Apple changes them
+
+Alba is free and open source (AGPL-3.0), with no subscriptions or paid features. It is independent and not affiliated with, endorsed by or sponsored by Apple Inc. iCloud is a trademark of Apple Inc.

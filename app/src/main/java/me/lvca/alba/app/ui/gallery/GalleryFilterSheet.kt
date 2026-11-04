@@ -33,6 +33,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
 import me.lvca.alba.app.ui.designsystem.AlbaSheetHeading
 import me.lvca.alba.app.ui.designsystem.FavoriteIcon
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.localizedTitle
 import me.lvca.alba.engine.model.*
@@ -72,10 +73,12 @@ internal fun GalleryFilterSheet(state: GalleryState, change: (GalleryQuery) -> U
                     FilterMenuRow(stringResource(R.string.all_items), state.query.collectionId == null,
                         { change(state.query.copy(collectionId = null)) }, icon = { DensityGridIcon(3, LocalContentColor.current) })
                     FilterMenuRow(stringResource(R.string.favorites), state.query.collectionId == GalleryQuery.FAVORITES,
-                        { change(state.query.copy(collectionId = GalleryQuery.FAVORITES)) }, icon = { FavoriteIcon(true, null, Modifier.size(22.dp)) })
+                        { change(state.query.copy(collectionId = GalleryQuery.FAVORITES)) },
+                        icon = { FavoriteIcon(true, null, Modifier.size(AlbaIconSize.standard)) })
                     SmartCollection.entries.forEach { smart ->
                         FilterMenuRow(smart.localizedTitle(), state.query.collectionId == smart.id,
-                            { change(state.query.copy(collectionId = smart.id)) }, icon = { Icon(painterResource(smart.icon()), null, Modifier.size(22.dp)) })
+                            { change(state.query.copy(collectionId = smart.id)) },
+                            icon = { Icon(painterResource(smart.icon()), null, Modifier.size(AlbaIconSize.standard)) })
                     }
                 }
                 FilterDivider()
@@ -84,7 +87,7 @@ internal fun GalleryFilterSheet(state: GalleryState, change: (GalleryQuery) -> U
                     listOf(null to R.string.all_photos, MediaOrigin.ICLOUD to R.string.icloud, MediaOrigin.DEVICE to R.string.this_phone).forEach { (origin, label) ->
                         FilterMenuRow(stringResource(label), state.query.origin == origin, {
                             if (origin == MediaOrigin.DEVICE && !state.deviceMediaAccess) requestPhotos() else change(state.query.copy(origin = origin))
-                        }, icon = { Icon(when (origin) { MediaOrigin.ICLOUD -> AlbaIcons.CloudQueue; MediaOrigin.DEVICE -> AlbaIcons.PhoneAndroid; else -> AlbaIcons.PhotoLibrary }, null, Modifier.size(22.dp)) })
+                        }, icon = { Icon(when (origin) { MediaOrigin.ICLOUD -> AlbaIcons.CloudQueue; MediaOrigin.DEVICE -> AlbaIcons.PhoneAndroid; else -> AlbaIcons.PhotoLibrary }, null, Modifier.size(AlbaIconSize.standard)) })
                     }
                 }
                 if (state.limitedPhotoAccess || !state.deviceMediaAccess) TextButton(onClick = requestPhotos) {

@@ -2,6 +2,7 @@ package me.lvca.alba.app.ui.collections
 
 import android.provider.Settings
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -37,10 +38,12 @@ import me.lvca.alba.app.ui.designsystem.MediaScrim
 import me.lvca.alba.app.ui.designsystem.MediaScrimStrength
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.heroTitle
+import me.lvca.alba.app.ui.gallery.GalleryFeel
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.itemCount
 import me.lvca.alba.app.ui.localizedName
 import me.lvca.alba.app.ui.shared.LocalSharedActivity
+import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.*
 
 internal data class CollectionPreview(val count: Int = 0, val media: List<GalleryMedia> = emptyList())
@@ -106,7 +109,9 @@ internal fun AlbumCover(media: List<GalleryMedia>, retry: Int, preview: (String)
             }
         }
     }
-    Crossfade(candidates.getOrNull(index), modifier, animationSpec = tween(900), label = "album-cover") {
+    // A cover chosen or changed under reduced motion appears at once instead of cross-fading.
+    val coverFade = if (reduceGalleryMotion()) snap<Float>() else tween(GalleryFeel.COVER_CROSSFADE_MILLIS)
+    Crossfade(candidates.getOrNull(index), modifier, animationSpec = coverFade, label = "album-cover") {
         CoverImage(it, retry, preview, Modifier.fillMaxSize())
     }
 }
@@ -159,14 +164,16 @@ private fun UnreadDot(albumId: String, modifier: Modifier) {
 @Composable
 internal fun SharedAlbumsStrip(albums: List<GalleryCollection>, summaries: Map<String, CollectionPreview>, retry: Int,
     preview: (String) -> Unit, open: (String) -> Unit, seeAll: () -> Unit) {
-    if (albums.isEmpty()) return
+    // An empty album would only be a grey card above the photos; it stays in Collections > Shared albums.
+    val shown = albums.filter { (summaries[it.id]?.count ?: 0) > 0 }
+    if (shown.isEmpty()) return
     Column(Modifier.padding(bottom = 18.dp).testTag("shared-albums-strip")) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.shared_albums), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             TextButton(onClick = seeAll) { Text(stringResource(R.string.see_all)) }
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(albums, key = { it.id }) { album ->
+            items(shown, key = { it.id }) { album ->
                 AlbumCard(album, summaries[album.id], retry, preview, Modifier.width(164.dp), featured = true,
                     unread = album.id in LocalSharedActivity.current.unreadAlbums) { open(album.id) }
             }

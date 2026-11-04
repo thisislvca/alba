@@ -49,6 +49,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaMenu
 import me.lvca.alba.app.ui.designsystem.AlbaMenuDivider
 import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.FavoriteIcon
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.floating
 import me.lvca.alba.engine.companion.BatchAction
@@ -260,7 +261,7 @@ private fun SelectionAction(tool: SelectionTool, labelled: Boolean) {
         .semantics { contentDescription = tool.description }
         .padding(horizontal = LabelledToolPadding),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)) {
-        Icon(tool.icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+        Icon(tool.icon, contentDescription = null, tint = color, modifier = Modifier.size(AlbaIconSize.standard))
         Text(tool.label, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

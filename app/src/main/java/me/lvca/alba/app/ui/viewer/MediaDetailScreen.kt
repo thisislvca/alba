@@ -47,9 +47,11 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -86,10 +88,13 @@ import me.lvca.alba.app.ui.designsystem.AlbaMenuDivider
 import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.FavoriteIcon
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.sheet
 import me.lvca.alba.app.ui.designsystem.theme.viewerTitle
+import me.lvca.alba.app.ui.gallery.LocalViewerPhotoPage
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
+import me.lvca.alba.app.ui.gallery.ViewerPhotoPage
 import me.lvca.alba.app.ui.gallery.trashDaysLeftLabel
 import me.lvca.alba.app.ui.shared.SharedPhotoControls
 import me.lvca.alba.app.ui.timeLabel
@@ -155,6 +160,7 @@ internal fun MediaDetailScreen(
         actions.addToAlbum(id, listOf(media.id)); choosingAlbum = false
     }
     val darkViewer = AlbaTheme.colors.isDark
+    val haptics = LocalHapticFeedback.current
     val colors = viewerColors()
     val reduceMotion = reduceGalleryMotion()
     // Keyed by photo only: a resize or rotation must not drop an in-flight drag (B3).
@@ -174,7 +180,7 @@ internal fun MediaDetailScreen(
         val chromeOn = controls
         val playingVideo = media.kind == MediaKind.VIDEO && videoPlaying
         val chromeFade = tween<Float>(if (reduceMotion) 80 else ViewerSpec.CHROME_FADE_MILLIS, easing = LinearEasing)
-        val canvasColor by animateColorAsState(if ((chromeOn && !playingVideo) || expanded) colors.canvas else Color.Black,
+        val canvasColor by animateColorAsState(if ((chromeOn && !playingVideo) || expanded) colors.canvas else colors.immersive,
             tween(if (reduceMotion) 0 else ViewerSpec.CHROME_FADE_MILLIS, easing = LinearEasing), label = "viewer-canvas")
         SideEffect { onViewerLightBars(!darkViewer && (chromeOn || expanded)) }
         // GP hides the status and navigation bars with the chrome; an edge swipe reveals them briefly.
@@ -188,9 +194,16 @@ internal fun MediaDetailScreen(
             motion.settleDetails(scope, show, reduceMotion)
         }
         val dragEnabled = !zoomed && !pager.isScrollInProgress && activeScreen
-        val startDrag: (ViewerDrag) -> Unit = { mode -> dragMode = mode; motion.begin() }
+        // Like Google Photos, a swipe down ticks once as it passes the point where letting go closes the photo.
+        var pastDismiss by remember { mutableStateOf(false) }
+        val startDrag: (ViewerDrag) -> Unit = { mode -> dragMode = mode; pastDismiss = false; motion.begin() }
         val moveDrag: (ViewerDrag, Offset) -> Unit = { mode, delta ->
-            if (mode == ViewerDrag.DISMISS) motion.dragDismiss(delta) else motion.dragDetails(delta.y, detailsHeightPx)
+            if (mode == ViewerDrag.DISMISS) {
+                motion.dragDismiss(delta)
+                val past = shouldDismiss(motion.travel, fullEffectPx)
+                if (past && !pastDismiss) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                pastDismiss = past
+            } else motion.dragDetails(delta.y, detailsHeightPx)
         }
         val stopDrag: (ViewerDrag, Velocity) -> Unit = { mode, velocity ->
             dragMode = null
@@ -311,15 +324,21 @@ internal fun MediaDetailScreen(
                                 // Playing a video hides the chrome after a few seconds; a Live Photo's motion, like
                                 // GP's motion photos, keeps it so "Show still photo" stays at hand.
                                 playbackHidesChrome = item.kind == MediaKind.VIDEO)
-                        } else MediaThumbnail(reference = item.linkedDeviceReference ?: item.originalReference ?: item.viewerReference ?: item.previewReference, sourceRevision = item.sourceRevision,
-                            fallbackReference = item.previewReference, sharedMediaId = if (active) item.id else null,
-                            accentStartArgb = item.accentStartArgb, accentEndArgb = item.accentEndArgb, contentDescription = item.fileName,
-                            contentScale = ContentScale.Fit, zoomable = active && !expanded, onTap = { if (!expanded) controls = !controls },
-                            onZoomChanged = { if (active) zoomed = it }, sourceSize = IntSize(item.width, item.height),
-                            presentationScale = if (active) { { pose().scale } } else { { 1f } },
-                            pinchToClose = pinchToClose.takeIf { active && activeScreen },
-                            modifier = Modifier.fillMaxSize().testTag("viewer-image-${item.id}"))
-                        if (active && loading) CircularProgressIndicator(Modifier.align(Alignment.TopCenter).padding(top = 76.dp).size(22.dp), strokeWidth = 2.dp)
+                        } else CompositionLocalProvider(LocalViewerPhotoPage provides
+                            ViewerPhotoPage(retry = { retry += 1; actions.requestPreview(item.id) }, statusVisible = !(active && (loading || failed)))) {
+                            MediaThumbnail(reference = item.linkedDeviceReference ?: item.originalReference ?: item.viewerReference ?: item.previewReference,
+                                sourceRevision = item.sourceRevision,
+                                fallbackReference = item.previewReference, sharedMediaId = if (active) item.id else null,
+                                accentStartArgb = item.accentStartArgb, accentEndArgb = item.accentEndArgb, contentDescription = item.fileName,
+                                contentScale = ContentScale.Fit, zoomable = active && !expanded, onTap = { if (!expanded) controls = !controls },
+                                onZoomChanged = { if (active) zoomed = it }, sourceSize = IntSize(item.width, item.height),
+                                presentationScale = if (active) { { pose().scale } } else { { 1f } },
+                                pinchToClose = pinchToClose.takeIf { active && activeScreen },
+                                modifier = Modifier.fillMaxSize().testTag("viewer-image-${item.id}"))
+                        }
+                        // Centred on the photo or its placeholder, like Google Photos' loading ring.
+                        if (active && loading) CircularProgressIndicator(Modifier.align(Alignment.Center).size(AlbaIconSize.standard).testTag("viewer-loading"),
+                            color = colors.foreground, trackColor = colors.chip, strokeWidth = 2.dp)
                         if (active && failed) FilledTonalButton(onClick = { retry++; actions.requestPreview(item.id) }, modifier = Modifier.align(Alignment.Center).testTag("retry-viewer")) {
                             Text(stringResource(R.string.retry_photo))
                         }
@@ -333,7 +352,10 @@ internal fun MediaDetailScreen(
                     if (expanded) ViewerDetailsBackButton(backLabel, { showDetails(false) })
                     else ViewerTopBar(media, backLabel, actions::closeMedia,
                         favoriteEnabled = canEdit && !media.isTrashed && !media.isShared && !pager.isScrollInProgress,
-                        onFavorite = { actions.setFavorite(media.id, !media.isFavorite) },
+                        onFavorite = {
+                            haptics.performHapticFeedback(if (media.isFavorite) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                            actions.setFavorite(media.id, !media.isFavorite)
+                        },
                         onMore = { videoOptions = true },
                         videoOptionsOpen = videoOptions, onDismissVideoOptions = { videoOptions = false },
                         videoLoop = videoLoop, onToggleLoop = { videoLoop = !videoLoop; videoOptions = false },
@@ -581,7 +603,8 @@ private fun ViewerActionBar(
 ) {
     // Photos' actions sit on the canvas itself; a transparent-to-canvas scrim keeps them legible where the photo runs
     // under them, and the ink follows the canvas, dark on the light one and light on black.
-    val ink = if (canvas.luminance() > .5f) viewerColors().foreground else AlbaTheme.colors.onMedia
+    val viewer = viewerColors()
+    val ink = if (canvas.luminance() > .5f) viewer.foreground else viewer.videoOnDark.ink
     Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(canvas.copy(alpha = 0f), canvas.copy(alpha = ACTION_SCRIM_ALPHA))))
         .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility).offset(y = 5.dp).height(76.dp).testTag("viewer-actions"),
         horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
@@ -631,7 +654,7 @@ private fun ViewerAction(label: String, enabled: Boolean, click: () -> Unit, mod
         .height(76.dp).semantics { contentDescription = description }, horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
         CompositionLocalProvider(LocalContentColor provides if (enabled) ink else ink.copy(alpha = .38f)) {
-            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon() }
+            Box(Modifier.size(AlbaIconSize.standard), contentAlignment = Alignment.Center) { icon() }
             Spacer(Modifier.height(8.dp))
             Text(label, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

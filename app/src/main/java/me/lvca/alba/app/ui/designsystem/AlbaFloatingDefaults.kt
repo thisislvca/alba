@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.floating
 import me.lvca.alba.app.ui.navigation.NavigationMotion
@@ -75,7 +76,7 @@ internal object AlbaFloatingDefaults {
     val MenuMaxWidth = 280.dp
     val MenuItemHeight = 48.dp
     val MenuItemPadding = 16.dp
-    val MenuIconSize = 24.dp
+    val MenuIconSize = AlbaIconSize.standard
     val MenuGroupPadding = 8.dp
     val MenuShadow = 3.dp
 

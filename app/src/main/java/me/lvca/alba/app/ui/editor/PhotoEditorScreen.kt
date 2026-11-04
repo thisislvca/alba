@@ -18,14 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -108,7 +109,7 @@ internal fun PhotoEditorScreen(
         AlbaTheme(darkTheme = true) {
         EditorDialogs(discard, save as? EditSave.NeedsSmallerCopy, dismiss = { discard = false; if (save is EditSave.NeedsSmallerCopy) dismissSave() },
             discardEdits = { discard = false; close() }, saveSmaller = { startSave(allowSmaller = true) })
-        Surface(Modifier.fillMaxSize(), color = Color.Black, contentColor = Color.White) {
+        Surface(Modifier.fillMaxSize(), color = EditorColors.canvas, contentColor = EditorColors.onCanvas) {
             Column(Modifier.fillMaxSize().systemBarsPadding().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 EditorTopBar(edit, busy, saving, canSave = !busy && file != null, canUpload, requestClose,
                     save = { startSave(upload = false) }, saveAndUpload = { startSave(upload = true) })
@@ -162,7 +163,7 @@ private fun LightSystemBarIcons() {
 
 @Composable
 private fun EditorTabs(tab: EditorTab, enabled: Boolean, select: (EditorTab) -> Unit) {
-    PrimaryTabRow(selectedTabIndex = tab.ordinal, containerColor = Color.Black, contentColor = Color.White) {
+    PrimaryTabRow(selectedTabIndex = tab.ordinal, containerColor = EditorColors.canvas, contentColor = EditorColors.onCanvas) {
         EditorTab.entries.forEach { entry ->
             Tab(selected = tab == entry, onClick = { select(entry) }, enabled = enabled,
                 text = { Text(stringResource(entry.label), maxLines = 1) },
@@ -275,9 +276,12 @@ private fun cropEdgeLabels(): List<String> =
 private fun cropAdjustmentLabels(): List<Pair<String, String>> =
     cropEdgeLabels().map { stringResource(R.string.crop_move_outward, it) to stringResource(R.string.crop_move_inward, it) }
 
-/** Corner handles over the whole photo, with accessibility actions that nudge each edge. */
+/**
+ * Corner handles over the whole photo, with accessibility actions that nudge each edge. A drag moves the nearest
+ * corner; the touch area reaches [CropHandleReach] past the photo so a handle on its edge keeps a 48dp target.
+ */
 @Composable
-private fun CropOverlay(edit: PhotoEditState, busy: Boolean) {
+private fun BoxScope.CropOverlay(edit: PhotoEditState, busy: Boolean) {
     val crop = edit.current.crop
     val (left, top, right, bottom) = crop
     val cropDescription = stringResource(R.string.crop_bounds, (left * 100).toInt(), (top * 100).toInt(), (right * 100).toInt(), (bottom * 100).toInt())
@@ -288,28 +292,46 @@ private fun CropOverlay(edit: PhotoEditState, busy: Boolean) {
     }
     val label = stringResource(R.string.crop_photo)
     val latestCrop by rememberUpdatedState(crop)
-    Canvas(Modifier.fillMaxSize().testTag("photo-crop").semantics {
-        contentDescription = label
-        stateDescription = cropDescription
-        customActions = if (busy) emptyList() else cropActions
-    }.pointerInput(busy) {
+    Box(Modifier.matchParentSize().layout { measurable, constraints ->
+        val reach = CropHandleReach.roundToPx()
+        val placeable = measurable.measure(Constraints.fixed(constraints.maxWidth + 2 * reach, constraints.maxHeight + 2 * reach))
+        layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(-reach, -reach) }
+    }.testTag("photo-crop-touch").pointerInput(busy) {
         if (busy) return@pointerInput
+        val reach = CropHandleReach.toPx()
         var corner = 0
+
+        // Positions on the photo itself, which sits [reach] inside this touch area on every side.
+        fun photoX(x: Float) = ((x - reach) / (size.width - 2 * reach)).coerceIn(0f, 1f)
+        fun photoY(y: Float) = ((y - reach) / (size.height - 2 * reach)).coerceIn(0f, 1f)
         detectDragGestures(onDragStart = { point ->
             edit.beginDrag()
             val c = latestCrop
             val corners = listOf(Offset(c.left, c.top), Offset(c.right, c.top), Offset(c.right, c.bottom), Offset(c.left, c.bottom))
-            corner = corners.indices.minBy { i -> hypot(point.x - corners[i].x * size.width, point.y - corners[i].y * size.height) }
+            val photoWidth = size.width - 2 * reach
+            val photoHeight = size.height - 2 * reach
+            corner = corners.indices.minBy { i ->
+                hypot(point.x - reach - corners[i].x * photoWidth, point.y - reach - corners[i].y * photoHeight)
+            }
         }, onDragEnd = edit::endDrag, onDragCancel = edit::cancelDrag) { change, _ ->
             change.consume()
-            edit.dragCorner(corner, (change.position.x / size.width).coerceIn(0f, 1f), (change.position.y / size.height).coerceIn(0f, 1f))
+            edit.dragCorner(corner, photoX(change.position.x), photoY(change.position.y))
         }
     }) {
-        val l = left * size.width; val t = top * size.height; val r = right * size.width; val b = bottom * size.height
-        val shade = Color.Black.copy(alpha = .58f)
-        drawRect(shade, size = Size(size.width, t)); drawRect(shade, Offset(0f, b), Size(size.width, size.height - b))
-        drawRect(shade, Offset(0f, t), Size(l, b - t)); drawRect(shade, Offset(r, t), Size(size.width - r, b - t))
-        drawRect(Color.White, Offset(l, t), Size(r - l, b - t), style = Stroke(2.dp.toPx()))
-        listOf(Offset(l, t), Offset(r, t), Offset(r, b), Offset(l, b)).forEach { drawCircle(Color.White, 6.dp.toPx(), it) }
+        Canvas(Modifier.fillMaxSize().padding(CropHandleReach).testTag("photo-crop").semantics {
+            contentDescription = label
+            stateDescription = cropDescription
+            customActions = if (busy) emptyList() else cropActions
+        }) {
+            val l = left * size.width; val t = top * size.height; val r = right * size.width; val b = bottom * size.height
+            val shade = EditorColors.cropShade
+            drawRect(shade, size = Size(size.width, t)); drawRect(shade, Offset(0f, b), Size(size.width, size.height - b))
+            drawRect(shade, Offset(0f, t), Size(l, b - t)); drawRect(shade, Offset(r, t), Size(size.width - r, b - t))
+            drawRect(EditorColors.cropFrame, Offset(l, t), Size(r - l, b - t), style = Stroke(2.dp.toPx()))
+            listOf(Offset(l, t), Offset(r, t), Offset(r, b), Offset(l, b)).forEach { drawCircle(EditorColors.cropFrame, 6.dp.toPx(), it) }
+        }
     }
 }
+
+/** Half of a 48dp touch target: how far past the photo a corner handle still answers. */
+private val CropHandleReach = 24.dp

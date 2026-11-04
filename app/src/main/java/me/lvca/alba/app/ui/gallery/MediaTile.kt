@@ -59,6 +59,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.FavoriteIcon
 import me.lvca.alba.app.ui.designsystem.MediaPill
 import me.lvca.alba.app.ui.designsystem.MediaScrim
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.label
 import me.lvca.alba.app.ui.localizedTitle
@@ -204,7 +205,7 @@ internal fun tileBadge(media: GalleryMedia): TileBadge? = when {
 @Composable
 private fun TileKindBadge(media: GalleryMedia, modifier: Modifier) {
     if (media.kind == MediaKind.LIVE_PHOTO) MediaPill(modifier) {
-        Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp))
+        Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(AlbaIconSize.badge))
         Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
     } else tileBadge(media)?.let { badge -> TypeBadge(badge, modifier) }
 }

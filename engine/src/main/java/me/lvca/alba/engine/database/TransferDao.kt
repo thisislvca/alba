@@ -176,6 +176,55 @@ interface TransferDao {
     )
     suspend fun releaseReadyLease(transferId: String, leaseToken: String, now: Long, message: String): Int
 
+    /** Lets go of a leased READY transfer that may not start before [notBefore], as while the iCloud library is read. */
+    @Query(
+        """
+        UPDATE transfers
+        SET leaseToken = NULL, leaseExpiresAtEpochMillis = NULL, notBeforeEpochMillis = :notBefore,
+            existingCopyFirstFailureAtEpochMillis = COALESCE(existingCopyFirstFailureAtEpochMillis, :firstFailureAt),
+            stateVersion = stateVersion + 1, updatedAtEpochMillis = :now, message = :message
+        WHERE transferId = :transferId AND state = 'READY' AND leaseToken = :leaseToken
+        """,
+    )
+    suspend fun deferReadyLease(
+        transferId: String,
+        leaseToken: String,
+        notBefore: Long,
+        now: Long,
+        message: String,
+        firstFailureAt: Long? = null,
+    ): Int
+
+    /** Keeps a leased READY transfer leased until [expiresAt]; 0 when the lease was lost meanwhile. */
+    @Query(
+        """
+        UPDATE transfers SET leaseExpiresAtEpochMillis = :expiresAt
+        WHERE transferId = :transferId AND state = 'READY' AND leaseToken = :leaseToken
+        """,
+    )
+    suspend fun extendReadyLease(transferId: String, leaseToken: String, expiresAt: Long): Int
+
+    /** Records what the look in the iCloud library found for a leased READY transfer that will now upload. */
+    @Query(
+        """
+        UPDATE transfers SET existingCopyCheck = :result, updatedAtEpochMillis = :now
+        WHERE transferId = :transferId AND state = 'READY' AND leaseToken = :leaseToken
+        """,
+    )
+    suspend fun noteExistingCopyCheck(transferId: String, leaseToken: String, result: String, now: Long): Int
+
+    /** A leased READY transfer whose exact bytes are already in the iCloud library is backed up without an attempt. */
+    @Query(
+        """
+        UPDATE transfers
+        SET state = 'VERIFIED', stateVersion = stateVersion + 1, existingCopyCheck = :result,
+            leaseToken = NULL, leaseExpiresAtEpochMillis = NULL, notBeforeEpochMillis = NULL,
+            verifiedAtEpochMillis = :verifiedAt, updatedAtEpochMillis = :verifiedAt, message = :message
+        WHERE transferId = :transferId AND state = 'READY' AND leaseToken = :leaseToken AND activeAttemptId IS NULL
+        """,
+    )
+    suspend fun markAlreadyInICloud(transferId: String, leaseToken: String, verifiedAt: Long, result: String, message: String): Int
+
     @Query(
         """
         UPDATE transfers
@@ -496,6 +545,14 @@ interface TransferDao {
     /** Any journal row for the phone item, including skipped and failed ones, so discovery never reports it twice. */
     @Query("SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND mediaId = :mediaId")
     suspend fun countTransfersForMedia(accountId: String, mediaId: String): Int
+
+    /** Every journal row for the phone item, of any state. */
+    @Query("SELECT * FROM transfers WHERE accountId = :accountId AND mediaId = :mediaId")
+    suspend fun findTransfersForMedia(accountId: String, mediaId: String): List<TransferEntity>
+
+    /** Gives a skipped row a new reason; any row that is no longer skipped is left alone. */
+    @Query("UPDATE transfers SET message = :message, updatedAtEpochMillis = :now WHERE transferId = :transferId AND state = 'UNSUPPORTED'")
+    suspend fun updateSkipReason(transferId: String, message: String, now: Long): Int
 
     /** Items that stopped before any attempt was armed: nothing reached Apple, so staging them again is safe. */
     @Query(
