@@ -52,6 +52,23 @@ class BackupStatusTest {
     }
 
     @Test
+    fun statusSaysWaitingToChargeOnlyWhenTheChargerAloneHoldsBackupBack() {
+        val charging = BackupSettings(onlyWhileCharging = true)
+        val on = TransferState(backup = BackupView(enabled = true), queue = listOf(transfer("a", TransferViewState.WAITING)),
+            backupSettings = charging)
+        assertEquals(BackupStatus.WaitingToCharge(1), backupStatus(on, signedIn, wifi, charging = false))
+        assertEquals(BackupStatus.BackingUp(1), backupStatus(on, signedIn, wifi, charging = true))
+        assertEquals("An unknown charging state says nothing", BackupStatus.BackingUp(1), backupStatus(on, signedIn, wifi, charging = null))
+        assertEquals("Without the choice the charger does not matter", BackupStatus.BackingUp(1),
+            backupStatus(on.copy(backupSettings = BackupSettings()), signedIn, wifi, charging = false))
+        assertEquals("Wi-Fi is named first: charging alone would not start backup", BackupStatus.WaitingForWifi(1),
+            backupStatus(on, signedIn, mobile, charging = false))
+        assertEquals(BackupStatus.Paused, backupStatus(on.copy(backupSettings = charging.copy(paused = true)), signedIn, wifi, charging = false))
+        val done = on.copy(queue = listOf(transfer("a", TransferViewState.VERIFIED)))
+        assertEquals("Nothing waits, so nothing waits for the charger", BackupStatus.UpToDate, backupStatus(done, signedIn, wifi, charging = false))
+    }
+
+    @Test
     fun failedItemsShowOnlyOnceNothingElseIsLeft() {
         val failed = TransferState(backup = BackupView(enabled = true), queue = listOf(
             transfer("a", TransferViewState.UNSUPPORTED),

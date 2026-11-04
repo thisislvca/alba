@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
@@ -22,6 +23,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.account.AccountController
+import me.lvca.alba.app.account.AccountSources
+import me.lvca.alba.app.account.AccountSwitchHooks
+import me.lvca.alba.app.account.PhoneConditions
 import me.lvca.alba.app.account.PhoneStorageController
 import me.lvca.alba.app.actions.MediaAction
 import me.lvca.alba.app.actions.MediaActionRunner
@@ -129,18 +133,19 @@ class AlbaViewModel(
     internal val account: AccountController = AccountController(
         scope = viewModelScope,
         savedState = savedState,
-        accountManager = dependencies.accountManager,
-        photos = dependencies.photos,
-        repository = dependencies.repository,
+        sources = AccountSources(dependencies.accountManager, dependencies.photos, dependencies.repository),
         diagnostics = dependencies.diagnostics,
         messages = messages,
         sync = sync,
-        network = network,
-        cancelCloudWork = ::cancelCloudWork,
-        onAccountChanged = { refresh ->
-            exports.clearShares()
-            gallery.closeMedia()
-            sync.accountChanged(refresh)
+        phone = combine(network, dependencies.charging, ::PhoneConditions),
+        hooks = object : AccountSwitchHooks {
+            override suspend fun cancelCloudWork() = this@AlbaViewModel.cancelCloudWork()
+
+            override suspend fun accountChanged(refresh: Boolean) {
+                exports.clearShares()
+                gallery.closeMedia()
+                sync.accountChanged(refresh)
+            }
         },
     )
 

@@ -9,6 +9,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.ui.account.ProfilePage
@@ -40,6 +41,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Swaps Theme.Alba.Starting for Theme.Alba; on Android 11 the library draws the same splash the system draws on 12+.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         incoming = IncomingSession.restore(savedInstanceState) ?: IncomingSession.from(intent)
         if (savedInstanceState == null) openBackupFrom(intent)

@@ -26,6 +26,9 @@ sealed interface BackupStatus {
     data object Paused : BackupStatus
     data object Offline : BackupStatus
     data class WaitingForWifi(val remaining: Int) : BackupStatus
+
+    /** The user chose "Only while charging" and the phone is not charging. */
+    data class WaitingToCharge(val remaining: Int) : BackupStatus
     data class BackingUp(val remaining: Int) : BackupStatus
 
     /** Nothing is left to do except items that could not be backed up. */
@@ -43,11 +46,12 @@ internal val PendingTransferStates = setOf(TransferViewState.WAITING, TransferVi
 internal fun backupItems(transfers: TransferState, demo: Boolean): List<TransferView> =
     transfers.queue.filter { demo || it.automatic }
 
-/** Derives the status from the journal, the account, the network and the user's settings. */
+/** Derives the status from the journal, the account, the network, the charger and the user's settings. */
 internal fun backupStatus(
     transfers: TransferState,
     accountState: ICloudAccountState,
     network: NetworkStatus?,
+    charging: Boolean? = null,
 ): BackupStatus {
     val backup = transfers.backup
     val demo = accountState == ICloudAccountState.Demo
@@ -59,12 +63,12 @@ internal fun backupStatus(
         !backup.disclosureCurrent && !demo -> BackupStatus.NeedsConsent
         backup.message == StoredMessage.BACKUP_PAUSED_ALLOW_FULL_PHOTO_AND_MEDIA_LOCATION_ACCESS.code -> BackupStatus.NeedsPermission
         transfers.backupSettings.paused -> BackupStatus.Paused
-        else -> progressStatus(transfers, demo, network)
+        else -> progressStatus(transfers, demo, network, charging)
     }
 }
 
-/** Once nothing pauses backup: what is left, whether the network lets it run, and what failed. */
-private fun progressStatus(transfers: TransferState, demo: Boolean, network: NetworkStatus?): BackupStatus {
+/** Once nothing pauses backup: what is left, whether the network and the charger let it run, and what failed. */
+private fun progressStatus(transfers: TransferState, demo: Boolean, network: NetworkStatus?, charging: Boolean?): BackupStatus {
     val items = backupItems(transfers, demo)
     val pending = items.count { it.state in PendingTransferStates }
     val failed = items.count { it.state in FailedTransferStates }
@@ -73,10 +77,13 @@ private fun progressStatus(transfers: TransferState, demo: Boolean, network: Net
     val remaining = pending + undiscovered
     // The network matters only while something waits; an unknown network says nothing.
     val waitsOn = network?.takeIf { remaining > 0 && !demo }?.backupNetwork
+    // The charger is named only when it alone holds backup back; an unknown charging state says nothing.
+    val waitsToCharge = remaining > 0 && !demo && transfers.backupSettings.onlyWhileCharging && charging == false
     return when {
         waitsOn == BackupNetwork.OFFLINE -> BackupStatus.Offline
         waitsOn != null && !transfers.backupSettings.allowsAny(waitsOn) -> BackupStatus.WaitingForWifi(remaining)
         demo && items.any { it.message == "demo-wifi" } -> BackupStatus.WaitingForWifi(remaining)
+        waitsToCharge -> BackupStatus.WaitingToCharge(remaining)
         remaining > 0 -> BackupStatus.BackingUp(remaining)
         failed > 0 -> BackupStatus.Failed(failed)
         else -> BackupStatus.UpToDate
@@ -94,6 +101,7 @@ internal fun BackupStatus.chipLabel(): String? = when (this) {
     BackupStatus.Paused -> stringResource(R.string.backup_chip_paused)
     BackupStatus.Offline -> stringResource(R.string.backup_chip_offline)
     is BackupStatus.WaitingForWifi -> stringResource(R.string.backup_chip_wifi)
+    is BackupStatus.WaitingToCharge -> stringResource(R.string.backup_chip_charging)
     is BackupStatus.BackingUp -> pluralStringResource(R.plurals.backup_chip_backing_up, remaining, remaining)
     is BackupStatus.Failed -> pluralStringResource(R.plurals.backup_chip_failed, count, count)
 }
@@ -109,6 +117,7 @@ internal fun BackupStatus.headline(): String = when (this) {
     BackupStatus.Paused -> stringResource(R.string.backup_chip_paused)
     BackupStatus.Offline -> stringResource(R.string.backup_chip_offline)
     is BackupStatus.WaitingForWifi -> stringResource(R.string.backup_status_wifi)
+    is BackupStatus.WaitingToCharge -> stringResource(R.string.backup_status_charging)
     is BackupStatus.BackingUp -> pluralStringResource(R.plurals.backup_chip_backing_up, remaining, remaining)
     is BackupStatus.Failed -> pluralStringResource(R.plurals.backup_chip_failed, count, count)
     BackupStatus.UpToDate -> stringResource(R.string.backup_status_done)

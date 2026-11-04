@@ -2,7 +2,7 @@
 
 Alba connects your phone directly to Apple. Alba has no server that receives your photos or Apple Account credentials. Passwords and verification codes are used for sign-in and are not saved. Sessions are encrypted on the phone.
 
-Photo metadata, previews, saved originals, settings and transfer state are stored locally. Alba requests Android media access for browsing, uploads and optional backup. Android backup and device-to-device transfer are disabled for app data.
+Photo metadata, previews, saved originals, settings and transfer state are stored locally. Alba requests Android media access for browsing, uploads and optional backup. Backup is off until you turn it on; it then uploads photos and videos from your camera and the folders you choose, and, if you choose, the ones already on your phone, straight to your iCloud account. Alba asks for photo location access so uploads keep where each photo was taken. Android backup and device-to-device transfer are disabled for app data.
 
 ## Intended audience
 
