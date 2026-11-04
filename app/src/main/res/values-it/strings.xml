@@ -760,6 +760,7 @@
     <string name="transfer_cancel">Annulla trasferimenti</string>
     <string name="viewer_edit">Modifica</string>
     <string name="viewer_trash">Cestino</string>
+    <string name="viewer_add_to_album">Aggiungi</string>
     <string name="play_video">Riproduci video</string>
     <string name="pause_video">Metti in pausa il video</string>
     <string name="mute_video">Disattiva audio del video</string>

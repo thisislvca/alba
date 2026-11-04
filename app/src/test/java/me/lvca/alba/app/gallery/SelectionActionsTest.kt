@@ -2,14 +2,18 @@ package me.lvca.alba.app.gallery
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.testing.GalleryStateActions
@@ -21,6 +25,7 @@ import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.protocol.account.ICloudAccountState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,6 +53,37 @@ class SelectionActionsTest {
         }
         compose.onNodeWithContentDescription("Save to phone gallery").assertHasClickAction()
         compose.onNodeWithContentDescription("Keep offline").assertHasClickAction()
+    }
+
+    @Test fun selectionCirclesWaitForSelectionModeAndTheBadgeMarksOnlyTheChosen() {
+        val actions = GalleryStateActions(GalleryState(items = items))
+        compose.setAlbaContent(actions.state, SessionState(accountState = ICloudAccountState.Demo, isRefreshing = false), actions)
+        compose.onNodeWithTag("media-${items[0].id}").assertIsDisplayed()
+        compose.onAllNodesWithTag("tile-selection-ring", useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithTag("tile-selected", useUnmergedTree = true).assertCountEquals(0)
+        compose.onNodeWithTag("media-${items[0].id}").performSemanticsAction(SemanticsActions.OnLongClick)
+        compose.onAllNodesWithTag("tile-selected", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithTag("tile-selection-ring", useUnmergedTree = true).assertCountEquals(items.size - 1)
+        // The badge sits in the tile's top-start corner, as in Google Photos.
+        val tile = compose.onNodeWithTag("media-${items[0].id}").fetchSemanticsNode().boundsInRoot
+        val badge = compose.onNodeWithTag("tile-selected", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("badge $badge is not at the start of $tile", badge.center.x < tile.center.x && badge.center.y < tile.center.y)
+    }
+
+    @Test fun moreOpensTheSharedFloatingMenuWhichClosesOnChoice() {
+        val favorites = mutableListOf<Pair<List<String>, Boolean>>()
+        val actions = object : GalleryStateActions(GalleryState(items = items, selection = setOf(items[0].id))) {
+            override fun setFavorites(mediaIds: List<String>, favorite: Boolean) { favorites += mediaIds to favorite }
+        }
+        compose.setAlbaContent(actions.state, SessionState(accountState = ICloudAccountState.Demo, isRefreshing = false), actions)
+        compose.onNodeWithTag("selection-toolbar").assertIsDisplayed()
+        compose.onNodeWithTag("selection-more").performClick()
+        val menu = compose.onNodeWithTag("selection-more-menu").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        // At least Photos' menu width, so short menus don't shrink to their longest label.
+        assertTrue("menu is ${menu.width}px wide", menu.width >= with(compose.density) { 227.dp.toPx() } - 1f)
+        compose.onNodeWithText("Favorite").performClick()
+        compose.onNodeWithTag("selection-more-menu").assertDoesNotExist()
+        assertEquals(listOf(listOf(items[0].id) to true), favorites)
     }
 
     @Test fun aSelectionOfPhoneAndICloudItemsCanBeTrashedTogether() {

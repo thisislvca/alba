@@ -364,6 +364,7 @@
     <string name="viewer_position">%1$d / %2$d</string>
     <string name="viewer_edit">Edit</string>
     <string name="viewer_trash">Trash</string>
+    <string name="viewer_add_to_album">Add to</string>
     <string name="play_video">Play video</string>
     <string name="pause_video">Pause video</string>
     <string name="mute_video">Mute video</string>

@@ -13,8 +13,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -55,7 +53,6 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -81,7 +78,11 @@ import me.lvca.alba.app.ui.currentLocale
 import me.lvca.alba.app.ui.dateLabel
 import me.lvca.alba.app.ui.designsystem.AlbaBottomSheet
 import me.lvca.alba.app.ui.designsystem.AlbaCard
+import me.lvca.alba.app.ui.designsystem.AlbaFloatingDefaults
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.AlbaMenu
+import me.lvca.alba.app.ui.designsystem.AlbaMenuDivider
+import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.AlbaSheetBody
 import me.lvca.alba.app.ui.designsystem.DemoBadge
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
@@ -415,16 +416,24 @@ internal fun GalleryHome(
                                     IconButton(onClick = { albumMenu = true }, modifier = Modifier.testTag("album-options")) {
                                         Icon(Icons.Outlined.MoreVert, stringResource(R.string.album_options))
                                     }
-                                    DropdownMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
-                                        DropdownMenuItem(text = { Text(stringResource(R.string.browse_by_date)) }, onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate }, enabled = sections.isNotEmpty())
+                                    AlbaMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
+                                        AlbaMenuItem(stringResource(R.string.browse_by_date), onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate },
+                                            enabled = sections.isNotEmpty(), leadingIcon = { Icon(Icons.Outlined.DateRange, null) })
+                                        AlbaMenuDivider()
                                         if (collection?.shared != null) {
-                                            DropdownMenuItem(text = { Text(stringResource(R.string.shared_details)) }, onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo })
-                                            if (collection.shared?.canContribute == true) DropdownMenuItem(text = { Text(stringResource(R.string.shared_add_photos)) }, onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit)
+                                            AlbaMenuItem(stringResource(R.string.shared_details),
+                                                onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo },
+                                                leadingIcon = { Icon(Icons.Outlined.Info, null) })
+                                            if (collection.shared?.canContribute == true) AlbaMenuItem(stringResource(R.string.shared_add_photos),
+                                                onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit,
+                                                leadingIcon = { Icon(Icons.Outlined.Add, null) })
                                         } else {
-                                            DropdownMenuItem(text = { Text(stringResource(R.string.rename_album)) },
+                                            AlbaMenuItem(stringResource(R.string.rename_album),
                                                 onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit,
-                                                modifier = Modifier.testTag("album-rename"))
-                                            DropdownMenuItem(text = { Text(stringResource(R.string.delete_album)) }, onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit)
+                                                leadingIcon = { Icon(Icons.Outlined.Edit, null) }, modifier = Modifier.testTag("album-rename"))
+                                            AlbaMenuItem(stringResource(R.string.delete_album),
+                                                onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit,
+                                                leadingIcon = { Icon(AlbaIcons.DeleteOutline, null) })
                                         }
                                     }
                                 }
@@ -460,7 +469,7 @@ internal fun GalleryHome(
                         if (session.isRefreshing && scanFraction != null) {
                             LinearProgressIndicator(progress = { scanFraction }, modifier = Modifier.fillMaxWidth().height(2.dp).testTag("catalog-scan-bar"))
                         } else if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
-                        if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions)
+                        if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions, Modifier.padding(vertical = 8.dp))
                         else if (filterRow) {
                             if (tab == GalleryTab.SEARCH) GallerySearchBar(query.filename, { actions.changeQuery(query.copy(filename = it)) },
                                 Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
@@ -559,20 +568,19 @@ internal fun GalleryHome(
                     }
                     if (collapseHeader) FloatingGridDate(visibleMonth.takeUnless { selecting },
                         dates = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
-                    // Selection swaps the navigation for the actions, each sliding along the bottom edge.
-                    val barSlide = if (reducedMotion) snap<IntOffset>() else tween(GalleryFeel.CONTEXT_BAR_SLIDE_MILLIS)
+                    // Selection swaps the navigation for the floating toolbar, each riding a fast spatial spring along
+                    // the bottom edge, so a quick select-and-cancel reverses mid-flight.
                     if (!wide) androidx.compose.animation.AnimatedVisibility(selecting, Modifier.align(Alignment.BottomCenter),
-                        enter = slideInVertically(barSlide) { it }, exit = slideOutVertically(barSlide) { it }) {
-                        Surface(Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp)
-                            .onSizeChanged { floatingBarHeight = with(uiDensity) { it.height.toDp() } }, shape = MaterialTheme.shapes.extraLarge, tonalElevation = 8.dp, shadowElevation = 8.dp) {
-                            SelectionActions(gallery, session, mediaBusy, actions)
-                        }
+                        enter = AlbaFloatingDefaults.enter(reducedMotion), exit = AlbaFloatingDefaults.exit(reducedMotion)) {
+                        SelectionActions(gallery, session, mediaBusy, actions,
+                            Modifier.navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = AlbaFloatingDefaults.BottomMargin)
+                                .onSizeChanged { if (it.height > 0) floatingBarHeight = with(uiDensity) { it.height.toDp() } })
                     }
                     if (!wide) androidx.compose.animation.AnimatedVisibility(!selecting, Modifier.align(Alignment.BottomCenter),
-                        enter = slideInVertically(barSlide) { it }, exit = slideOutVertically(barSlide) { it }) {
+                        enter = AlbaFloatingDefaults.enter(reducedMotion), exit = AlbaFloatingDefaults.exit(reducedMotion)) {
                         // It hides behind an open keyboard; keep the grid's bottom space at its last real height.
                         FloatingGalleryNavigation(selectedTab(), { navigate(it) },
-                            Modifier.navigationBarsPadding().padding(bottom = 16.dp)
+                            Modifier.navigationBarsPadding().padding(bottom = AlbaFloatingDefaults.BottomMargin)
                                 .onSizeChanged { if (it.height > 0) floatingBarHeight = with(uiDensity) { it.height.toDp() } })
                     }
                 }
