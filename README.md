@@ -13,19 +13,19 @@ Android 11+. English and Italian. Android application ID: `me.lvca.alba`.
 - [x] Sign in to iCloud with two-factor authentication
 - [x] Browse your iCloud photos and the photos on your phone
 - [x] Watch videos and Live Photos
-- [x] Search by filename, filter by date, and sort your library
-- [x] Use albums, favorites and Shared Albums
-- [x] Crop and rotate photos, then save an edited copy
+- [x] Search by filename, caption, album, month or type; filter by date and sort your library
+- [x] Use albums, favorites, Hidden and Recently Deleted
+- [x] Create and join Shared Albums, invite people, add photos and comment
+- [x] Crop, rotate, adjust and filter photos, then save an edited copy
 - [x] Save originals offline or to your phone, and share them with other apps
-- [x] Upload JPEG, PNG, HEIC, static WebP and H.264/HEVC videos in MP4 or MOV files
-- [x] Automatically back up new JPEG photos from your camera over an unmetered connection
+- [x] Upload JPEG, PNG, HEIC, still WebP and H.264/HEVC videos in MP4 or MOV files
+- [x] Back up photos and videos automatically from your camera and the folders you choose, including the ones already on your phone, over Wi-Fi or mobile data if you allow it. Each upload is checked in iCloud, and interrupted uploads retry on their own.
 
 ## Next
 
-- [ ] Automatic backup for videos and more photo formats
-- [ ] Choose which folders to back up
-- [ ] Include older photos in backups, with a size estimate before starting
 - [ ] Play Store release
+- [ ] Free up space: remove backed-up photos and videos from the phone. It's built, but stays out of release builds until backup is proven on real accounts.
+- [ ] Upload Live Photos with their video, RAW, AVIF and animated images
 
 iCloud Shared Photo Library isn't supported. It's different from Shared Albums, which are supported.
 
@@ -41,13 +41,13 @@ Your password and verification codes aren't saved. Your sign-in session is store
 
 Choose **Try the demo** on the welcome screen; no Apple Account is needed. Browse the bundled library, albums, videos and editor. Library refresh reads the sample catalog locally.
 
-Open the profile icon, then **Automatic JPEG backup → Try sample backup** to walk through consent, queue progress and completion. The backup walkthrough is simulated: it never reads phone photos, requests photo permissions or uploads to Apple. Use the interruption and Wi-Fi controls to pause and resume it, then preview freeing space with imaginary copies (no real files are deleted). Stop and restart it to repeat; its state resets when leaving demo mode or restarting the app. Real iCloud authentication, transfers and remote verification still require an Apple Account.
+Open the profile icon, then **Backup → Try sample backup** to walk through consent, queue progress and completion. The backup walkthrough is simulated: it never reads phone photos, requests photo permissions or uploads to Apple. Use the interruption and Wi-Fi controls to pause and resume it, then preview freeing space with imaginary copies (no real files are deleted). Stop and restart it to repeat; its state resets when leaving demo mode or restarting the app. Real iCloud authentication, transfers and remote verification still require an Apple Account.
 
-The **+** button can add a bundled sample or a selected photo/video to the demo library. Android’s **Share to Alba** and **Open with Alba** screens can also import into demo after confirmation. Selected bytes are retained in private temporary storage, never uploaded, and cleared on the next app process start. Shared albums support real sample-state changes: accepting/declining incoming invitations, approving/denying requests, selecting a cover, contributing selected media, and saving a shared copy to the sample personal library. Demo sharing screens label all people, invitations and nonfunctional public URLs as samples; no invitations are sent or links published.
+The **+** button can add a bundled sample or a selected photo/video to the demo library. Android’s **Share to Alba** and **Open with Alba** screens can also import into demo after confirmation. Selected files are kept in private temporary storage, never uploaded, and cleared on the next app process start. Shared albums support real sample-state changes: accepting/declining incoming invitations, approving/denying requests, selecting a cover, contributing selected media, and saving a shared copy to the sample personal library. Demo sharing screens label all people, invitations and nonfunctional public URLs as samples; no invitations are sent or links published.
 
 ## Build
 
-Use JDK 21 and Android SDK 37 with build tools 37.0.0. Set `JAVA_HOME` and `ANDROID_SDK_ROOT`, then run:
+Run Gradle with JDK 21 (Android Studio's bundled JDK works) and Android SDK 37 with build tools 37.0.0. The build sets no Gradle Java toolchain: it compiles with the JDK that runs Gradle and targets Java 17 bytecode. Set `JAVA_HOME` and `ANDROID_SDK_ROOT`, then run:
 
 ```sh
 ./gradlew :app:assembleDebug testDebugUnitTest lintDebug
@@ -55,7 +55,7 @@ Use JDK 21 and Android SDK 37 with build tools 37.0.0. Set `JAVA_HOME` and `ANDR
 
 APKs are in `app/build/outputs/apk/`. `:app:assembleRelease` always produces an unsigned release. Official bundles are signed in an isolated GitHub Actions job; see [RELEASING.md](RELEASING.md).
 
-Shared Android settings (SDK levels, Java 17, managed test devices) live in the convention plugins under `build-logic/`.
+Shared Android settings (SDK levels, the Java 17 bytecode target, managed test devices) live in the convention plugins under `build-logic/`.
 
 ### Static analysis
 

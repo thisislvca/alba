@@ -86,7 +86,7 @@ internal class TransferIntake(
      * blocks the items after it. Returns how many transfers it queued.
      */
     suspend fun discoverAndStageAutomatic(binding: AccountBinding): Int {
-        if (!authority.mayUseNetwork()) return 0
+        if (!authority.mayBackUp()) return 0
         val enrollment = authority.currentEnrollment(binding) ?: return 0
         val permissionFingerprint = enrollment.permissionFingerprint
         val scope = BackupScope.valueOf(enrollment.scope)

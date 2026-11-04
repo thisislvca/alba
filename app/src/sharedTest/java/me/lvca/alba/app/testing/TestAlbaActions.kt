@@ -27,7 +27,8 @@ import me.lvca.alba.engine.source.MediaRead
  * no network callback, and no transfer or library-read job scheduled with Android.
  */
 internal fun testDependencies(graph: AlbaGraph): AlbaDependencies =
-    AlbaDependencies.from(graph).copy(network = kotlinx.coroutines.flow.flowOf(null), transferScheduler = TransferScheduler {},
+    AlbaDependencies.from(graph).copy(network = kotlinx.coroutines.flow.flowOf(null), charging = kotlinx.coroutines.flow.flowOf(null),
+        transferScheduler = TransferScheduler {},
         catalogSync = me.lvca.alba.app.work.CatalogSyncScheduler.NONE, sharedActivity = graph.sharedActivity.withoutScheduling())
 
 /** Test fixtures explicitly opt into the callbacks they observe; every other action does nothing. Never used in production. */

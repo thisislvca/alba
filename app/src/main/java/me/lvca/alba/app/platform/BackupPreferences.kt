@@ -39,6 +39,7 @@ class BackupPreferences(context: Context) {
             putBoolean(WHILE_ROAMING, next.whileRoaming)
             putStringSet(DEVICE_FOLDERS, next.deviceFolders)
             putBoolean(PAUSED, next.paused)
+            putBoolean(ONLY_WHILE_CHARGING, next.onlyWhileCharging)
         }
         current.value = next
     }
@@ -75,6 +76,7 @@ class BackupPreferences(context: Context) {
         whileRoaming = preferences.getBoolean(WHILE_ROAMING, false),
         deviceFolders = preferences.getStringSet(DEVICE_FOLDERS, emptySet()).orEmpty().toSet(),
         paused = preferences.getBoolean(PAUSED, false),
+        onlyWhileCharging = preferences.getBoolean(ONLY_WHILE_CHARGING, false),
     )
 
     private companion object {
@@ -84,6 +86,7 @@ class BackupPreferences(context: Context) {
         const val WHILE_ROAMING = "while-roaming"
         const val DEVICE_FOLDERS = "device-folders"
         const val PAUSED = "paused"
+        const val ONLY_WHILE_CHARGING = "only-while-charging"
         const val MOBILE_DATA_CHOICE = "manual-mobile-data"
         const val WAIT_FOR_WIFI = "manual-wait-for-wifi"
         const val NOTIFICATIONS_ASKED = "notifications-asked"
