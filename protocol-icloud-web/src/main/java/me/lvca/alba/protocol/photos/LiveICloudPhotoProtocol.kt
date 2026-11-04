@@ -26,6 +26,7 @@ import me.lvca.alba.protocol.array
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.boolean
+import me.lvca.alba.protocol.fieldFlag
 import me.lvca.alba.protocol.fieldObject
 import me.lvca.alba.protocol.isTombstone
 import me.lvca.alba.protocol.long
@@ -290,6 +291,24 @@ class LiveICloudPhotoProtocol(
         return RemoteOriginalObservation(hydrated.originalResourceIdentity, counting.byteCount)
     }
 
+    /**
+     * Reads a library item afresh by its record names, for comparing its original with a phone file. An asset in Recently
+     * Deleted or expunged is not offered: Photos removes it within 30 days, so it cannot stand in for the phone's copy.
+     */
+    override suspend fun libraryPair(
+        binding: AccountBinding,
+        masterRecordName: String,
+        assetRecordName: String,
+    ): RemotePairCandidate? {
+        val session = requireBoundSession(binding)
+        val records = lookupRecords(session, listOf(masterRecordName, assetRecordName), LOOKUP_KEYS + LIBRARY_STATE_KEYS)
+        val asset = records.firstOrNull { it.text("recordType") == ASSET_RECORD_TYPE && it.text("recordName") == assetRecordName }
+            ?: return null
+        if (asset.fieldFlag("isDeleted") || asset.fieldFlag("isExpunged")) return null
+        return parseHydratedPair(records, masterRecordName, assetRecordName)
+            ?.takeIf { it.relationIsCurrent && !it.masterDeleted && !it.assetDeleted }
+    }
+
     private fun parseHydratedPair(
         records: List<JsonObject>,
         masterName: String,
@@ -341,6 +360,7 @@ class LiveICloudPhotoProtocol(
     private suspend fun lookupRecords(
         session: AppleSessionSnapshot,
         recordNames: List<String>,
+        desiredKeys: List<String> = LOOKUP_KEYS,
     ): List<JsonObject> {
         val response = executeRead(
             session,
@@ -348,7 +368,7 @@ class LiveICloudPhotoProtocol(
                 method = "POST",
                 url = cloudKitUrl(session, "/records/lookup"),
                 headers = JSON_HEADERS,
-                body = PrimarySyncZone.lookupBody(recordNames.distinct(), LOOKUP_KEYS).toString(),
+                body = PrimarySyncZone.lookupBody(recordNames.distinct(), desiredKeys).toString(),
             ),
         ).jsonObject("Apple returned an invalid Photos record lookup")
         return response.array("records").mapNotNull { it as? JsonObject }
@@ -436,6 +456,9 @@ class LiveICloudPhotoProtocol(
             "masterRef",
             "assetDate",
         )
+
+        /** Whether an asset is still in the library rather than in Recently Deleted (pyicloud's isDeleted / isExpunged). */
+        val LIBRARY_STATE_KEYS = listOf("isDeleted", "isExpunged")
     }
 
     private data class RecordIdentity(

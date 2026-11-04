@@ -49,6 +49,8 @@ data class TransferView(
     val automatic: Boolean = false,
     /** Nothing was sent for it, so staging it again from the phone is safe. */
     val retryable: Boolean = false,
+    /** Backed up without an upload: the exact same original was already in the iCloud library. */
+    val alreadyInICloud: Boolean = false,
 )
 
 /** What automatic backup reads. Names are persisted with each enrollment; keep them stable. */
@@ -390,6 +392,17 @@ interface ICloudPhotoProtocol {
         pair: RemotePairCandidate,
         output: OutputStream,
     ): RemoteOriginalObservation
+
+    /**
+     * Reads the library item made of [masterRecordName] and [assetRecordName] afresh, for comparing its original with a
+     * phone file. Null when it is gone, in Recently Deleted, or no longer pairs the two; also null when the protocol
+     * cannot look items up, in which case nothing is ever matched and backup uploads as before.
+     */
+    suspend fun libraryPair(
+        binding: AccountBinding,
+        masterRecordName: String,
+        assetRecordName: String,
+    ): RemotePairCandidate? = null
 
     /**
      * Carries [metadata] the phone keeps for an item onto the iCloud asset [assetRecordName] that was just verified as

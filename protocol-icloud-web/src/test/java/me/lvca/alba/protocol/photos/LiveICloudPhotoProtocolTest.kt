@@ -344,6 +344,40 @@ class LiveICloudPhotoProtocolTest {
     }
 
     @Test
+    fun `a library item is read afresh by name and its original streams for comparison`() = runBlocking {
+        val transport = ScriptedTransport()
+        val protocol = LiveICloudPhotoProtocol(transport, { SESSION })
+        val binding = AccountBinding(requireNotNull(protocol.currentDestination()).accountId, 1, 1)
+
+        val pair = requireNotNull(protocol.libraryPair(binding, "master-1", "asset-1"))
+
+        assertEquals("master-tag", pair.master.changeTag)
+        assertEquals("asset-tag", pair.asset.changeTag)
+        val lookup = Json.parseToJsonElement(transport.requests.single().body!!).jsonObject
+        val keys = lookup["desiredKeys"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertTrue("isDeleted" in keys && "isExpunged" in keys && "resOriginalRes" in keys)
+        val output = ByteArrayOutputStream()
+        protocol.streamFreshOriginal(binding, pair, output)
+        assertEquals(JPEG.toList(), output.toByteArray().toList())
+    }
+
+    @Test
+    fun `a library item in Recently Deleted or missing is never offered for comparison`() = runBlocking {
+        val masterRef = """"fields":{"masterRef":{"value":{"recordName":"master-1"}}}"""
+        val deleted = LOOKUP_RESPONSE.replace(
+            masterRef,
+            """"fields":{"masterRef":{"value":{"recordName":"master-1"}},"isDeleted":{"value":1}}""",
+        )
+        check(deleted != LOOKUP_RESPONSE)
+        for (body in listOf(deleted, """{"records":[]}""")) {
+            val protocol = LiveICloudPhotoProtocol(ScriptedTransport(lookupResponse = body), { SESSION })
+            val binding = AccountBinding(requireNotNull(protocol.currentDestination()).accountId, 1, 1)
+
+            assertEquals(null, protocol.libraryPair(binding, "master-1", "asset-1"))
+        }
+    }
+
+    @Test
     fun `candidate hydration batches large change pages`() = runBlocking {
         val transport = BatchingTransport(candidateCount = 120)
         val protocol = LiveICloudPhotoProtocol(transport, { SESSION })
@@ -597,6 +631,7 @@ class LiveICloudPhotoProtocolTest {
         val processingHttpCode: Int = 200,
         val reservationHttpCode: Int = 200,
         val onProcessing: () -> Unit = {},
+        val lookupResponse: String = LOOKUP_RESPONSE,
     ) : AppleHttpTransport {
         val requests = mutableListOf<AppleHttpRequest>()
         var rawUploadCalls = 0
@@ -642,7 +677,7 @@ class LiveICloudPhotoProtocolTest {
                     }
                     """.trimIndent(),
                 )
-                "/database/1/com.apple.photos.cloud/production/private/records/lookup" -> response(LOOKUP_RESPONSE)
+                "/database/1/com.apple.photos.cloud/production/private/records/lookup" -> response(lookupResponse)
                 else -> error("Unexpected request ${request.url}")
             }
         }

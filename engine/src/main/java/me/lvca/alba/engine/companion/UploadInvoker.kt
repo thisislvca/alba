@@ -7,6 +7,7 @@ import me.lvca.alba.engine.cache.StagedOriginalUnavailableException
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AccountWriteSlotEntity
 import me.lvca.alba.engine.database.AlbaDatabase
+import me.lvca.alba.engine.database.AssetLinkEntity
 import me.lvca.alba.engine.database.StagedSourceEntity
 import me.lvca.alba.engine.database.TransferEntity
 import me.lvca.alba.engine.database.TransferState
@@ -14,6 +15,7 @@ import me.lvca.alba.engine.database.UploadAcceptanceEntity
 import me.lvca.alba.engine.database.UploadAttemptEntity
 import me.lvca.alba.engine.database.UploadPauseEntity
 import me.lvca.alba.engine.database.UploadUncertaintyEntity
+import me.lvca.alba.engine.database.VerificationProofEntity
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.ICloudStorageFullException
@@ -38,34 +40,19 @@ internal class UploadInvoker(
     private val accounts: AccountBindingSync,
     private val authority: AutomaticBackupAuthority,
     private val now: () -> Long,
+    private val stages: UploadStages,
+    private val existingCopies: ExistingCopyCheck,
 ) {
     private val accountDao = database.accountDao()
     private val transferDao = database.transferDao()
+    private val verificationDao = database.verificationDao()
 
     /** Leases, arms and sends the next READY transfer. Returns 1 when it armed an attempt. */
     suspend fun invokeOne(binding: AccountBinding, allowManual: Boolean, allowAutomatic: Boolean): Int {
-        if (transferDao.findWriteSlot(binding.accountId) != null) return 0
-        if (isStoragePaused(binding.accountId)) return 0
-        val candidate = transferDao.findNextReady(
-            binding.accountId,
-            now(),
-            allowAutomaticPhotos = allowAutomatic && authority.canRun(binding, video = false),
-            allowAutomaticVideos = allowAutomatic && authority.canRun(binding, video = true),
-            allowManual = allowManual,
-        ) ?: return 0
-        val leaseToken = UUID.randomUUID().toString()
-        val leaseNow = now()
-        if (transferDao.claimReady(
-                candidate.transferId,
-                candidate.stateVersion,
-                leaseToken,
-                leaseNow + READY_LEASE_MILLIS,
-                leaseNow,
-            ) != 1
-        ) return 0
-        val leased = requireNotNull(transferDao.findTransfer(candidate.transferId))
+        val (leased, leaseToken) = leaseNext(binding, allowManual, allowAutomatic) ?: return 0
         val source = requireNotNull(transferDao.findStagedSource(leased.stagedSourceId))
         val video = source.isVideo
+        lookInLibraryFirst(binding, leased, leaseToken, source)?.let { return it }
 
         val uploadSource = try {
             staging.openVerified(source.ownedFileToken, source.byteCount, source.sha256Hex)
@@ -142,6 +129,126 @@ internal class UploadInvoker(
             armed
         }
         return if (attempt != null) 1 else 0
+    }
+
+    /** Leases the next READY transfer the account may start now, with its lease token; null when there is none. */
+    private suspend fun leaseNext(binding: AccountBinding, allowManual: Boolean, allowAutomatic: Boolean): Pair<TransferEntity, String>? {
+        if (transferDao.findWriteSlot(binding.accountId) != null || isStoragePaused(binding.accountId)) return null
+        val candidate = transferDao.findNextReady(
+            binding.accountId,
+            now(),
+            allowAutomaticPhotos = allowAutomatic && authority.canRun(binding, video = false),
+            allowAutomaticVideos = allowAutomatic && authority.canRun(binding, video = true),
+            allowManual = allowManual,
+        ) ?: return null
+        val leaseToken = UUID.randomUUID().toString()
+        val leaseNow = now()
+        val claimed = transferDao.claimReady(
+            candidate.transferId,
+            candidate.stateVersion,
+            leaseToken,
+            leaseNow + READY_LEASE_MILLIS,
+            leaseNow,
+        ) == 1
+        return if (claimed) requireNotNull(transferDao.findTransfer(candidate.transferId)) to leaseToken else null
+    }
+
+    /**
+     * Looks for an automatic backup item in the iCloud library before its first upload. Returns null when it should be
+     * uploaded now, or what [invokeOne] returns when it was linked to a copy already there (1), must wait, or lost its
+     * lease to another pass (0). The lease is extended before each download, which can outlast [READY_LEASE_MILLIS].
+     */
+    private suspend fun lookInLibraryFirst(binding: AccountBinding, leased: TransferEntity, leaseToken: String, source: StagedSourceEntity): Int? {
+        if (leased.authorityType != AUTHORITY_AUTOMATIC || leased.existingCopyCheck != null) return null
+        val enrolledAt = authority.currentEnrollment(binding)?.consentedAtEpochMillis
+        val keepLease: suspend () -> Boolean = {
+            transferDao.extendReadyLease(leased.transferId, leaseToken, now() + ExistingCopyCheck.COMPARE_LEASE_MILLIS) == 1
+        }
+        return when (val found = existingCopies.check(binding, leased, source, enrolledAt, keepLease)) {
+            is ExistingCopyOutcome.Wait -> {
+                transferDao.deferReadyLease(leased.transferId, leaseToken, found.retryAt, now(), found.message.code, found.firstFailureAt)
+                runSuspendCatching { scheduler.scheduleAt(found.retryAt) }
+                0
+            }
+            is ExistingCopyOutcome.Matched -> linkExisting(binding, leased, leaseToken, source, found)
+            ExistingCopyOutcome.LeaseLost -> 0
+            // A lease lost meanwhile leaves the transfer to whoever holds it now.
+            is ExistingCopyOutcome.Upload ->
+                if (transferDao.noteExistingCopyCheck(leased.transferId, leaseToken, found.result, now()) == 1) null else 0
+        }
+    }
+
+    /** Why [linkExisting] did not link. */
+    private enum class LinkRefusal { LEASE_LOST, NOT_AUTHORIZED }
+
+    /**
+     * Backs [transfer] up without uploading: the library item in [found] holds its exact bytes. It is linked and proven
+     * the way a verified upload is, with a link named after the transfer since no attempt was made, so the photo counts
+     * as backed up and Free up space re-checks both copies before it offers to delete the phone's. Returns 1 when linked,
+     * 0 when the lease was lost (nothing is written) or backup no longer authorizes it.
+     */
+    private suspend fun linkExisting(
+        binding: AccountBinding,
+        transfer: TransferEntity,
+        leaseToken: String,
+        source: StagedSourceEntity,
+        found: ExistingCopyOutcome.Matched,
+    ): Int {
+        val pair = found.pair
+        val linkedAt = now()
+        val pairId = remotePairId(binding, pair)
+        val linkId = UUID.randomUUID().toString()
+        val refusal = database.withTransaction {
+            if (!accounts.isCurrent(binding) ||
+                !authority.stillAuthorizes(transfer.enrollmentId, transfer.enrollmentRevision, binding)
+            ) return@withTransaction LinkRefusal.NOT_AUTHORIZED
+            // Claimed first: when another pass holds the transfer now, nothing below is written.
+            val marked = transferDao.markAlreadyInICloud(
+                transfer.transferId, leaseToken, linkedAt, ExistingCopyCheck.RESULT_MATCHED, StoredMessage.ALREADY_IN_ICLOUD.code,
+            )
+            if (marked != 1) return@withTransaction LinkRefusal.LEASE_LOST
+            verificationDao.insertRemotePair(pair.toPairEntity(binding, linkedAt))
+            verificationDao.insertAssetLink(
+                AssetLinkEntity(
+                    linkId, binding.accountId, transfer.mediaId, source.stagedSourceId,
+                    pairId, "$EXISTING_LINK_PREFIX${transfer.transferId}", linkedAt, "CURRENT",
+                ),
+            )
+            verificationDao.insertVerificationProof(
+                VerificationProofEntity(
+                    proofId = UUID.randomUUID().toString(),
+                    accountId = binding.accountId,
+                    verificationAuthEpoch = binding.authEpoch,
+                    invocationAuthEpoch = binding.authEpoch,
+                    linkId = linkId,
+                    mediaId = transfer.mediaId,
+                    stagedSourceId = source.stagedSourceId,
+                    sourceRevision = source.sourceRevision,
+                    remotePairId = pairId,
+                    masterChangeTag = pair.master.changeTag,
+                    assetChangeTag = pair.asset.changeTag,
+                    originalResourceIdentity = pair.originalResourceIdentity,
+                    byteCount = source.byteCount,
+                    sha256Hex = source.sha256Hex,
+                    verifiedAtEpochMillis = linkedAt,
+                    invalidatedAtEpochMillis = null,
+                    invalidationReason = null,
+                ),
+            )
+            null
+        }
+        return when (refusal) {
+            null -> {
+                stages.release(source)
+                runSuspendCatching { scheduler.scheduleSoon() }
+                1
+            }
+            LinkRefusal.LEASE_LOST -> 0
+            LinkRefusal.NOT_AUTHORIZED -> {
+                transferDao.releaseReadyLease(transfer.transferId, leaseToken, now(), StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED.code)
+                0
+            }
+        }
     }
 
     /**
@@ -411,6 +518,9 @@ internal class UploadInvoker(
 
     private companion object {
         const val READY_LEASE_MILLIS = 2 * 60 * 1_000L
+
+        /** Names the link of an item found already in iCloud, which has no upload attempt of its own. */
+        const val EXISTING_LINK_PREFIX = "existing:"
 
         /** Background passes try a storage-refused upload again after this long; the user can retry sooner. */
         const val STORAGE_FULL_RETRY_MILLIS = 6 * 60 * 60 * 1_000L

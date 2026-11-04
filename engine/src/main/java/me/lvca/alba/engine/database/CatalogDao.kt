@@ -67,7 +67,7 @@ interface CatalogDao {
         JOIN catalog_items c ON c.masterRecordName = r.masterRecordName AND c.assetRecordName = r.assetRecordName AND c.origin = 'ICLOUD'
         WHERE p.invalidatedAtEpochMillis IS NULL AND l.status = 'CURRENT' AND l.accountId = p.accountId
         AND r.accountId = p.accountId AND d.sourceRevision = p.sourceRevision AND d.isTrashed = 0
-        AND c.mediaId NOT LIKE 'shared:%' AND r.databaseScope = 'private' AND r.zoneName = 'PrimarySync'
+        AND c.mediaId NOT LIKE 'shared:%' AND r.databaseScope = '${RemoteAssetPairEntity.PRIVATE_DATABASE_SCOPE}' AND r.zoneName = 'PrimarySync'
         AND c.isTrashed = 0 AND c.sourceRevision = p.masterChangeTag || ':' || p.assetChangeTag
         AND r.masterDeleted = 0 AND r.assetDeleted = 0 AND r.relationIsCurrent = 1
     """)
@@ -86,6 +86,21 @@ interface CatalogDao {
 
     @Query(CATALOG_WITH_CACHE + " WHERE c.origin = 'ICLOUD'") suspend fun cloudItems(): List<CatalogItemEntity>
     @Query("SELECT * FROM catalog_checkpoints WHERE scope = :scope") suspend fun checkpoint(scope: String): CatalogCheckpointEntity?
+
+    /**
+     * The account's library items, not in Recently Deleted, whose original is [byteCount] bytes. [prefix] is the account's
+     * `icloud:<namespace>:` id prefix, which leaves out shared albums and other accounts.
+     */
+    @Query(
+        """
+        SELECT * FROM catalog_items
+        WHERE byteCount = :byteCount AND origin = 'ICLOUD' AND isTrashed = 0
+          AND substr(mediaId, 1, length(:prefix)) = :prefix
+          AND masterRecordName IS NOT NULL AND assetRecordName IS NOT NULL
+        ORDER BY mediaId LIMIT :limit
+        """,
+    )
+    suspend fun librarySameSize(prefix: String, byteCount: Long, limit: Int): List<CatalogItemEntity>
     @Query(
         """
         SELECT * FROM catalog_items
