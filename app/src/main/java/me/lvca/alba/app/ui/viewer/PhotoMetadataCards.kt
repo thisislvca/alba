@@ -28,6 +28,7 @@ internal fun PhotoMetadataCards(media: GalleryMedia, account: ICloudAccountState
     val source = when {
         media.isShared -> stringResource(R.string.shared_album_copy)
         media.linkedDeviceReference != null -> stringResource(R.string.on_phone_and_icloud)
+        verified && transfer?.alreadyInICloud == true -> stringResource(R.string.already_in_icloud)
         verified -> stringResource(R.string.verified_in_icloud)
         media.origin == MediaOrigin.DEVICE -> stringResource(R.string.this_phone)
         account == ICloudAccountState.Demo -> stringResource(R.string.library)

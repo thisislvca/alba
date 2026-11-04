@@ -25,6 +25,7 @@ import me.lvca.alba.app.work.cancelSharedActivityNotifications
 import me.lvca.alba.app.work.cancelUserTransfers
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.cache.UploadStagingStore
+import me.lvca.alba.engine.companion.CatalogLibraryIndex
 import me.lvca.alba.engine.companion.DefaultPhotoCompanion
 import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.database.AlbaDatabase
@@ -109,6 +110,8 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         exporter.clearShares()
     }
 
+    val catalogSync: CatalogSyncScheduler = WorkManagerCatalogSyncScheduler(appContext)
+
     val photos = DefaultPhotoCompanion(
         database = database,
         originals = mediaStore,
@@ -125,6 +128,13 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         scheduler = WorkManagerWakeupScheduler(appContext) { backupPreferences.settings.value },
         automaticBackupPolicy = AndroidAutomaticBackupPolicy(appContext, backupPreferences),
         protocolStatus = protocolStatus,
+        // Backup skips what the synced library already holds byte for byte; the demo library never stands in for iCloud.
+        cloudLibrary = CatalogLibraryIndex(
+            database = database,
+            namespace = { cloudCatalog.accountLabel },
+            accountId = { cloudCatalog.writeAccountId },
+            refresh = { catalogSync.scheduleRefresh(unmeteredOnly = !backupPreferences.settings.value.usesMobileData) },
+        ),
     )
     val maintenance: MaintenanceWakeup = photos
     val batches = GalleryBatchActions(database.libraryDao(), galleryRepository, photos,
@@ -139,7 +149,6 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         override fun schedule() = UserTransferScheduler(appContext).enqueue(wifiOnly = backupPreferences.manualTransfersWaitForWifi)
         override suspend fun cancel() = cancelUserTransfers(appContext)
     }
-    val catalogSync: CatalogSyncScheduler = WorkManagerCatalogSyncScheduler(appContext)
     val network = networkStatus(appContext)
     val charging = chargingStatus(appContext)
 }

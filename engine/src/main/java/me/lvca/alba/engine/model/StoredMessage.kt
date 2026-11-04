@@ -108,6 +108,18 @@ enum class StoredMessage(val code: String, val legacyText: String) {
     UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT("upload_canceled_select_the_file_again_to_upload_it", "Upload canceled. Select the file again to upload it."),
     UPLOAD_AVIF_UNSUPPORTED("upload_avif_unsupported", "AVIF images can't be uploaded to iCloud yet."),
     UPLOAD_IMAGE_SEQUENCE_UNSUPPORTED("upload_image_sequence_unsupported", "HEIF image sequences, such as bursts or animations, can't be uploaded yet."),
+    UPLOAD_GIF_NOT_ACCEPTED("upload_gif_not_accepted", "iCloud doesn't accept GIFs uploaded from the web. The original stays on this phone."),
+    UPLOAD_RAW_NOT_ACCEPTED("upload_raw_not_accepted", "iCloud doesn't accept RAW files uploaded from the web. The original stays on this phone."),
+    UPLOAD_RAW_NOT_ACCEPTED_JPEG_BACKS_UP(
+        "upload_raw_not_accepted_jpeg_backs_up",
+        "iCloud doesn't accept RAW files uploaded from the web. The JPEG taken with it backs up; the RAW stays on this phone.",
+    ),
+    UPLOAD_TIFF_NOT_ACCEPTED("upload_tiff_not_accepted", "iCloud doesn't accept TIFF images uploaded from the web. The original stays on this phone."),
+    UPLOAD_VIDEO_FORMAT_NOT_ACCEPTED(
+        "upload_video_format_not_accepted",
+        "iCloud only accepts MP4 and MOV videos uploaded from the web. The original stays on this phone.",
+    ),
+    UPLOAD_FORMAT_NOT_ACCEPTED("upload_format_not_accepted", "iCloud doesn't accept this file format uploaded from the web. The original stays on this phone."),
     ICLOUD_STORAGE_FULL("icloud_storage_full", "iCloud storage is full. Backup is paused until there is space."),
     BACKUP_PAUSED_FOR_AN_ICLOUD_CHANGE(
         "backup_paused_for_an_icloud_change",
@@ -122,6 +134,8 @@ enum class StoredMessage(val code: String, val legacyText: String) {
         "only_items_that_sent_nothing_can_be_retried",
         "This item may have reached iCloud, so Alba checks it instead of sending it again.",
     ),
+    ALREADY_IN_ICLOUD("already_in_icloud", "Already in iCloud"),
+    CHECKING_ICLOUD_LIBRARY_FIRST("checking_icloud_library_first", "Checking whether it is already in iCloud"),
     THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE("this_item_is_no_longer_in_the_queue", "This item is no longer in the queue."),
     COULD_NOT_REACH_ICLOUD_TO_CHECK("could_not_reach_icloud_to_check", "Couldn't reach iCloud to check. Nothing was removed."),
     THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK("the_phone_file_changed_after_its_check", "The phone file changed after its check, so it stays."),

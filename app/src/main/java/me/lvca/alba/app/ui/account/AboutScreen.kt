@@ -5,7 +5,6 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.List
@@ -73,13 +72,13 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
                 AboutFeature(R.string.about_feature_backup_title, R.string.about_feature_backup_detail, AlbaIcons.CloudDone),
             ))
             AboutFeatureSection(R.string.about_upcoming, listOf(
-                AboutFeature(R.string.about_upcoming_older_title, R.string.about_upcoming_older_detail, Icons.Outlined.DateRange),
+                AboutFeature(R.string.about_upcoming_free_up_title, R.string.about_upcoming_free_up_detail, AlbaIcons.PhoneAndroid),
             ), R.string.about_upcoming_note)
             TextButton(onClick = { showLimitations = !showLimitations }, modifier = Modifier.testTag("about-limitations")) {
                 Text(stringResource(if (showLimitations) R.string.about_hide_limitations else R.string.about_limitations))
             }
             if (showLimitations) {
-                val limitations = listOf(R.string.about_missing_backup, R.string.about_missing_formats,
+                val limitations = listOf(R.string.about_missing_formats,
                     R.string.about_missing_shared_library, R.string.about_missing_shared_flows,
                     R.string.about_missing_folders, R.string.about_missing_accounts,
                     R.string.about_missing_provider, R.string.about_missing_support)

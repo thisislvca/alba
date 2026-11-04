@@ -26,6 +26,7 @@ import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.ExactOriginalSource
 import me.lvca.alba.engine.source.ExistingMediaCursor
 import me.lvca.alba.engine.source.LocalDiscoveryCheckpoint
+import me.lvca.alba.engine.source.RawJpegPairs
 import me.lvca.alba.engine.source.UnsupportedUploadException
 import me.lvca.alba.engine.source.UploadMediaFormat
 import java.io.OutputStream
@@ -259,22 +260,17 @@ internal class TransferIntake(
      * by the uploader, which is recorded as skipped with its reason. Returns true when it queued a transfer.
      */
     private suspend fun stageDiscovered(binding: AccountBinding, enrollment: BackupEnrollmentEntity, item: DeviceMediaRecord): Boolean {
-        if (transferDao.countTransfersForMedia(binding.accountId, item.id) > 0) return false
+        val recorded = transferDao.findTransfersForMedia(binding.accountId, item.id)
+        if (recorded.isNotEmpty()) {
+            val formatSkip = recorded.singleOrNull()?.takeIf { it.isFormatSkip() } ?: return false
+            return reconsiderFormatSkip(binding, enrollment, item, formatSkip)
+        }
         if (!UploadMediaFormat.isCandidate(item.mimeType)) {
-            recordSkipped(binding, enrollment, item, unsupportedReason(item.mimeType))
+            recordSkipped(binding, enrollment, item, skipReason(enrollment, item))
             return false
         }
         return try {
-            createTransfer(
-                binding = binding,
-                authorityType = AUTHORITY_AUTOMATIC,
-                authorityId = "enrollment:${enrollment.enrollmentId}:${enrollment.revision}",
-                enrollment = enrollment,
-                mediaId = item.id,
-                contentUri = item.contentUri,
-            ) { output ->
-                originals.copyMediaStoreItem(item.contentUri, item.sourceRevision, output)
-            }
+            stageAutomatic(binding, enrollment, item)
             true
         } catch (refused: UnsupportedUploadException) {
             recordSkipped(binding, enrollment, item, refused.message ?: UnsupportedUploadException.MESSAGE)
@@ -284,6 +280,53 @@ internal class TransferIntake(
             if (refused.reason !in PASSED_OVER) throw refused
             false
         }
+    }
+
+    private fun TransferEntity.isFormatSkip() = state == TransferState.UNSUPPORTED &&
+        authorityType == AUTHORITY_AUTOMATIC && activeAttemptId == null && message in FORMAT_SKIPS
+
+    /**
+     * Looks again at an item an earlier version skipped for its format, with today's rules: it is staged when the
+     * uploader now takes it, or keeps its row with the current reason. Any other failure leaves the row as it was, so a
+     * passing problem never turns a skip into a failure. Returns true when it queued a transfer.
+     */
+    private suspend fun reconsiderFormatSkip(
+        binding: AccountBinding,
+        enrollment: BackupEnrollmentEntity,
+        item: DeviceMediaRecord,
+        skipped: TransferEntity,
+    ): Boolean {
+        suspend fun keep(reason: String): Boolean {
+            if (reason != skipped.message) transferDao.updateSkipReason(skipped.transferId, reason, now())
+            return false
+        }
+        if (!UploadMediaFormat.isCandidate(item.mimeType)) return keep(skipReason(enrollment, item))
+        val staged = runSuspendCatching { stageAutomatic(binding, enrollment, item, replaces = skipped) }
+        val error = staged.exceptionOrNull() ?: return true
+        return when {
+            error is UnsupportedUploadException -> keep(error.message ?: UnsupportedUploadException.MESSAGE)
+            // The same bytes are already queued or verified: the skipped row stays, as discovery would pass it over.
+            error is PhotoCompanionException.Refused && error.reason in PASSED_OVER -> false
+            error is InsufficientStorageException || error.isFinalRefusal() -> throw error
+            else -> false
+        }
+    }
+
+    private suspend fun stageAutomatic(
+        binding: AccountBinding,
+        enrollment: BackupEnrollmentEntity,
+        item: DeviceMediaRecord,
+        replaces: TransferEntity? = null,
+    ): UploadTicket = createTransfer(
+        binding = binding,
+        authorityType = AUTHORITY_AUTOMATIC,
+        authorityId = "enrollment:${enrollment.enrollmentId}:${enrollment.revision}",
+        enrollment = enrollment,
+        mediaId = item.id,
+        contentUri = item.contentUri,
+        replaces = replaces,
+    ) { output ->
+        originals.copyMediaStoreItem(item.contentUri, item.sourceRevision, output)
     }
 
     /**
@@ -452,7 +495,8 @@ internal class TransferIntake(
     ): String {
         val base = "${binding.accountId}:${enrollment.enrollmentId}:${enrollment.revision}:external"
         if (scope == BackupScope.CAMERA_JPEGS) return base
-        val coverage = (folders.sorted() + "video=${originals.hasVideoAccess()}").joinToString("|")
+        val coverage = (folders.sorted() + "video=${originals.hasVideoAccess()}" + "formats=$FORMAT_RULES_VERSION")
+            .joinToString("|")
         val digest = MessageDigest.getInstance("SHA-256").digest(coverage.toByteArray(Charsets.UTF_8))
         return "$base:media:" + digest.take(COVERAGE_KEY_BYTES).joinToString("") { "%02x".format(it) }
     }
@@ -463,10 +507,21 @@ internal class TransferIntake(
         }
     }
 
-    private fun unsupportedReason(mimeType: String): String = when (mimeType.lowercase()) {
-        "image/avif" -> UnsupportedUploadException.AVIF
-        "image/heic-sequence", "image/heif-sequence" -> UnsupportedUploadException.IMAGE_SEQUENCE
-        else -> if (mimeType.startsWith("video/")) UnsupportedUploadException.VIDEO_CODEC else UnsupportedUploadException.MESSAGE
+    /**
+     * Why [item], which the uploader cannot take, is skipped. A RAW saved beside its JPEG says the JPEG backs up:
+     * iCloud.com takes each file as its own item and no RAW at all, so the pair cannot be uploaded together.
+     */
+    private suspend fun skipReason(enrollment: BackupEnrollmentEntity, item: DeviceMediaRecord): String {
+        val reason = UploadMediaFormat.unsupportedReason(item.mimeType)
+        if (reason != UnsupportedUploadException.RAW) return reason
+        val scope = BackupScope.valueOf(enrollment.scope)
+        val folders = BackupFolders.extraFolders(scope, authority.settings.deviceFolders)
+        val names = runSuspendCatching {
+            originals.companionJpegNames(
+                item, scope, folders, enrollment.consentedAtEpochMillis, enrollment.baseline(), enrollment.includeExisting,
+            )
+        }.getOrDefault(emptyList())
+        return if (RawJpegPairs.hasJpegCompanion(item.fileName, names)) UnsupportedUploadException.RAW_WITH_JPEG else reason
     }
 
     private suspend fun createTransfer(
@@ -603,6 +658,20 @@ internal class TransferIntake(
         /** Enough of the coverage digest to tell folder sets apart in a checkpoint id. */
         const val COVERAGE_KEY_BYTES = 8
         val RETRYABLE_STATES = setOf(TransferState.NEEDS_ATTENTION, TransferState.UNSUPPORTED)
+
+        /** Skips for an item's format or codec, which a later version's rules may judge differently. */
+        val FORMAT_SKIPS = setOf(
+            UnsupportedUploadException.MESSAGE, UnsupportedUploadException.ANIMATED, UnsupportedUploadException.VIDEO_CODEC,
+            UnsupportedUploadException.AVIF, UnsupportedUploadException.IMAGE_SEQUENCE, UnsupportedUploadException.GIF,
+            UnsupportedUploadException.RAW, UnsupportedUploadException.RAW_WITH_JPEG, UnsupportedUploadException.TIFF,
+            UnsupportedUploadException.VIDEO_CONTAINER, UnsupportedUploadException.NOT_ACCEPTED,
+        )
+
+        /**
+         * The version of the format rules. It is part of the discovery checkpoint, so raising it makes discovery read
+         * the covered items once more and rows skipped for their format ([FORMAT_SKIPS]) are judged by the new rules.
+         */
+        const val FORMAT_RULES_VERSION = 2
         val PASSED_OVER = setOf(
             StoredMessage.THESE_EXACT_BYTES_ARE_ALREADY_QUEUED_OR_VERIFIED_IN_ICLOUD,
             StoredMessage.A_PREVIOUS_UPLOAD_OF_THESE_BYTES_IS_UNRESOLVED_AND_WILL_NOT_BE_REPEATED,

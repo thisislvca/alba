@@ -60,7 +60,7 @@ class SelectionActionsTest {
         compose.setAlbaContent(actions.state, SessionState(accountState = ICloudAccountState.Demo, isRefreshing = false), actions)
         compose.onNodeWithContentDescription("More").performClick()
         // Neither single-trash entry fits a mixed selection; the combined one does.
-        compose.onNodeWithText("Move to iCloud trash").assertDoesNotExist()
+        compose.onNodeWithText("Move to Recently Deleted").assertDoesNotExist()
         compose.onNodeWithTag("trash-mixed-selection").performClick()
         assertEquals(listOf(listOf(items[0].id, phone.id)), trashed)
     }

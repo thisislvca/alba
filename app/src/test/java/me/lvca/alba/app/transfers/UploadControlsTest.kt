@@ -43,7 +43,7 @@ class UploadControlsTest {
         )
 
         compose.openViewerDetails()
-        compose.onNodeWithText("Verified in iCloud").assertIsDisplayed()
+        compose.onNodeWithText("Backed up to iCloud").assertIsDisplayed()
         compose.onNodeWithTag("move-phone-original-to-trash").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle { assertTrue(trashRequested) }
     }

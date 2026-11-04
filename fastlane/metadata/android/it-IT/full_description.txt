@@ -1,0 +1,34 @@
+Alba porta la tua libreria di Foto di iCloud su Android. Sfoglia foto e video, esegui il backup del telefono su iCloud e continua a usare gli Album condivisi, senza bisogno di un Mac o di un iPhone.
+
+LA TUA LIBRERIA
+• Sfoglia la libreria di Foto di iCloud insieme alle foto del telefono
+• Guarda video e Live Photo
+• Trova le foto per nome del file, didascalia, album, mese o tipo
+• Usa album, Preferiti, Nascosti ed Eliminati di recente
+
+BACKUP
+• Esegui il backup di foto e video della fotocamera e delle cartelle che scegli
+• Includi anche le foto e i video già presenti sul telefono, dai più recenti
+• Gli originali vanno direttamente su iCloud e vengono controllati lì prima di risultare salvati
+• Usa il Wi-Fi, a meno che tu non consenta i dati mobili; i caricamenti interrotti riprendono da soli
+
+ALBUM CONDIVISI
+• Crea album condivisi, invita altre persone e aggiungi foto e video
+• Partecipa agli album condivisi con te, commenta e reagisci
+
+SUL TELEFONO
+• Conserva gli originali offline, salvali nella galleria o condividili con altre app
+• Ritaglia, ruota, regola e applica filtri alle foto, poi salva una copia modificata
+
+PRIVACY PRIMA DI TUTTO
+Il telefono si collega direttamente ad Apple. Alba non ha un server per le tue foto o credenziali, non salva mai la password e non usa pubblicità o analisi del comportamento. L’accesso resta crittografato sul telefono.
+
+PROVALA PRIMA
+La demo funziona senza account, con foto di esempio e un backup simulato.
+
+DA SAPERE
+• Richiede Android 11 o versioni successive e un Account Apple con Foto di iCloud attivo
+• Supporta l’autenticazione a due fattori standard. Gli account con chiavi di sicurezza o Protezione avanzata dei dati non sono ancora supportati, e nemmeno la Libreria foto condivisa di iCloud
+• Alba è sperimentale: usa API web non ufficiali di Apple, quindi alcune funzioni possono smettere di funzionare quando Apple le modifica
+
+Alba è gratuita e open source (AGPL-3.0), senza abbonamenti o funzioni a pagamento. È indipendente e non è affiliata, approvata o sponsorizzata da Apple Inc. iCloud è un marchio di Apple Inc.

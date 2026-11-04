@@ -9,6 +9,7 @@ captures/
 bugreport-*.zip
 .DS_Store
 __pycache__/
+.claude/worktrees/
 *.jks
 *.keystore
 signing.properties

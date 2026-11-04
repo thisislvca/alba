@@ -17,6 +17,7 @@ import me.lvca.alba.engine.model.BackupControls
 import me.lvca.alba.engine.model.BackupDraftId
 import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.CloudLibraryIndex
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.FreeUpSpaceCandidates
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
@@ -24,6 +25,7 @@ import me.lvca.alba.engine.model.MaintenanceWakeup
 import me.lvca.alba.engine.model.PhotoCompanion
 import me.lvca.alba.engine.model.ProtocolStatusGate
 import me.lvca.alba.engine.model.ReclaimProposalId
+import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.SyncTicket
 import me.lvca.alba.engine.model.SystemConsentCallback
 import me.lvca.alba.engine.model.TransferId
@@ -57,6 +59,8 @@ class DefaultPhotoCompanion(
     private val automaticBackupPolicy: AutomaticBackupPolicy = AutomaticBackupPolicy { false },
     /** A clock that never moves back; the trash consent window is measured on it. */
     elapsedRealtime: () -> Long = android.os.SystemClock::elapsedRealtime,
+    /** The synced iCloud library, where automatic backup looks for each item before uploading it. */
+    cloudLibrary: CloudLibraryIndex = CloudLibraryIndex.NONE,
     /** Alba's remote protocol status, which can pause uploads while an iCloud change is investigated. */
     protocolStatus: ProtocolStatusGate = ProtocolStatusGate.Open,
 ) : PhotoCompanion, MaintenanceWakeup {
@@ -69,7 +73,8 @@ class DefaultPhotoCompanion(
     private val accounts = AccountBindingSync(database, protocol, scheduler, stages, now)
     private val authority = AutomaticBackupAuthority(database, originals, automaticBackupPolicy)
     private val intake = TransferIntake(database, originals, staging, scheduler, accounts, authority, now)
-    private val invoker = UploadInvoker(database, staging, protocol, scheduler, accounts, authority, now, protocolStatus)
+    private val invoker = UploadInvoker(database, staging, protocol, scheduler, accounts, authority, now, stages,
+        ExistingCopyCheck(protocol, cloudLibrary, now), protocolStatus)
     private val reconciler = Reconciler(database, originals, protocol, authority, stages, now)
     private val enrollment = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages, protocolStatus)
     private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts, elapsedRealtime)
@@ -286,5 +291,6 @@ class DefaultPhotoCompanion(
         automatic = row.authorityType == AUTHORITY_AUTOMATIC,
         retryable = row.activeAttemptId == null &&
             (row.state == TransferState.NEEDS_ATTENTION || row.state == TransferState.UNSUPPORTED),
+        alreadyInICloud = row.state == TransferState.VERIFIED && row.message == StoredMessage.ALREADY_IN_ICLOUD.code,
     )
 }
