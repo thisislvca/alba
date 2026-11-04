@@ -125,6 +125,12 @@ interface ExactOriginalSource {
         includeExisting: Boolean = false,
     ): Set<String> = emptySet()
 
+    /**
+     * Display names of the JPEGs in device folder [deviceFolderId] whose names start with [namePrefix], ignoring case,
+     * for pairing a RAW with the JPEG saved beside it. Empty when this source cannot tell.
+     */
+    suspend fun jpegNamesInFolder(deviceFolderId: String, namePrefix: String): List<String> = emptyList()
+
     /** Folders holding photos or videos on every volume, the camera first. */
     suspend fun deviceFolders(): List<DeviceFolder> = emptyList()
 

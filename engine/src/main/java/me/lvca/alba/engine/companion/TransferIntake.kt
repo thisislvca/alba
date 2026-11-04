@@ -26,6 +26,7 @@ import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.ExactOriginalSource
 import me.lvca.alba.engine.source.ExistingMediaCursor
 import me.lvca.alba.engine.source.LocalDiscoveryCheckpoint
+import me.lvca.alba.engine.source.RawJpegPairs
 import me.lvca.alba.engine.source.UnsupportedUploadException
 import me.lvca.alba.engine.source.UploadMediaFormat
 import java.io.OutputStream
@@ -261,7 +262,7 @@ internal class TransferIntake(
     private suspend fun stageDiscovered(binding: AccountBinding, enrollment: BackupEnrollmentEntity, item: DeviceMediaRecord): Boolean {
         if (transferDao.countTransfersForMedia(binding.accountId, item.id) > 0) return false
         if (!UploadMediaFormat.isCandidate(item.mimeType)) {
-            recordSkipped(binding, enrollment, item, unsupportedReason(item.mimeType))
+            recordSkipped(binding, enrollment, item, skipReason(item))
             return false
         }
         return try {
@@ -463,10 +464,19 @@ internal class TransferIntake(
         }
     }
 
-    private fun unsupportedReason(mimeType: String): String = when (mimeType.lowercase()) {
-        "image/avif" -> UnsupportedUploadException.AVIF
-        "image/heic-sequence", "image/heif-sequence" -> UnsupportedUploadException.IMAGE_SEQUENCE
-        else -> if (mimeType.startsWith("video/")) UnsupportedUploadException.VIDEO_CODEC else UnsupportedUploadException.MESSAGE
+    /**
+     * Why [item], which the uploader cannot take, is skipped. A RAW saved beside its JPEG says the JPEG backs up:
+     * iCloud.com takes each file as its own item and no RAW at all, so the pair cannot be uploaded together.
+     */
+    private suspend fun skipReason(item: DeviceMediaRecord): String {
+        val reason = UploadMediaFormat.unsupportedReason(item.mimeType)
+        if (reason != UnsupportedUploadException.RAW) return reason
+        val folder = item.deviceFolderId ?: return reason
+        val stem = RawJpegPairs.stem(item.fileName)
+        if (stem.isEmpty()) return reason
+        val names = runSuspendCatching { originals.jpegNamesInFolder(folder, item.fileName.substringAfterLast('/').take(stem.length)) }
+            .getOrDefault(emptyList())
+        return if (RawJpegPairs.hasJpegCompanion(item.fileName, names)) UnsupportedUploadException.RAW_WITH_JPEG else reason
     }
 
     private suspend fun createTransfer(

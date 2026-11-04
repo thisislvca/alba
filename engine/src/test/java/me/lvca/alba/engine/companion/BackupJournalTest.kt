@@ -118,6 +118,32 @@ class BackupJournalTest {
     }
 
     @Test
+    fun formatsICloudWebDoesNotTakeAreSkippedWithWhyAndARawSaysItsJpegBacksUp() = runBlocking {
+        val camera = "device-folder:external:camera"
+        source.items += item(1, "PXL_20240501_101010123.RAW-02.ORIGINAL.dng", "image/x-adobe-dng").copy(deviceFolderId = camera)
+        source.items += item(2, "20240502_090000.dng", "image/x-adobe-dng").copy(deviceFolderId = camera)
+        source.items += item(3, "party.gif", "image/gif")
+        source.items += item(4, "old-phone.3gp", "video/3gpp")
+        source.items += item(5, "scan.tif", "image/tiff")
+        source.items += item(6, "PXL_20240501_101010123.RAW-01.COVER.jpg", "image/jpeg").copy(deviceFolderId = camera)
+        source.jpegsByFolder[camera] = listOf("PXL_20240501_101010123.RAW-01.COVER.jpg", "20240502_090001.jpg")
+        val photos = enrolled()
+
+        photos.syncNow()
+
+        val rows = photos.observeTransfers().first().associateBy { it.displayName }
+        assertEquals(StoredMessage.UPLOAD_RAW_NOT_ACCEPTED_JPEG_BACKS_UP.code, rows.getValue("PXL_20240501_101010123.RAW-02.ORIGINAL.dng").message)
+        assertEquals(TransferViewState.VERIFIED, rows.getValue("PXL_20240501_101010123.RAW-01.COVER.jpg").state)
+        assertEquals(StoredMessage.UPLOAD_RAW_NOT_ACCEPTED.code, rows.getValue("20240502_090000.dng").message)
+        assertEquals(StoredMessage.UPLOAD_GIF_NOT_ACCEPTED.code, rows.getValue("party.gif").message)
+        assertEquals(StoredMessage.UPLOAD_VIDEO_FORMAT_NOT_ACCEPTED.code, rows.getValue("old-phone.3gp").message)
+        assertEquals(StoredMessage.UPLOAD_TIFF_NOT_ACCEPTED.code, rows.getValue("scan.tif").message)
+        listOf("PXL_20240501_101010123.RAW-02.ORIGINAL.dng", "20240502_090000.dng", "party.gif", "old-phone.3gp", "scan.tif")
+            .forEach { assertEquals(it, TransferViewState.UNSUPPORTED, rows.getValue(it).state) }
+        assertEquals("Only the JPEG is uploaded", 1, protocol.uploadStarts)
+    }
+
+    @Test
     fun backupWaitsForWifiUnlessTheUserAllowsMobileData() = runBlocking {
         source.items += item(1, "camera.jpg", "image/jpeg")
         val photos = enrolled()
@@ -630,6 +656,12 @@ class BackupJournalTest {
         val revisionUnknown = mutableSetOf<String>()
         var onHash: () -> Unit = {}
         var lastScope: BackupScope? = null
+
+        /** JPEG display names by device folder, as MediaStore lists them for RAW pairing. */
+        val jpegsByFolder = mutableMapOf<String, List<String>>()
+
+        override suspend fun jpegNamesInFolder(deviceFolderId: String, namePrefix: String) =
+            jpegsByFolder[deviceFolderId].orEmpty().filter { it.startsWith(namePrefix, ignoreCase = true) }
 
         override fun permissionFingerprint() = "full:unredacted:test"
         override fun hasAutomaticBackupAccess() = true

@@ -277,6 +277,25 @@ class AndroidMediaStoreSource(
         counts.values.sortedWith(compareByDescending<DeviceFolder> { it.isCamera }.thenBy { it.name.lowercase() })
     }
 
+    override suspend fun jpegNamesInFolder(deviceFolderId: String, namePrefix: String): List<String> = withContext(Dispatchers.IO) {
+        val (volume, bucket) = BackupFolders.parse(deviceFolderId) ?: return@withContext emptyList()
+        val escaped = namePrefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        val queryArgs = Bundle().apply {
+            putString(
+                ContentResolver.QUERY_ARG_SQL_SELECTION,
+                "${MediaStore.MediaColumns.VOLUME_NAME} = ? AND ${MediaStore.MediaColumns.BUCKET_ID} = ? AND " +
+                    "${MediaStore.MediaColumns.MIME_TYPE} IN (?, ?) AND ${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ? ESCAPE '\\'",
+            )
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf(volume, bucket, "image/jpeg", "image/jpg", "$escaped%"))
+            putInt(ContentResolver.QUERY_ARG_LIMIT, COMPANION_LIMIT)
+        }
+        runCatching {
+            resolver.query(galleryCollection(), arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), queryArgs, null)?.use { cursor ->
+                buildList { while (cursor.moveToNext()) cursor.stringOrNull(MediaStore.MediaColumns.DISPLAY_NAME)?.let(::add) }
+            }
+        }.getOrNull().orEmpty()
+    }
+
     /** Which side of enrollment a selection covers: items added after it, items already there, or both. */
     private enum class Coverage { NEW, EXISTING, ALL }
 
@@ -578,6 +597,8 @@ class AndroidMediaStoreSource(
     )
 
     private companion object {
+        /** A RAW has one JPEG beside it; a few rows are plenty to find it among names that share its prefix. */
+        const val COMPANION_LIMIT = 8
         val MEDIA_TYPES = arrayOf(
             MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE.toString(),
             MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO.toString(),
