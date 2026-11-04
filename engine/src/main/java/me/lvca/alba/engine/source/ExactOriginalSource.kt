@@ -126,6 +126,20 @@ interface ExactOriginalSource {
         includeExisting: Boolean = false,
     ): Set<String> = emptySet()
 
+    /**
+     * Display names of JPEGs in [raw]'s folder that [RawJpegPairs] could pair with it, among only the items automatic
+     * backup covers for this [scope], [folders] and enrollment, so a match is a JPEG that itself backs up. Empty when
+     * this source cannot tell.
+     */
+    suspend fun companionJpegNames(
+        raw: DeviceMediaRecord,
+        scope: BackupScope,
+        folders: Set<String>,
+        addedAfterEpochMillis: Long,
+        enrollmentBaseline: LocalDiscoveryCheckpoint?,
+        includeExisting: Boolean,
+    ): List<String> = emptyList()
+
     /** Folders holding photos or videos on every volume, the camera first. */
     suspend fun deviceFolders(): List<DeviceFolder> = emptyList()
 

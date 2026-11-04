@@ -497,6 +497,14 @@ interface TransferDao {
     @Query("SELECT COUNT(*) FROM transfers WHERE accountId = :accountId AND mediaId = :mediaId")
     suspend fun countTransfersForMedia(accountId: String, mediaId: String): Int
 
+    /** Every journal row for the phone item, of any state. */
+    @Query("SELECT * FROM transfers WHERE accountId = :accountId AND mediaId = :mediaId")
+    suspend fun findTransfersForMedia(accountId: String, mediaId: String): List<TransferEntity>
+
+    /** Gives a skipped row a new reason; any row that is no longer skipped is left alone. */
+    @Query("UPDATE transfers SET message = :message, updatedAtEpochMillis = :now WHERE transferId = :transferId AND state = 'UNSUPPORTED'")
+    suspend fun updateSkipReason(transferId: String, message: String, now: Long): Int
+
     /** Items that stopped before any attempt was armed: nothing reached Apple, so staging them again is safe. */
     @Query(
         """

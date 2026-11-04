@@ -111,6 +111,12 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.UPLOAD_CANCELED_SELECT_THE_FILE_AGAIN_TO_UPLOAD_IT -> R.string.message_upload_canceled_select_the_file_again_to_upload_it
     StoredMessage.UPLOAD_AVIF_UNSUPPORTED -> R.string.upload_avif_unsupported
     StoredMessage.UPLOAD_IMAGE_SEQUENCE_UNSUPPORTED -> R.string.upload_image_sequence_unsupported
+    StoredMessage.UPLOAD_GIF_NOT_ACCEPTED -> R.string.upload_gif_not_accepted
+    StoredMessage.UPLOAD_RAW_NOT_ACCEPTED -> R.string.upload_raw_not_accepted
+    StoredMessage.UPLOAD_RAW_NOT_ACCEPTED_JPEG_BACKS_UP -> R.string.upload_raw_not_accepted_jpeg_backs_up
+    StoredMessage.UPLOAD_TIFF_NOT_ACCEPTED -> R.string.upload_tiff_not_accepted
+    StoredMessage.UPLOAD_VIDEO_FORMAT_NOT_ACCEPTED -> R.string.upload_video_format_not_accepted
+    StoredMessage.UPLOAD_FORMAT_NOT_ACCEPTED -> R.string.upload_format_not_accepted
     StoredMessage.ICLOUD_STORAGE_FULL -> R.string.icloud_storage_full
     StoredMessage.AUTOMATIC_BACKUP_IS_ON -> R.string.message_automatic_backup_is_on
     StoredMessage.ONLY_ITEMS_THAT_SENT_NOTHING_CAN_BE_RETRIED -> R.string.message_only_items_that_sent_nothing_can_be_retried
