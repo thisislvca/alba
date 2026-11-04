@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The splash icon area is 240dp and shows a centered 160dp circle; the mark's corners stay inside it at 176dp. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="240dp" android:height="240dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <item android:width="176dp" android:height="176dp" android:gravity="center" android:drawable="@drawable/alba_logo_mark" />
+</layer-list>

@@ -16,6 +16,10 @@ Play review, production eligibility and managed publishing still apply. The firs
 
 **Dry run** builds and checks unsigned artifacts without signing keys, Google authentication, tags or uploads. A dry run cannot be promoted.
 
+## Store listing
+
+The Play listing text lives in `fastlane/metadata/android/<locale>/` (`title.txt`, `short_description.txt`, `full_description.txt`; Play allows 30, 80 and 4,000 characters). Releases don't upload it: the Fastfile keeps `skip_upload_metadata`, and neither release service account has store-listing permission. When the text changes, paste it into Play Console under Main store listing for English (United States) and Italian.
+
 ## Credentials and permissions
 
 | Location | Setting | Purpose |
@@ -37,7 +41,7 @@ Do not add release credentials as repository secrets. Build and PR jobs must nev
 
 ## Keys and recovery
 
-The old Mela family-beta certificate is permanently rejected by the signing script because its keystore was committed to private Git history. Removing a file from the latest commit does not make that key safe. Preserve any historical copy only for legacy installs; never reuse it for Alba.
+The certificate used for the earlier family beta, before the app was named Alba, is permanently rejected by the signing script because its keystore was committed to private Git history. Removing a file from the latest commit does not make that key safe. Preserve any historical copy only for legacy installs; never reuse it for Alba.
 
 Keep the new encrypted upload keystore outside Git and its password in a password manager or macOS Keychain. Keep an independently recoverable encrypted backup. Public certificates and SHA-256 fingerprints are safe to share; private keys and passwords are not. Do not paste credentials into chat, command arguments or logs.
 
