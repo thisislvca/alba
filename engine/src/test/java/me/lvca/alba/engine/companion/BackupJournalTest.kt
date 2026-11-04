@@ -121,6 +121,65 @@ class BackupJournalTest {
     }
 
     @Test
+    fun formatsICloudWebDoesNotTakeAreSkippedWithWhyAndARawSaysItsJpegBacksUp() = runBlocking {
+        val camera = "device-folder:external:camera"
+        source.items += item(1, "PXL_20240501_101010123.RAW-02.ORIGINAL.dng", "image/x-adobe-dng").copy(deviceFolderId = camera)
+        source.items += item(2, "20240502_090000.dng", "image/x-adobe-dng").copy(deviceFolderId = camera)
+        source.items += item(3, "party.gif", "image/gif")
+        source.items += item(4, "old-phone.3gp", "video/3gpp")
+        source.items += item(5, "scan.tif", "image/tiff")
+        source.items += item(6, "PXL_20240501_101010123.RAW-01.COVER.jpg", "image/jpeg").copy(deviceFolderId = camera)
+        // Its JPEG is on the phone but outside what backup covers, so the RAW must not say that JPEG backs up.
+        source.uncovered += item(7, "20240502_090000.jpg", "image/jpeg").copy(deviceFolderId = camera)
+        val photos = enrolled()
+
+        photos.syncNow()
+
+        val rows = photos.observeTransfers().first().associateBy { it.displayName }
+        assertEquals(StoredMessage.UPLOAD_RAW_NOT_ACCEPTED_JPEG_BACKS_UP.code, rows.getValue("PXL_20240501_101010123.RAW-02.ORIGINAL.dng").message)
+        assertEquals(TransferViewState.VERIFIED, rows.getValue("PXL_20240501_101010123.RAW-01.COVER.jpg").state)
+        assertEquals(StoredMessage.UPLOAD_RAW_NOT_ACCEPTED.code, rows.getValue("20240502_090000.dng").message)
+        assertEquals(StoredMessage.UPLOAD_GIF_NOT_ACCEPTED.code, rows.getValue("party.gif").message)
+        assertEquals(StoredMessage.UPLOAD_VIDEO_FORMAT_NOT_ACCEPTED.code, rows.getValue("old-phone.3gp").message)
+        assertEquals(StoredMessage.UPLOAD_TIFF_NOT_ACCEPTED.code, rows.getValue("scan.tif").message)
+        listOf("PXL_20240501_101010123.RAW-02.ORIGINAL.dng", "20240502_090000.dng", "party.gif", "old-phone.3gp", "scan.tif")
+            .forEach { assertEquals(it, TransferViewState.UNSUPPORTED, rows.getValue(it).state) }
+        assertEquals("Only the JPEG is uploaded", 1, protocol.uploadStarts)
+    }
+
+    @Test
+    fun itemsAnEarlierVersionSkippedForTheirFormatAreJudgedAgainByTodaysRules() = runBlocking {
+        // An earlier version skipped these with its generic reason; a mif1 HEIF with HEVC images now uploads.
+        source.items += item(1, "party.gif", "image/gif")
+        source.items += item(2, "pixel.heif", "image/heif", refuse = UnsupportedUploadException.MESSAGE)
+        source.items += item(3, "broken.jpg", "image/jpeg", refuse = UnsupportedUploadException.INVALID)
+        val photos = enrolled()
+        photos.syncNow()
+        database.openHelper.writableDatabase.execSQL(
+            "UPDATE transfers SET message = ? WHERE state = 'UNSUPPORTED' AND message = ?",
+            arrayOf(UnsupportedUploadException.MESSAGE, UnsupportedUploadException.GIF),
+        )
+        val before = photos.observeTransfers().first().associateBy { it.displayName }
+        assertEquals(UnsupportedUploadException.MESSAGE, before.getValue("party.gif").message)
+        assertEquals(UnsupportedUploadException.MESSAGE, before.getValue("pixel.heif").message)
+
+        // New rules come with a new discovery checkpoint, so every covered item is read again.
+        source.refusals.remove(source.items[1].contentUri)
+        database.openHelper.writableDatabase.execSQL("DELETE FROM media_store_checkpoints")
+        photos.syncNow()
+
+        val rows = photos.observeTransfers().first()
+        val byName = rows.associateBy { it.displayName }
+        assertEquals("A reason is updated in place, never reported twice", 3, rows.size)
+        assertEquals(StoredMessage.UPLOAD_GIF_NOT_ACCEPTED.code, byName.getValue("party.gif").message)
+        assertEquals(TransferViewState.UNSUPPORTED, byName.getValue("party.gif").state)
+        assertEquals(TransferViewState.VERIFIED, byName.getValue("pixel.heif").state)
+        // A skip that is not about the format is left as it was.
+        assertEquals(UnsupportedUploadException.INVALID, byName.getValue("broken.jpg").message)
+        assertEquals(1, protocol.uploadStarts)
+    }
+
+    @Test
     fun backupWaitsForWifiUnlessTheUserAllowsMobileData() = runBlocking {
         source.items += item(1, "camera.jpg", "image/jpeg")
         val photos = enrolled()
@@ -699,6 +758,16 @@ class BackupJournalTest {
         val revisionUnknown = mutableSetOf<String>()
         var onHash: () -> Unit = {}
         var lastScope: BackupScope? = null
+
+        /** JPEGs on the phone that backup does not cover, so they never count as a RAW's companion. */
+        val uncovered = mutableListOf<DeviceMediaRecord>()
+
+        override suspend fun companionJpegNames(
+            raw: DeviceMediaRecord, scope: BackupScope, folders: Set<String>, addedAfterEpochMillis: Long,
+            enrollmentBaseline: LocalDiscoveryCheckpoint?, includeExisting: Boolean,
+        ) = (items + if (includeExisting) existing else emptyList())
+            .filter { it.deviceFolderId == raw.deviceFolderId && it.mimeType == "image/jpeg" }
+            .map { it.fileName }
 
         override fun permissionFingerprint() = "full:unredacted:test"
         override fun hasAutomaticBackupAccess() = true

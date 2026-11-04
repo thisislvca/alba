@@ -979,6 +979,12 @@
     <string name="message_automatic_backup_is_on">Il backup è attivo.</string>
     <string name="upload_avif_unsupported">Le immagini AVIF non possono ancora essere caricate su iCloud.</string>
     <string name="upload_image_sequence_unsupported">Le sequenze di immagini HEIF, come raffiche o animazioni, non possono ancora essere caricate.</string>
+    <string name="upload_gif_not_accepted">iCloud non accetta GIF caricate dal web. L’originale resta su questo telefono.</string>
+    <string name="upload_raw_not_accepted">iCloud non accetta file RAW caricati dal web. L’originale resta su questo telefono.</string>
+    <string name="upload_raw_not_accepted_jpeg_backs_up">iCloud non accetta file RAW caricati dal web. Il JPEG scattato insieme viene salvato; il RAW resta su questo telefono.</string>
+    <string name="upload_tiff_not_accepted">iCloud non accetta immagini TIFF caricate dal web. L’originale resta su questo telefono.</string>
+    <string name="upload_video_format_not_accepted">iCloud accetta dal web solo video MP4 e MOV. L’originale resta su questo telefono.</string>
+    <string name="upload_format_not_accepted">iCloud non accetta questo formato di file caricato dal web. L’originale resta su questo telefono.</string>
     <string name="icloud_storage_full">Lo spazio iCloud è esaurito. I caricamenti sono in pausa finché non c’è spazio.</string>
     <string name="message_only_items_that_sent_nothing_can_be_retried">Questo elemento potrebbe essere arrivato su iCloud, quindi Alba lo controlla invece di inviarlo di nuovo.</string>
     <string name="message_this_item_is_no_longer_in_the_queue">Questo elemento non è più in coda.</string>

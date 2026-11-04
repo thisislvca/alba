@@ -279,6 +279,42 @@ class AndroidMediaStoreSource(
         counts.values.sortedWith(compareByDescending<DeviceFolder> { it.isCamera }.thenBy { it.name.lowercase() })
     }
 
+    override suspend fun companionJpegNames(
+        raw: DeviceMediaRecord,
+        scope: BackupScope,
+        folders: Set<String>,
+        addedAfterEpochMillis: Long,
+        enrollmentBaseline: LocalDiscoveryCheckpoint?,
+        includeExisting: Boolean,
+    ): List<String> = withContext(Dispatchers.IO) {
+        val (volume, bucket) = raw.deviceFolderId?.let(BackupFolders::parse) ?: return@withContext emptyList()
+        val sameBase = RawJpegPairs.sameBaseJpegNames(raw.fileName).takeIf { it.isNotEmpty() } ?: return@withContext emptyList()
+        if (!hasAutomaticBackupAccess()) return@withContext emptyList()
+        val version = MediaStore.getVersion(appContext, MediaStore.VOLUME_EXTERNAL)
+        // Only JPEGs backup itself covers count, so the RAW never claims a JPEG that stays on the phone.
+        val (scopeSelection, scopeArgs) = eligibleSelection(
+            scope, folders, addedAfterEpochMillis, enrollmentBaseline, version, if (includeExisting) Coverage.ALL else Coverage.NEW,
+        )
+        val escaped = RawJpegPairs.pixelCoverPrefix(raw.fileName).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        val name = MediaStore.MediaColumns.DISPLAY_NAME
+        // The exact names a same-base pair uses, and Pixel's covers of this one shot: nothing else can match, so
+        // the true companion is never crowded out of the limit by unrelated names.
+        val selection = "$scopeSelection AND ${MediaStore.MediaColumns.VOLUME_NAME} = ? AND ${MediaStore.MediaColumns.BUCKET_ID} = ? AND " +
+            "${MediaStore.MediaColumns.MIME_TYPE} IN (?, ?) AND (LOWER($name) IN (${sameBase.joinToString { "?" }}) OR $name LIKE ? ESCAPE '\\')"
+        val args = scopeArgs + listOf(volume, bucket, "image/jpeg", "image/jpg") + sameBase + "$escaped%"
+        val queryArgs = Bundle().apply {
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args.toTypedArray())
+            putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, "LENGTH($name), $name")
+            putInt(ContentResolver.QUERY_ARG_LIMIT, COMPANION_LIMIT)
+        }
+        runCatching {
+            resolver.query(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL), arrayOf(name), queryArgs, null)?.use { cursor ->
+                buildList { while (cursor.moveToNext()) cursor.stringOrNull(MediaStore.MediaColumns.DISPLAY_NAME)?.let(::add) }
+            }
+        }.getOrNull().orEmpty()
+    }
+
     /** Which side of enrollment a selection covers: items added after it, items already there, or both. */
     private enum class Coverage { NEW, EXISTING, ALL }
 
@@ -600,6 +636,8 @@ class AndroidMediaStoreSource(
     )
 
     private companion object {
+        /** A RAW has one JPEG beside it; a few rows are plenty to find it among names that share its prefix. */
+        const val COMPANION_LIMIT = 8
         val MEDIA_TYPES = arrayOf(
             MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE.toString(),
             MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO.toString(),
