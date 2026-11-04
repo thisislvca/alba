@@ -7,7 +7,14 @@ import me.lvca.alba.engine.model.StoredMessage
 internal fun localizedStoredMessage(message: String?, fallback: Int = R.string.operation_needs_attention): UiMessage =
     UiMessage(StoredMessage.decode(message)?.let(::storedMessageResource) ?: fallback)
 
-internal fun storedMessageResource(message: StoredMessage): Int = when (message) {
+/**
+ * The string for [message]. The mapping is split in two only to keep each function short; StoredMessageTest checks
+ * that every entry has a string.
+ */
+internal fun storedMessageResource(message: StoredMessage): Int =
+    firstMessageResources(message) ?: secondMessageResources(message) ?: error("No string for stored message $message")
+
+private fun firstMessageResources(message: StoredMessage): Int? = when (message) {
     StoredMessage.PHONE_STORAGE_LOW -> R.string.phone_storage_low
     StoredMessage.CHECK_PHONE_GALLERY_BEFORE_RETRY -> R.string.check_phone_gallery_before_retry
     StoredMessage.AUTOMATIC_BACKUP_IS_OFF -> R.string.message_automatic_backup_is_off
@@ -67,6 +74,10 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.ACCOUNT_OPERATION_CANCELED_THE_REMAINING_BATCH -> R.string.message_account_operation_canceled_the_remaining_batch
     StoredMessage.ACCOUNT_CHANGED -> R.string.message_account_changed
     StoredMessage.CHECK_THE_UPLOAD_QUEUE_BEFORE_SELECTING_THIS_ITEM_AGAIN -> R.string.message_check_the_upload_queue_before_selecting_this_item_again
+    else -> null
+}
+
+private fun secondMessageResources(message: StoredMessage): Int? = when (message) {
     StoredMessage.QUEUED -> R.string.message_queued
     StoredMessage.COULD_NOT_STAGE_THIS_JPEG_CHECK_FILE_ACCESS_AND_THE_UPLOAD_QUEUE -> R.string.message_could_not_stage_this_jpeg_check_file_access_and_the_upload_queue
     StoredMessage.COULD_NOT_COMPLETE_THIS_ITEM -> R.string.message_could_not_complete_this_item
@@ -126,4 +137,5 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.COULD_NOT_READ_THIS_FILE_ON_THE_PHONE -> R.string.could_not_read_this_file_on_the_phone
     StoredMessage.ALREADY_IN_ICLOUD -> R.string.already_in_icloud
     StoredMessage.CHECKING_ICLOUD_LIBRARY_FIRST -> R.string.checking_icloud_library_first
+    else -> null
 }
