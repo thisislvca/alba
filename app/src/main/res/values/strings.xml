@@ -908,10 +908,12 @@
     <string name="backup_chip_paused">Backup paused</string>
     <string name="backup_chip_offline">Waiting for a connection</string>
     <string name="backup_chip_wifi">Waiting for Wi-Fi</string>
+    <string name="backup_chip_charging">Waiting to charge</string>
     <string name="backup_status_off">Backup is off</string>
     <string name="backup_status_review">Backup now covers more</string>
     <string name="backup_status_permission">Backup paused: allow access</string>
     <string name="backup_status_wifi">Waiting for Wi-Fi</string>
+    <string name="backup_status_charging">Waiting to charge</string>
     <string name="backup_status_done">Backup complete</string>
     <string name="backup_progress">%1$d of %2$d backed up</string>
     <string name="backup_last_backed_up">Last backed up %1$s</string>
@@ -931,6 +933,8 @@
     <string name="backup_videos_mobile_data">Back up videos over mobile data</string>
     <string name="backup_while_roaming">Back up while roaming</string>
     <string name="backup_while_roaming_detail">Uses mobile data abroad, which may cost more.</string>
+    <string name="backup_only_while_charging">Only while charging</string>
+    <string name="backup_only_while_charging_detail">Backs up only while the phone is charging.</string>
     <string name="backup_pause">Pause backup</string>
     <string name="backup_pause_detail">Stops automatic uploads until you turn this off.</string>
     <string name="backup_disclosure_title">Turn on backup?</string>
@@ -1003,6 +1007,10 @@
     <plurals name="backup_detail_wifi">
         <item quantity="one">%d item waits for Wi-Fi. Allow mobile data in settings below to back up now.</item>
         <item quantity="other">%d items wait for Wi-Fi. Allow mobile data in settings below to back up now.</item>
+    </plurals>
+    <plurals name="backup_detail_charging">
+        <item quantity="one">%d item waits for the phone to charge. Turn off “Only while charging” below to back up now.</item>
+        <item quantity="other">%d items wait for the phone to charge. Turn off “Only while charging” below to back up now.</item>
     </plurals>
     <plurals name="backup_failed_title">
         <item quantity="one">%d item can’t be backed up</item>

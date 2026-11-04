@@ -392,6 +392,25 @@ interface ICloudPhotoProtocol {
         pair: RemotePairCandidate,
         output: OutputStream,
     ): RemoteOriginalObservation
+
+    /**
+     * Carries [metadata] the phone keeps for an item onto the iCloud asset [assetRecordName] that was just verified as
+     * its upload: marks it a favourite, and sets its caption when it has none. It never clears or overwrites what iCloud
+     * already has, so applying it again changes nothing. The upload is already done; a failure here is the caller's
+     * to ignore.
+     */
+    suspend fun applyPhoneMetadata(binding: AccountBinding, assetRecordName: String, metadata: PhoneMetadata): Unit = Unit
+}
+
+/** What the phone records about an item beyond its bytes, carried into iCloud after upload. */
+data class PhoneMetadata(
+    /** MediaStore's IS_FAVORITE. */
+    val favorite: Boolean = false,
+    /** The item's own caption, from XMP dc:description or EXIF ImageDescription, without camera boilerplate. */
+    val caption: String? = null,
+) {
+    /** Whether there is anything to carry into iCloud. */
+    val isEmpty: Boolean get() = !favorite && caption == null
 }
 
 /** The network automatic backup sees now. */
@@ -406,6 +425,8 @@ data class BackupSettings(
     val deviceFolders: Set<String> = emptySet(),
     /** The user paused backup; nothing automatic runs until they resume it. */
     val paused: Boolean = false,
+    /** Automatic backup uploads only while the phone is charging, as Google Photos' "While charging only". */
+    val onlyWhileCharging: Boolean = false,
 ) {
     /** Whether automatic backup may upload a photo, or a video when [video], on [network]. */
     fun allows(network: BackupNetwork, video: Boolean): Boolean = !paused && when (network) {
@@ -428,6 +449,9 @@ fun interface AutomaticBackupPolicy {
     fun network(): BackupNetwork = if (isUnmetered()) BackupNetwork.UNMETERED else BackupNetwork.METERED
 
     fun settings(): BackupSettings = BackupSettings()
+
+    /** Whether the phone is charging now, as WorkManager's charging constraint sees it. */
+    fun isCharging(): Boolean = true
 }
 
 interface WakeupScheduler {

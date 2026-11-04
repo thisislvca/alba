@@ -14,6 +14,7 @@ import me.lvca.alba.engine.model.CandidatePage
 import me.lvca.alba.engine.model.ICloudDestination
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.OneShotUploadSource
+import me.lvca.alba.engine.model.PhoneMetadata
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.RemoteOriginalObservation
 import me.lvca.alba.engine.model.RemotePairCandidate
@@ -46,6 +47,8 @@ class LiveICloudPhotoProtocol(
     private val uploadJournal: UploadJournal? = null,
     private val isAuthorized: () -> Boolean = { true },
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
+    /** The library's edits, shared with the viewer; without one, uploads carry nothing beyond their bytes. */
+    private val metadataEditor: UploadMetadataEditor? = null,
 ) : ICloudPhotoProtocol {
     override fun isWriteAuthorized(): Boolean = isAuthorized()
     override suspend fun canResume(binding: AccountBinding, attemptId: String): Boolean = try {
@@ -66,6 +69,14 @@ class LiveICloudPhotoProtocol(
     private val json = Json { ignoreUnknownKeys = true }
 
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected)
+
+    override suspend fun applyPhoneMetadata(binding: AccountBinding, assetRecordName: String, metadata: PhoneMetadata) {
+        val editor = metadataEditor ?: return
+        if (metadata.isEmpty) return
+        requireBoundSession(binding)
+        // The editor checks the account again under its lock, so a switch in between edits nothing.
+        editor.applyPhoneMetadata(binding.accountId, assetRecordName, metadata.favorite, metadata.caption)
+    }
 
     override fun currentDestination(): ICloudDestination? = sessionProvider()?.let { session ->
         ICloudDestination(

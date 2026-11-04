@@ -70,7 +70,7 @@ class DefaultPhotoCompanion(
     private val authority = AutomaticBackupAuthority(database, originals, automaticBackupPolicy)
     private val intake = TransferIntake(database, originals, staging, scheduler, accounts, authority, now)
     private val invoker = UploadInvoker(database, staging, protocol, scheduler, accounts, authority, now, protocolStatus)
-    private val reconciler = Reconciler(database, protocol, authority, stages, now)
+    private val reconciler = Reconciler(database, originals, protocol, authority, stages, now)
     private val enrollment = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages, protocolStatus)
     private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts, elapsedRealtime)
 
@@ -184,7 +184,7 @@ class DefaultPhotoCompanion(
         if (invoked > 0) reconciled += reconciler.reconcileOne(binding)
         val dueAt = listOfNotNull(
             transferDao.earliestReconciliationDue(binding.accountId, now(), authority.mayUseNetwork()),
-            transferDao.earliestRetryDue(binding.accountId, now(), allowAutomatic = authority.mayUseNetwork(), allowManual = false),
+            transferDao.earliestRetryDue(binding.accountId, now(), allowAutomatic = authority.mayBackUp(), allowManual = false),
         ).minOrNull()
         // While paused, queued items wait for the periodic wake rather than asking for another pass at once.
         val ready = mayStartUpload() &&

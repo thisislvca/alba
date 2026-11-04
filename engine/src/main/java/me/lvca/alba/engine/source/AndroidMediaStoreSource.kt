@@ -13,10 +13,12 @@ import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.DeviceFolder
+import me.lvca.alba.engine.model.PhoneMetadata
 import me.lvca.alba.engine.model.StoredMessage
 import java.io.OutputStream
 import java.security.MessageDigest
@@ -352,6 +354,26 @@ class AndroidMediaStoreSource(
                 expiresAtEpochMillis = expiresSeconds?.takeIf { it > 0L }?.times(1_000L),
             )
         }
+    }
+
+    override suspend fun phoneMetadata(contentUri: String, mimeType: String): PhoneMetadata = withContext(Dispatchers.IO) {
+        val uri = contentUri.toUri()
+        val favorite = runCatching {
+            resolver.query(uri, arrayOf(MediaStore.MediaColumns.IS_FAVORITE), null, null)?.use { cursor ->
+                cursor.moveToFirst() && cursor.longOrNull(MediaStore.MediaColumns.IS_FAVORITE) == 1L
+            } == true
+        }.getOrDefault(false)
+        // Only the metadata is read; a caption is not location, so the redacted stream is enough.
+        val caption = if (!mimeType.startsWith("image/")) null else runCatching {
+            resolver.openInputStream(uri)?.use { input ->
+                val exif = ExifInterface(input)
+                PhoneCaptions.pick(
+                    xmp = exif.getAttributeBytes(ExifInterface.TAG_XMP)?.toString(Charsets.UTF_8),
+                    imageDescription = exif.getAttribute(ExifInterface.TAG_IMAGE_DESCRIPTION),
+                )
+            }
+        }.getOrNull()
+        PhoneMetadata(favorite = favorite, caption = caption)
     }
 
     private fun queryGalleryImages(video: Boolean = false): List<DeviceMediaRecord> {

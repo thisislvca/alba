@@ -6,8 +6,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -113,6 +115,24 @@ class BackupPageTest {
         compose.onNodeWithTag("backup-photos-mobile").performScrollTo().performClick()
         assertEquals(listOf(BackupSettings(photosOnMobileData = true)), saved)
         compose.onNodeWithTag("backup-device-folders").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun onlyWhileChargingIsOffUntilTurnedOnAndSaysWhyBackupWaits() {
+        val saved = mutableListOf<BackupSettings>()
+        val waiting = TransferView(TransferId("a"), "device:1", "a.jpg", TransferViewState.WAITING, 1, 1, automatic = true)
+        render(TransferState(backup = on, queue = listOf(waiting)), setBackupSettings = { saved += it }, charging = false)
+        compose.onNodeWithTag("backup-only-while-charging").performScrollTo().assertIsOff().performClick()
+        assertEquals(listOf(BackupSettings(onlyWhileCharging = true)), saved)
+        compose.onNodeWithTag("backup-headline").assertTextEquals(context.resources.getQuantityString(R.plurals.backup_chip_backing_up, 1, 1))
+    }
+
+    @Test
+    fun theBackupPageSaysWaitingToChargeWhenOnlyTheChargerHoldsBackupBack() {
+        val waiting = TransferView(TransferId("a"), "device:1", "a.jpg", TransferViewState.WAITING, 1, 1, automatic = true)
+        render(TransferState(backup = on, queue = listOf(waiting), backupSettings = BackupSettings(onlyWhileCharging = true)), charging = false)
+        compose.onNodeWithTag("backup-headline").assertTextEquals(context.getString(R.string.backup_status_charging))
+        compose.onNodeWithTag("backup-only-while-charging").performScrollTo().assertIsOn()
     }
 
     @Test
@@ -267,6 +287,7 @@ class BackupPageTest {
     private fun render(
         transfers: TransferState,
         network: NetworkStatus = NetworkStatus(true, false),
+        charging: Boolean? = null,
         retryTransfer: (TransferId) -> Unit = {},
         retryAll: () -> Unit = {},
         setBackupSettings: (BackupSettings) -> Unit = {},
@@ -276,7 +297,7 @@ class BackupPageTest {
         compose.setContent {
             AlbaTheme(darkTheme = false) {
                 ICloudAccountScreen(
-                    session = SessionState(accountState = account, network = network, requestedPage = ProfilePage.BACKUP),
+                    session = SessionState(accountState = account, network = network, charging = charging, requestedPage = ProfilePage.BACKUP),
                     transfers = transfers,
                     phoneStorage = PhoneStorageState(),
                     mediaBusy = false,
