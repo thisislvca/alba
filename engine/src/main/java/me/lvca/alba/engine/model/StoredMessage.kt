@@ -126,6 +126,8 @@ enum class StoredMessage(val code: String, val legacyText: String) {
         "only_items_that_sent_nothing_can_be_retried",
         "This item may have reached iCloud, so Alba checks it instead of sending it again.",
     ),
+    ALREADY_IN_ICLOUD("already_in_icloud", "Already in iCloud"),
+    CHECKING_ICLOUD_LIBRARY_FIRST("checking_icloud_library_first", "Checking whether it is already in iCloud"),
     THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE("this_item_is_no_longer_in_the_queue", "This item is no longer in the queue."),
     COULD_NOT_REACH_ICLOUD_TO_CHECK("could_not_reach_icloud_to_check", "Couldn't reach iCloud to check. Nothing was removed."),
     THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK("the_phone_file_changed_after_its_check", "The phone file changed after its check, so it stays."),

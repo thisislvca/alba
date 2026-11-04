@@ -12,6 +12,8 @@ import androidx.room.PrimaryKey
         // Library changes name iCloud records, not media ids: these find the rows a change touches.
         Index(value = ["masterRecordName"]),
         Index(value = ["assetRecordName"]),
+        // Backup looks for a phone original in the library by its exact size first.
+        Index(value = ["byteCount"]),
     ],
 )
 data class CatalogItemEntity(

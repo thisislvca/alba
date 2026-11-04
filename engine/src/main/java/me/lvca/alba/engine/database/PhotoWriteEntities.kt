@@ -96,6 +96,13 @@ data class TransferEntity(
     @androidx.room.ColumnInfo(defaultValue = "0") val automaticRetries: Int = 0,
     /** A READY transfer waiting out its retry backoff is not started before this time. */
     val notBeforeEpochMillis: Long? = null,
+    /**
+     * What backup found when it looked for these bytes in the iCloud library before uploading, one of the
+     * ExistingCopyCheck results. Null until it has looked, and for uploads it does not look for (the user's own).
+     */
+    val existingCopyCheck: String? = null,
+    /** When reading the iCloud library first failed for this transfer; the failure window runs from here. */
+    val existingCopyFirstFailureAtEpochMillis: Long? = null,
 )
 
 /**
@@ -166,7 +173,16 @@ data class RemoteAssetPairEntity(
     val relationIsCurrent: Boolean,
     val originalResourceIdentity: String,
     val hydratedAtEpochMillis: Long,
-)
+) {
+    companion object {
+        /**
+         * The personal library's CloudKit database, as [databaseScope] names it. The gallery merges a phone item with its
+         * iCloud copy only for pairs in this scope. Rows written before schema 20 said "com.apple.photos.cloud/private";
+         * the 19 to 20 migration renames them.
+         */
+        const val PRIVATE_DATABASE_SCOPE = "private"
+    }
+}
 
 @Entity(
     tableName = "reconciliation_matches",
