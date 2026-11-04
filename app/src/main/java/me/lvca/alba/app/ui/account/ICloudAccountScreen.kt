@@ -77,6 +77,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaPageScaffold
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.navigation.BackPhase
 import me.lvca.alba.app.ui.navigation.NavigationDirection
@@ -257,7 +258,7 @@ private fun PhotosNotEnabledAccount(
 ) {
     AlbaCard(color = MaterialTheme.colorScheme.tertiaryContainer) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(30.dp))
+            Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(AlbaIconSize.large))
             Text(stringResource(R.string.icloud_photos_is_not_active), style = MaterialTheme.typography.titleLarge)
             Text(appleId, style = MaterialTheme.typography.bodyMedium)
             Text(
@@ -308,7 +309,7 @@ private fun SignInForm(
         Spacer(Modifier.height(12.dp))
         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary.copy(alpha = .09f)) {
             Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.Lock, null, Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Outlined.Lock, null, Modifier.size(AlbaIconSize.large), tint = MaterialTheme.colorScheme.primary)
             }
         }
         Spacer(Modifier.height(18.dp))

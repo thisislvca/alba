@@ -16,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -110,7 +109,7 @@ internal fun EditorSlider(
             drawLine(inactive, Offset(0f, y), Offset(size.width, y), stroke, StrokeCap.Round)
             val origin = if (centred) x(0) else 0f
             drawLine(active, Offset(origin, y), Offset(x(value), y), stroke, StrokeCap.Round)
-            if (centred) drawLine(Color.White, Offset(origin, y - 8.dp.toPx()), Offset(origin, y + 8.dp.toPx()), 2.dp.toPx())
+            if (centred) drawLine(EditorColors.sliderZero, Offset(origin, y - 8.dp.toPx()), Offset(origin, y + 8.dp.toPx()), 2.dp.toPx())
             drawCircle(if (enabled) active else inactive, 9.dp.toPx(), Offset(x(value), y))
         }
     }

@@ -14,6 +14,7 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.shared.SharedAlbumBadge
 import me.lvca.alba.app.ui.shared.SharedAlbumDetails
 import me.lvca.alba.app.ui.shared.SharedAlbumEmptyState
+import me.lvca.alba.app.ui.shared.SharedAlbumNotice
 import me.lvca.alba.app.ui.shared.SharedContributionPicker
 import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
@@ -95,5 +96,20 @@ class SharedAlbumDetailsTest {
         compose.onNodeWithContentDescription(label(R.string.shared_add_photos)).performClick()
         compose.onNodeWithText(label(R.string.shared_invite_people)).performClick()
         compose.runOnIdle { assertEquals(1, added); assertEquals(1, invited) }
+    }
+    @Test fun emptyAndUnreachableAlbumsSayWhyAndOfferToCheckAgain() {
+        var refreshes = 0
+        var unreachable by mutableStateOf(true)
+        compose.setContent { AlbaTheme(darkTheme = false) { SharedAlbumNotice(unreachable) { refreshes++ } } }
+        compose.onNodeWithTag("shared-unreachable-state").assertIsDisplayed()
+        compose.onNodeWithText(label(R.string.shared_unreachable_title)).assertIsDisplayed()
+        compose.onNodeWithText(label(R.string.shared_unreachable_body)).assertIsDisplayed()
+        compose.onNodeWithText(label(R.string.try_again)).performClick()
+        unreachable = false
+        compose.onNodeWithTag("shared-no-photos-state").assertIsDisplayed()
+        compose.onNodeWithText(label(R.string.shared_album_empty)).assertIsDisplayed()
+        compose.onNodeWithText(label(R.string.shared_no_photos_body)).assertIsDisplayed()
+        compose.onNodeWithText(label(R.string.refresh)).performClick()
+        compose.runOnIdle { assertEquals(2, refreshes) }
     }
 }

@@ -28,6 +28,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 
@@ -96,7 +97,7 @@ private fun MediaOverlaysPreview() = AlbaPreviewSurface {
     Box(Modifier.fillMaxWidth().height(96.dp).background(MaterialTheme.colorScheme.primary)) {
         MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(44.dp))
         MediaPill(Modifier.align(Alignment.TopStart).padding(6.dp)) {
-            Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp))
+            Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(AlbaIconSize.badge))
             Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
         }
         MediaPill(Modifier.align(Alignment.TopEnd).padding(6.dp), strong = true) {

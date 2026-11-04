@@ -1204,4 +1204,9 @@
         <item quantity="other">%1$s di %2$s foto caricate</item>
         <item quantity="many">%1$s di %2$s foto caricate</item>
     </plurals>
+    <string name="try_again">Riprova</string>
+    <string name="refresh">Aggiorna</string>
+    <string name="shared_unreachable_title">Impossibile raggiungere l\'album</string>
+    <string name="shared_unreachable_body">Connettiti a internet per vedere foto e video.</string>
+    <string name="shared_no_photos_body">Le foto e i video aggiunti a questo album appariranno qui.</string>
 </resources>

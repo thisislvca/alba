@@ -57,6 +57,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.FavoriteIcon
 import me.lvca.alba.app.ui.designsystem.MediaPill
 import me.lvca.alba.app.ui.designsystem.MediaScrim
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.label
 import me.lvca.alba.app.ui.localizedTitle
@@ -131,7 +132,7 @@ internal fun MediaTile(
                         modifier = Modifier.align(Alignment.BottomEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
                 }
                 if (media.kind == MediaKind.LIVE_PHOTO) MediaPill(Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET)) {
-                    Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(13.dp))
+                    Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(AlbaIconSize.badge))
                     Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
                 } else tileBadge(media)?.let { badge -> TypeBadge(badge, Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET)) }
                 if (media.isFavorite && !selecting) FavoriteIcon(true,

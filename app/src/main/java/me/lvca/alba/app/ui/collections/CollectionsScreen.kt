@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
@@ -33,8 +34,10 @@ import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.mosaicCell
+import me.lvca.alba.app.ui.itemCount
 import me.lvca.alba.app.ui.localizedTitle
 import me.lvca.alba.app.ui.shared.LocalSharedActivity
 import me.lvca.alba.engine.model.*
@@ -77,37 +80,26 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                     }
                 }
             }
+            val personalAlbums = gallery.collections.count { it.isUserAlbum }
+            val sharedAlbums = gallery.collections.count { it.shared != null }
             item {
-                MosaicCard(stringResource(R.string.albums), summaries["hub:albums"]?.media.orEmpty(), previewRetryVersion, preview, "collection-albums", painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.ALBUMS) }
+                MosaicCard(stringResource(R.string.albums), pluralStringResource(R.plurals.album_count, personalAlbums, personalAlbums),
+                    summaries["hub:albums"]?.media.orEmpty(), previewRetryVersion, preview, "collection-albums",
+                    painterResource(R.drawable.icloud_albums)) { openPage(CollectionsPage.ALBUMS) }
             }
             item {
                 val covers = summaries["hub:shared"]?.media.orEmpty()
                 val icon = painterResource(R.drawable.icloud_shared_albums)
-                MosaicCard(stringResource(R.string.shared_albums), covers, previewRetryVersion, preview, "collection-shared", icon) {
+                MosaicCard(stringResource(R.string.shared_albums), pluralStringResource(R.plurals.album_count, sharedAlbums, sharedAlbums),
+                    covers, previewRetryVersion, preview, "collection-shared", icon) {
                     openPage(CollectionsPage.SHARED)
                 }
             }
             item {
-                MosaicCard(stringResource(R.string.on_this_phone), summaries["hub:device"]?.media.orEmpty(), previewRetryVersion, preview, "collection-device", rememberVectorPainter(AlbaIcons.PhoneAndroid)) { openPage(CollectionsPage.DEVICE) }
+                MosaicCard(stringResource(R.string.on_this_phone), itemCount(summaries["hub:device"]?.count ?: 0), summaries["hub:device"]?.media.orEmpty(),
+                    previewRetryVersion, preview, "collection-device", rememberVectorPainter(AlbaIcons.PhoneAndroid)) { openPage(CollectionsPage.DEVICE) }
             }
-            item {
-                MosaicCard(stringResource(R.string.videos), summaries[SmartCollection.VIDEOS.id]?.media.orEmpty(), previewRetryVersion, preview, "collection-videos", painterResource(R.drawable.icloud_videos)) { openCollection(SmartCollection.VIDEOS.id) }
-            }
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Row(Modifier.padding(top = AlbaSpacing.sm), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ICloudIcon(R.drawable.icloud_media_types)
-                    Text(stringResource(R.string.media_types), style = MaterialTheme.typography.titleLarge)
-                }
-            }
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                AlbaCard {
-                    SmartCollection.entries.filter { it != SmartCollection.VIDEOS }.forEachIndexed { index, smart ->
-                        if (index > 0) AlbaDivider(Modifier.padding(start = 60.dp))
-                        CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) },
-                            Modifier.testTag("collection-${smart.name.lowercase()}")) { openCollection(smart.id) }
-                    }
-                }
-            }
+            mediaTypeItems(summaries, previewRetryVersion, preview, openCollection)
             // Like iOS, Hidden sits apart and shows no count or covers until it is unlocked.
             item(span = { GridItemSpan(maxLineSpan) }) {
                 AlbaCard(Modifier.testTag("collection-hidden")) {
@@ -126,7 +118,7 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                         IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_create)) }
                     } else if (page != CollectionsPage.DEVICE) {
                         TextButton(onClick = createAlbum, enabled = canEdit, modifier = Modifier.testTag("new-album")) {
-                            Icon(Icons.Outlined.Add, null, Modifier.size(18.dp))
+                            Icon(Icons.Outlined.Add, null, Modifier.size(AlbaIconSize.inline))
                             Spacer(Modifier.width(AlbaSpacing.xs))
                             Text(stringResource(R.string.new_album))
                         }
@@ -153,6 +145,32 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
         if (page == null || page == CollectionsPage.DEVICE) item(span = { GridItemSpan(maxLineSpan) }) {
             CollectionRow(stringResource(R.string.this_phone), if (gallery.limitedPhotoAccess) stringResource(R.string.change_selected_phone_photos) else if (gallery.deviceMediaAccess) stringResource(R.string.manage_photo_access) else stringResource(R.string.choose_photos_to_include),
                 icon = { Icon(AlbaIcons.PhoneAndroid, null) }, onClick = requestPhotos)
+        }
+    }
+}
+
+/** Videos and the other media types, each only when it holds something, like Google Photos' utilities. */
+private fun LazyGridScope.mediaTypeItems(summaries: Map<String, CollectionPreview>, previewRetryVersion: Int, preview: (String) -> Unit,
+    openCollection: (String) -> Unit) {
+    val videos = summaries[SmartCollection.VIDEOS.id]
+    if ((videos?.count ?: 0) > 0) item {
+        MosaicCard(stringResource(R.string.videos), itemCount(videos?.count ?: 0), videos?.media.orEmpty(), previewRetryVersion, preview,
+            "collection-videos", painterResource(R.drawable.icloud_videos)) { openCollection(SmartCollection.VIDEOS.id) }
+    }
+    val mediaTypes = SmartCollection.entries.filter { it != SmartCollection.VIDEOS && (summaries[it.id]?.count ?: 0) > 0 }
+    if (mediaTypes.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+        Row(Modifier.padding(top = AlbaSpacing.sm), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ICloudIcon(R.drawable.icloud_media_types)
+            Text(stringResource(R.string.media_types), style = MaterialTheme.typography.titleLarge)
+        }
+    }
+    if (mediaTypes.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+        AlbaCard(Modifier.testTag("collection-media-types")) {
+            mediaTypes.forEachIndexed { index, smart ->
+                if (index > 0) AlbaDivider(Modifier.padding(start = 60.dp))
+                CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) },
+                    Modifier.testTag("collection-${smart.name.lowercase()}")) { openCollection(smart.id) }
+            }
         }
     }
 }
@@ -188,7 +206,7 @@ private fun AlbumSortMenu(sort: AlbumSort, change: (AlbumSort) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { open = true }, modifier = Modifier.testTag("album-sort")) {
-            Icon(AlbaIcons.SwapVert, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(sort.label))
+            Icon(AlbaIcons.SwapVert, null, Modifier.size(AlbaIconSize.inline)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(sort.label))
         }
         DropdownMenu(open, onDismissRequest = { open = false }) {
             AlbumSort.entries.forEach { option ->
@@ -201,13 +219,17 @@ private fun AlbumSortMenu(sort: AlbumSort, change: (AlbumSort) -> Unit) {
 }
 
 @Composable
-private fun MosaicCard(title: String, covers: List<GalleryMedia>, previewRetryVersion: Int, preview: (String) -> Unit, tag: String,
+private fun MosaicCard(title: String, subtitle: String, covers: List<GalleryMedia>, previewRetryVersion: Int, preview: (String) -> Unit, tag: String,
     emptyIcon: Painter, click: () -> Unit) {
     // Clip the press ripple to the card corners rather than a hard rectangle over cover and title.
     Column(Modifier.clip(MaterialTheme.shapes.medium).clickable(role = Role.Button, onClick = click).testTag(tag)) {
         AlbaCard(shape = MaterialTheme.shapes.medium) {
-            if (covers.isEmpty()) Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
-                Icon(emptyIcon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            // With no photos to show, a tonal tile with the section's glyph on a disc, like Google Photos' utilities.
+            if (covers.isEmpty()) Box(Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.secondaryContainer)
+                .testTag("$tag-empty"), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(72.dp).background(MaterialTheme.colorScheme.surface, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(emptyIcon, null, Modifier.size(AlbaIconSize.large), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
             }
             else if (covers.size == 1) CoverImage(covers.first(), previewRetryVersion, preview, Modifier.fillMaxWidth().aspectRatio(1f))
             else Column(Modifier.fillMaxWidth().aspectRatio(1f).padding(AlbaSpacing.xs).clip(MaterialTheme.shapes.small), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -223,7 +245,9 @@ private fun MosaicCard(title: String, covers: List<GalleryMedia>, previewRetryVe
                 }
             }
         }
-        Text(title, Modifier.padding(top = 10.dp, bottom = AlbaSpacing.xs), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(title, Modifier.padding(top = 10.dp), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(subtitle, Modifier.padding(top = 2.dp, bottom = AlbaSpacing.xs), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -231,7 +255,7 @@ private fun MosaicCard(title: String, covers: List<GalleryMedia>, previewRetryVe
 private fun ShortcutCard(title: String, modifier: Modifier, icon: @Composable () -> Unit, click: () -> Unit) {
     AlbaCard(modifier.fillMaxHeight(), onClick = click, shape = MaterialTheme.shapes.medium, verticalArrangement = Arrangement.Center) {
         Row(Modifier.heightIn(min = 58.dp).padding(horizontal = 14.dp, vertical = AlbaSpacing.md), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
-            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon() }
+            Box(Modifier.size(AlbaIconSize.standard), contentAlignment = Alignment.Center) { icon() }
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
         }
     }

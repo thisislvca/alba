@@ -178,8 +178,8 @@ internal fun EditorImage(
         }
         AnimatedVisibility(comparing, Modifier.align(Alignment.TopCenter),
             enter = if (reducedMotion) EnterTransition.None else fadeIn(), exit = if (reducedMotion) ExitTransition.None else fadeOut()) {
-            Text(originalLabel, Modifier.padding(8.dp).background(Color.Black.copy(alpha = .6f), MaterialTheme.shapes.small)
-                .padding(horizontal = 10.dp, vertical = 4.dp).testTag("compare-original"), color = Color.White,
+            Text(originalLabel, Modifier.padding(8.dp).background(EditorColors.labelScrim, MaterialTheme.shapes.small)
+                .padding(horizontal = 10.dp, vertical = 4.dp).testTag("compare-original"), color = EditorColors.onLabel,
                 style = MaterialTheme.typography.labelLarge)
         }
     }
