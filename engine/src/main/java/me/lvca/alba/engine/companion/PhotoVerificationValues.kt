@@ -21,7 +21,7 @@ internal fun RemotePairCandidate.toPairEntity(binding: AccountBinding, observedA
     remotePairId = remotePairId(binding, this),
     accountId = binding.accountId,
     observedAuthEpoch = binding.authEpoch,
-    databaseScope = "com.apple.photos.cloud/private",
+    databaseScope = RemoteAssetPairEntity.PRIVATE_DATABASE_SCOPE,
     zoneName = "PrimarySync",
     masterRecordName = master.name,
     masterChangeTag = master.changeTag,

@@ -67,7 +67,7 @@ interface CatalogDao {
         JOIN catalog_items c ON c.masterRecordName = r.masterRecordName AND c.assetRecordName = r.assetRecordName AND c.origin = 'ICLOUD'
         WHERE p.invalidatedAtEpochMillis IS NULL AND l.status = 'CURRENT' AND l.accountId = p.accountId
         AND r.accountId = p.accountId AND d.sourceRevision = p.sourceRevision AND d.isTrashed = 0
-        AND c.mediaId NOT LIKE 'shared:%' AND r.databaseScope = 'private' AND r.zoneName = 'PrimarySync'
+        AND c.mediaId NOT LIKE 'shared:%' AND r.databaseScope = '${RemoteAssetPairEntity.PRIVATE_DATABASE_SCOPE}' AND r.zoneName = 'PrimarySync'
         AND c.isTrashed = 0 AND c.sourceRevision = p.masterChangeTag || ':' || p.assetChangeTag
         AND r.masterDeleted = 0 AND r.assetDeleted = 0 AND r.relationIsCurrent = 1
     """)

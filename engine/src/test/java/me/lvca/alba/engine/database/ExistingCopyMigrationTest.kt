@@ -35,7 +35,7 @@ class ExistingCopyMigrationTest {
     }
 
     @Test
-    fun schemaNineteenGainsTheExistingCopyColumnAndKeepsTransfers() = runBlocking {
+    fun schemaNineteenGainsTheExistingCopyColumnKeepsTransfersAndRenamesPairScopes() = runBlocking {
         createSchema19()
 
         val migrated = AlbaDatabase.create(context)
@@ -45,6 +45,15 @@ class ExistingCopyMigrationTest {
             assertNull("Existing transfers have not been looked up yet", transfer.existingCopyCheck)
 
             val db = migrated.openHelper.writableDatabase
+            val scopes = db.query("SELECT remotePairId, databaseScope FROM remote_asset_pairs ORDER BY remotePairId").use { cursor ->
+                buildMap { while (cursor.moveToNext()) put(cursor.getString(0), cursor.getString(1)) }
+            }
+            assertEquals(
+                "Verified pairs move to the scope the gallery's display links look for; others are left alone",
+                mapOf("old" to RemoteAssetPairEntity.PRIVATE_DATABASE_SCOPE, "shared" to "shared"),
+                scopes,
+            )
+
             val indexes = db.query("PRAGMA index_list(`catalog_items`)").use { cursor ->
                 buildSet { while (cursor.moveToNext()) add(cursor.getString(cursor.getColumnIndexOrThrow("name"))) }
             }
@@ -75,6 +84,14 @@ class ExistingCopyMigrationTest {
                     "authorityId, displayName, state, stateVersion, createdAtEpochMillis, updatedAtEpochMillis, automaticRetries) " +
                     "VALUES ('transfer', 'source', 'account', 1, 1, 'AUTOMATIC', 'enrollment', 'IMG_0001.HEIC', 'READY', 0, 1, 1, 0)",
             )
+            for ((id, scope) in listOf("old" to "com.apple.photos.cloud/private", "shared" to "shared")) {
+                db.execSQL(
+                    "INSERT INTO remote_asset_pairs (remotePairId, accountId, observedAuthEpoch, databaseScope, zoneName, " +
+                        "masterRecordName, masterChangeTag, masterDeleted, assetRecordName, assetChangeTag, assetDeleted, " +
+                        "relationIsCurrent, originalResourceIdentity, hydratedAtEpochMillis) " +
+                        "VALUES ('$id', 'account', 1, '$scope', 'PrimarySync', 'master-$id', 'tag', 0, 'asset-$id', 'tag', 0, 1, 'res', 1)",
+                )
+            }
             db.version = 19
         }
     }

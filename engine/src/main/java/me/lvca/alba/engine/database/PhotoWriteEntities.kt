@@ -171,7 +171,16 @@ data class RemoteAssetPairEntity(
     val relationIsCurrent: Boolean,
     val originalResourceIdentity: String,
     val hydratedAtEpochMillis: Long,
-)
+) {
+    companion object {
+        /**
+         * The personal library's CloudKit database, as [databaseScope] names it. The gallery merges a phone item with its
+         * iCloud copy only for pairs in this scope. Rows written before schema 20 said "com.apple.photos.cloud/private";
+         * the 19 to 20 migration renames them.
+         */
+        const val PRIVATE_DATABASE_SCOPE = "private"
+    }
+}
 
 @Entity(
     tableName = "reconciliation_matches",

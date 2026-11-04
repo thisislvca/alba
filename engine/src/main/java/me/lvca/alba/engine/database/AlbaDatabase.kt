@@ -75,13 +75,19 @@ abstract class AlbaDatabase : RoomDatabase() {
         }
 
         /**
-         * Records whether backup already looked for each transfer's bytes in the iCloud library, and indexes catalog
-         * sizes, which that lookup starts from.
+         * Records whether backup already looked for each transfer's bytes in the iCloud library, indexes catalog sizes,
+         * which that lookup starts from, and renames verified pairs to the database scope the gallery's links look for.
          */
         internal val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE transfers ADD COLUMN existingCopyCheck TEXT")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_catalog_items_byteCount` ON `catalog_items` (`byteCount`)")
+                // Verified pairs were stored under the full database name, which the gallery's display links never
+                // matched, so verified phone items did not merge with their iCloud copies.
+                db.execSQL(
+                    "UPDATE remote_asset_pairs SET databaseScope = '${RemoteAssetPairEntity.PRIVATE_DATABASE_SCOPE}' " +
+                        "WHERE databaseScope = 'com.apple.photos.cloud/private'",
+                )
             }
         }
 

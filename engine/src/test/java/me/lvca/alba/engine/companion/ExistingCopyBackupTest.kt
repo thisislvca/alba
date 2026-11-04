@@ -13,6 +13,7 @@ import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.CatalogCheckpointEntity
 import me.lvca.alba.engine.database.CatalogItemEntity
+import me.lvca.alba.engine.database.DisplayLink
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
 import me.lvca.alba.engine.model.BackupScope
@@ -262,6 +263,48 @@ class ExistingCopyBackupTest {
     }
 
     @Test
+    fun aPhoneItemFoundInICloudMergesWithItsICloudCopyInTheGallery() = runBlocking {
+        val phone = phoneItem(1, "IMG_0001.HEIC")
+        syncedCatalog()
+        libraryItem("one", "IMG_0001.HEIC", bytes(1), capturedAt = CAPTURED)
+        val photos = enrolled()
+
+        photos.syncNow()
+
+        assertEquals(
+            listOf(DisplayLink(cloudId = "icloud:$NAMESPACE:asset-one", deviceId = phone.id, accountId = ACCOUNT)),
+            database.catalogDao().observeDisplayLinks().first(),
+        )
+    }
+
+    @Test
+    fun anUploadedPhoneItemMergesWithItsICloudCopyOnceTheLibraryListsIt() = runBlocking {
+        val phone = phoneItem(1, "IMG_0001.HEIC")
+        syncedCatalog()
+        val photos = enrolled()
+
+        photos.syncNow()
+        assertEquals(TransferViewState.VERIFIED, photos.single().state)
+        assertEquals(1, protocol.uploadStarts)
+        assertTrue(database.catalogDao().observeDisplayLinks().first().isEmpty())
+
+        // The next library sync brings in the asset the upload created.
+        val pair = requireNotNull(database.verificationDao().findCurrentProof(phone.id, ACCOUNT))
+            .let { requireNotNull(database.verificationDao().findRemotePair(it.remotePairId)) }
+        database.catalogDao().upsertMetadata(listOf(CatalogItemEntity(
+            mediaId = "icloud:$NAMESPACE:${pair.assetRecordName}", fileName = phone.fileName, capturedAtEpochMillis = CAPTURED,
+            width = 10, height = 10, origin = "ICLOUD", sourceRevision = "${pair.masterChangeTag}:${pair.assetChangeTag}",
+            localUri = null, previewCachePath = null, originalCachePath = null, accentStartArgb = 0, accentEndArgb = 0,
+            lastSeenScanId = "scan", masterRecordName = pair.masterRecordName, assetRecordName = pair.assetRecordName,
+        )))
+
+        assertEquals(
+            listOf(DisplayLink("icloud:$NAMESPACE:${pair.assetRecordName}", phone.id, ACCOUNT)),
+            database.catalogDao().observeDisplayLinks().first(),
+        )
+    }
+
+    @Test
     fun theUsersOwnUploadIsNeverSkipped() = runBlocking {
         val phone = phoneItem(1, "IMG_0001.HEIC")
         syncedCatalog()
@@ -369,7 +412,7 @@ class ExistingCopyBackupTest {
 
         override suspend fun hashMediaStoreItem(contentUri: String, expectedRevision: String) = evidence(contentUri, null)
 
-        override suspend fun currentRevision(contentUri: String) = "rev"
+        override suspend fun currentRevision(contentUri: String) = items.first { it.contentUri == contentUri }.sourceRevision
 
         override fun createTrashRequest(contentUris: List<String>): IntentSender = PendingIntent.getActivity(
             context, 45, Intent("me.lvca.alba.TEST_TRASH").setPackage(context.packageName), PendingIntent.FLAG_IMMUTABLE,
@@ -383,7 +426,8 @@ class ExistingCopyBackupTest {
             output?.write(bytes)
             return ExactOriginalEvidence(
                 contentUri = contentUri, displayName = item.fileName, mimeType = "image/jpeg", lineageKey = "lineage:$contentUri",
-                sourceRevision = "rev", acquisitionMethod = "TEST", originalFormatRequested = true, unredacted = true,
+                // MediaStore gives the staged copy the same revision the phone scan recorded.
+                sourceRevision = item.sourceRevision, acquisitionMethod = "TEST", originalFormatRequested = true, unredacted = true,
                 formatValidated = true, byteCount = bytes.size.toLong(), sha256Hex = sha256(bytes),
                 lastModifiedAtEpochMillis = MODIFIED_AT, dateTakenEpochMillis = dateTaken[contentUri],
             )
