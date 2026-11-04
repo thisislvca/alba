@@ -13,21 +13,28 @@ package me.lvca.alba.engine.source
  */
 object RawJpegPairs {
     private val PIXEL_RAW_SUFFIX = Regex("\\.RAW-\\d+(\\..*)?$", RegexOption.IGNORE_CASE)
-    private val JPEG_EXTENSIONS = setOf("jpg", "jpeg")
+    private val JPEG_EXTENSIONS = listOf("jpg", "jpeg")
 
-    /** The name both files of a pair share, lower case: the base name before Pixel's `.RAW-nn.` part or the extension. */
-    fun stem(fileName: String): String {
-        val base = fileName.substringAfterLast('/').substringBeforeLast('.')
-        return base.replace(PIXEL_RAW_SUFFIX, "").lowercase()
+    /** The name both files of a pair share, in its original case: the base name before Pixel's `.RAW-nn.` or the extension. */
+    fun baseName(fileName: String): String =
+        fileName.substringAfterLast('/').substringBeforeLast('.').replace(PIXEL_RAW_SUFFIX, "")
+
+    /** The JPEG names a same-base pair uses, lower case; Pixel's `.RAW-nn.…jpg` names are matched by [isPixelCover]. */
+    fun sameBaseJpegNames(rawName: String): List<String> {
+        val base = baseName(rawName).lowercase()
+        return if (base.isEmpty()) emptyList() else JPEG_EXTENSIONS.map { "$base.$it" }
     }
+
+    /** The prefix every Pixel cover JPEG of the RAW named [rawName] starts with, such as `PXL_….RAW-`. */
+    fun pixelCoverPrefix(rawName: String): String = "${baseName(rawName)}.RAW-"
 
     /** Whether one of [namesInFolder] is the JPEG saved with the RAW named [rawName]. */
     fun hasJpegCompanion(rawName: String, namesInFolder: Collection<String>): Boolean {
-        val stem = stem(rawName)
-        return stem.isNotEmpty() && namesInFolder.any { name ->
+        val base = baseName(rawName)
+        return base.isNotEmpty() && namesInFolder.any { name ->
             !name.equals(rawName, ignoreCase = true) &&
                 name.substringAfterLast('.', "").lowercase() in JPEG_EXTENSIONS &&
-                stem(name) == stem
+                baseName(name).equals(base, ignoreCase = true)
         }
     }
 }

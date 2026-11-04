@@ -25,7 +25,6 @@ class UploadMediaFormatTest {
         assertEquals(UploadMediaFormat.HEIC, UploadMediaFormat.detect(ftyp("heic", "mif1", "heic")))
         assertEquals(UploadMediaFormat.MOV, UploadMediaFormat.detect(ftyp("qt  ", "qt  ")))
         assertEquals(UploadMediaFormat.MP4, UploadMediaFormat.detect(ftyp("isom", "mp42")))
-        assertEquals(UploadMediaFormat.MP4, UploadMediaFormat.detect(ftyp("iso6", "iso6", "mp41")))
         for (invalid in listOf("GIF89a".toByteArray(), byteArrayOf(), ftyp("avif", "mif1"), ftyp("heic", "msf1", "hevc"))) {
             assertTrue(runCatching { UploadMediaFormat.detect(invalid) }.exceptionOrNull() is UnsupportedUploadException)
         }
@@ -42,12 +41,26 @@ class UploadMediaFormatTest {
         assertEquals(UnsupportedUploadException.GIF, reason(prefix("still.gif")))
         assertEquals(UnsupportedUploadException.RAW, reason(prefix("dng.dng")))
         assertEquals(UnsupportedUploadException.TIFF, reason(prefix("tiff.tif")))
-        // 3GP lists isom among its brands, so its major brand decides; M4V likewise.
-        assertEquals(UnsupportedUploadException.VIDEO_CONTAINER, reason(prefix("clip.3gp")))
-        assertEquals(UnsupportedUploadException.VIDEO_CONTAINER, reason(prefix("m4v.m4v")))
+        // 3GP and M4V that name no MPEG-4 brand are not MP4s.
+        assertEquals(UnsupportedUploadException.VIDEO_CONTAINER, reason(prefix("3gp-only.3gp")))
+        assertEquals(UnsupportedUploadException.VIDEO_CONTAINER, reason(prefix("m4v-only.m4v")))
+        assertEquals(UnsupportedUploadException.VIDEO_CONTAINER, reason(ftyp("3g2a", "3g2a")))
         assertEquals(UnsupportedUploadException.VIDEO_CONTAINER, reason(prefix("clip.webm")))
         assertEquals(UnsupportedUploadException.RAW, reason(ftyp("crx ", "crx ", "isom")))
         assertEquals(UploadMediaFormat.MP4, UploadMediaFormat.detect(prefix("clip.mp4")))
+    }
+
+    @Test fun anMp4UnderA3gpOrM4vMajorBrandStillUploadsAsMp4AsBefore() {
+        // Android often records an .mp4 as major brand 3gp4 with isom among its compatible brands.
+        assertEquals(UploadMediaFormat.MP4, UploadMediaFormat.detect(ftyp("3gp4", "isom", "3gp4")))
+        assertEquals(UploadMediaFormat.MP4, UploadMediaFormat.detect(prefix("clip.3gp")))
+        assertEquals(UploadMediaFormat.MP4, UploadMediaFormat.detect(prefix("m4v.m4v")))
+    }
+
+    @Test fun newerBrandsStayRefusedUntilICloudIsKnownToKeepThem() {
+        // Fragmented/CMAF MP4 and multi-layer HEIF were not uploaded before, and still are not.
+        assertEquals(UnsupportedUploadException.MESSAGE, reason(ftyp("iso6", "iso6", "cmfc")))
+        assertEquals(UnsupportedUploadException.MESSAGE, reason(ftyp("heim", "heim")))
     }
 
     @Test fun aHeifThatNamesOnlyTheGenericBrandIsReadByItsItemTypes() {

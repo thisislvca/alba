@@ -55,7 +55,7 @@ class MotionPhotoStagingTest {
         val reasons = mapOf(
             "still.gif" to UnsupportedUploadException.GIF,
             "dng.dng" to UnsupportedUploadException.RAW,
-            "clip.3gp" to UnsupportedUploadException.VIDEO_CONTAINER,
+            "3gp-only.3gp" to UnsupportedUploadException.VIDEO_CONTAINER,
         )
         for ((name, reason) in reasons) {
             val result = runCatching { stage(name, fixture(name), "image/jpeg") }

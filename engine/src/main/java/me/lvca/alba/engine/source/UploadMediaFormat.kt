@@ -65,7 +65,7 @@ enum class UploadMediaFormat(val mimeType: String, val extension: String, val ex
                     val major = text(8, 4)
                     val brands = listOf(major) + (16 until length.toInt() step 4).map { text(it, 4) }
                     MediaSignatures.brandRefusal(major, brands)?.let(::refuse)
-                    if (brands.any { it in setOf("heic", "heix", "heim", "heis") }) return HEIC
+                    if (brands.any { it in setOf("heic", "heix") }) return HEIC
                     if ("mif1" in brands) {
                         // A HEIF image that names only the generic brand: its item types say how it is coded.
                         val items = HeifItems.types(prefix, length.toInt())
@@ -74,13 +74,11 @@ enum class UploadMediaFormat(val mimeType: String, val extension: String, val ex
                         refuse(UnsupportedUploadException.MESSAGE)
                     }
                     if ("qt  " in brands) return MOV
-                    if (brands.any { it in MP4_BRANDS }) return MP4
+                    if (brands.any { it in MediaSignatures.MP4_BRANDS }) return MP4
                 }
             }
             refuse(UnsupportedUploadException.MESSAGE)
         }
-
-        private val MP4_BRANDS = setOf("isom", "iso2", "iso3", "iso4", "iso5", "iso6", "iso7", "iso8", "iso9", "mp41", "mp42", "avc1")
     }
 }
 

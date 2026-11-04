@@ -53,7 +53,17 @@ internal object MediaSignatures {
     /** Canon CR3 is an ISO media file with its own major brand. */
     private const val CR3_BRAND = "crx "
 
-    /** 3GP, 3G2 and M4V are MPEG-4 relatives that iCloud.com's library uploader does not list. */
+    /**
+     * The MPEG-4 brands Alba has always uploaded as MP4. Fragmented and CMAF brands (`iso3` and later) are left out
+     * until it is confirmed that iCloud keeps such an original.
+     */
+    val MP4_BRANDS = setOf("isom", "iso2", "mp41", "mp42", "avc1")
+
+    /**
+     * 3GP, 3G2 and M4V are MPEG-4 relatives that iCloud.com's library uploader does not list. Android often records an
+     * `.mp4` under a `3gp4` major brand with `isom` among its compatible ones, so a file is refused for these only when
+     * it names no [MP4_BRANDS] at all.
+     */
     private val OTHER_VIDEO_BRANDS = listOf("3gp", "3g2", "3gs", "M4V ")
 
     /** The reason [prefix] is refused, or null when its signature is not one of these. */
@@ -73,7 +83,7 @@ internal object MediaSignatures {
     /** The reason an ISO media file with [major] and compatible [brands] is refused, or null when it may be uploadable. */
     fun brandRefusal(major: String, brands: List<String>): String? = when {
         major == CR3_BRAND -> UnsupportedUploadException.RAW
-        OTHER_VIDEO_BRANDS.any(major::startsWith) -> UnsupportedUploadException.VIDEO_CONTAINER
+        OTHER_VIDEO_BRANDS.any(major::startsWith) && brands.none { it in MP4_BRANDS } -> UnsupportedUploadException.VIDEO_CONTAINER
         brands.any { it in setOf("avif", "avis") } -> UnsupportedUploadException.AVIF
         brands.any { it in setOf("msf1", "hevc", "hevx") } -> UnsupportedUploadException.IMAGE_SEQUENCE
         else -> null

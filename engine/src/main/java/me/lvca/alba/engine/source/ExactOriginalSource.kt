@@ -126,10 +126,18 @@ interface ExactOriginalSource {
     ): Set<String> = emptySet()
 
     /**
-     * Display names of the JPEGs in device folder [deviceFolderId] whose names start with [namePrefix], ignoring case,
-     * for pairing a RAW with the JPEG saved beside it. Empty when this source cannot tell.
+     * Display names of JPEGs in [raw]'s folder that [RawJpegPairs] could pair with it, among only the items automatic
+     * backup covers for this [scope], [folders] and enrollment, so a match is a JPEG that itself backs up. Empty when
+     * this source cannot tell.
      */
-    suspend fun jpegNamesInFolder(deviceFolderId: String, namePrefix: String): List<String> = emptyList()
+    suspend fun companionJpegNames(
+        raw: DeviceMediaRecord,
+        scope: BackupScope,
+        folders: Set<String>,
+        addedAfterEpochMillis: Long,
+        enrollmentBaseline: LocalDiscoveryCheckpoint?,
+        includeExisting: Boolean,
+    ): List<String> = emptyList()
 
     /** Folders holding photos or videos on every volume, the camera first. */
     suspend fun deviceFolders(): List<DeviceFolder> = emptyList()
