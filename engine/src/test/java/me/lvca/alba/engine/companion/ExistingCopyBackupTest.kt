@@ -14,6 +14,8 @@ import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.CatalogCheckpointEntity
 import me.lvca.alba.engine.database.CatalogItemEntity
 import me.lvca.alba.engine.database.DisplayLink
+import me.lvca.alba.engine.database.TransferEntity
+import me.lvca.alba.engine.database.TransferState
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
 import me.lvca.alba.engine.model.BackupScope
@@ -305,6 +307,122 @@ class ExistingCopyBackupTest {
     }
 
     @Test
+    fun aLargerOriginalIsNoMatchEvenWhenTheTransportWrapsTheRefusal() = runBlocking {
+        phoneItem(1, "IMG_0001.HEIC")
+        syncedCatalog()
+        libraryItem("one", "IMG_0001.HEIC", bytes(1) + ByteArray(64), capturedAt = CAPTURED, listedSize = bytes(1).size.toLong())
+        protocol.wrapWriteErrors = true
+        val photos = enrolled()
+
+        photos.syncNow()
+
+        assertFalse(photos.single().alreadyInICloud)
+        assertEquals("Decided once, then uploaded, not retried as a failed read", 1, protocol.uploadStarts)
+        assertEquals(1, protocol.downloads.size)
+        assertEquals(ExistingCopyCheck.RESULT_NOT_FOUND, transferRow().existingCopyCheck)
+    }
+
+    @Test
+    fun aDownloadCutShortThatIsAPrefixOfThePhoneFileIsNoMatch() = runBlocking {
+        phoneItem(1, "IMG_0001.HEIC")
+        syncedCatalog()
+        libraryItem("one", "IMG_0001.HEIC", bytes(1), capturedAt = CAPTURED)
+        protocol.truncatedTo["asset-one"] = bytes(1).size - 1
+        val photos = enrolled()
+
+        photos.syncNow()
+
+        assertFalse(photos.single().alreadyInICloud)
+        assertEquals(1, protocol.uploadStarts)
+    }
+
+    @Test
+    fun anOriginalThatChangesBetweenLookupAndDownloadIsNoMatch() = runBlocking {
+        phoneItem(1, "IMG_0001.HEIC")
+        syncedCatalog()
+        libraryItem("one", "IMG_0001.HEIC", bytes(1), capturedAt = CAPTURED)
+        protocol.identityChanges += "asset-one"
+        val photos = enrolled()
+
+        photos.syncNow()
+
+        assertFalse(photos.single().alreadyInICloud)
+        assertEquals(1, protocol.uploadStarts)
+    }
+
+    @Test
+    fun anExpungedLibraryItemIsNeverOffered() = runBlocking {
+        phoneItem(1, "IMG_0001.HEIC")
+        syncedCatalog()
+        libraryItem("one", "IMG_0001.HEIC", bytes(1), capturedAt = CAPTURED)
+        protocol.expunged += "asset-one"
+        val photos = enrolled()
+
+        photos.syncNow()
+
+        assertFalse(photos.single().alreadyInICloud)
+        assertEquals(1, protocol.uploadStarts)
+        assertTrue(protocol.downloads.isEmpty())
+    }
+
+    @Test
+    fun theLeaseIsExtendedForEachDownload() = runBlocking {
+        phoneItem(1, "IMG_0001.HEIC")
+        syncedCatalog()
+        libraryItem("one", "IMG_0001.HEIC", bytes(1), capturedAt = CAPTURED)
+        var leasedUntil: Long? = null
+        protocol.onStream = { leasedUntil = transferRow().leaseExpiresAtEpochMillis }
+        val photos = enrolled()
+
+        photos.syncNow()
+
+        assertEquals(NOW + ExistingCopyCheck.COMPARE_LEASE_MILLIS, leasedUntil)
+        assertTrue(photos.single().alreadyInICloud)
+    }
+
+    @Test
+    fun aLeaseLostDuringTheDownloadLinksNothingAndLeavesTheTransferToItsHolder() = runBlocking {
+        val phone = phoneItem(1, "IMG_0001.HEIC")
+        syncedCatalog()
+        libraryItem("one", "IMG_0001.HEIC", bytes(1), capturedAt = CAPTURED)
+        protocol.onStream = { database.openHelper.writableDatabase.execSQL("UPDATE transfers SET leaseToken = 'another-pass'") }
+        val photos = enrolled()
+
+        photos.syncNow()
+
+        val row = transferRow()
+        assertEquals(TransferState.READY, row.state)
+        assertEquals("another-pass", row.leaseToken)
+        assertNull(row.existingCopyCheck)
+        assertNull(database.verificationDao().findCurrentProof(phone.id, ACCOUNT))
+        assertEquals(0, protocol.uploadStarts)
+    }
+
+    @Test
+    fun theFailureWindowRunsFromTheFirstFailedReadNotFromWhenTheItemWasQueued() = runBlocking {
+        phoneItem(1, "IMG_0001.HEIC")
+        val photos = enrolled()
+        photos.syncNow()
+        assertEquals("Queued while the library is unread", StoredMessage.CHECKING_ICLOUD_LIBRARY_FIRST.code, photos.single().message)
+
+        clock += 2 * ExistingCopyCheck.CHECK_FAILURE_WINDOW_MILLIS
+        syncedCatalog(refreshedAt = clock)
+        libraryItem("one", "IMG_0001.HEIC", bytes(1), capturedAt = CAPTURED)
+        protocol.failDownloads = true
+        photos.syncNow()
+
+        assertEquals("One failed read of an item queued long ago does not settle it", 0, protocol.uploadStarts)
+        assertEquals(clock, transferRow().existingCopyFirstFailureAtEpochMillis)
+
+        protocol.failDownloads = false
+        clock += ExistingCopyCheck.CHECK_RETRY_MILLIS
+        photos.syncNow()
+
+        assertTrue(photos.single().alreadyInICloud)
+        assertEquals(0, protocol.uploadStarts)
+    }
+
+    @Test
     fun theUsersOwnUploadIsNeverSkipped() = runBlocking {
         val phone = phoneItem(1, "IMG_0001.HEIC")
         syncedCatalog()
@@ -320,6 +438,9 @@ class ExistingCopyBackupTest {
     }
 
     private suspend fun DefaultPhotoCompanion.single(): TransferView = observeTransfers().first().single()
+
+    private suspend fun transferRow(): TransferEntity = database.transferDao()
+        .findTransfer(database.transferDao().observeTransfers().first().single().transferId)!!
 
     private suspend fun enrolled(photos: DefaultPhotoCompanion = companion()): DefaultPhotoCompanion {
         val draft = photos.beginBackupEnrollment(BackupScope.CAMERA_MEDIA)
@@ -438,6 +559,21 @@ class ExistingCopyBackupTest {
     private class FakeProtocol : ICloudPhotoProtocol {
         val library = mutableMapOf<String, ByteArray>()
         val recentlyDeleted = mutableSetOf<String>()
+
+        /** Assets Photos expunged; like Recently Deleted, the protocol never offers them. */
+        val expunged = mutableSetOf<String>()
+
+        /** Wraps the sink's refusals the way a transport may, so the check cannot rely on the exception's type. */
+        var wrapWriteErrors = false
+
+        /** Assets whose download ends early, after this many bytes, as a cut connection would. */
+        val truncatedTo = mutableMapOf<String, Int>()
+
+        /** Assets whose original changes between the fresh lookup and the download. */
+        val identityChanges = mutableSetOf<String>()
+
+        /** Runs as each library original starts to download. */
+        var onStream: suspend () -> Unit = {}
         val lookups = mutableListOf<String>()
         val downloads = mutableListOf<String>()
         var bytesStreamed = 0
@@ -456,7 +592,7 @@ class ExistingCopyBackupTest {
 
         override suspend fun libraryPair(binding: AccountBinding, masterRecordName: String, assetRecordName: String): RemotePairCandidate? {
             lookups += assetRecordName
-            if (assetRecordName !in library || assetRecordName in recentlyDeleted) return null
+            if (assetRecordName !in library || assetRecordName in recentlyDeleted || assetRecordName in expunged) return null
             return pairFor(assetRecordName.removePrefix("asset-"))
         }
 
@@ -489,9 +625,17 @@ class ExistingCopyBackupTest {
         ): RemoteOriginalObservation {
             library[pair.asset.name]?.let { original ->
                 downloads += pair.asset.name
+                onStream()
                 if (failDownloads) throw java.io.IOException("connection reset")
-                original.forEach { byte -> output.write(byte.toInt()); bytesStreamed += 1 }
-                return RemoteOriginalObservation(pair.originalResourceIdentity, original.size.toLong())
+                val sent = original.copyOf(truncatedTo[pair.asset.name] ?: original.size)
+                try {
+                    sent.forEach { byte -> output.write(byte.toInt()); bytesStreamed += 1 }
+                } catch (refused: java.io.IOException) {
+                    if (wrapWriteErrors) throw java.io.IOException("transport failed while streaming", refused) else throw refused
+                }
+                val identity = if (pair.asset.name in identityChanges) "changed" else pair.originalResourceIdentity
+                // Reports the full size even when cut short: only what actually arrived may count.
+                return RemoteOriginalObservation(identity, original.size.toLong())
             }
             val bytes = uploads.getValue(pair.master.name.removePrefix("master:"))
             output.write(bytes)

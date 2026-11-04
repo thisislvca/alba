@@ -81,6 +81,7 @@ abstract class AlbaDatabase : RoomDatabase() {
         internal val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE transfers ADD COLUMN existingCopyCheck TEXT")
+                db.execSQL("ALTER TABLE transfers ADD COLUMN existingCopyFirstFailureAtEpochMillis INTEGER")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_catalog_items_byteCount` ON `catalog_items` (`byteCount`)")
                 // Verified pairs were stored under the full database name, which the gallery's display links never
                 // matched, so verified phone items did not merge with their iCloud copies.

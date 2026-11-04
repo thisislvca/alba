@@ -112,7 +112,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
             database = database,
             namespace = { cloudCatalog.accountLabel },
             accountId = { cloudCatalog.writeAccountId },
-            refresh = { catalogSync.scheduleRefresh() },
+            refresh = { catalogSync.scheduleRefresh(unmeteredOnly = !backupPreferences.settings.value.usesMobileData) },
         ),
     )
     val maintenance: MaintenanceWakeup = photos

@@ -101,6 +101,8 @@ data class TransferEntity(
      * ExistingCopyCheck results. Null until it has looked, and for uploads it does not look for (the user's own).
      */
     val existingCopyCheck: String? = null,
+    /** When reading the iCloud library first failed for this transfer; the failure window runs from here. */
+    val existingCopyFirstFailureAtEpochMillis: Long? = null,
 )
 
 /**

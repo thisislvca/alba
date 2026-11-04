@@ -155,28 +155,37 @@ internal class UploadInvoker(
 
     /**
      * Looks for an automatic backup item in the iCloud library before its first upload. Returns null when it should be
-     * uploaded now, or what [invokeOne] returns when it was linked to a copy already there (1) or must wait (0).
+     * uploaded now, or what [invokeOne] returns when it was linked to a copy already there (1), must wait, or lost its
+     * lease to another pass (0). The lease is extended before each download, which can outlast [READY_LEASE_MILLIS].
      */
     private suspend fun lookInLibraryFirst(binding: AccountBinding, leased: TransferEntity, leaseToken: String, source: StagedSourceEntity): Int? {
         if (leased.authorityType != AUTHORITY_AUTOMATIC || leased.existingCopyCheck != null) return null
         val enrolledAt = authority.currentEnrollment(binding)?.consentedAtEpochMillis
-        return when (val found = existingCopies.check(binding, leased, source, enrolledAt)) {
+        val keepLease: suspend () -> Boolean = {
+            transferDao.extendReadyLease(leased.transferId, leaseToken, now() + ExistingCopyCheck.COMPARE_LEASE_MILLIS) == 1
+        }
+        return when (val found = existingCopies.check(binding, leased, source, enrolledAt, keepLease)) {
             is ExistingCopyOutcome.Wait -> {
-                transferDao.deferReadyLease(leased.transferId, leaseToken, found.retryAt, now(), found.message.code)
+                transferDao.deferReadyLease(leased.transferId, leaseToken, found.retryAt, now(), found.message.code, found.firstFailureAt)
                 runSuspendCatching { scheduler.scheduleAt(found.retryAt) }
                 0
             }
             is ExistingCopyOutcome.Matched -> linkExisting(binding, leased, leaseToken, source, found)
-            // The lease was lost meanwhile: leave the transfer to whoever holds it now.
+            ExistingCopyOutcome.LeaseLost -> 0
+            // A lease lost meanwhile leaves the transfer to whoever holds it now.
             is ExistingCopyOutcome.Upload ->
                 if (transferDao.noteExistingCopyCheck(leased.transferId, leaseToken, found.result, now()) == 1) null else 0
         }
     }
 
+    /** Why [linkExisting] did not link. */
+    private enum class LinkRefusal { LEASE_LOST, NOT_AUTHORIZED }
+
     /**
      * Backs [transfer] up without uploading: the library item in [found] holds its exact bytes. It is linked and proven
      * the way a verified upload is, with a link named after the transfer since no attempt was made, so the photo counts
-     * as backed up and Free up space re-checks both copies before it offers to delete the phone's. Returns 1 when linked.
+     * as backed up and Free up space re-checks both copies before it offers to delete the phone's. Returns 1 when linked,
+     * 0 when the lease was lost (nothing is written) or backup no longer authorizes it.
      */
     private suspend fun linkExisting(
         binding: AccountBinding,
@@ -189,9 +198,15 @@ internal class UploadInvoker(
         val linkedAt = now()
         val pairId = remotePairId(binding, pair)
         val linkId = UUID.randomUUID().toString()
-        val linked = database.withTransaction {
-            if (!accounts.isCurrent(binding)) return@withTransaction false
-            if (!authority.stillAuthorizes(transfer.enrollmentId, transfer.enrollmentRevision, binding)) return@withTransaction false
+        val refusal = database.withTransaction {
+            if (!accounts.isCurrent(binding) ||
+                !authority.stillAuthorizes(transfer.enrollmentId, transfer.enrollmentRevision, binding)
+            ) return@withTransaction LinkRefusal.NOT_AUTHORIZED
+            // Claimed first: when another pass holds the transfer now, nothing below is written.
+            val marked = transferDao.markAlreadyInICloud(
+                transfer.transferId, leaseToken, linkedAt, ExistingCopyCheck.RESULT_MATCHED, StoredMessage.ALREADY_IN_ICLOUD.code,
+            )
+            if (marked != 1) return@withTransaction LinkRefusal.LEASE_LOST
             verificationDao.insertRemotePair(pair.toPairEntity(binding, linkedAt))
             verificationDao.insertAssetLink(
                 AssetLinkEntity(
@@ -220,20 +235,20 @@ internal class UploadInvoker(
                     invalidationReason = null,
                 ),
             )
-            check(
-                transferDao.markAlreadyInICloud(
-                    transfer.transferId, leaseToken, linkedAt, ExistingCopyCheck.RESULT_MATCHED, StoredMessage.ALREADY_IN_ICLOUD.code,
-                ) == 1,
-            ) { "The transfer changed while it was linked to iCloud" }
-            true
+            null
         }
-        if (!linked) {
-            transferDao.releaseReadyLease(transfer.transferId, leaseToken, now(), StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED.code)
-            return 0
+        return when (refusal) {
+            null -> {
+                stages.release(source)
+                runSuspendCatching { scheduler.scheduleSoon() }
+                1
+            }
+            LinkRefusal.LEASE_LOST -> 0
+            LinkRefusal.NOT_AUTHORIZED -> {
+                transferDao.releaseReadyLease(transfer.transferId, leaseToken, now(), StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED.code)
+                0
+            }
         }
-        stages.release(source)
-        runSuspendCatching { scheduler.scheduleSoon() }
-        return 1
     }
 
     /**

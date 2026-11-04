@@ -36,7 +36,7 @@ interface CatalogSyncScheduler {
      * Brings the library up to date in the background even when no first read is under way: backup asks for this before it
      * decides whether a phone item is already in iCloud.
      */
-    fun scheduleRefresh() = schedule(expedited = false)
+    fun scheduleRefresh(unmeteredOnly: Boolean) = schedule(expedited = false)
 
     companion object {
         /** Schedules nothing, for tests and the demo. */
@@ -50,15 +50,19 @@ interface CatalogSyncScheduler {
 internal class WorkManagerCatalogSyncScheduler(context: Context) : CatalogSyncScheduler {
     private val workManager by lazy { WorkManager.getInstance(context.applicationContext) }
 
-    override fun schedule(expedited: Boolean) = enqueue(expedited, refresh = false)
+    override fun schedule(expedited: Boolean) = enqueue(expedited, refresh = false, unmeteredOnly = false)
 
-    override fun scheduleRefresh() = enqueue(expedited = false, refresh = true)
+    /**
+     * Backup's refresh only reads library metadata, but it runs because of backup, so it follows backup's network choice:
+     * with backup on Wi-Fi only it waits for an unmetered network, like the uploads it decides about.
+     */
+    override fun scheduleRefresh(unmeteredOnly: Boolean) = enqueue(expedited = false, refresh = true, unmeteredOnly = unmeteredOnly)
 
-    private fun enqueue(expedited: Boolean, refresh: Boolean) {
+    private fun enqueue(expedited: Boolean, refresh: Boolean, unmeteredOnly: Boolean) {
         val request = OneTimeWorkRequestBuilder<CatalogSyncWorker>()
             .setInputData(androidx.work.workDataOf(CatalogSyncWorker.KEY_REFRESH to refresh))
             // A lost connection pauses the read; Android starts it again once the phone is back online.
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(if (unmeteredOnly) NetworkType.UNMETERED else NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
             .apply { if (expedited) setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST) }
             .build()

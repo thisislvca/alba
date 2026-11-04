@@ -20,8 +20,14 @@ internal sealed interface ExistingCopyOutcome {
     /** Not found, or not certain: upload as before. [result] is kept with the transfer so it is not looked up again. */
     data class Upload(val result: String) : ExistingCopyOutcome
 
-    /** The answer is not known yet; try the item again at [retryAt]. */
-    data class Wait(val retryAt: Long, val message: StoredMessage) : ExistingCopyOutcome
+    /**
+     * The answer is not known yet; try the item again at [retryAt]. [firstFailureAt] is when a read of iCloud first failed
+     * for this item, kept with the transfer so the failure window runs from there.
+     */
+    data class Wait(val retryAt: Long, val message: StoredMessage, val firstFailureAt: Long? = null) : ExistingCopyOutcome
+
+    /** Another pass took the transfer over while its candidates were downloaded: leave it to that pass. */
+    data object LeaseLost : ExistingCopyOutcome
 }
 
 /**
@@ -32,7 +38,12 @@ internal sealed interface ExistingCopyOutcome {
  * "already in iCloud" would later let Free up space delete the only copy.
  *
  * A catalog never read for the account makes the item wait, and asks for a read, for up to [FIRST_SYNC_WAIT_MILLIS]
- * after backup was turned on, so a first run does not upload what is already there.
+ * after backup was turned on, so a first run does not upload what is already there. A failed read is retried for
+ * [CHECK_FAILURE_WINDOW_MILLIS] from the item's first failure, not from when it was queued, so one blip on an item that
+ * waited in the queue does not settle it.
+ *
+ * Downloads can outlast the transfer's lease, so [check]'s `keepLease` is asked to extend it before each one; when it
+ * cannot, the check stops with [ExistingCopyOutcome.LeaseLost].
  */
 internal class ExistingCopyCheck(
     private val protocol: ICloudPhotoProtocol,
@@ -44,6 +55,7 @@ internal class ExistingCopyCheck(
         transfer: TransferEntity,
         source: StagedSourceEntity,
         enrolledAtEpochMillis: Long?,
+        keepLease: suspend () -> Boolean = { true },
     ): ExistingCopyOutcome {
         val phone = PhoneOriginal(source.displayName, source.byteCount, source.sha256Hex, source.capturedAtEpochMillis)
         notReady(binding, transfer, enrolledAtEpochMillis)?.let { return it }
@@ -52,7 +64,7 @@ internal class ExistingCopyCheck(
         return when (val selection = ExistingCopyMatcher.select(phone, library)) {
             CandidateSelection.None -> ExistingCopyOutcome.Upload(RESULT_NOT_FOUND)
             is CandidateSelection.TooMany -> ExistingCopyOutcome.Upload(RESULT_AMBIGUOUS)
-            is CandidateSelection.Check -> compareAll(binding, transfer, phone, selection.candidates)
+            is CandidateSelection.Check -> compareAll(binding, transfer, phone, selection.candidates, keepLease)
         }
     }
 
@@ -81,9 +93,11 @@ internal class ExistingCopyCheck(
         transfer: TransferEntity,
         phone: PhoneOriginal,
         candidates: List<LibraryCandidate>,
+        keepLease: suspend () -> Boolean,
     ): ExistingCopyOutcome {
         val exact = mutableListOf<Pair<RemotePairCandidate, LibraryCandidate>>()
         for (candidate in candidates) {
+            if (!keepLease()) return ExistingCopyOutcome.LeaseLost
             val compared = runSuspendCatching { compare(binding, phone, candidate) }
             if (compared.isFailure) return failed(transfer)
             compared.getOrNull()?.let { exact += it to candidate }
@@ -100,35 +114,47 @@ internal class ExistingCopyCheck(
         val pair = protocol.libraryPair(binding, candidate.masterRecordName, candidate.assetRecordName) ?: return null
         if (!pair.relationIsCurrent || pair.masterDeleted || pair.assetDeleted) return null
         val sink = BoundedHashingOutputStream(phone.byteCount)
-        val observation = try {
-            protocol.streamFreshOriginal(binding, pair, sink)
-        } catch (_: OriginalLargerThanExpected) {
-            return null
-        }
+        val streamed = runSuspendCatching { protocol.streamFreshOriginal(binding, pair, sink) }
+        // Larger than the phone file is a definite answer, however the transport wrapped the sink's refusal.
+        if (sink.exceeded) return null
+        val observation = streamed.getOrThrow()
         val same = sink.byteCount == phone.byteCount && observation.byteCount == phone.byteCount &&
             sink.sha256Hex() == phone.sha256Hex && observation.resourceIdentity == pair.originalResourceIdentity
         return pair.takeIf { same }
     }
 
-    /** A read failed: try again shortly, and upload as before once the item has waited long enough. */
-    private fun failed(transfer: TransferEntity): ExistingCopyOutcome =
-        if (now() < transfer.createdAtEpochMillis + CHECK_FAILURE_WINDOW_MILLIS) {
-            ExistingCopyOutcome.Wait(now() + CHECK_RETRY_MILLIS, StoredMessage.CHECKING_ICLOUD_LIBRARY_FIRST)
+    /** A read failed: try again shortly, and upload as before once reads have kept failing long enough. */
+    private fun failed(transfer: TransferEntity): ExistingCopyOutcome {
+        val firstFailure = transfer.existingCopyFirstFailureAtEpochMillis ?: now()
+        return if (now() < firstFailure + CHECK_FAILURE_WINDOW_MILLIS) {
+            ExistingCopyOutcome.Wait(now() + CHECK_RETRY_MILLIS, StoredMessage.CHECKING_ICLOUD_LIBRARY_FIRST, firstFailure)
         } else ExistingCopyOutcome.Upload(RESULT_CHECK_FAILED)
+    }
 
     /** Hashes what it is given and refuses more than [limit] bytes, so a check never downloads more than the phone file. */
     private class BoundedHashingOutputStream(private val limit: Long) : OutputStream() {
         private val hashing = HashingOutputStream()
         val byteCount: Long get() = hashing.byteCount
 
+        /** More than [limit] bytes were offered. */
+        var exceeded = false
+            private set
+
         override fun write(value: Int) {
-            if (hashing.byteCount + 1 > limit) throw OriginalLargerThanExpected()
+            refuseBeyond(1)
             hashing.write(value)
         }
 
         override fun write(buffer: ByteArray, offset: Int, length: Int) {
-            if (hashing.byteCount + length > limit) throw OriginalLargerThanExpected()
+            refuseBeyond(length)
             hashing.write(buffer, offset, length)
+        }
+
+        private fun refuseBeyond(length: Int) {
+            if (exceeded || hashing.byteCount + length > limit) {
+                exceeded = true
+                throw OriginalLargerThanExpected()
+            }
         }
 
         fun sha256Hex() = hashing.sha256Hex()
@@ -148,8 +174,11 @@ internal class ExistingCopyCheck(
         const val FIRST_SYNC_WAIT_MILLIS = 24 * 60 * 60 * 1_000L
         const val LIBRARY_RETRY_MILLIS = 5 * 60 * 1_000L
 
-        /** How long one item keeps retrying a failed iCloud read before it uploads without the answer. */
+        /** How long one item keeps retrying failed iCloud reads, from its first failure, before it uploads anyway. */
         const val CHECK_FAILURE_WINDOW_MILLIS = 60 * 60 * 1_000L
         const val CHECK_RETRY_MILLIS = 60 * 1_000L
+
+        /** How long a transfer's lease is extended before each candidate download. */
+        const val COMPARE_LEASE_MILLIS = 15 * 60 * 1_000L
     }
 }

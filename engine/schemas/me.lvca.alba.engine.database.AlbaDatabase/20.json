@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 20,
-    "identityHash": "cabaea0d3dbaa1adfa6c483627fc09b8",
+    "identityHash": "89a87fcd8076e5c9b69cd6a4e9cabcc6",
     "entities": [
       {
         "tableName": "catalog_items",
@@ -754,7 +754,7 @@
       },
       {
         "tableName": "transfers",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transferId` TEXT NOT NULL, `stagedSourceId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `authorityType` TEXT NOT NULL, `authorityId` TEXT NOT NULL, `enrollmentId` TEXT, `enrollmentRevision` INTEGER, `mediaId` TEXT, `displayName` TEXT NOT NULL, `state` TEXT NOT NULL, `stateVersion` INTEGER NOT NULL, `activeAttemptId` TEXT, `leaseToken` TEXT, `leaseExpiresAtEpochMillis` INTEGER, `reconciliationDueAtEpochMillis` INTEGER, `reconciliationDeadlineEpochMillis` INTEGER, `reconciliationChangeToken` TEXT, `verifiedAtEpochMillis` INTEGER, `createdAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `message` TEXT, `automaticRetries` INTEGER NOT NULL DEFAULT 0, `notBeforeEpochMillis` INTEGER, `existingCopyCheck` TEXT, PRIMARY KEY(`transferId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transferId` TEXT NOT NULL, `stagedSourceId` TEXT NOT NULL, `accountId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `operationFence` INTEGER NOT NULL, `authorityType` TEXT NOT NULL, `authorityId` TEXT NOT NULL, `enrollmentId` TEXT, `enrollmentRevision` INTEGER, `mediaId` TEXT, `displayName` TEXT NOT NULL, `state` TEXT NOT NULL, `stateVersion` INTEGER NOT NULL, `activeAttemptId` TEXT, `leaseToken` TEXT, `leaseExpiresAtEpochMillis` INTEGER, `reconciliationDueAtEpochMillis` INTEGER, `reconciliationDeadlineEpochMillis` INTEGER, `reconciliationChangeToken` TEXT, `verifiedAtEpochMillis` INTEGER, `createdAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `message` TEXT, `automaticRetries` INTEGER NOT NULL DEFAULT 0, `notBeforeEpochMillis` INTEGER, `existingCopyCheck` TEXT, `existingCopyFirstFailureAtEpochMillis` INTEGER, PRIMARY KEY(`transferId`))",
         "fields": [
           {
             "fieldPath": "transferId",
@@ -899,6 +899,11 @@
             "fieldPath": "existingCopyCheck",
             "columnName": "existingCopyCheck",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "existingCopyFirstFailureAtEpochMillis",
+            "columnName": "existingCopyFirstFailureAtEpochMillis",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -2707,7 +2712,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'cabaea0d3dbaa1adfa6c483627fc09b8')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '89a87fcd8076e5c9b69cd6a4e9cabcc6')"
     ]
   }
 }

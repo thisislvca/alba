@@ -181,11 +181,28 @@ interface TransferDao {
         """
         UPDATE transfers
         SET leaseToken = NULL, leaseExpiresAtEpochMillis = NULL, notBeforeEpochMillis = :notBefore,
+            existingCopyFirstFailureAtEpochMillis = COALESCE(existingCopyFirstFailureAtEpochMillis, :firstFailureAt),
             stateVersion = stateVersion + 1, updatedAtEpochMillis = :now, message = :message
         WHERE transferId = :transferId AND state = 'READY' AND leaseToken = :leaseToken
         """,
     )
-    suspend fun deferReadyLease(transferId: String, leaseToken: String, notBefore: Long, now: Long, message: String): Int
+    suspend fun deferReadyLease(
+        transferId: String,
+        leaseToken: String,
+        notBefore: Long,
+        now: Long,
+        message: String,
+        firstFailureAt: Long? = null,
+    ): Int
+
+    /** Keeps a leased READY transfer leased until [expiresAt]; 0 when the lease was lost meanwhile. */
+    @Query(
+        """
+        UPDATE transfers SET leaseExpiresAtEpochMillis = :expiresAt
+        WHERE transferId = :transferId AND state = 'READY' AND leaseToken = :leaseToken
+        """,
+    )
+    suspend fun extendReadyLease(transferId: String, leaseToken: String, expiresAt: Long): Int
 
     /** Records what the look in the iCloud library found for a leased READY transfer that will now upload. */
     @Query(
