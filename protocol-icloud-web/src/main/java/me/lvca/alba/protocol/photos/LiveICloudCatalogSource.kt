@@ -52,6 +52,11 @@ class LiveICloudCatalogSource(
     private val database = PersonalLibraryDatabase(cloudKit, ::requireSession, isAuthorized)
     private val edits = PersonalLibraryEdits(database, ::requireSession, isAuthorized)
     override suspend fun setFavorite(mediaId: String, favorite: Boolean) = edits.setFavorite(mediaId, favorite)
+
+    /** Backup's edits, through the viewer's edits and their lock, so they never interleave with the user's. */
+    val uploadMetadataEditor = UploadMetadataEditor { accountId, assetRecordName, favorite, caption ->
+        edits.applyPhoneMetadata(accountId, assetRecordName, favorite, caption)
+    }
     override suspend fun createAlbum(name: String) = edits.createAlbum(name)
     override suspend fun deleteAlbum(id: String) = edits.deleteAlbum(id)
     override suspend fun renameAlbum(id: String, name: String) = edits.renameAlbum(id, name)

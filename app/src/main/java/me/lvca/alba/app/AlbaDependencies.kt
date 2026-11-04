@@ -32,6 +32,8 @@ data class AlbaDependencies(
     val photoEdits: PhotoEditStore,
     val demoImporter: DemoMediaImporter,
     val network: Flow<NetworkStatus?>,
+    /** Whether the phone is charging; null while unknown. */
+    val charging: Flow<Boolean?>,
     val diagnostics: AlbaDiagnostics,
     val sharedActivity: SharedActivityStore,
     val backupPreferences: BackupPreferences,
@@ -49,6 +51,7 @@ data class AlbaDependencies(
             photoEdits = graph.photoEdits,
             demoImporter = graph.demoImporter,
             network = graph.network,
+            charging = graph.charging,
             diagnostics = graph.diagnostics,
             sharedActivity = graph.sharedActivity,
             backupPreferences = graph.backupPreferences,
