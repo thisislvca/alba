@@ -924,10 +924,12 @@
     <string name="backup_chip_paused">Backup in pausa</string>
     <string name="backup_chip_offline">In attesa di connessione</string>
     <string name="backup_chip_wifi">In attesa del Wi-Fi</string>
+    <string name="backup_chip_charging">In attesa della ricarica</string>
     <string name="backup_status_off">Il backup è disattivato</string>
     <string name="backup_status_review">Il backup ora include di più</string>
     <string name="backup_status_permission">Backup in pausa: consenti l’accesso</string>
     <string name="backup_status_wifi">In attesa del Wi-Fi</string>
+    <string name="backup_status_charging">In attesa della ricarica</string>
     <string name="backup_status_done">Backup completato</string>
     <string name="backup_progress">%1$d di %2$d salvati</string>
     <string name="backup_last_backed_up">Ultimo backup: %1$s</string>
@@ -947,6 +949,8 @@
     <string name="backup_videos_mobile_data">Backup dei video con dati mobili</string>
     <string name="backup_while_roaming">Backup in roaming</string>
     <string name="backup_while_roaming_detail">Usa i dati mobili all’estero, che possono costare di più.</string>
+    <string name="backup_only_while_charging">Solo durante la ricarica</string>
+    <string name="backup_only_while_charging_detail">Esegue il backup solo mentre il telefono è in carica.</string>
     <string name="backup_pause">Metti in pausa il backup</string>
     <string name="backup_pause_detail">Interrompe i caricamenti automatici finché non lo disattivi.</string>
     <string name="backup_disclosure_title">Attivare il backup?</string>
@@ -1024,6 +1028,11 @@
         <item quantity="one">%d elemento attende il Wi-Fi. Consenti i dati mobili nelle impostazioni qui sotto per salvarlo ora.</item>
         <item quantity="other">%d elementi attendono il Wi-Fi. Consenti i dati mobili nelle impostazioni qui sotto per salvarli ora.</item>
         <item quantity="many">%d elementi attendono il Wi-Fi. Consenti i dati mobili nelle impostazioni qui sotto per salvarli ora.</item>
+    </plurals>
+    <plurals name="backup_detail_charging">
+        <item quantity="one">%d elemento attende che il telefono sia in carica. Disattiva “Solo durante la ricarica” qui sotto per salvarlo ora.</item>
+        <item quantity="other">%d elementi attendono che il telefono sia in carica. Disattiva “Solo durante la ricarica” qui sotto per salvarli ora.</item>
+        <item quantity="many">%d elementi attendono che il telefono sia in carica. Disattiva “Solo durante la ricarica” qui sotto per salvarli ora.</item>
     </plurals>
     <plurals name="backup_failed_title">
         <item quantity="one">%d elemento non può essere salvato</item>

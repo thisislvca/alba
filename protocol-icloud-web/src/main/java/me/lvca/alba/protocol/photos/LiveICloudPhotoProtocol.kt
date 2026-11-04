@@ -14,6 +14,7 @@ import me.lvca.alba.engine.model.CandidatePage
 import me.lvca.alba.engine.model.ICloudDestination
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.OneShotUploadSource
+import me.lvca.alba.engine.model.PhoneMetadata
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.RemoteOriginalObservation
 import me.lvca.alba.engine.model.RemotePairCandidate
@@ -66,6 +67,21 @@ class LiveICloudPhotoProtocol(
     private val json = Json { ignoreUnknownKeys = true }
 
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected)
+
+    /** The viewer's library edits, on this protocol's connection, for what an upload carries from the phone. */
+    private val libraryEdits by lazy {
+        val requireSession = {
+            sessionProvider() ?: throw AppleProtocolException(AppleProtocolError.SESSION_EXPIRED, "Sign in to iCloud first.")
+        }
+        PersonalLibraryEdits(PersonalLibraryDatabase(cloudKit, requireSession, isAuthorized), requireSession, isAuthorized)
+    }
+
+    override suspend fun applyPhoneMetadata(binding: AccountBinding, assetRecordName: String, metadata: PhoneMetadata) {
+        if (metadata.isEmpty) return
+        // Bound first, so the edit lands only in the account the photo was uploaded to.
+        requireBoundSession(binding)
+        libraryEdits.applyPhoneMetadata(assetRecordName, metadata.favorite, metadata.caption)
+    }
 
     override fun currentDestination(): ICloudDestination? = sessionProvider()?.let { session ->
         ICloudDestination(

@@ -17,15 +17,26 @@ internal class AutomaticBackupAuthority(
 
     val settings: BackupSettings get() = policy.settings()
 
-    /** Whether automatic backup may upload a photo, or a video when [video], on the current network. */
-    fun allows(video: Boolean): Boolean = policy.settings().allows(policy.network(), video)
-
-    /** Whether any automatic work may use the current network. */
-    fun mayUseNetwork(): Boolean = policy.settings().allowsAny(policy.network())
+    /**
+     * Whether automatic backup may upload a photo, or a video when [video], on the current network, and, when the user
+     * chose "Only while charging", whether the phone is charging.
+     */
+    fun allows(video: Boolean): Boolean = policy.settings().allows(policy.network(), video) && chargingAllows()
 
     /**
-     * Automatic transfers wait for a network the user's settings allow for their media type; user selections never
-     * do. [video] is the transfer's staged media type.
+     * Whether any automatic work may use the current network. Checking iCloud for an upload already sent is read-only
+     * and short, so it does not wait for the charger.
+     */
+    fun mayUseNetwork(): Boolean = policy.settings().allowsAny(policy.network())
+
+    /** Whether automatic backup may find, stage or retry items now: the network allows it and so does the charger. */
+    fun mayBackUp(): Boolean = mayUseNetwork() && chargingAllows()
+
+    private fun chargingAllows(): Boolean = !policy.settings().onlyWhileCharging || policy.isCharging()
+
+    /**
+     * Automatic transfers wait for a network the user's settings allow for their media type, and for the charger when
+     * the user asked for that; user selections never do. [video] is the transfer's staged media type.
      */
     fun waitsForNetwork(authorityType: String, video: Boolean): Boolean = authorityType == AUTHORITY_AUTOMATIC && !allows(video)
 
