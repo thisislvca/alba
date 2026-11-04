@@ -7,7 +7,10 @@ import me.lvca.alba.engine.model.BackupNetwork
 import me.lvca.alba.engine.model.BackupSettings
 
 class AndroidAutomaticBackupPolicy(context: Context, private val preferences: BackupPreferences) : AutomaticBackupPolicy {
+    private val appContext = context.applicationContext
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
+
+    override fun isCharging(): Boolean = isCharging(appContext)
 
     override fun isUnmetered(): Boolean = network() == BackupNetwork.UNMETERED
 

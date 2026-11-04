@@ -3,6 +3,7 @@ package me.lvca.alba.engine.source
 import android.content.IntentSender
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.DeviceFolder
+import me.lvca.alba.engine.model.PhoneMetadata
 import java.io.OutputStream
 
 data class ExactOriginalEvidence(
@@ -138,6 +139,12 @@ interface ExactOriginalSource {
      * again right before Android's trash request, so a file edited after its proof check is never trashed.
      */
     suspend fun currentRevision(contentUri: String): String? = null
+
+    /**
+     * What the phone records about [contentUri] beyond its bytes: whether it is a favourite, and its own caption. A
+     * value that cannot be read counts as absent.
+     */
+    suspend fun phoneMetadata(contentUri: String, mimeType: String): PhoneMetadata = PhoneMetadata()
 
     fun createTrashRequest(contentUris: List<String>): IntentSender
 

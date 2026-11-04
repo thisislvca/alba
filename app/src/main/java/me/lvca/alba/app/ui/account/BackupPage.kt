@@ -80,7 +80,7 @@ internal fun BackupPage(
     val signedIn = state as? ICloudAccountState.SignedIn
     val connected = signedIn?.status == SessionStatus.VERIFIED
     val backup = transfers.backup
-    val status = backupStatus(transfers, state, session.network)
+    val status = backupStatus(transfers, state, session.network, session.charging)
     val verified = backupItems(transfers, demo).count { it.state == TransferViewState.VERIFIED }
     LaunchedEffect(backup.enabled, verified) { actions.refreshBackupStatus() }
 
@@ -199,7 +199,7 @@ private fun StatusLine(status: BackupStatus) {
     val icon: ImageVector = when (status) {
         BackupStatus.UpToDate -> AlbaIcons.CloudDone
         is BackupStatus.BackingUp -> AlbaIcons.CloudUpload
-        is BackupStatus.WaitingForWifi, BackupStatus.Offline, BackupStatus.Paused -> AlbaIcons.CloudQueue
+        is BackupStatus.WaitingForWifi, is BackupStatus.WaitingToCharge, BackupStatus.Offline, BackupStatus.Paused -> AlbaIcons.CloudQueue
         else -> AlbaIcons.CloudOff
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -216,6 +216,7 @@ private fun StatusLine(status: BackupStatus) {
 @Composable
 private fun statusDetail(status: BackupStatus): String? = when (status) {
     is BackupStatus.WaitingForWifi -> pluralStringResource(R.plurals.backup_detail_wifi, status.remaining, status.remaining)
+    is BackupStatus.WaitingToCharge -> pluralStringResource(R.plurals.backup_detail_charging, status.remaining, status.remaining)
     BackupStatus.SignInNeeded -> stringResource(R.string.backup_paused_sign_in_body)
     BackupStatus.StorageFull -> stringResource(R.string.backup_paused_storage_body)
     BackupStatus.NeedsPermission -> stringResource(R.string.message_backup_paused_allow_full_photo_and_media_location_access)
@@ -304,6 +305,9 @@ private fun BackupSettingsCard(transfers: TransferState, folders: Boolean, actio
         AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
         SettingSwitch(stringResource(R.string.backup_while_roaming), stringResource(R.string.backup_while_roaming_detail),
             settings.whileRoaming, "backup-roaming", enabled = settings.usesMobileData) { actions.setBackupSettings(settings.copy(whileRoaming = it)) }
+        AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
+        SettingSwitch(stringResource(R.string.backup_only_while_charging), stringResource(R.string.backup_only_while_charging_detail),
+            settings.onlyWhileCharging, "backup-only-while-charging") { actions.setBackupSettings(settings.copy(onlyWhileCharging = it)) }
         AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
         SettingSwitch(stringResource(R.string.backup_pause), stringResource(R.string.backup_pause_detail),
             settings.paused, "backup-pause") { actions.setBackupSettings(settings.copy(paused = it)) }

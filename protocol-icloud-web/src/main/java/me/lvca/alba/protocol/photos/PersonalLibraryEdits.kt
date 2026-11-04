@@ -16,7 +16,7 @@ import java.util.Base64
 import java.util.UUID
 
 /**
- * Edits to the personal library: favorites, albums, album membership and Recently Deleted. Edits run
+ * Edits to the personal library: favorites, captions after upload, albums, album membership and Recently Deleted. Edits run
  * one at a time, write at the change tag they read, and are confirmed from Apple's response.
  */
 internal class PersonalLibraryEdits(
@@ -85,6 +85,38 @@ internal class PersonalLibraryEdits(
     }
 
     /**
+     * Carries what the phone knew about a photo onto the asset its backup just created, for the account [accountId]:
+     * favourite, as [setFavorite] writes it, and [caption] into `extendedDescEnc`. Field names follow
+     * icloud-photos-downloader (`src/icloudpd/xmp_sidecar.py`), which exports `captionEnc` as the XMP `dc:title` and
+     * `extendedDescEnc` as `dc:description`, the field the phone's caption is read from. Both are base64 UTF-8 text
+     * (decoded that way there and by [MediaDetailsParser] here), written as ENCRYPTED_BYTES like `albumNameEnc`. It
+     * only adds: a favourite is never cleared and a caption the asset already has is never replaced, so running it
+     * twice changes nothing. Written at the version just read, confirmed from Apple's response, and under the same lock
+     * as the user's own edits.
+     */
+    suspend fun applyPhoneMetadata(accountId: String, assetRecordName: String, favorite: Boolean, caption: String?) =
+        authorizedEdit { session ->
+            require(ICloudAccountIdentity.accountId(session) == accountId) { "The iCloud destination account changed" }
+            require(assetRecordName.isNotBlank() && ':' !in assetRecordName)
+            val existing = editableRecord(assetRecordName, "CPLAsset")
+            val addFavorite = favorite && !existing.fieldFlag("isFavorite")
+            val addCaption = caption?.trim()?.takeIf { it.isNotEmpty() && existing.fieldText(CAPTION_FIELD).isNullOrBlank() }
+            if (!addFavorite && addCaption == null) return@authorizedEdit
+            val captionField = addCaption?.let(::encryptedText)
+            val result = modify(session, listOf(operation("update", buildJsonObject {
+                put("recordName", assetRecordName); put("recordType", "CPLAsset"); put("recordChangeTag", existing["recordChangeTag"]!!)
+                putJsonObject("fields") {
+                    if (addFavorite) put("isFavorite", writeField("INT64", JsonPrimitive(1)))
+                    if (captionField != null) put(CAPTION_FIELD, captionField)
+                }
+            }))).single()
+            check(!addFavorite || result.fieldFlag("isFavorite")) { "Favorite change was not confirmed. Refresh the library." }
+            check(captionField == null || result.fieldText(CAPTION_FIELD) == captionField["value"]!!.jsonPrimitive.content) {
+                "Caption change was not confirmed. Refresh the library."
+            }
+        }
+
+    /**
      * Moves assets into or out of the Hidden album by writing CPLAsset `isHidden`, the INT64 flag the Hidden index
      * (`CPLAssetAndMasterHiddenByAssetDate`) and the main feed (`...WithoutHiddenOrDeleted`) read. It is written like
      * `isFavorite`: at the version just read, atomically, and confirmed from Apple's response.
@@ -116,8 +148,12 @@ internal class PersonalLibraryEdits(
 
     private fun albumName(name: String): JsonObject {
         require(name.isNotBlank() && name.length <= 255)
-        return writeField("ENCRYPTED_BYTES", JsonPrimitive(Base64.getEncoder().encodeToString(name.toByteArray(Charsets.UTF_8))))
+        return encryptedText(name)
     }
+
+    /** Text as CloudKit's ENCRYPTED_BYTES fields hold it in the web protocol: base64 of its UTF-8 bytes. */
+    private fun encryptedText(text: String): JsonObject =
+        writeField("ENCRYPTED_BYTES", JsonPrimitive(Base64.getEncoder().encodeToString(text.toByteArray(Charsets.UTF_8))))
 
     suspend fun createAlbum(name: String): GalleryCollection = authorizedEdit { session ->
         val id = UUID.randomUUID().toString().replace("-", "").uppercase()
@@ -241,4 +277,9 @@ internal class PersonalLibraryEdits(
         this["serverErrorCode"] == null && this["fields"] is JsonObject && recordType() == "CPLAsset" &&
             this["deleted"]?.jsonPrimitive?.booleanOrNull != true && !fieldFlag("isExpunged") &&
             (!requireVisible || !fieldFlag("isHidden"))
+
+    private companion object {
+        /** Photos' caption, shown under the photo; `captionEnc` is its title. */
+        const val CAPTION_FIELD = "extendedDescEnc"
+    }
 }
