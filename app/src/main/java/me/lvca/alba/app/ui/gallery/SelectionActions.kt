@@ -49,6 +49,8 @@ import me.lvca.alba.app.ui.designsystem.AlbaMenu
 import me.lvca.alba.app.ui.designsystem.AlbaMenuDivider
 import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.FavoriteIcon
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.floating
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.engine.source.UploadMediaFormat
@@ -95,7 +97,7 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
             upload.takeIf { uploadable }, moreTool)
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             val labelled = toolbarFitsLabels(tools.map { it.label }, maxWidth)
-            AlbaFloatingToolbar(Modifier.testTag("selection-toolbar"), contentColor = MaterialTheme.colorScheme.primary) {
+            AlbaFloatingToolbar(Modifier.testTag("selection-toolbar")) {
                 tools.forEach { tool ->
                     if (tool === moreTool) Box {
                         SelectionAction(tool, labelled)
@@ -217,7 +219,7 @@ internal fun SelectionTopBar(count: Int, minHeight: Dp, reducedMotion: Boolean, 
     if (count > 0) shown = count
     val slide = if (reducedMotion) snap<IntOffset>() else tween(GalleryFeel.CONTEXT_BAR_SLIDE_MILLIS)
     AnimatedVisibility(count > 0, modifier, enter = slideInVertically(slide) { -it }, exit = slideOutVertically(slide) { -it }) {
-        Surface(Modifier.fillMaxWidth().heightIn(min = minHeight).testTag("selection-top-bar"), color = MaterialTheme.colorScheme.surfaceContainer) {
+        Surface(Modifier.fillMaxWidth().heightIn(min = minHeight).testTag("selection-top-bar"), color = AlbaTheme.floating.toolbar) {
             Row(Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).padding(start = 4.dp, end = 8.dp)
                 .heightIn(min = AlbaFloatingDefaults.ToolbarHeight), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = clear) { Icon(Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }

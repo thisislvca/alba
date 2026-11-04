@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.floating
 import me.lvca.alba.app.ui.navigation.NavigationMotion
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 
@@ -89,16 +91,16 @@ internal object AlbaFloatingDefaults {
 }
 
 /**
- * The M3 Expressive floating toolbar: a stadium on surfaceContainer with a soft shadow, 64dp tall, holding icon
+ * The M3 Expressive floating toolbar: a stadium in the neutral floating colours with a soft shadow, 64dp tall, holding icon
  * buttons. Content defaults to [contentColor]; callers lay out their own items in the row.
  */
 @Composable
 internal fun AlbaFloatingToolbar(
     modifier: Modifier = Modifier,
-    contentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    contentColor: androidx.compose.ui.graphics.Color = AlbaTheme.floating.onToolbar,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Surface(modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainer, contentColor = contentColor,
+    Surface(modifier, shape = CircleShape, color = AlbaTheme.floating.toolbar, contentColor = contentColor,
         shadowElevation = AlbaFloatingDefaults.ToolbarShadow) {
         Row(Modifier.height(AlbaFloatingDefaults.ToolbarHeight).padding(horizontal = AlbaFloatingDefaults.ToolbarPadding),
             horizontalArrangement = Arrangement.spacedBy(AlbaFloatingDefaults.ToolbarItemSpacing),

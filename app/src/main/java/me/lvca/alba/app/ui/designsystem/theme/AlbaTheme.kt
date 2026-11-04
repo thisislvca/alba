@@ -17,8 +17,7 @@ internal val ColorScheme.galleryOverlay: Color
 private val LightColors = lightColorScheme(
     primary = Color(0xFF0065D0), onPrimary = Color.White,
     primaryContainer = Color(0xFFDDEBFF), onPrimaryContainer = Color(0xFF004493),
-    // Neutral tonal selection, as Photos' navigation and chips: secondaryContainer and its content.
-    secondary = Color(0xFF53637B), secondaryContainer = Color(0xFFDCE2F9), onSecondaryContainer = Color(0xFF404659),
+    secondary = Color(0xFF53637B), secondaryContainer = Color(0xFFE7EEFA), onSecondaryContainer = Color(0xFF0065D0),
     background = Color(0xFFF2F2F7), onBackground = Color(0xFF191C20),
     surface = Color.White, onSurface = Color(0xFF191C20),
     surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF2F2F7), surfaceContainer = Color(0xFFECECF1),
@@ -30,7 +29,7 @@ private val LightColors = lightColorScheme(
 private val DarkColors = darkColorScheme(
     primary = Color(0xFF9DCBFF), onPrimary = Color(0xFF003363),
     primaryContainer = Color(0xFF173F69), onPrimaryContainer = Color(0xFFDDEBFF),
-    secondary = Color(0xFFBBC8DD), secondaryContainer = Color(0xFF404659), onSecondaryContainer = Color(0xFFDCE2F9),
+    secondary = Color(0xFFBBC8DD), secondaryContainer = Color(0xFF2F3F55), onSecondaryContainer = Color(0xFF9DCBFF),
     background = Color(0xFF101114), onBackground = Color(0xFFE5E8EF),
     surface = Color(0xFF101114), onSurface = Color(0xFFE5E8EF),
     surfaceContainerLowest = Color(0xFF1C1C1E), surfaceContainerLow = Color(0xFF1C1C1E), surfaceContainer = Color(0xFF20232A),

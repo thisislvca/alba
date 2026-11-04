@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaFloatingDefaults
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.floating
 import me.lvca.alba.app.ui.designsystem.theme.navigationLabel
 import me.lvca.alba.app.ui.navigation.NavigationMotion
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
@@ -78,7 +80,7 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val labelWidths = titles.map { textMeasurer.measure(AnnotatedString(it), labelStyle, maxLines = 1, softWrap = false).size.width }
-    val colors = MaterialTheme.colorScheme
+    val floating = AlbaTheme.floating
     val motion = DestinationMotion(reduceGalleryMotion())
 
     BoxWithConstraints(modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
@@ -100,7 +102,7 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
 
         AnimatedVisibility(!keyboardOpen(), Modifier.align(Alignment.Center), enter = motion.reveal, exit = motion.hide) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = CircleShape, color = colors.surfaceContainerLow, contentColor = colors.onSurfaceVariant,
+                Surface(shape = CircleShape, color = floating.container, contentColor = floating.content,
                     shadowElevation = AlbaFloatingDefaults.ToolbarShadow, modifier = Modifier.testTag("gallery-destination-capsule")) {
                     // Each destination reports where its pill belongs; one indicator follows the selected one.
                     val pills = remember { mutableStateMapOf<GalleryTab, Rect>() }
@@ -110,7 +112,7 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
                         val bounds = target ?: return@LaunchedEffect
                         if (indicator.value == Rect.Zero) indicator.snapTo(bounds) else indicator.animateTo(bounds, motion.rect)
                     }
-                    val pillColor = colors.secondaryContainer
+                    val pillColor = floating.active
                     Row(Modifier.padding(4.dp).selectableGroup().drawBehind {
                         val pill = indicator.value
                         if (pill != Rect.Zero) drawRoundRect(pillColor, pill.topLeft, pill.size, CornerRadius(pill.height / 2f))
@@ -120,7 +122,7 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
                             val showLabel = mode != TabDisplayMode.ICON_ONLY && (selected || mode == TabDisplayMode.EXPANDED)
                             val showIcon = selected || mode != TabDisplayMode.EXPANDED
                             val interactions = remember { MutableInteractionSource() }
-                            val foreground by animateColorAsState(if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant,
+                            val foreground by animateColorAsState(if (selected) floating.onActive else floating.content,
                                 motion.color, label = "destination-foreground")
                             val margin by animateDpAsState(if (showLabel) 4.dp else 0.dp, motion.dp, label = "destination-margin")
                             val start by animateDpAsState(if (showLabel) 8.dp else 12.dp, motion.dp, label = "destination-start")
@@ -154,11 +156,10 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
                     }
                 }
                 val searchSelected = tab == GalleryTab.SEARCH
-                val searchColor by animateColorAsState(if (searchSelected) colors.secondaryContainer else colors.surfaceContainerLow,
+                val searchColor by animateColorAsState(if (searchSelected) floating.active else floating.container,
                     motion.color, label = "search-container")
-                val searchContent by animateColorAsState(if (searchSelected) colors.onSecondaryContainer else colors.onSurface,
-                    motion.color, label = "search-content")
-                Surface(shape = CircleShape, color = searchColor, contentColor = searchContent, shadowElevation = AlbaFloatingDefaults.ToolbarShadow) {
+                // Photos' search glyph keeps the strong ink whether or not Search is the destination.
+                Surface(shape = CircleShape, color = searchColor, contentColor = floating.onActive, shadowElevation = AlbaFloatingDefaults.ToolbarShadow) {
                     Box(Modifier.size(56.dp).clip(CircleShape)
                         .selectable(searchSelected, role = Role.Tab, onClick = { navigate(GalleryTab.SEARCH) })
                         .testTag("tab-SEARCH"), contentAlignment = Alignment.Center) {
