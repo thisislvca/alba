@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -199,7 +200,7 @@ private fun StatusLine(status: BackupStatus) {
     val icon: ImageVector = when (status) {
         BackupStatus.UpToDate -> AlbaIcons.CloudDone
         is BackupStatus.BackingUp -> AlbaIcons.CloudUpload
-        is BackupStatus.WaitingForWifi, BackupStatus.Offline, BackupStatus.Paused -> AlbaIcons.CloudQueue
+        is BackupStatus.WaitingForWifi, BackupStatus.Offline, BackupStatus.Paused, is BackupStatus.PausedForICloudChange -> AlbaIcons.CloudQueue
         else -> AlbaIcons.CloudOff
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -207,7 +208,10 @@ private fun StatusLine(status: BackupStatus) {
             tint = if (icon == AlbaIcons.CloudOff) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
         Column {
             Text(status.headline(), style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("backup-headline"))
-            statusDetail(status)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            statusDetail(status)?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("backup-status-detail"))
+            }
         }
     }
 }
@@ -221,6 +225,8 @@ private fun statusDetail(status: BackupStatus): String? = when (status) {
     BackupStatus.NeedsPermission -> stringResource(R.string.message_backup_paused_allow_full_photo_and_media_location_access)
     BackupStatus.NeedsConsent -> stringResource(R.string.backup_review_detail)
     BackupStatus.Paused -> stringResource(R.string.backup_paused_detail)
+    is BackupStatus.PausedForICloudChange -> status.pause.message(LocalConfiguration.current.locales[0].language)
+        ?: stringResource(R.string.backup_paused_icloud_change_detail)
     else -> null
 }
 

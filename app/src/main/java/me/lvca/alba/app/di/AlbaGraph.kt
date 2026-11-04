@@ -1,11 +1,14 @@
 package me.lvca.alba.app.di
 
 import android.content.Context
+import kotlinx.coroutines.flow.map
+import me.lvca.alba.app.BuildConfig
 import me.lvca.alba.app.demo.DemoMediaImporter
 import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 import me.lvca.alba.app.platform.AndroidAutomaticBackupPolicy
 import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
+import me.lvca.alba.app.platform.LiveProtocolStatus
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PhotoEditStore
 import me.lvca.alba.app.platform.networkStatus
@@ -26,6 +29,7 @@ import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.RoomUploadCheckpointStore
 import me.lvca.alba.engine.model.MaintenanceWakeup
+import me.lvca.alba.engine.model.ProtocolStatusGate
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.repository.DefaultGalleryRepository
 import me.lvca.alba.engine.source.AndroidMediaStoreSource
@@ -39,6 +43,7 @@ import me.lvca.alba.protocol.photos.AccountAwareICloudCatalogSource
 import me.lvca.alba.protocol.photos.EncryptedUploadJournal
 import me.lvca.alba.protocol.photos.LiveICloudCatalogSource
 import me.lvca.alba.protocol.photos.LiveICloudPhotoProtocol
+import me.lvca.alba.protocol.status.RemoteProtocolStatus
 import java.io.File
 
 class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
@@ -57,6 +62,18 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         onLocalSignOut = ::clearSignedOutData,
     )
     private val mediaStore = AndroidMediaStoreSource(appContext)
+
+    /**
+     * Alba's remote protocol status (status/protocol-status.json on main), which can pause uploads and edits for some
+     * app versions while an iCloud change is investigated. A build without a status URL never pauses.
+     */
+    val protocolStatus: ProtocolStatusGate = LiveProtocolStatus(
+        remote = BuildConfig.PROTOCOL_STATUS_URL.takeIf { it.isNotBlank() }?.let { url ->
+            RemoteProtocolStatus.create(url, File(appContext.noBackupFilesDir, "protocol-status"), BuildConfig.VERSION_NAME)
+        } ?: ProtocolStatusGate.Open,
+        demo = accountManager.state.map { it == ICloudAccountState.Demo },
+        isDemo = { accountManager.state.value == ICloudAccountState.Demo },
+    )
     val backupPreferences = BackupPreferences(appContext)
     internal val backupNotifications = BackupNotifications(appContext, backupPreferences)
     private val liveCatalog = LiveICloudCatalogSource(
@@ -79,6 +96,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         cloudSource = cloudCatalog,
         deviceSource = mediaStore,
         cache = MediaFileCache(appContext),
+        protocolStatus = protocolStatus,
     )
     val exporter = GalleryExporter(appContext, galleryRepository)
     val sharedActivity = SharedActivityStore(appContext) { enabled -> SharedActivitySchedule.apply(appContext, enabled) }
@@ -104,6 +122,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         ),
         scheduler = WorkManagerWakeupScheduler(appContext) { backupPreferences.settings.value },
         automaticBackupPolicy = AndroidAutomaticBackupPolicy(appContext, backupPreferences),
+        protocolStatus = protocolStatus,
     )
     val maintenance: MaintenanceWakeup = photos
     val batches = GalleryBatchActions(database.libraryDao(), galleryRepository, photos,

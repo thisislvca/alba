@@ -112,6 +112,8 @@ internal fun storedMessageResource(message: StoredMessage): Int = when (message)
     StoredMessage.UPLOAD_AVIF_UNSUPPORTED -> R.string.upload_avif_unsupported
     StoredMessage.UPLOAD_IMAGE_SEQUENCE_UNSUPPORTED -> R.string.upload_image_sequence_unsupported
     StoredMessage.ICLOUD_STORAGE_FULL -> R.string.icloud_storage_full
+    StoredMessage.BACKUP_PAUSED_FOR_AN_ICLOUD_CHANGE -> R.string.message_backup_paused_for_an_icloud_change
+    StoredMessage.PAUSED_FOR_AN_ICLOUD_CHANGE -> R.string.message_paused_for_an_icloud_change
     StoredMessage.AUTOMATIC_BACKUP_IS_ON -> R.string.message_automatic_backup_is_on
     StoredMessage.ONLY_ITEMS_THAT_SENT_NOTHING_CAN_BE_RETRIED -> R.string.message_only_items_that_sent_nothing_can_be_retried
     StoredMessage.THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE -> R.string.message_this_item_is_no_longer_in_the_queue

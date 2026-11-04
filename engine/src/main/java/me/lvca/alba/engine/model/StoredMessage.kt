@@ -109,6 +109,14 @@ enum class StoredMessage(val code: String, val legacyText: String) {
     UPLOAD_AVIF_UNSUPPORTED("upload_avif_unsupported", "AVIF images can't be uploaded to iCloud yet."),
     UPLOAD_IMAGE_SEQUENCE_UNSUPPORTED("upload_image_sequence_unsupported", "HEIF image sequences, such as bursts or animations, can't be uploaded yet."),
     ICLOUD_STORAGE_FULL("icloud_storage_full", "iCloud storage is full. Backup is paused until there is space."),
+    BACKUP_PAUSED_FOR_AN_ICLOUD_CHANGE(
+        "backup_paused_for_an_icloud_change",
+        "Backup is paused while we update Alba for an iCloud change.",
+    ),
+    PAUSED_FOR_AN_ICLOUD_CHANGE(
+        "paused_for_an_icloud_change",
+        "This is paused while we update Alba for an iCloud change. Try again later.",
+    ),
     AUTOMATIC_BACKUP_IS_ON("automatic_backup_is_on", "Backup is on."),
     ONLY_ITEMS_THAT_SENT_NOTHING_CAN_BE_RETRIED(
         "only_items_that_sent_nothing_can_be_retried",

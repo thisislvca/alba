@@ -22,6 +22,7 @@ import me.lvca.alba.engine.model.FreeUpSpaceCandidates
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.MaintenanceWakeup
 import me.lvca.alba.engine.model.PhotoCompanion
+import me.lvca.alba.engine.model.ProtocolStatusGate
 import me.lvca.alba.engine.model.ReclaimProposalId
 import me.lvca.alba.engine.model.SyncTicket
 import me.lvca.alba.engine.model.SystemConsentCallback
@@ -56,6 +57,8 @@ class DefaultPhotoCompanion(
     private val automaticBackupPolicy: AutomaticBackupPolicy = AutomaticBackupPolicy { false },
     /** A clock that never moves back; the trash consent window is measured on it. */
     elapsedRealtime: () -> Long = android.os.SystemClock::elapsedRealtime,
+    /** Alba's remote protocol status, which can pause uploads while an iCloud change is investigated. */
+    protocolStatus: ProtocolStatusGate = ProtocolStatusGate.Open,
 ) : PhotoCompanion, MaintenanceWakeup {
     private val accountDao = database.accountDao()
     private val transferDao = database.transferDao()
@@ -66,9 +69,9 @@ class DefaultPhotoCompanion(
     private val accounts = AccountBindingSync(database, protocol, scheduler, stages, now)
     private val authority = AutomaticBackupAuthority(database, originals, automaticBackupPolicy)
     private val intake = TransferIntake(database, originals, staging, scheduler, accounts, authority, now)
-    private val invoker = UploadInvoker(database, staging, protocol, scheduler, accounts, authority, now)
+    private val invoker = UploadInvoker(database, staging, protocol, scheduler, accounts, authority, now, protocolStatus)
     private val reconciler = Reconciler(database, protocol, authority, stages, now)
-    private val enrollment = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages)
+    private val enrollment = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages, protocolStatus)
     private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts, elapsedRealtime)
 
     override fun observeBackup() = enrollment.observeBackup()
@@ -102,6 +105,8 @@ class DefaultPhotoCompanion(
             if (transferDao.countPendingManualTransfers(account.accountId) == 0) return
             // iCloud is full: stop here rather than retrying; the queue resumes when the user tries again.
             if (invoker.isStoragePaused(account.accountId)) return
+            // Uploads are paused remotely: the queue stays as it is and continues on the next run after the pause.
+            if (invoker.isProtocolPaused()) return
             val slot = transferDao.findWriteSlot(account.accountId)
             if (slot != null) {
                 val attempt = transferDao.findAttempt(slot.attemptId) ?: return
@@ -163,9 +168,11 @@ class DefaultPhotoCompanion(
 
         if (binding == null || !protocol.isWriteAuthorized()) return@withLock WakeSummary(recovered, 0, 0, 0, false)
         var reconciled = reconciler.reconcileOne(binding)
-        // Nothing new is staged while iCloud is full: it could not upload anyway.
+        // Verification only reads, so it continues while uploads are paused remotely; nothing new is sent or staged.
+        val uploadsPaused = invoker.isProtocolPaused()
+        // Nothing new is staged while iCloud is full or uploads are paused: it could not upload anyway.
         val stagedAutomatic = if (allowAutomatic && transferDao.findWriteSlot(binding.accountId) == null &&
-            !invoker.isStoragePaused(binding.accountId)) {
+            !invoker.isStoragePaused(binding.accountId) && !uploadsPaused) {
             intake.discoverAndStageAutomatic(binding)
         } else {
             0
@@ -176,7 +183,8 @@ class DefaultPhotoCompanion(
             transferDao.earliestReconciliationDue(binding.accountId, now(), authority.mayUseNetwork()),
             transferDao.earliestRetryDue(binding.accountId, now(), allowAutomatic = authority.mayUseNetwork(), allowManual = false),
         ).minOrNull()
-        val ready = transferDao.findWriteSlot(binding.accountId) == null && !invoker.isStoragePaused(binding.accountId) &&
+        // While paused, queued items wait for the periodic wake rather than asking for another pass at once.
+        val ready = transferDao.findWriteSlot(binding.accountId) == null && !invoker.isStoragePaused(binding.accountId) && !uploadsPaused &&
             transferDao.countRunnableReady(
                 binding.accountId,
                 now(),

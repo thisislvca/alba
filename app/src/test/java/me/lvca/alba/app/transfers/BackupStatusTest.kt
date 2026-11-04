@@ -22,6 +22,8 @@ import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
+import me.lvca.alba.engine.model.ProtocolArea
+import me.lvca.alba.engine.model.ProtocolPause
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
@@ -49,6 +51,21 @@ class BackupStatusTest {
         assertEquals(BackupStatus.StorageFull, backupStatus(on.copy(backup = BackupView(true, storageFullSinceEpochMillis = 1)), signedIn, wifi))
         assertEquals(BackupStatus.NeedsConsent, backupStatus(on.copy(backup = BackupView(true, disclosureCurrent = false)), signedIn, wifi))
         assertEquals(BackupStatus.Paused, backupStatus(on.copy(backupSettings = BackupSettings(paused = true)), signedIn, wifi))
+    }
+
+    @Test
+    fun aRemotePauseSaysBackupWaitsForAnICloudChangeExceptInTheDemo() {
+        val pause = ProtocolPause("upload-change", setOf(ProtocolArea.UPLOADS))
+        val paused = TransferState(backup = BackupView(enabled = true, storageFullSinceEpochMillis = 1, protocolPause = pause),
+            queue = listOf(transfer("a", TransferViewState.WAITING)))
+
+        assertEquals("Nothing the user does helps, so it comes before storage full",
+            BackupStatus.PausedForICloudChange(pause), backupStatus(paused, signedIn, wifi))
+        assertEquals(BackupStatus.SignInNeeded,
+            backupStatus(paused, ICloudAccountState.SignedIn("alex@example.com", SessionStatus.EXPIRED), wifi))
+        assertEquals(BackupStatus.Off, backupStatus(paused.copy(backup = BackupView(enabled = false, protocolPause = pause)), signedIn, wifi))
+        assertEquals(BackupStatus.BackingUp(1),
+            backupStatus(paused.copy(backup = BackupView(enabled = true, protocolPause = pause)), ICloudAccountState.Demo, wifi))
     }
 
     @Test

@@ -20,6 +20,8 @@ import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PhotoCompanionException
 import me.lvca.alba.engine.model.PreparedICloudUpload
+import me.lvca.alba.engine.model.ProtocolArea
+import me.lvca.alba.engine.model.ProtocolStatusGate
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.WakeupScheduler
@@ -38,6 +40,7 @@ internal class UploadInvoker(
     private val accounts: AccountBindingSync,
     private val authority: AutomaticBackupAuthority,
     private val now: () -> Long,
+    private val protocolStatus: ProtocolStatusGate = ProtocolStatusGate.Open,
 ) {
     private val accountDao = database.accountDao()
     private val transferDao = database.transferDao()
@@ -46,6 +49,8 @@ internal class UploadInvoker(
     suspend fun invokeOne(binding: AccountBinding, allowManual: Boolean, allowAutomatic: Boolean): Int {
         if (transferDao.findWriteSlot(binding.accountId) != null) return 0
         if (isStoragePaused(binding.accountId)) return 0
+        // A remote pause leaves every item queued as it is; nothing is sent, so nothing needs checking afterwards.
+        if (isProtocolPaused()) return 0
         val candidate = transferDao.findNextReady(
             binding.accountId,
             now(),
@@ -159,7 +164,7 @@ internal class UploadInvoker(
             if (transfer.accountId == binding.accountId && transfer.authEpoch == binding.authEpoch &&
                 transfer.operationFence == binding.operationFence && protocol.canResume(binding, attemptId)) {
                 if (transfer.authorityType == AUTHORITY_MANUAL && !allowManual) return@forEach
-                if (!isStoragePaused(binding.accountId)) resumeOrSettle(binding, transfer, attemptId)
+                if (!isStoragePaused(binding.accountId) && !isProtocolPaused()) resumeOrSettle(binding, transfer, attemptId)
                 return@forEach
             }
             database.withTransaction {
@@ -339,6 +344,12 @@ internal class UploadInvoker(
 
     private suspend fun isVideo(transfer: TransferEntity): Boolean =
         transferDao.findStagedSource(transfer.stagedSourceId)?.isVideo == true
+
+    /**
+     * Whether Alba's remote protocol status pauses uploads, for example while an iCloud change is investigated. Queued
+     * items stay queued, an interrupted upload stays resumable, and both continue on the first pass after it clears.
+     */
+    suspend fun isProtocolPaused(): Boolean = protocolStatus.pauseFor(ProtocolArea.UPLOADS) != null
 
     /** Whether iCloud refused an upload for storage and neither the user nor the retry time has lifted the pause. */
     suspend fun isStoragePaused(accountId: String): Boolean {

@@ -8,6 +8,7 @@ import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.platform.backupNetwork
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.engine.model.BackupNetwork
+import me.lvca.alba.engine.model.ProtocolPause
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
@@ -21,6 +22,9 @@ sealed interface BackupStatus {
     /** Backup is on, but what it covers changed and the user has not agreed to it yet. */
     data object NeedsConsent : BackupStatus
     data object SignInNeeded : BackupStatus
+
+    /** Alba paused uploads remotely, for an iCloud change; [pause] may carry the maintainers' own message. */
+    data class PausedForICloudChange(val pause: ProtocolPause) : BackupStatus
     data object StorageFull : BackupStatus
     data object NeedsPermission : BackupStatus
     data object Paused : BackupStatus
@@ -52,9 +56,11 @@ internal fun backupStatus(
     val backup = transfers.backup
     val demo = accountState == ICloudAccountState.Demo
     val session = (accountState as? ICloudAccountState.SignedIn)?.status
+    val remotePause = backup.protocolPause?.takeIf { !demo }
     return when {
         !backup.enabled -> BackupStatus.Off
         session == SessionStatus.EXPIRED || session == SessionStatus.PHOTOS_NOT_ENABLED -> BackupStatus.SignInNeeded
+        remotePause != null -> BackupStatus.PausedForICloudChange(remotePause)
         backup.storageFullSinceEpochMillis != null -> BackupStatus.StorageFull
         !backup.disclosureCurrent && !demo -> BackupStatus.NeedsConsent
         backup.message == StoredMessage.BACKUP_PAUSED_ALLOW_FULL_PHOTO_AND_MEDIA_LOCATION_ACCESS.code -> BackupStatus.NeedsPermission
@@ -91,7 +97,7 @@ internal fun BackupStatus.chipLabel(): String? = when (this) {
     BackupStatus.SignInNeeded -> stringResource(R.string.backup_chip_sign_in)
     BackupStatus.StorageFull -> stringResource(R.string.backup_chip_storage_full)
     BackupStatus.NeedsPermission -> stringResource(R.string.backup_chip_permission)
-    BackupStatus.Paused -> stringResource(R.string.backup_chip_paused)
+    BackupStatus.Paused, is BackupStatus.PausedForICloudChange -> stringResource(R.string.backup_chip_paused)
     BackupStatus.Offline -> stringResource(R.string.backup_chip_offline)
     is BackupStatus.WaitingForWifi -> stringResource(R.string.backup_chip_wifi)
     is BackupStatus.BackingUp -> pluralStringResource(R.plurals.backup_chip_backing_up, remaining, remaining)
@@ -106,7 +112,7 @@ internal fun BackupStatus.headline(): String = when (this) {
     BackupStatus.SignInNeeded -> stringResource(R.string.backup_paused_sign_in_title)
     BackupStatus.StorageFull -> stringResource(R.string.backup_paused_storage_title)
     BackupStatus.NeedsPermission -> stringResource(R.string.backup_status_permission)
-    BackupStatus.Paused -> stringResource(R.string.backup_chip_paused)
+    BackupStatus.Paused, is BackupStatus.PausedForICloudChange -> stringResource(R.string.backup_chip_paused)
     BackupStatus.Offline -> stringResource(R.string.backup_chip_offline)
     is BackupStatus.WaitingForWifi -> stringResource(R.string.backup_status_wifi)
     is BackupStatus.BackingUp -> pluralStringResource(R.plurals.backup_chip_backing_up, remaining, remaining)
