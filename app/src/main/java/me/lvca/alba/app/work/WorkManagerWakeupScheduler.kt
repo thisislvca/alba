@@ -28,21 +28,26 @@ class WorkManagerWakeupScheduler(
     /**
      * Asks for a backup run soon. A run already waiting covers this request, so at most one waits behind the one
      * running: a draining run asks after every item, and appending each time would leave a chain of empty runs. A
-     * request made while a run is ending still gets its own run, appended after it. A run waiting under a charging
-     * choice the user has since changed is replaced, so it neither waits for a charger nor skips one it now needs.
+     * request made while a run is ending still gets its own run, appended after it.
+     *
+     * Runs that need the charger wait under their own unique name. Changing "Only while charging" therefore never
+     * replaces or cancels anything, so a foreground batch that is running keeps running: the next request simply goes
+     * under the name for the new choice, and starts as soon as that choice allows, even with a run of the other choice
+     * still queued. A leftover run of the other choice is harmless: the engine applies the current settings to every
+     * pass, so it uploads nothing the user no longer allows, and the engine runs one pass at a time.
      */
     override suspend fun scheduleSoon(): Unit = enqueueGate.withLock {
         val current = settings()
-        val infos = withContext(Dispatchers.IO) {
-            workManager.getWorkInfosForUniqueWork(IMMEDIATE_WORK_NAME).get()
+        val name = immediateWorkName(current.onlyWhileCharging)
+        val states = withContext(Dispatchers.IO) {
+            workManager.getWorkInfosForUniqueWork(name).get().map { it.state }
         }
-        val policy = immediateWorkPolicy(infos.map { it.state to it.constraints.requiresCharging() }, current.onlyWhileCharging)
-            ?: return@withLock
+        if (!needsAnotherRun(states)) return@withLock
         val request = OneTimeWorkRequestBuilder<BackupWakeWorker>()
             .setConstraints(backupConstraints(NetworkType.CONNECTED, current))
             .setInitialDelay(3, TimeUnit.SECONDS)
             .build()
-        workManager.enqueueUniqueWork(IMMEDIATE_WORK_NAME, policy, request)
+        workManager.enqueueUniqueWork(name, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
         Unit
     }
 
@@ -74,33 +79,27 @@ class WorkManagerWakeupScheduler(
 
     override suspend fun cancelRunningBackup() {
         // An upload this interrupts resumes later or goes to read-only verification; it is never sent again blindly.
-        workManager.cancelUniqueWork(IMMEDIATE_WORK_NAME)
+        IMMEDIATE_WORK_NAMES.forEach(workManager::cancelUniqueWork)
     }
 
     private val enqueueGate = Mutex()
 
-    private companion object {
+    internal companion object {
         // Named before the Alba rename and stored on devices; keep it.
         const val IMMEDIATE_WORK_NAME = "mela-photo-maintenance"
+        const val IMMEDIATE_CHARGING_WORK_NAME = "alba-photo-maintenance-charging"
         const val PERIODIC_WORK_NAME = "mela-automatic-photo-backup"
+        private val IMMEDIATE_WORK_NAMES = listOf(IMMEDIATE_WORK_NAME, IMMEDIATE_CHARGING_WORK_NAME)
+
+        /** The unique name runs soon wait under, one per charging choice, so one choice's runs never replace the other's. */
+        fun immediateWorkName(onlyWhileCharging: Boolean): String =
+            if (onlyWhileCharging) IMMEDIATE_CHARGING_WORK_NAME else IMMEDIATE_WORK_NAME
     }
 }
 
 /** Whether a backup run must be enqueued: none is waiting to start, only running or finished ones. */
 internal fun needsAnotherRun(states: List<WorkInfo.State>): Boolean =
     states.none { it == WorkInfo.State.ENQUEUED || it == WorkInfo.State.BLOCKED }
-
-/**
- * How to enqueue a backup run soon, given the unique work's runs as (state, requires charging); null when one already
- * waiting covers it. A run that waits under the other charging choice, with none running, is replaced.
- */
-internal fun immediateWorkPolicy(runs: List<Pair<WorkInfo.State, Boolean>>, onlyWhileCharging: Boolean): ExistingWorkPolicy? {
-    val states = runs.map { it.first }
-    if (needsAnotherRun(states)) return ExistingWorkPolicy.APPEND_OR_REPLACE
-    val waiting = runs.filter { it.first == WorkInfo.State.ENQUEUED || it.first == WorkInfo.State.BLOCKED }
-    val stale = WorkInfo.State.RUNNING !in states && waiting.all { it.first == WorkInfo.State.ENQUEUED && it.second != onlyWhileCharging }
-    return if (stale) ExistingWorkPolicy.REPLACE else null
-}
 
 /**
  * What every backup run waits for: [network], and the charger when the user chose "Only while charging". WorkManager

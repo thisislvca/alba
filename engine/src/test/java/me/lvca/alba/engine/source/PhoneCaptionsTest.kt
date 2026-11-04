@@ -12,6 +12,24 @@ class PhoneCaptionsTest {
     }
 
     @Test
+    fun shortRealCaptionsAreNotMistakenForFileNames() {
+        listOf("P1", "Sam2024", "IMG", "Dsc party", "Vid night", "img 2", "P123").forEach { assertEquals(it, PhoneCaptions.clean(it)) }
+        listOf("IMG_20240101_123456", "IMG_1234 (1).jpg", "_DSC1234", "DSC_1234", "DSCN1234", "DSCF1234.JPG", "CIMG1234",
+            "IMAG0042", "SAM_1234", "GOPR0012", "DJI_0042", "P1010123", "MVIMG_20240101_123456", "VID_20240101_123456",
+            "PXL_20240101_123456789.MP.jpg").forEach { assertNull(it, PhoneCaptions.clean(it)) }
+    }
+
+    @Test
+    fun anEmptyOrSelfClosingXDefaultFallsBackToTheOtherLanguages() {
+        val selfClosing = "<dc:description><rdf:Alt><rdf:li xml:lang=\"x-default\"/><rdf:li xml:lang=\"it\">Lago</rdf:li></rdf:Alt></dc:description>"
+        assertEquals("Lago", PhoneCaptions.pick(selfClosing, imageDescription = "Other"))
+        val empty = "<dc:description><rdf:Alt><rdf:li xml:lang=\"x-default\"> </rdf:li><rdf:li xml:lang=\"en\">Lake</rdf:li></rdf:Alt></dc:description>"
+        assertEquals("Lake", PhoneCaptions.pick(empty, imageDescription = "Other"))
+        val onlyEmpty = "<dc:description><rdf:Alt><rdf:li xml:lang=\"x-default\"/></rdf:Alt></dc:description>"
+        assertEquals("Other", PhoneCaptions.pick(onlyEmpty, imageDescription = "Other"))
+    }
+
+    @Test
     fun aRealCaptionIsKeptTrimmedAndBounded() {
         assertEquals("Lake at dawn", PhoneCaptions.clean("  Lake at dawn\u0000 "))
         assertEquals("Sony DSC party", PhoneCaptions.clean("Sony DSC party"))

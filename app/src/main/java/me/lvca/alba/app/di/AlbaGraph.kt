@@ -102,6 +102,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
             onSessionUpdated = accountManager::updateSession,
             onSessionRejected = accountManager::rejectSession,
             uploadJournal = uploadJournal,
+            metadataEditor = liveCatalog.uploadMetadataEditor,
         ),
         scheduler = WorkManagerWakeupScheduler(appContext) { backupPreferences.settings.value },
         automaticBackupPolicy = AndroidAutomaticBackupPolicy(appContext, backupPreferences),

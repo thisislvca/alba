@@ -47,6 +47,8 @@ class LiveICloudPhotoProtocol(
     private val uploadJournal: UploadJournal? = null,
     private val isAuthorized: () -> Boolean = { true },
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
+    /** The library's edits, shared with the viewer; without one, uploads carry nothing beyond their bytes. */
+    private val metadataEditor: UploadMetadataEditor? = null,
 ) : ICloudPhotoProtocol {
     override fun isWriteAuthorized(): Boolean = isAuthorized()
     override suspend fun canResume(binding: AccountBinding, attemptId: String): Boolean = try {
@@ -68,19 +70,12 @@ class LiveICloudPhotoProtocol(
 
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected)
 
-    /** The viewer's library edits, on this protocol's connection, for what an upload carries from the phone. */
-    private val libraryEdits by lazy {
-        val requireSession = {
-            sessionProvider() ?: throw AppleProtocolException(AppleProtocolError.SESSION_EXPIRED, "Sign in to iCloud first.")
-        }
-        PersonalLibraryEdits(PersonalLibraryDatabase(cloudKit, requireSession, isAuthorized), requireSession, isAuthorized)
-    }
-
     override suspend fun applyPhoneMetadata(binding: AccountBinding, assetRecordName: String, metadata: PhoneMetadata) {
+        val editor = metadataEditor ?: return
         if (metadata.isEmpty) return
-        // Bound first, so the edit lands only in the account the photo was uploaded to.
         requireBoundSession(binding)
-        libraryEdits.applyPhoneMetadata(assetRecordName, metadata.favorite, metadata.caption)
+        // The editor checks the account again under its lock, so a switch in between edits nothing.
+        editor.applyPhoneMetadata(binding.accountId, assetRecordName, metadata.favorite, metadata.caption)
     }
 
     override fun currentDestination(): ICloudDestination? = sessionProvider()?.let { session ->

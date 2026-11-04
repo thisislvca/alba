@@ -9,7 +9,8 @@ object PhoneCaptions {
     /** As much caption text as Alba reads back from iCloud. */
     const val MAX_LENGTH = 2_000
 
-    fun pick(xmp: String?, imageDescription: String?): String? = clean(xmpDescription(xmp)) ?: clean(imageDescription)
+    fun pick(xmp: String?, imageDescription: String?): String? =
+        xmpDescriptions(xmp).firstNotNullOfOrNull(::clean) ?: clean(imageDescription)
 
     /** [raw] as a caption, or null when it is empty or camera boilerplate. */
     fun clean(raw: String?): String? {
@@ -22,14 +23,18 @@ object PhoneCaptions {
         return normalized in BOILERPLATE || normalized.none(Char::isLetterOrDigit) || FILE_NAME.matches(normalized)
     }
 
-    /** The text of the first `dc:description` in [xmp], the x-default alternative when there are several. */
-    fun xmpDescription(xmp: String?): String? {
-        if (xmp.isNullOrBlank()) return null
-        DESCRIPTION_ATTRIBUTE.find(xmp)?.let { return unescape(it.groupValues[1]) }
-        val element = DESCRIPTION_ELEMENT.find(xmp)?.groupValues?.get(1) ?: return null
-        val items = LIST_ITEM.findAll(element).map { it.groupValues[1] to it.groupValues[2] }.toList()
-        val text = items.firstOrNull { "x-default" in it.first }?.second ?: items.firstOrNull()?.second ?: element
-        return unescape(text.replace(TAG, ""))
+    /**
+     * The texts of the first `dc:description` in [xmp], the x-default alternative first and then the other languages,
+     * so an empty or self-closing x-default item falls back to the others.
+     */
+    fun xmpDescriptions(xmp: String?): List<String> {
+        if (xmp.isNullOrBlank()) return emptyList()
+        DESCRIPTION_ATTRIBUTE.find(xmp)?.let { return listOf(unescape(it.groupValues[1])) }
+        val element = DESCRIPTION_ELEMENT.find(xmp)?.groupValues?.get(1) ?: return emptyList()
+        val items = LIST_ITEM.findAll(element).map { it.groupValues[1] to it.groupValues[ITEM_TEXT] }.toList()
+        if (items.isEmpty()) return listOf(unescape(element.replace(TAG, "")))
+        val (preferred, others) = items.partition { "x-default" in it.first }
+        return (preferred + others).map { unescape(it.second.replace(TAG, "")) }
     }
 
     private fun unescape(text: String): String = ENTITY.replace(text) { match ->
@@ -47,15 +52,27 @@ object PhoneCaptions {
     }
 
     private const val HEX = 16
+
+    /** The group of [LIST_ITEM] that holds an item's text. */
+    private const val ITEM_TEXT = 3
     private val WHITESPACE = Regex("\\s+")
     private val TAG = Regex("<[^>]*>")
     private val ENTITY = Regex("&(#x[0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos);")
     private val DESCRIPTION_ATTRIBUTE = Regex("dc:description\\s*=\\s*\"([^\"]*)\"")
     private val DESCRIPTION_ELEMENT = Regex("<dc:description[^>]*>(.*?)</dc:description>", RegexOption.DOT_MATCHES_ALL)
-    private val LIST_ITEM = Regex("<rdf:li([^>]*)>(.*?)</rdf:li>", RegexOption.DOT_MATCHES_ALL)
 
-    /** Names cameras and phones give their own files: IMG_1234, DSC01234, PXL_20240101_123456789.jpg. */
-    private val FILE_NAME = Regex("(img|dsc|dscn|dscf|dcp|cimg|imag|mvimg|pxl|sam|vid|p)[ _-]?\\d[\\w-]*(\\.[a-z0-9]{3,4})?")
+    /** An `rdf:li`, either self-closing or with its text in group 3. */
+    private val LIST_ITEM = Regex("<rdf:li\\b([^>]*?)(/>|>(.*?)</rdf:li>)", RegexOption.DOT_MATCHES_ALL)
+
+    /**
+     * Names cameras and phones give their own files, and nothing shorter: IMG_1234, IMG_20240101_123456, DSC01234,
+     * DSC_1234, DSCN1234, DSCF1234, DCP_1234, CIMG1234, IMAG1234, SAM_1234, GOPR1234, DJI_1234, P1010123 (Panasonic),
+     * PXL_20240101_123456789, MVIMG_ and VID_ dates, with an optional suffix and extension. "P1" or "Sam2024" are not.
+     */
+    private val FILE_NAME = Regex(
+        "(img_\\d{4,}|(img|pxl|mvimg|vid)_\\d{8}_\\d{6,9}|dsc\\d{5}|_dsc\\d{4}|dsc_\\d{4}|dscn\\d{4}|dscf\\d{4}|dcp_?\\d{4}|cimg\\d{4}|" +
+            "imag\\d{4}|sam_\\d{4}|gopr\\d{4}|dji_\\d{4}|p\\d{7})([_~-][a-z0-9]+)*( \\(\\d+\\))?(\\.[a-z0-9]{2,4}){0,2}",
+    )
 
     /** Placeholders cameras and apps write into ImageDescription, lower-cased with single spaces. */
     private val BOILERPLATE = setOf(

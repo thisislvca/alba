@@ -35,7 +35,7 @@ class LibraryEditingTest {
 
     @Test fun anUploadCarriesFavouriteAndCaptionOnlyAddingToTheAsset() = runBlocking {
         val transport = EditingTransport()
-        val protocol = LiveICloudPhotoProtocol(transport, { session })
+        val protocol = uploadProtocol(transport)
         val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
         protocol.applyPhoneMetadata(binding, "uploaded", PhoneMetadata(favorite = true, caption = "Lake at dawn"))
         val request = transport.requests.single { it.url.contains("records/modify") }
@@ -45,12 +45,13 @@ class LibraryEditingTest {
         assertEquals("current-version", record["recordChangeTag"]!!.jsonPrimitive.content)
         val fields = record["fields"]!!.jsonObject
         assertEquals(1, fields["isFavorite"]!!.jsonObject["value"]!!.jsonPrimitive.int)
-        val caption = fields["captionEnc"]!!.jsonObject
+        assertNull("The title is not touched", fields["captionEnc"])
+        val caption = fields["extendedDescEnc"]!!.jsonObject
         assertEquals("ENCRYPTED_BYTES", caption["type"]!!.jsonPrimitive.content)
         assertEquals("Lake at dawn", String(java.util.Base64.getDecoder().decode(caption["value"]!!.jsonPrimitive.content)))
 
         // Already a favourite with its own caption: nothing to add, nothing is written.
-        transport.lookupFields = mapOf("isFavorite" to 1, "captionEnc" to "U3Vuc2V0")
+        transport.lookupFields = mapOf("isFavorite" to 1, "extendedDescEnc" to "U3Vuc2V0")
         protocol.applyPhoneMetadata(binding, "uploaded", PhoneMetadata(favorite = true, caption = "Lake at dawn"))
         protocol.applyPhoneMetadata(binding, "uploaded", PhoneMetadata())
         assertEquals(1, transport.requests.count { it.url.contains("records/modify") })
@@ -65,6 +66,34 @@ class LibraryEditingTest {
         }.isFailure)
         assertEquals(2, transport.requests.count { it.url.contains("records/modify") })
     }
+
+    @Test fun anAssetWithItsOwnCaptionIsOnlyMarkedFavourite() = runBlocking {
+        val transport = EditingTransport()
+        val protocol = uploadProtocol(transport)
+        val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
+        transport.lookupFields = mapOf("extendedDescEnc" to "U3Vuc2V0")
+
+        protocol.applyPhoneMetadata(binding, "uploaded", PhoneMetadata(favorite = true, caption = "Lake at dawn"))
+
+        val fields = modifiedFields(transport.requests.single { it.url.contains("records/modify") })
+        assertEquals(setOf("isFavorite"), fields.keys)
+        assertEquals(1, fields["isFavorite"]!!.jsonObject["value"]!!.jsonPrimitive.int)
+    }
+
+    @Test fun withoutTheLibrarysEditorAnUploadCarriesNothing() = runBlocking {
+        val transport = EditingTransport()
+        val protocol = LiveICloudPhotoProtocol(transport, { session })
+        protocol.applyPhoneMetadata(AccountBinding(protocol.currentDestination()!!.accountId, 1, 1), "uploaded", PhoneMetadata(favorite = true))
+        assertTrue(transport.requests.isEmpty())
+    }
+
+    /** The upload protocol, editing through the catalog's own library edits as the app wires it. */
+    private fun uploadProtocol(transport: EditingTransport) = LiveICloudPhotoProtocol(
+        transport, { session }, metadataEditor = LiveICloudCatalogSource(transport, { session }, isAuthorized = { true }).uploadMetadataEditor,
+    )
+
+    private fun modifiedFields(request: AppleHttpRequest) = Json.parseToJsonElement(request.body!!).jsonObject["operations"]!!
+        .jsonArray.single().jsonObject["record"]!!.jsonObject["fields"]!!.jsonObject
 
     @Test fun hidingWritesIsHiddenLikeAFavoriteAndChecksTheReturnedValue() = runBlocking {
         val transport = EditingTransport()

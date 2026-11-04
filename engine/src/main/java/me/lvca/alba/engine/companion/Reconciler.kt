@@ -226,16 +226,25 @@ internal class Reconciler(
             check(transferDao.releaseWriteSlot(binding.accountId, attempt.attemptId) == 1)
         }
         stages.release(source)
-        carryPhoneMetadata(binding, source, pair.asset.name)
+        carryPhoneMetadata(binding, attempt, source, pair.asset.name)
     }
 
     /**
      * Marks the verified asset a favourite and gives it its caption when the phone has them. It runs once, when the
-     * upload is verified, and only adds to the asset, so it is safe on a duplicate. The upload is already complete and
-     * recorded: a failure here is dropped, never retried as an upload and never shown as a failed backup.
+     * upload is verified, and only on an asset this upload created: Apple accepted it as new, and the verified asset is
+     * the one it named. An asset iCloud already had (a 409 duplicate), or one found without Apple's acceptance, is left
+     * as the user keeps it there. The upload is already complete and recorded: a failure here is dropped, never retried
+     * as an upload and never shown as a failed backup.
      */
-    private suspend fun carryPhoneMetadata(binding: AccountBinding, source: StagedSourceEntity, assetRecordName: String) {
+    private suspend fun carryPhoneMetadata(
+        binding: AccountBinding,
+        attempt: UploadAttemptEntity,
+        source: StagedSourceEntity,
+        assetRecordName: String,
+    ) {
         runSuspendCatching {
+            val acceptance = transferDao.findAcceptance(attempt.attemptId) ?: return
+            if (acceptance.duplicateHint != false || acceptance.assetRecordName != assetRecordName) return
             val metadata = originals.phoneMetadata(source.contentUri, source.mimeType)
             if (!metadata.isEmpty) protocol.applyPhoneMetadata(binding, assetRecordName, metadata)
         }

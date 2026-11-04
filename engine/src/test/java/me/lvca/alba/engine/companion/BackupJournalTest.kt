@@ -177,6 +177,19 @@ class BackupJournalTest {
     }
 
     @Test
+    fun anAssetICloudAlreadyHadIsNotReFavourited() = runBlocking {
+        source.items += item(1, "liked.jpg", "image/jpeg")
+        source.metadata["content://media/external/images/media/1"] = PhoneMetadata(favorite = true, caption = "Lake at dawn")
+        protocol.duplicate = true
+        val photos = enrolled()
+
+        repeat(3) { photos.syncNow() }
+
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        assertEquals("The user may have un-favourited it in iCloud on purpose", 0, protocol.metadataAttempts)
+    }
+
+    @Test
     fun aFailedMetadataEditNeitherFailsNorRepeatsTheUpload() = runBlocking {
         source.items += item(1, "liked.jpg", "image/jpeg")
         source.metadata["content://media/external/images/media/1"] = PhoneMetadata(favorite = true)
@@ -783,6 +796,9 @@ class BackupJournalTest {
         private val uploads = mutableMapOf<String, ByteArray>()
         val applied = mutableListOf<Pair<String, PhoneMetadata>>()
         var metadataFails = false
+
+        /** Whether Apple reports each upload as a copy of an asset already in the library (HTTP 409). */
+        var duplicate = false
         var metadataAttempts = 0
 
         override suspend fun applyPhoneMetadata(binding: AccountBinding, assetRecordName: String, metadata: PhoneMetadata) {
@@ -814,7 +830,7 @@ class BackupJournalTest {
                 }
                 uploadedNames += fileName
                 uploads[attemptId] = source.openOnce().use { it.readBytes() }
-                return UploadAcceptance("request", "master:$attemptId", "asset:$attemptId", false)
+                return UploadAcceptance("request", "master:$attemptId", "asset:$attemptId", duplicate)
             }
 
             override fun cancel() = Unit
