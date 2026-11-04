@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 
 /** Android 14's partial photo access: how many phone photos Alba can see, a way to change them, and a close button. */
 @Composable
@@ -27,7 +28,7 @@ internal fun LimitedAccessNote(count: Int, change: () -> Unit, dismiss: () -> Un
     AlbaCard(modifier.padding(horizontal = 16.dp, vertical = 8.dp).testTag("limited-access-note"),
         color = MaterialTheme.colorScheme.surfaceContainer) {
         Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(AlbaIcons.PhoneAndroid, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Icon(AlbaIcons.PhoneAndroid, null, Modifier.size(AlbaIconSize.compact), tint = MaterialTheme.colorScheme.primary)
             Text(pluralStringResource(R.plurals.limited_access_note, count, count), Modifier.weight(1f).padding(horizontal = 12.dp),
                 style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = change, modifier = Modifier.testTag("limited-access-change")) {

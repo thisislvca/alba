@@ -1173,4 +1173,9 @@
         <item quantity="one">%1$s of %2$s photo loaded</item>
         <item quantity="other">%1$s of %2$s photos loaded</item>
     </plurals>
+    <string name="try_again">Try again</string>
+    <string name="refresh">Refresh</string>
+    <string name="shared_unreachable_title">Can\'t reach this album</string>
+    <string name="shared_unreachable_body">Connect to the internet to see its photos and videos.</string>
+    <string name="shared_no_photos_body">Photos and videos people add to this album appear here.</string>
 </resources>

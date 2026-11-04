@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 
 @Composable
@@ -38,7 +39,7 @@ internal fun EmptyLibrary() {
         Icon(
             AlbaIcons.PhotoLibrary,
             contentDescription = null,
-            modifier = Modifier.size(42.dp),
+            modifier = Modifier.size(AlbaIconSize.hero),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(14.dp))
@@ -60,7 +61,7 @@ internal fun ConnectLibrary(connect: () -> Unit, demo: () -> Unit) {
         Icon(
             AlbaIcons.CloudQueue,
             contentDescription = null,
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(AlbaIconSize.display),
             tint = MaterialTheme.colorScheme.primary,
         )
         Text(stringResource(R.string.empty_connect_title), style = MaterialTheme.typography.titleLarge,

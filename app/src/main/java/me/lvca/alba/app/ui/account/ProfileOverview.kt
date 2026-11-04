@@ -39,6 +39,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
 import me.lvca.alba.app.ui.designsystem.DemoBadge
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.StorageColors
@@ -78,10 +79,10 @@ private fun ProfileRow(
     AlbaListRow(title, onClick, Modifier.testTag(tag), subtitle = subtitle, enabled = enabled, leadingSize = null,
         leading = {
             Box(Modifier.size(32.dp).background(color, MaterialTheme.shapes.extraSmall), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = AlbaTheme.colors.profile.onCard, modifier = Modifier.size(20.dp))
+                Icon(icon, null, tint = AlbaTheme.colors.profile.onCard, modifier = Modifier.size(AlbaIconSize.compact))
             }
         },
-        trailing = { AlbaChevron(Modifier.size(18.dp)) })
+        trailing = { AlbaChevron(Modifier.size(AlbaIconSize.inline)) })
 }
 
 @Composable
@@ -209,7 +210,7 @@ private fun PlanLink(hero: Boolean = false) {
         }
     }, contentPadding = PaddingValues(0.dp), modifier = Modifier.heightIn(min = 48.dp).testTag("profile-manage-plan")) {
         Text(stringResource(R.string.profile_manage_plan), color = ink)
-        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(18.dp), tint = ink)
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(AlbaIconSize.inline), tint = ink)
     }
 }
 

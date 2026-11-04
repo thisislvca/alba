@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.label
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -52,7 +53,7 @@ internal fun PhotoMetadataCards(media: GalleryMedia, account: ICloudAccountState
             }
             HorizontalDivider(Modifier.padding(start = 66.dp), color = colors.canvas)
             Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.Top) {
-                Icon(painterResource(R.drawable.icloud_library), null, Modifier.padding(top = 4.dp).size(28.dp), tint = colors.secondary)
+                Icon(painterResource(R.drawable.icloud_library), null, Modifier.padding(top = 4.dp).size(AlbaIconSize.large), tint = colors.secondary)
                 Spacer(Modifier.width(18.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(media.fileName, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
