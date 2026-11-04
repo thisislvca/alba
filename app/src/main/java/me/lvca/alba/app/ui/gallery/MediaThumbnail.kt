@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -322,7 +323,11 @@ private fun ViewerPhotoStatus(decoding: Boolean, icon: ImageVector, description:
             Text(label, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
             if (retry != null) {
                 if (decodeFailed) TextButton(onClick = retry, modifier = Modifier.testTag("retry-decode")) { Text(stringResource(R.string.retry_photo)) }
-                else FilledTonalButton(onClick = retry, modifier = Modifier.heightIn(min = 48.dp).testTag("retry-preview")) {
+                // On the light card a tonal container nearly vanishes; light mode fills it with the primary colour.
+                else FilledTonalButton(onClick = retry, modifier = Modifier.heightIn(min = 48.dp).testTag("retry-preview"),
+                    colors = if (AlbaTheme.colors.isDark) ButtonDefaults.filledTonalButtonColors()
+                    else ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary)) {
                     Text(stringResource(R.string.try_again))
                 }
             }
