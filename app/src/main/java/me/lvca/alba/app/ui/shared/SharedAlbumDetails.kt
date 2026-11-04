@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -27,15 +28,18 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaBottomSheet
 import me.lvca.alba.app.ui.designsystem.AlbaCard
+import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaSheetBody
 import me.lvca.alba.app.ui.designsystem.AlbaSheetHeading
 import me.lvca.alba.app.ui.designsystem.MediaPill
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.gallery.mediaDuration
@@ -44,7 +48,7 @@ import me.lvca.alba.engine.model.*
 @Composable
 internal fun SharedAlbumBadge(info: SharedAlbumInfo, click: () -> Unit) {
     AssistChip(onClick = click, label = { Text(stringResource(if (info.generation == SharedAlbumGeneration.MODERN) R.string.shared_new else R.string.shared_legacy)) },
-        leadingIcon = { Icon(Icons.Outlined.Info, null, Modifier.size(16.dp)) }, modifier = Modifier.testTag("shared-version-badge"))
+        leadingIcon = { Icon(Icons.Outlined.Info, null, Modifier.size(AlbaIconSize.inline)) }, modifier = Modifier.testTag("shared-version-badge"))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,7 +128,7 @@ internal fun SharedContributionPicker(items: List<GalleryMedia>, preview: (Strin
                                 media.fileName, Modifier.fillMaxSize(), sourceRevision = media.sourceRevision)
                             Checkbox(checked = media.id in selected, onCheckedChange = null, modifier = Modifier.align(Alignment.TopEnd))
                             if (media.kind == MediaKind.VIDEO) MediaPill(Modifier.align(Alignment.BottomStart).padding(AlbaSpacing.xs)) {
-                                Icon(Icons.Filled.PlayArrow, null, Modifier.size(14.dp))
+                                Icon(Icons.Filled.PlayArrow, null, Modifier.size(AlbaIconSize.badge))
                                 mediaDuration(media.durationMillis)?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
                             }
                         }
@@ -187,6 +191,27 @@ internal fun CreateSharedAlbumDialog(dismiss: () -> Unit, create: (String, Share
         dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } })
 }
 
+/**
+ * An empty shared album the person cannot add to, or one Alba cannot reach while offline: a headline, what it means
+ * and a way to check again, laid out like [SharedAlbumEmptyState].
+ */
+@Composable
+internal fun SharedAlbumNotice(unreachable: Boolean, refresh: () -> Unit) {
+    val padding = Modifier.padding(horizontal = AlbaSpacing.xl, vertical = AlbaSpacing.xxl)
+    Column(Modifier.fillMaxWidth().then(padding).testTag(if (unreachable) "shared-unreachable-state" else "shared-no-photos-state"),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+        Icon(if (unreachable) rememberVectorPainter(AlbaIcons.CloudOff) else painterResource(R.drawable.icloud_shared_albums), null,
+            Modifier.size(AlbaIconSize.hero), tint = MaterialTheme.colorScheme.primary)
+        Text(stringResource(if (unreachable) R.string.shared_unreachable_title else R.string.shared_album_empty),
+            style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.semantics { heading() })
+        Text(stringResource(if (unreachable) R.string.shared_unreachable_body else R.string.shared_no_photos_body),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        FilledTonalButton(onClick = refresh, modifier = Modifier.heightIn(min = 48.dp).testTag("shared-notice-refresh")) {
+            Text(stringResource(if (unreachable) R.string.try_again else R.string.refresh))
+        }
+    }
+}
+
 /** What an empty shared album offers: adding the first photos and inviting people, as far as the role allows. */
 @Composable
 internal fun SharedAlbumEmptyState(addPhotos: (() -> Unit)?, invite: (() -> Unit)?) {
@@ -194,18 +219,18 @@ internal fun SharedAlbumEmptyState(addPhotos: (() -> Unit)?, invite: (() -> Unit
     val padding = Modifier.padding(horizontal = AlbaSpacing.xl, vertical = AlbaSpacing.xxl)
     Column(Modifier.fillMaxWidth().then(padding).testTag("shared-empty-state"), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
-        Icon(painterResource(R.drawable.icloud_shared_albums), null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+        Icon(painterResource(R.drawable.icloud_shared_albums), null, Modifier.size(AlbaIconSize.hero), tint = MaterialTheme.colorScheme.primary)
         Text(stringResource(R.string.shared_empty_title), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.shared_empty_body), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         addPhotos?.let {
             Button(onClick = it, modifier = Modifier.semantics { contentDescription = addLabel }.testTag("shared-empty-add")) {
-                Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(AlbaSpacing.sm)); Text(addLabel)
+                Icon(Icons.Outlined.Add, null, Modifier.size(AlbaIconSize.inline)); Spacer(Modifier.width(AlbaSpacing.sm)); Text(addLabel)
             }
         }
         invite?.let {
             OutlinedButton(onClick = it, modifier = Modifier.testTag("shared-empty-invite")) {
-                Icon(Icons.Outlined.Person, null, Modifier.size(18.dp))
+                Icon(Icons.Outlined.Person, null, Modifier.size(AlbaIconSize.inline))
                 Spacer(Modifier.width(AlbaSpacing.sm))
                 Text(stringResource(R.string.shared_invite_people))
             }

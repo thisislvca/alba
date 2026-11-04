@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 
 /**
@@ -87,7 +88,7 @@ internal fun AlbaChevron(modifier: Modifier = Modifier) {
 @Composable
 internal fun AlbaFeatureRow(icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().padding(AlbaSpacing.lg), horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.lg)) {
-        Icon(icon, null, Modifier.padding(top = AlbaSpacing.xxs).size(24.dp), tint = MaterialTheme.colorScheme.primary)
+        Icon(icon, null, Modifier.padding(top = AlbaSpacing.xxs).size(AlbaIconSize.standard), tint = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

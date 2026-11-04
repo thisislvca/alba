@@ -32,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -252,7 +251,7 @@ fun VideoPlayer(
         androidx.compose.animation.AnimatedVisibility(showPlaybackControls && (overlayVisible || scrubbing),
             modifier = Modifier.align(Alignment.BottomCenter), enter = fadeIn(fade), exit = fadeOut(fade)) {
             val darkControls = AlbaTheme.colors.isDark || isPlaying || controlsOnVideo
-            val ink = (if (darkControls) VideoControlsOnDark else VideoControlsOnLight).ink
+            val ink = viewerColors().let { if (darkControls) it.videoOnDark else it.videoOnLight }.ink
             Column(
                 Modifier.fillMaxWidth().padding(bottom = navBottom + 76.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -350,7 +349,7 @@ private fun VideoTimeline(
     onSeek: (Long) -> Unit,
     onSeekFinished: () -> Unit,
 ) {
-    val controls = if (darkCanvas) VideoControlsOnDark else VideoControlsOnLight
+    val controls = viewerColors().let { if (darkCanvas) it.videoOnDark else it.videoOnLight }
     val played = controls.ink
     val remaining = controls.track
     val fraction = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f

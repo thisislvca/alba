@@ -48,6 +48,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaChevron
 import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.timestampLabel
@@ -203,7 +204,7 @@ private fun StatusLine(status: BackupStatus) {
         else -> AlbaIcons.CloudOff
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Icon(icon, null, Modifier.size(22.dp),
+        Icon(icon, null, Modifier.size(AlbaIconSize.standard),
             tint = if (icon == AlbaIcons.CloudOff) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
         Column {
             Text(status.headline(), style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("backup-headline"))
@@ -350,7 +351,7 @@ private fun SettingSwitch(title: String, detail: String?, checked: Boolean, tag:
 @Composable
 private fun BackupRow(title: String, subtitle: String, icon: ImageVector, tag: String, onClick: () -> Unit) {
     AlbaListRow(title, onClick, Modifier.testTag(tag), subtitle = subtitle,
-        leading = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) }, trailing = { AlbaChevron(Modifier.size(18.dp)) })
+        leading = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) }, trailing = { AlbaChevron(Modifier.size(AlbaIconSize.inline)) })
 }
 
 /** Google Photos' "Back up device folders": the camera always, and any other folder the user turns on. */

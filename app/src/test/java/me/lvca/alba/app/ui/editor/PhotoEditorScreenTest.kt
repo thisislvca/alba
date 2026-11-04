@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -23,6 +24,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.CompletableDeferred
@@ -103,6 +105,33 @@ class PhotoEditorScreenTest {
                 compose.onNodeWithTag("photo-crop").assertDoesNotExist()
                 assertFalse(open.value)
             }
+        } finally { photo.delete() }
+    }
+
+    @Test fun aCornerHandleAnswersAFingerJustOutsideThePhoto() {
+        val photo = photo()
+        try {
+            compose.setContent { PhotoEditorScreen(media, source = { copyOf(photo) }, close = {}, saved = { _, _ -> }) }
+            waitForPhoto()
+            compose.onNodeWithTag("editor-tab-crop").performClick()
+            val crop = compose.onNodeWithTag("photo-crop")
+            val before = crop.fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+            val photoSize = crop.fetchSemanticsNode().size
+            val touchSize = compose.onNodeWithTag("photo-crop-touch").fetchSemanticsNode().size
+            // The touch area reaches 24dp past the photo on every side, so a full-photo crop's corners keep a 48dp target.
+            val reach = with(compose.density) { 24.dp.roundToPx() }
+            assertEquals(photoSize.width + 2 * reach, touchSize.width)
+            assertEquals(photoSize.height + 2 * reach, touchSize.height)
+            // Press 12dp above the photo's top-left corner and drag inward.
+            crop.performTouchInput {
+                val outside = with(compose.density) { 12.dp.toPx() }
+                down(Offset(2f, -outside))
+                moveBy(Offset(viewConfiguration.touchSlop + 1f, viewConfiguration.touchSlop + 1f))
+                moveBy(Offset(with(compose.density) { 30.dp.toPx() }, with(compose.density) { 20.dp.toPx() }))
+                up()
+            }
+            compose.waitForIdle()
+            assertNotEquals(before, crop.fetchSemanticsNode().config[SemanticsProperties.StateDescription])
         } finally { photo.delete() }
     }
 

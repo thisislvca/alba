@@ -18,8 +18,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,6 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -58,6 +61,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -67,6 +71,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
+import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.viewer.PhotoZoomState
 import me.lvca.alba.app.ui.viewer.PinchToClose
@@ -81,6 +87,14 @@ import java.io.IOException
 
 /** Whether previews are paused because phone storage is low. A missing preview then blames storage, not the network. */
 internal val LocalPreviewStorageLow = compositionLocalOf { false }
+
+/**
+ * The viewer's page around a full-screen photo: [retry] asks for the preview again when there is none to show (Try again),
+ * and [statusVisible] is false while the viewer shows its own progress or error, so the two never overlap.
+ */
+internal data class ViewerPhotoPage(val retry: () -> Unit, val statusVisible: Boolean)
+
+internal val LocalViewerPhotoPage = compositionLocalOf<ViewerPhotoPage?> { null }
 
 private data class TransitionThumbnailKey(val mediaId: String, val sourceRevision: String)
 
@@ -251,34 +265,65 @@ fun MediaThumbnail(
                     .clipToBounds(),
             )
             if (fadesIn && contentScale != ContentScale.Fit) TileFadeIn(placeholder)
-        } else {
-            val failure = decodeFailure
-            val storageLow = LocalPreviewStorageLow.current
-            val label = stringResource(when (failure) {
-                ThumbnailFailure.ACCESS -> R.string.photo_access_lost
-                ThumbnailFailure.MISSING -> R.string.photo_file_missing
-                ThumbnailFailure.DECODE -> R.string.photo_decode_failed
-                null -> when {
-                    decoding -> R.string.loading
-                    storageLow -> R.string.photo_preview_storage_low
-                    else -> R.string.photo_preview_unavailable
-                }
-            })
-            val onMedia = AlbaTheme.colors.onMedia
-            // A tile waiting for its decode stays a plain placeholder: a field of spinners reads as broken while scrolling.
-            val waitingTile = contentScale != ContentScale.Fit && failure == null && reference != null
-            if (!waitingTile) Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
-                if (decoding) CircularProgressIndicator(Modifier.size(24.dp), color = onMedia, strokeWidth = 2.dp)
-                else Icon(when {
-                    failure != null -> Icons.Outlined.Info
-                    storageLow -> AlbaIcons.PhoneAndroid
-                    else -> AlbaIcons.CloudQueue
-                },
-                    contentDescription = listOfNotNull(contentDescription, label).joinToString(". "),
-                    tint = onMedia.copy(alpha = .85f), modifier = Modifier.size(28.dp))
-                if (contentScale == ContentScale.Fit && !decoding) {
-                    Text(label, color = onMedia, modifier = Modifier.padding(top = 12.dp))
-                    if (reference != null) TextButton(onClick = { localRetry++ }, modifier = Modifier.testTag("retry-decode")) { Text(stringResource(R.string.retry_photo)) }
+        } else ThumbnailStatus(decodeFailure, decoding, hasReference = reference != null, fit = contentScale == ContentScale.Fit,
+            contentDescription, retry = if (reference != null) ({ localRetry += 1 }) else LocalViewerPhotoPage.current?.retry)
+    }
+}
+
+/** What a thumbnail without pixels shows: nothing while a tile decodes, a glyph on a tile, or the viewer's status card. */
+@Composable
+private fun ThumbnailStatus(failure: ThumbnailFailure?, decoding: Boolean, hasReference: Boolean, fit: Boolean, contentDescription: String?,
+    retry: (() -> Unit)?) {
+    val storageLow = LocalPreviewStorageLow.current
+    val label = stringResource(when (failure) {
+        ThumbnailFailure.ACCESS -> R.string.photo_access_lost
+        ThumbnailFailure.MISSING -> R.string.photo_file_missing
+        ThumbnailFailure.DECODE -> R.string.photo_decode_failed
+        null -> when {
+            decoding -> R.string.loading
+            storageLow -> R.string.photo_preview_storage_low
+            else -> R.string.photo_preview_unavailable
+        }
+    })
+    val onMedia = AlbaTheme.colors.onMedia
+    val icon = when {
+        failure != null -> Icons.Outlined.Info
+        storageLow -> AlbaIcons.PhoneAndroid
+        else -> AlbaIcons.CloudQueue
+    }
+    val description = listOfNotNull(contentDescription, label).joinToString(". ")
+    // A tile waiting for its decode stays a plain placeholder: a field of spinners reads as broken while scrolling.
+    val waitingTile = !fit && failure == null && hasReference
+    if (fit) {
+        if (LocalViewerPhotoPage.current?.statusVisible != false) ViewerPhotoStatus(decoding, icon, description, label, retry, decodeFailed = hasReference)
+    } else if (!waitingTile) Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
+        if (decoding) CircularProgressIndicator(Modifier.size(AlbaIconSize.standard), color = onMedia, strokeWidth = 2.dp)
+        else Icon(icon, contentDescription = description, tint = onMedia.copy(alpha = .85f), modifier = Modifier.size(AlbaIconSize.large))
+    }
+}
+
+/**
+ * The viewer's loading or error state for a photo it cannot show, centred on a card so it reads on the light canvas
+ * and on the black one alike. [decodeFailed] keeps the decode retry's own label; otherwise the action is Try again.
+ */
+@Composable
+private fun ViewerPhotoStatus(decoding: Boolean, icon: ImageVector, description: String, label: String, retry: (() -> Unit)?,
+    decodeFailed: Boolean) {
+    val colors = AlbaTheme.colors.viewer
+    if (decoding) {
+        CircularProgressIndicator(Modifier.size(AlbaIconSize.standard).testTag("viewer-photo-loading"), color = colors.foreground, strokeWidth = 2.dp)
+        return
+    }
+    Surface(Modifier.padding(AlbaSpacing.xxl).widthIn(max = 360.dp).testTag("viewer-photo-status"), shape = MaterialTheme.shapes.large,
+        color = colors.card, contentColor = colors.foreground) {
+        Column(Modifier.padding(horizontal = AlbaSpacing.xxl, vertical = AlbaSpacing.xl), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+            Icon(icon, contentDescription = description, tint = colors.secondary, modifier = Modifier.size(AlbaIconSize.large))
+            Text(label, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+            if (retry != null) {
+                if (decodeFailed) TextButton(onClick = retry, modifier = Modifier.testTag("retry-decode")) { Text(stringResource(R.string.retry_photo)) }
+                else FilledTonalButton(onClick = retry, modifier = Modifier.heightIn(min = 48.dp).testTag("retry-preview")) {
+                    Text(stringResource(R.string.try_again))
                 }
             }
         }
