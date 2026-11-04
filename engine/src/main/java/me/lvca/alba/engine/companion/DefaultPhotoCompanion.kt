@@ -170,9 +170,12 @@ class DefaultPhotoCompanion(
         var reconciled = reconciler.reconcileOne(binding)
         // Verification only reads, so it continues while uploads are paused remotely; nothing new is sent or staged.
         val uploadsPaused = invoker.isProtocolPaused()
-        // Nothing new is staged while iCloud is full or uploads are paused: it could not upload anyway.
-        val stagedAutomatic = if (allowAutomatic && transferDao.findWriteSlot(binding.accountId) == null &&
-            !invoker.isStoragePaused(binding.accountId) && !uploadsPaused) {
+
+        // Whether another upload could start now: the write slot is free, iCloud has space and uploads are not paused.
+        suspend fun mayStartUpload() =
+            !uploadsPaused && transferDao.findWriteSlot(binding.accountId) == null && !invoker.isStoragePaused(binding.accountId)
+        // Nothing new is staged while no upload could start: it could not upload anyway.
+        val stagedAutomatic = if (allowAutomatic && mayStartUpload()) {
             intake.discoverAndStageAutomatic(binding)
         } else {
             0
@@ -184,7 +187,7 @@ class DefaultPhotoCompanion(
             transferDao.earliestRetryDue(binding.accountId, now(), allowAutomatic = authority.mayUseNetwork(), allowManual = false),
         ).minOrNull()
         // While paused, queued items wait for the periodic wake rather than asking for another pass at once.
-        val ready = transferDao.findWriteSlot(binding.accountId) == null && !invoker.isStoragePaused(binding.accountId) && !uploadsPaused &&
+        val ready = mayStartUpload() &&
             transferDao.countRunnableReady(
                 binding.accountId,
                 now(),

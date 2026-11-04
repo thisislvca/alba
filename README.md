@@ -144,6 +144,55 @@ The full steps are in [the screenshot tool](tools/store-screenshots/README.md).
 
 For performance work, set `ANDROID_SERIAL` to your test device. Run `scripts/benchmark_android.sh profile` to update the Baseline Profile, then `scripts/benchmark_android.sh measure` on a physical phone. These use a separate app with demo photos. The older emulator measurement script is only a smoke check.
 
+## When iCloud changes
+
+Alba relies on iCloud.com's private web protocol, so Apple can change something under it at any time. Two tools help.
+
+### Pausing writes remotely
+
+The app reads [`status/protocol-status.json`](status/protocol-status.json) from `main`, through `https://raw.githubusercontent.com/thisislvca/alba/main/status/protocol-status.json`. Committing to that file is the switch: no server, secret or release is needed. To pause uploads for every version up to 0.4.2:
+
+```json
+{
+  "schemaVersion": 1,
+  "pauses": [
+    {
+      "id": "2026-11-upload-change",
+      "areas": ["uploads"],
+      "versions": { "max": "0.4.2" },
+      "message": {
+        "en": "Backup is paused while we update Alba for an iCloud change.",
+        "it": "Il backup è in pausa mentre aggiorniamo Alba per una modifica di iCloud."
+      }
+    }
+  ]
+}
+```
+
+- `areas`: `uploads` (backup and photos the user uploads), `library-edits` (favorites, albums, Hidden, Recently Deleted), `shared-albums` (every Shared Album change), or `all`. Reads, browsing and verification are never paused.
+- `versions`: optional `min` and `max`, both inclusive, compared as `major.minor.patch` of the version name. Leave it out to cover every version.
+- `message`: optional, a string or text by language. Without one, the app shows its own wording.
+- To lift a pause, remove its entry (leave `"pauses": []`). `ProtocolStatusDocumentTest` checks the committed file, so a malformed edit fails CI.
+
+While uploads are paused, queued items stay pending, nothing is sent or marked failed, and backup continues on its next pass once the pause clears. Uploads the user started wait in the queue and continue the next time Alba schedules them, such as when the app opens. Paused edits are refused with a message and change nothing.
+
+How it behaves on phones: the request is a plain GET with no cookies, account or device identifiers. The file is fetched only when Alba is about to write and its copy is stale: a clear status is kept 30 minutes, a pause 10, and GitHub's CDN may add about 5 more. It fails open: if the file can't be fetched, the last good copy is used for up to 12 hours and then nothing is paused; a file that doesn't parse is ignored. Builds made with `-PalbaProtocolStatusUrl=` (empty) never pause, and forks can point that property at their own copy.
+
+### Live contract test
+
+`LiveContractTest` checks, read-only and against a real account, the assumptions the protocol code makes: that the session validates, the web services Alba uses are listed, the PrimarySync zone and its record types and fields are there and parse, and that change tokens, lookups, previews, albums, Hidden, Recently Deleted, the upload verification read, storage, profile and Shared Albums still work. Each check names its assumption, so a failure says which one broke. It never writes. Upload URL reservation is not checked, because it reserves space on Apple's side; only the upload service's URL is.
+
+It is never part of `testDebugUnitTest` or CI's normal jobs. To run it, preferably with a test Apple Account:
+
+```sh
+./gradlew :protocol-icloud-web:liveSignIn --console=plain      # once: signs in and writes .live/icloud-session.json
+./gradlew :protocol-icloud-web:liveContractTest
+```
+
+The password is read without echo and never saved. The session file is ignored by git and readable only by you; `ALBA_LIVE_SESSION_FILE` puts it elsewhere. Without a session the test is skipped. Sessions expire, so run `liveSignIn` again when validation fails.
+
+To run it in GitHub Actions, add the repository secret `ALBA_LIVE_SESSION` with `base64 < .live/icloud-session.json`, then start Actions > Live iCloud contract > Run workflow. Without the secret the workflow does nothing. Apple may treat sign-ins from GitHub's data centres with suspicion, and the secret has to be renewed whenever the session expires, so the local run is the main path.
+
 ## Contribute
 
 Found a bug or have an idea? [Open an issue](https://github.com/thisislvca/alba/issues). Pull requests are welcome too, under the same AGPL-3.0-only license.

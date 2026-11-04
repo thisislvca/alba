@@ -57,21 +57,22 @@ object ProtocolStatusDocument {
     }
 
     private fun entry(index: Int, element: JsonElement): PauseEntry {
-        val item = element as? JsonObject ?: throw IllegalArgumentException("pauses[$index] must be an object")
+        val item = requireNotNull(element as? JsonObject) { "pauses[$index] must be an object" }
         val id = item.string("id")?.trim()
         require(!id.isNullOrEmpty() && id.length <= MAX_ID_LENGTH) { "pauses[$index] needs an id of 1 to $MAX_ID_LENGTH characters" }
         val keys = (item["areas"] as? JsonArray)?.map { area ->
-            (area as? JsonPrimitive)?.takeIf { it.isString }?.content ?: throw IllegalArgumentException("pauses[$index].areas must be strings")
+            requireNotNull((area as? JsonPrimitive)?.takeIf { it.isString }?.content) { "pauses[$index].areas must be strings" }
         }
         require(!keys.isNullOrEmpty()) { "pauses[$index] needs at least one area" }
         val areas = if (ProtocolArea.ALL in keys) ProtocolArea.entries.toSet() else keys.mapNotNull(ProtocolArea::fromKey).toSet()
-        val versions = when (val value = item["versions"]) {
-            null, JsonNull -> null
-            is JsonObject -> value
-            else -> throw IllegalArgumentException("pauses[$index].versions must be an object")
+        val versions = item["versions"]?.takeUnless { it is JsonNull }?.let { value ->
+            requireNotNull(value as? JsonObject) { "pauses[$index].versions must be an object" }
         }
-        val min = versions?.string("min")?.let { AppVersion.parse(it) ?: throw IllegalArgumentException("pauses[$index].versions.min is not x.y.z") }
-        val max = versions?.string("max")?.let { AppVersion.parse(it) ?: throw IllegalArgumentException("pauses[$index].versions.max is not x.y.z") }
+        fun bound(name: String) = versions?.string(name)?.let {
+            requireNotNull(AppVersion.parse(it)) { "pauses[$index].versions.$name is not x.y.z" }
+        }
+        val min = bound("min")
+        val max = bound("max")
         require(min == null || max == null || min <= max) { "pauses[$index].versions.min is after max" }
         return PauseEntry(id, areas, min, max, messages(index, item["message"]))
     }

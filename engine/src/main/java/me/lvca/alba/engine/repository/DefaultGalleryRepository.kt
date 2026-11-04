@@ -78,6 +78,7 @@ class DefaultGalleryRepository(
     }
 
     // Serialize edits with refresh so a snapshot obtained before an edit cannot overwrite it.
+
     /** Runs an edit of [area] in iCloud; the remote status is checked first, so a paused edit takes no lock. */
     private suspend fun <T> edit(area: ProtocolArea, block: suspend (String) -> T): T {
         requireWritable(area)
