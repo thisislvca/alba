@@ -1,0 +1,51 @@
+name: Live iCloud contract
+
+# Checks, read-only, that iCloud.com still matches what Alba's protocol code assumes, against a real account. Manual
+# only, never on pushes or pull requests, and it does nothing unless the repository secret ALBA_LIVE_SESSION exists
+# (the base64 of a session file written by ./gradlew :protocol-icloud-web:liveSignIn). See README, "Live contract test".
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-contract
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Check iCloud protocol assumptions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      ALBA_SENTRY_DSN: ''
+      ALBA_SENTRY_PROPERTIES: /tmp/alba-ci-no-sentry.properties
+      HAS_SESSION: ${{ secrets.ALBA_LIVE_SESSION != '' }}
+    steps:
+      - name: Explain a missing session
+        if: env.HAS_SESSION != 'true'
+        run: |
+          echo "::notice::No ALBA_LIVE_SESSION secret, so the live contract test did not run. See README, 'Live contract test'."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.HAS_SESSION == 'true'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        if: env.HAS_SESSION == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        if: env.HAS_SESSION == 'true'
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        if: env.HAS_SESSION == 'true'
+      - name: Run the live contract test
+        if: env.HAS_SESSION == 'true'
+        env:
+          ALBA_LIVE_SESSION: ${{ secrets.ALBA_LIVE_SESSION }}
+        run: ./gradlew :protocol-icloud-web:liveContractTest --no-daemon --console=plain

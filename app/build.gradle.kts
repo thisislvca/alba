@@ -26,6 +26,13 @@ val appVersionName = releaseVersionName.getOrElse("0.1.0")
 val appVersionCode = releaseVersionCode.getOrElse("1").toInt()
 require(appVersionName.matches(Regex("(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"))) { "Invalid Alba version name." }
 require(appVersionCode in 1..2100000000) { "Invalid Alba version code." }
+// The remote protocol status document (see README, "Pausing writes remotely"). Forks and other distributors point it at
+// their own copy, or pass an empty value to build without remote pauses.
+val protocolStatusUrl = providers.gradleProperty("albaProtocolStatusUrl")
+    .getOrElse("https://raw.githubusercontent.com/thisislvca/alba/main/status/protocol-status.json").trim()
+require(protocolStatusUrl.isEmpty() || protocolStatusUrl.matches(Regex("https://[^\\s\"'\\\\$]+"))) {
+    "albaProtocolStatusUrl must be an https URL without spaces, quotes, backslashes or dollar signs."
+}
 
 android {
     namespace = "me.lvca.alba.app"
@@ -43,6 +50,7 @@ android {
             "SENTRY_DSN",
             sentryDsnLiteral,
         )
+        buildConfigField("String", "PROTOCOL_STATUS_URL", "\"$protocolStatusUrl\"")
     }
 
     buildTypes {

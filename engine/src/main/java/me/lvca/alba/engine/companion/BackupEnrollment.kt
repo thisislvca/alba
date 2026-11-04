@@ -16,6 +16,8 @@ import me.lvca.alba.engine.model.BackupDraftId
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupSetupEffect
 import me.lvca.alba.engine.model.BackupView
+import me.lvca.alba.engine.model.ProtocolArea
+import me.lvca.alba.engine.model.ProtocolStatusGate
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.ExactOriginalSource
@@ -30,6 +32,7 @@ internal class BackupEnrollment(
     private val automaticBackupPolicy: AutomaticBackupPolicy,
     private val accounts: AccountBindingSync,
     private val stages: UploadStages,
+    private val protocolStatus: ProtocolStatusGate = ProtocolStatusGate.Open,
 ) {
     private val accountDao = database.accountDao()
     private val backupDao = database.backupDao()
@@ -38,11 +41,13 @@ internal class BackupEnrollment(
     fun observeBackup(): Flow<BackupView> = combine(
         backupDao.observeBackup(),
         transferDao.observeActiveUploadPause(),
-    ) { row, pause ->
+        protocolStatus.pauses,
+    ) { row, pause, remote ->
         val storageFullSince = pause?.takeIf { it.reason == StoredMessage.ICLOUD_STORAGE_FULL.code && it.retryAtEpochMillis > now() }
             ?.pausedAtEpochMillis
+        val protocolPause = remote.firstOrNull { ProtocolArea.UPLOADS in it.areas }
         if (row == null) {
-            BackupView(enabled = false, storageFullSinceEpochMillis = storageFullSince)
+            BackupView(enabled = false, storageFullSinceEpochMillis = storageFullSince, protocolPause = protocolPause)
         } else {
             val scope = BackupScope.valueOf(row.scope)
             BackupView(
@@ -51,6 +56,7 @@ internal class BackupEnrollment(
                 scope = scope,
                 message = when {
                     !row.enabled -> StoredMessage.AUTOMATIC_BACKUP_IS_OFF.code
+                    protocolPause != null -> StoredMessage.BACKUP_PAUSED_FOR_AN_ICLOUD_CHANGE.code
                     storageFullSince != null -> StoredMessage.ICLOUD_STORAGE_FULL.code
                     !originals.hasAutomaticBackupAccess() -> StoredMessage.BACKUP_PAUSED_ALLOW_FULL_PHOTO_AND_MEDIA_LOCATION_ACCESS.code
                     !automaticBackupPolicy.settings().allowsAny(automaticBackupPolicy.network()) ->
@@ -61,6 +67,7 @@ internal class BackupEnrollment(
                 disclosureCurrent = scope == BackupScope.CURRENT && row.disclosureRevision == BACKUP_DISCLOSURE_REVISION,
                 storageFullSinceEpochMillis = storageFullSince,
                 includesExisting = row.includeExisting,
+                protocolPause = protocolPause,
             )
         }
     }

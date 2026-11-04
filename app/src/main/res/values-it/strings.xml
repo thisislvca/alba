@@ -986,6 +986,9 @@
     <string name="upload_video_format_not_accepted">iCloud accetta dal web solo video MP4 e MOV. L’originale resta su questo telefono.</string>
     <string name="upload_format_not_accepted">iCloud non accetta questo formato di file caricato dal web. L’originale resta su questo telefono.</string>
     <string name="icloud_storage_full">Lo spazio iCloud è esaurito. I caricamenti sono in pausa finché non c’è spazio.</string>
+    <string name="message_backup_paused_for_an_icloud_change">Il backup è in pausa mentre aggiorniamo Alba per una modifica di iCloud.</string>
+    <string name="message_paused_for_an_icloud_change">Questa operazione è in pausa mentre aggiorniamo Alba per una modifica di iCloud. Riprova più tardi.</string>
+    <string name="backup_paused_icloud_change_detail">Il backup è in pausa mentre aggiorniamo Alba per una modifica di iCloud. Le foto restano in coda e verranno salvate appena sarà risolto.</string>
     <string name="message_only_items_that_sent_nothing_can_be_retried">Questo elemento potrebbe essere arrivato su iCloud, quindi Alba lo controlla invece di inviarlo di nuovo.</string>
     <string name="message_this_item_is_no_longer_in_the_queue">Questo elemento non è più in coda.</string>
     <string name="badge_backup_waiting">In attesa di backup</string>

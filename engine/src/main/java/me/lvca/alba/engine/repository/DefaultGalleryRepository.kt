@@ -43,6 +43,8 @@ class DefaultGalleryRepository(
     private val now: () -> Long = System::currentTimeMillis,
     /** Waits between attempts while iCloud asks Alba to slow down; tests pass a recorder. */
     private val pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
+    /** Alba's remote protocol status: it can refuse library or Shared Album edits while an iCloud change is checked. */
+    private val protocolStatus: ProtocolStatusGate = ProtocolStatusGate.Open,
 ) : GalleryRepository {
     private val dao = database.catalogDao()
     private val sync = database.catalogSyncDao()
@@ -76,6 +78,18 @@ class DefaultGalleryRepository(
     }
 
     // Serialize edits with refresh so a snapshot obtained before an edit cannot overwrite it.
+
+    /** Runs an edit of [area] in iCloud; the remote status is checked first, so a paused edit takes no lock. */
+    private suspend fun <T> edit(area: ProtocolArea, block: suspend (String) -> T): T {
+        requireWritable(area)
+        return edit(block)
+    }
+
+    /** Refuses a write to iCloud that Alba's remote protocol status pauses now. Nothing changes locally either. */
+    private suspend fun requireWritable(area: ProtocolArea) {
+        if (protocolStatus.pauseFor(area) != null) throw PhotoCompanionException.Refused(StoredMessage.PAUSED_FOR_AN_ICLOUD_CHANGE)
+    }
+
     private suspend fun <T> edit(block: suspend (String) -> T): T = refreshLock.withLock {
         // Wait for shared-album reads before taking the catalog permits, so a slow read never stalls downloads.
         editLock.withLock { exclusiveCatalog { block(cloudSource.accountLabel) } }
@@ -110,13 +124,15 @@ class DefaultGalleryRepository(
             return@edit
         }
         requireCloudItem(mediaId)
+        // Favorites of phone items stay local; only the iCloud change waits for a remote pause.
+        requireWritable(ProtocolArea.LIBRARY_EDITS)
         cloudSource.setFavorite(mediaId, favorite)
         checkEditAccount(account)
         if (favorite) library.putMembers(listOf(CollectionMemberEntity(account, GalleryQuery.FAVORITES, mediaId)))
         else library.removeMember(account, GalleryQuery.FAVORITES, mediaId)
     }
 
-    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String): Boolean = edit { account ->
+    override suspend fun contributeToSharedAlbum(id: String, mediaIds: List<String>, operationId: String, caption: String): Boolean = edit(ProtocolArea.SHARED_ALBUMS) { account ->
         val album = requireNotNull(library.collection(account, id)).toModel()
         require(album.shared?.canContribute == true) { "You cannot add photos to this album." }
         val ids = mediaIds.distinct()
@@ -149,7 +165,7 @@ class DefaultGalleryRepository(
         captionKept
     }
 
-    override suspend fun contributeFilesToSharedAlbum(id: String, files: List<SharedUploadFile>, operationId: String, caption: String): Boolean = edit { account ->
+    override suspend fun contributeFilesToSharedAlbum(id: String, files: List<SharedUploadFile>, operationId: String, caption: String): Boolean = edit(ProtocolArea.SHARED_ALBUMS) { account ->
         val album = requireNotNull(library.collection(account, id)).toModel()
         require(album.shared?.canContribute == true) { "You cannot add photos to this album." }
         require(files.size in 1..50)
@@ -193,7 +209,7 @@ class DefaultGalleryRepository(
     }
     override suspend fun pendingSharedInvitations() = readShared { cloudSource.pendingSharedInvitations() }
     override suspend fun resolveSharedInvitation(url: String) = readShared { cloudSource.resolveSharedInvitation(url) }
-    override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String) = edit { account ->
+    override suspend fun respondSharedInvitation(id: String, accept: Boolean, operationId: String) = edit(ProtocolArea.SHARED_ALBUMS) { account ->
         cloudSource.respondSharedInvitation(id, accept, operationId); checkAccount(account)
     }
     override suspend fun sharedManagement(id: String) = readShared { cloudSource.sharedManagement(id) }
@@ -201,7 +217,7 @@ class DefaultGalleryRepository(
         requireCloudItem(mediaId)
         cloudSource.sharedDiscussion(mediaId)
     }
-    override suspend fun changeSharedAlbum(id: String, command: SharedCommand, operationId: String) = edit { account ->
+    override suspend fun changeSharedAlbum(id: String, command: SharedCommand, operationId: String) = edit(ProtocolArea.SHARED_ALBUMS) { account ->
         val info = requireNotNull(library.collection(account, id)).toModel().shared ?: error("Not a shared album")
         if (command.action == SharedAction.SAVE_TO_LIBRARY && info.generation == SharedAlbumGeneration.LEGACY) {
             require(command.subject.substringBeforeLast(':') == id)
@@ -217,21 +233,21 @@ class DefaultGalleryRepository(
         checkAccount(account, "Account changed. Refresh to check the result.")
     }
 
-    override suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration): GalleryCollection = edit { account ->
+    override suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration): GalleryCollection = edit(ProtocolArea.SHARED_ALBUMS) { account ->
         val album = cloudSource.createSharedAlbum(validAlbumName(name), operationId, generation)
         checkEditAccount(account)
         library.putCollections(listOf(album.toEntity(account)))
         album
     }
 
-    override suspend fun createAlbum(name: String): GalleryCollection = edit { account ->
+    override suspend fun createAlbum(name: String): GalleryCollection = edit(ProtocolArea.LIBRARY_EDITS) { account ->
         val album = cloudSource.createAlbum(validAlbumName(name))
         checkEditAccount(account)
         library.putCollections(listOf(CollectionEntity(account, album.id, album.name, album.parentId, album.isFolder, album.position)))
         album
     }
 
-    override suspend fun deleteAlbum(id: String) = edit { account ->
+    override suspend fun deleteAlbum(id: String) = edit(ProtocolArea.LIBRARY_EDITS) { account ->
         editableAlbum(account, id)
         cloudSource.deleteAlbum(id)
         checkEditAccount(account)
@@ -241,7 +257,7 @@ class DefaultGalleryRepository(
         }
     }
 
-    override suspend fun renameAlbum(id: String, name: String) = edit { account ->
+    override suspend fun renameAlbum(id: String, name: String) = edit(ProtocolArea.LIBRARY_EDITS) { account ->
         val album = editableAlbum(account, id)
         val title = validAlbumName(name)
         cloudSource.renameAlbum(id, title)
@@ -249,7 +265,7 @@ class DefaultGalleryRepository(
         library.putCollections(listOf(album.copy(name = title)))
     }
 
-    override suspend fun addToAlbum(id: String, mediaIds: List<String>) = edit { account ->
+    override suspend fun addToAlbum(id: String, mediaIds: List<String>) = edit(ProtocolArea.LIBRARY_EDITS) { account ->
         editableAlbum(account, id)
         val ids = mediaIds.distinct()
         require(ids.isNotEmpty() && ids.size <= 50) { StoredMessage.SELECT_UP_TO_50_ICLOUD_PHOTOS_AT_A_TIME.code }
@@ -259,7 +275,7 @@ class DefaultGalleryRepository(
         library.putMembers(ids.map { CollectionMemberEntity(account, id, it) })
     }
 
-    override suspend fun removeFromAlbum(id: String, mediaIds: List<String>) = edit { account ->
+    override suspend fun removeFromAlbum(id: String, mediaIds: List<String>) = edit(ProtocolArea.LIBRARY_EDITS) { account ->
         editableAlbum(account, id)
         val ids = mediaIds.distinct()
         require(ids.isNotEmpty() && ids.size <= 50)
@@ -269,7 +285,7 @@ class DefaultGalleryRepository(
         database.withTransaction { ids.forEach { library.removeMember(account, id, it) } }
     }
 
-    override suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean) = edit { account ->
+    override suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean) = edit(ProtocolArea.LIBRARY_EDITS) { account ->
         val ids = mediaIds.distinct()
         require(ids.isNotEmpty() && ids.size <= 50)
         val items = ids.map { require(!SharedMediaIdentity.isShared(it)); requireCloudItem(it) }
@@ -278,7 +294,7 @@ class DefaultGalleryRepository(
         dao.upsertItems(items.map { it.copy(isTrashed = trashed) })
     }
 
-    override suspend fun setHidden(mediaIds: List<String>, hidden: Boolean) = edit { account ->
+    override suspend fun setHidden(mediaIds: List<String>, hidden: Boolean) = edit(ProtocolArea.LIBRARY_EDITS) { account ->
         val ids = mediaIds.distinct()
         require(ids.isNotEmpty() && ids.size <= 50) { StoredMessage.SELECT_UP_TO_50_ICLOUD_PHOTOS_AT_A_TIME.code }
         val items = ids.map { require(!SharedMediaIdentity.isShared(it)); requireCloudItem(it) }

@@ -970,6 +970,10 @@
     <string name="upload_video_format_not_accepted">iCloud only accepts MP4 and MOV videos uploaded from the web. The original stays on this phone.</string>
     <string name="upload_format_not_accepted">iCloud doesn’t accept this file format uploaded from the web. The original stays on this phone.</string>
     <string name="icloud_storage_full">iCloud storage is full. Uploads are paused until there’s space.</string>
+    <!-- Alba's maintainers paused writes to iCloud remotely while they adapt Alba to a change Apple made. -->
+    <string name="message_backup_paused_for_an_icloud_change">Backup is paused while we update Alba for an iCloud change.</string>
+    <string name="message_paused_for_an_icloud_change">This is paused while we update Alba for an iCloud change. Try again later.</string>
+    <string name="backup_paused_icloud_change_detail">Backup is paused while we update Alba for an iCloud change. Your photos stay queued and back up once it’s fixed.</string>
     <string name="message_only_items_that_sent_nothing_can_be_retried">This item may have reached iCloud, so Alba checks it instead of sending it again.</string>
     <string name="message_this_item_is_no_longer_in_the_queue">This item is no longer in the queue.</string>
     <string name="badge_backup_waiting">Waiting to back up</string>

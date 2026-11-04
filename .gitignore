@@ -23,6 +23,9 @@ fastlane/report.xml
 # Temporary Google workload identity credentials
 gha-creds-*.json
 
+# The live iCloud contract test's session (see README, "Live contract test"). Never commit it.
+.live/
+
 # JVM crash dumps
 hs_err_pid*.log
 replay_pid*.log
