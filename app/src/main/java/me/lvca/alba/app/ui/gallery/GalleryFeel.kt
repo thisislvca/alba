@@ -57,6 +57,9 @@ internal object GalleryFeel {
     /** A checked tile's corner radius (photos_theme_rounded_corner_radius). */
     val SELECTED_CORNER = 16.dp
 
+    /** The check badge sits this far inside a tile's top-start corner, over the shrunken photo's corner as in Photos. */
+    val SELECTION_BADGE_INSET = 6.dp
+
     /** Toggling one tile: inset and scale over 105 ms, LinearOutSlowIn. */
     const val SELECT_TOGGLE_MILLIS = 105
 

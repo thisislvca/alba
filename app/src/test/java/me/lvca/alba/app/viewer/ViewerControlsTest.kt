@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyAncestor
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -91,6 +93,28 @@ class ViewerControlsTest {
         }
         compose.waitForIdle()
         image.assert(fit)
+    }
+
+    @Test fun addToIsTheFourthActionAndOpensTheAlbumChooser() {
+        val actions = GalleryStateActions(gallery.copy(selectedMedia = photo))
+        compose.setAlbaContent(actions.state, ScreenshotFixtures.signedIn, actions)
+        // Share, Edit, Add to and Trash share the row evenly, as in Google Photos.
+        val row = compose.onNodeWithTag("viewer-actions").fetchSemanticsNode().boundsInRoot
+        val widths = listOf("viewer-share", "viewer-edit", "viewer-add-to-album").map {
+            compose.onNodeWithTag(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.width
+        }
+        widths.forEach { assertEquals(row.width / 4, it, 1f) }
+        compose.onNodeWithContentDescription(text(R.string.add_to_album)).assertHasClickAction()
+        compose.onNodeWithTag("viewer-add-to-album").performClick()
+        compose.onNodeWithTag("album-chooser-new").assertIsDisplayed()
+    }
+
+    @Test fun trashedPhotosOfferNoAddTo() {
+        val trashed = photo.copy(isTrashed = true)
+        val actions = GalleryStateActions(gallery.copy(selectedMedia = trashed, items = gallery.items.map { if (it.id == photo.id) trashed else it }))
+        compose.setAlbaContent(actions.state, ScreenshotFixtures.signedIn, actions)
+        compose.onNodeWithTag("viewer-share").assertIsDisplayed()
+        compose.onNodeWithTag("viewer-add-to-album").assertDoesNotExist()
     }
 
     @Test fun overflowHandsTheOriginalToOtherAppsAndStillOpensDetails() {

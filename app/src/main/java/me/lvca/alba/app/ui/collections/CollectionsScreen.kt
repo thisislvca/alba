@@ -33,6 +33,8 @@ import me.lvca.alba.app.ui.designsystem.AlbaChevron
 import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
+import me.lvca.alba.app.ui.designsystem.AlbaMenu
+import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
@@ -208,9 +210,9 @@ private fun AlbumSortMenu(sort: AlbumSort, change: (AlbumSort) -> Unit) {
         TextButton(onClick = { open = true }, modifier = Modifier.testTag("album-sort")) {
             Icon(AlbaIcons.SwapVert, null, Modifier.size(AlbaIconSize.inline)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(sort.label))
         }
-        DropdownMenu(open, onDismissRequest = { open = false }) {
+        AlbaMenu(open, onDismissRequest = { open = false }) {
             AlbumSort.entries.forEach { option ->
-                DropdownMenuItem(text = { Text(stringResource(option.label)) }, onClick = { open = false; change(option) },
+                AlbaMenuItem(stringResource(option.label), onClick = { open = false; change(option) },
                     trailingIcon = if (option == sort) ({ Icon(Icons.Outlined.Check, null) }) else null,
                     modifier = Modifier.testTag("album-sort-${option.name}"))
             }

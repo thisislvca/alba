@@ -20,11 +20,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.AccountBox
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,9 +40,13 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.layout.ContentScale
@@ -54,6 +63,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -73,6 +83,9 @@ import me.lvca.alba.app.ui.dayMonthLabel
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
+import me.lvca.alba.app.ui.designsystem.AlbaMenu
+import me.lvca.alba.app.ui.designsystem.AlbaMenuDivider
+import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.FavoriteIcon
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
@@ -365,6 +378,8 @@ internal fun MediaDetailScreen(
                             else actions.confirmCloudTrash(listOf(media.id), !media.isTrashed)
                         },
                         onLive = { playingLive = !playingLive }, playingLive = playingLive,
+                        canvas = canvasColor,
+                        onAddToAlbum = if (media.canJoinAlbum) ({ choosingAlbum = true }) else null,
                     )
                 }
             }
@@ -535,19 +550,21 @@ private fun ViewerTopBar(
                 IconButton(onClick = onMore, modifier = Modifier.size(48.dp).testTag("viewer-more")) {
                     Icon(Icons.Outlined.MoreVert, stringResource(R.string.more), tint = ink)
                 }
-                DropdownMenu(expanded = videoOptionsOpen, onDismissRequest = onDismissVideoOptions,
+                AlbaMenu(expanded = videoOptionsOpen, onDismissRequest = onDismissVideoOptions,
                     modifier = Modifier.testTag("viewer-more-menu")) {
                     val video = media.kind == MediaKind.VIDEO
                     if (video) {
-                        DropdownMenuItem(text = { Text(stringResource(if (videoLoop) R.string.loop_video_on else R.string.loop_video_off)) },
-                            onClick = onToggleLoop)
-                        DropdownMenuItem(text = { Text(stringResource(R.string.playback_speed)) }, onClick = onPlaybackSpeed)
-                    } else DropdownMenuItem(text = { Text(stringResource(R.string.details)) }, onClick = onDetails,
-                        modifier = Modifier.testTag("viewer-menu-details"))
+                        AlbaMenuItem(stringResource(if (videoLoop) R.string.loop_video_on else R.string.loop_video_off),
+                            onClick = onToggleLoop, leadingIcon = { Icon(Icons.Outlined.Refresh, null) })
+                        AlbaMenuItem(stringResource(R.string.playback_speed), onClick = onPlaybackSpeed,
+                            leadingIcon = { Icon(Icons.Outlined.PlayArrow, null) })
+                    } else AlbaMenuItem(stringResource(R.string.details), onClick = onDetails,
+                        leadingIcon = { Icon(Icons.Outlined.Info, null) }, modifier = Modifier.testTag("viewer-menu-details"))
+                    AlbaMenuDivider()
                     // Copies of the original for other apps; an iCloud original downloads first, with progress.
                     val uses = if (video) listOf(ExternalUse.OPEN_WITH, ExternalUse.EDIT_IN) else ExternalUse.entries
                     uses.forEach { use ->
-                        DropdownMenuItem(text = { Text(stringResource(use.label)) }, enabled = externalUseEnabled,
+                        AlbaMenuItem(stringResource(use.label), enabled = externalUseEnabled, leadingIcon = { Icon(use.icon, null) },
                             onClick = { onUseElsewhere(use) }, modifier = Modifier.testTag("viewer-use-${use.name.lowercase()}"))
                     }
                 }
@@ -563,6 +580,13 @@ private val ExternalUse.label: Int get() = when (this) {
     ExternalUse.PRINT -> R.string.viewer_print
 }
 
+private val ExternalUse.icon: ImageVector get() = when (this) {
+    ExternalUse.USE_AS -> Icons.Outlined.AccountBox
+    ExternalUse.OPEN_WITH -> Icons.AutoMirrored.Outlined.ExitToApp
+    ExternalUse.EDIT_IN -> Icons.Outlined.Edit
+    ExternalUse.PRINT -> AlbaIcons.Print
+}
+
 @Composable
 private fun ViewerActionBar(
     media: GalleryMedia,
@@ -574,10 +598,17 @@ private fun ViewerActionBar(
     onTrash: () -> Unit,
     onLive: () -> Unit,
     playingLive: Boolean,
+    canvas: Color,
+    onAddToAlbum: (() -> Unit)?,
 ) {
-    val colors = viewerColors()
-    Row(Modifier.fillMaxWidth().background(colors.canvas).windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility).offset(y = 5.dp).height(76.dp),
+    // Photos' actions sit on the canvas itself; a transparent-to-canvas scrim keeps them legible where the photo runs
+    // under them, and the ink follows the canvas, dark on the light one and light on black.
+    val viewer = viewerColors()
+    val ink = if (canvas.luminance() > .5f) viewer.foreground else viewer.videoOnDark.ink
+    Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(canvas.copy(alpha = 0f), canvas.copy(alpha = ACTION_SCRIM_ALPHA))))
+        .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility).offset(y = 5.dp).height(76.dp).testTag("viewer-actions"),
         horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        CompositionLocalProvider(LocalContentColor provides ink) {
         ViewerAction(stringResource(R.string.share), enabled, onShare, Modifier.weight(1f).testTag("viewer-share")) {
             Icon(Icons.Outlined.Share, null)
         }
@@ -585,6 +616,11 @@ private fun ViewerActionBar(
             Icon(Icons.Outlined.Edit, null)
         } else ViewerAction(stringResource(R.string.details), true, onDetails, Modifier.weight(1f)) {
             Icon(Icons.Outlined.Info, null)
+        }
+        // Photos' "Add to": the same album chooser as the details panel, for iCloud photos that can join an album.
+        if (onAddToAlbum != null) ViewerAction(stringResource(R.string.viewer_add_to_album), enabled && canEdit, onAddToAlbum,
+            Modifier.weight(1f).testTag("viewer-add-to-album"), description = stringResource(R.string.add_to_album)) {
+            Icon(Icons.Outlined.Add, null)
         }
         if (!media.isShared && !(media.isHidden && !media.isTrashed)) {
             ViewerAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.viewer_trash),
@@ -598,19 +634,29 @@ private fun ViewerActionBar(
             Modifier.weight(1f).testTag("viewer-live")) {
             Icon(Icons.Filled.PlayArrow, null)
         }
+        }
     }
 }
 
+/** As the details panel offers it: iCloud photos outside shared albums, Hidden and the trash can join an album. */
+private val GalleryMedia.canJoinAlbum: Boolean
+    get() = origin == MediaOrigin.ICLOUD && !isShared && !(isHidden || isTrashed)
+
+/** The scrim under the viewer's actions reaches this opacity of the canvas at the bottom edge. */
+private const val ACTION_SCRIM_ALPHA = .85f
+
+/** One viewer action, as Photos': a 24dp icon over a 14sp label, sharing the row's width evenly. */
 @Composable
-private fun ViewerAction(label: String, enabled: Boolean, click: () -> Unit, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {
-    val colors = viewerColors()
+private fun ViewerAction(label: String, enabled: Boolean, click: () -> Unit, modifier: Modifier = Modifier, description: String = label,
+    icon: @Composable () -> Unit) {
+    val ink = LocalContentColor.current
     Column(modifier.clickable(enabled = enabled, role = Role.Button, onClick = click)
-        .height(76.dp).semantics { contentDescription = label }, horizontalAlignment = Alignment.CenterHorizontally,
+        .height(76.dp).semantics { contentDescription = description }, horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
-        CompositionLocalProvider(LocalContentColor provides if (enabled) colors.secondary else colors.disabled) {
-            Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) { icon() }
-            Spacer(Modifier.height(7.dp))
-            Text(label, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, maxLines = 1)
+        CompositionLocalProvider(LocalContentColor provides if (enabled) ink else ink.copy(alpha = .38f)) {
+            Box(Modifier.size(AlbaIconSize.standard), contentAlignment = Alignment.Center) { icon() }
+            Spacer(Modifier.height(8.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

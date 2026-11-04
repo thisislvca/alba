@@ -37,6 +37,9 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.editing.Adjustment
 import me.lvca.alba.app.editing.Adjustments
 import me.lvca.alba.app.platform.decodeEditPreview
+import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.AlbaMenu
+import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.GalleryMedia
@@ -256,8 +259,9 @@ private fun EditorTopBar(
             IconButton(onClick = { menu = true }, enabled = canSave, modifier = Modifier.testTag("save-options")) {
                 Icon(Icons.Outlined.MoreVert, stringResource(R.string.save_options))
             }
-            DropdownMenu(menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.save_copy_and_upload)) }, onClick = { menu = false; saveAndUpload() },
+            AlbaMenu(menu, onDismissRequest = { menu = false }) {
+                AlbaMenuItem(stringResource(R.string.save_copy_and_upload), onClick = { menu = false; saveAndUpload() },
+                    leadingIcon = { Icon(AlbaIcons.CloudUpload, null) },
                     modifier = Modifier.testTag("save-edited-copy-upload"))
             }
         }

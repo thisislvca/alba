@@ -7,6 +7,7 @@ import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -40,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -102,7 +104,7 @@ internal fun MediaTile(
             },
     ) {
         val reducedMotion = reduceGalleryMotion()
-        Box {
+        Box(Modifier.selectedBacking(selected, reducedMotion)) {
             Box(Modifier.selectedInset(selected, selecting, reducedMotion)) {
                 MediaThumbnail(
                     retryVersion = retryVersion,
@@ -131,17 +133,15 @@ internal fun MediaTile(
                     else Icon(Icons.Filled.PlayArrow, stringResource(R.string.videos), tint = onMedia,
                         modifier = Modifier.align(Alignment.BottomEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
                 }
-                if (media.kind == MediaKind.LIVE_PHOTO) MediaPill(Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET)) {
-                    Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(AlbaIconSize.badge))
-                    Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
-                } else tileBadge(media)?.let { badge -> TypeBadge(badge, Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET)) }
-                if (media.isFavorite && !selecting) FavoriteIcon(true,
+                // The selection circle takes the top-start corner while choosing, as in Photos.
+                if (!selecting) TileKindBadge(media, Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET))
+                if (media.isFavorite && !selected) FavoriteIcon(true,
                     contentDescription = stringResource(R.string.favorite), tint = onMedia,
                     modifier = Modifier.align(Alignment.TopEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(16.dp))
                 // Backup state, phone items only; a separate slot so other badges can change independently.
                 if (media.origin == MediaOrigin.DEVICE) BackupBadgeOverlay(media.id)
             }
-            AnimatedVisibility(selecting, Modifier.align(Alignment.TopEnd).padding(6.dp),
+            AnimatedVisibility(selecting, Modifier.align(Alignment.TopStart).padding(GalleryFeel.SELECTION_BADGE_INSET),
                 enter = if (reducedMotion) EnterTransition.None
                 else fadeIn(tween(GalleryFeel.CHECK_FADE_IN_MILLIS, delayMillis = GalleryFeel.CHECK_FADE_IN_DELAY_MILLIS)),
                 exit = if (reducedMotion) ExitTransition.None else fadeOut(tween(GalleryFeel.CHECK_FADE_OUT_MILLIS))) {
@@ -179,6 +179,15 @@ private fun Modifier.selectedInset(selected: Boolean, selecting: Boolean, reduce
 
 private const val MIN_SCALE = .01f
 
+/** Photos backs a checked photo with a quiet grey square, so the shrunken photo reads as picked, not missing. */
+@Composable
+private fun Modifier.selectedBacking(selected: Boolean, reducedMotion: Boolean): Modifier {
+    val backing = MaterialTheme.colorScheme.surfaceVariant
+    val alpha by animateFloatAsState(if (selected) 1f else 0f,
+        if (reducedMotion) snap() else tween(GalleryFeel.SELECT_TOGGLE_MILLIS, easing = LinearOutSlowInEasing), label = "selected-backing")
+    return drawBehind { if (alpha > 0f) drawRect(backing.copy(alpha = alpha)) }
+}
+
 /** The one photo type a tile names in its corner, as Google Photos marks panoramas, slow motion and bursts. */
 internal enum class TileBadge { BURST, PANORAMA, SLO_MO, TIME_LAPSE, RAW }
 
@@ -190,6 +199,15 @@ internal fun tileBadge(media: GalleryMedia): TileBadge? = when {
     SmartCollection.TIME_LAPSE.id in media.collectionIds -> TileBadge.TIME_LAPSE
     isRawFormat(media.mimeType) -> TileBadge.RAW
     else -> null
+}
+
+/** A Live Photo's Live pill, or the photo type's badge. */
+@Composable
+private fun TileKindBadge(media: GalleryMedia, modifier: Modifier) {
+    if (media.kind == MediaKind.LIVE_PHOTO) MediaPill(modifier) {
+        Icon(painterResource(R.drawable.icloud_live_photos), null, Modifier.size(AlbaIconSize.badge))
+        Text(stringResource(R.string.live_badge), style = MaterialTheme.typography.labelSmall)
+    } else tileBadge(media)?.let { badge -> TypeBadge(badge, modifier) }
 }
 
 @Composable
@@ -212,17 +230,18 @@ private fun TypeBadge(badge: TileBadge, modifier: Modifier) {
 private val TileCorner = 2.dp
 
 /**
- * A filled check when selected, an empty ring otherwise. Photos and date headers share it, as in Google Photos; the
- * ring is light over a photo ([onPhoto]) and quiet ink on the page.
+ * A check badge filled in the primary colour when selected, an empty ring otherwise. Photos and date headers share it,
+ * as in Google Photos; the ring is light over a photo ([onPhoto]) and quiet ink on the page. Neither shows until
+ * selection starts.
  */
 @Composable
 internal fun SelectionCircle(selected: Boolean, modifier: Modifier = Modifier, onPhoto: Boolean = true) {
     val colors = AlbaTheme.colors
     if (selected) Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary,
-        modifier = modifier.size(24.dp).border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
-            .background(MaterialTheme.colorScheme.primary, CircleShape).padding(4.dp)
+        modifier = modifier.size(24.dp).background(MaterialTheme.colorScheme.primary, CircleShape).padding(4.dp)
             .then(if (onPhoto) Modifier.testTag("tile-selected") else Modifier))
     else if (onPhoto) Box(modifier.size(24.dp).alpha(GalleryFeel.UNCHECKED_RING_ALPHA)
-        .background(colors.mediaScrim.copy(alpha = .2f), CircleShape).border(2.dp, colors.onMedia, CircleShape))
+        .background(colors.mediaScrim.copy(alpha = .2f), CircleShape).border(2.dp, colors.onMedia, CircleShape)
+        .testTag("tile-selection-ring"))
     else Box(modifier.size(24.dp).border(2.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
 }
