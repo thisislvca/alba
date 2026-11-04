@@ -1,9 +1,15 @@
 package me.lvca.alba.protocol.status
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import me.lvca.alba.engine.model.ProtocolArea
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -160,12 +166,48 @@ class RemoteProtocolStatusTest {
     }
 
     @Test
+    fun observersGetTheCachedStatusWhileAFetchIsSlow() = runBlocking {
+        document = paused("uploads")
+        val status = status()
+        assertNotNull(status.pauseFor(ProtocolArea.UPLOADS))
+
+        // The cached copy goes stale and the next fetch hangs, as on a slow network.
+        val release = CompletableDeferred<Unit>()
+        val started = CompletableDeferred<Unit>()
+        val slow = RemoteProtocolStatus(
+            fetch = { started.complete(Unit); release.await(); CLEAR },
+            cache = memory,
+            appVersionName = "0.4.0",
+            now = { clock },
+        )
+        clock += RemoteProtocolStatus.PAUSED_TTL_MILLIS
+        val writer = async(Dispatchers.Default) { slow.pauseFor(ProtocolArea.UPLOADS) }
+        started.await()
+
+        val seen = withTimeout(1_000) { slow.pauses.first() }
+        assertEquals("The Backup page sees the cached pause at once", listOf("pause"), seen.map { it.id })
+
+        release.complete(Unit)
+        assertNull("The writer waits for the fresh copy", writer.await())
+        assertTrue(slow.pauses.first().isEmpty())
+    }
+
+    @Test
     fun theFetcherOnlyUsesHttps() {
         try {
             OkHttpProtocolStatusFetcher("http://example.com/status.json")
             org.junit.Assert.fail("Accepted a plain HTTP status URL")
         } catch (_: IllegalArgumentException) {
             // Expected.
+        }
+        val fetcher = OkHttpProtocolStatusFetcher(RemoteProtocolStatus.DEFAULT_URL)
+        assertFalse("A redirect from HTTPS to HTTP is not followed", fetcher.client.followSslRedirects)
+        OkHttpProtocolStatusFetcher.requireHttps("https://raw.githubusercontent.com/status.json".toHttpUrl())
+        try {
+            OkHttpProtocolStatusFetcher.requireHttps("http://raw.githubusercontent.com/status.json".toHttpUrl())
+            org.junit.Assert.fail("Accepted a status served over plain HTTP")
+        } catch (_: IOException) {
+            // Expected: treated like an unreachable status.
         }
     }
 

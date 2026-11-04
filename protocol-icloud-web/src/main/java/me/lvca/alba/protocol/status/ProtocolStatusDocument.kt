@@ -28,7 +28,7 @@ import me.lvca.alba.engine.model.ProtocolPause
  *
  * `areas` takes the [ProtocolArea] keys, or `all`; a key this version does not know is ignored, so a newer document
  * never pauses something an older app cannot name. `versions` is optional, and so is each bound; both are inclusive
- * and compare the `major.minor.patch` of the app's version name. `message` is optional: a string, or an object by
+ * and compare app version names as [AppVersion] orders them (a pre-release such as 0.5.0-rc1 is below 0.5.0). `message` is optional: a string, or an object by
  * language code. Unknown fields are ignored. A document that breaks these rules is refused as a whole, and the app
  * keeps its last good status, so a typo cannot lift a pause by accident.
  */
@@ -69,7 +69,7 @@ object ProtocolStatusDocument {
             requireNotNull(value as? JsonObject) { "pauses[$index].versions must be an object" }
         }
         fun bound(name: String) = versions?.string(name)?.let {
-            requireNotNull(AppVersion.parse(it)) { "pauses[$index].versions.$name is not x.y.z" }
+            requireNotNull(AppVersion.parse(it)) { "pauses[$index].versions.$name is not x.y.z or x.y.z-pre" }
         }
         val min = bound("min")
         val max = bound("max")
@@ -127,18 +127,52 @@ data class PauseEntry(
 fun effectivePauses(entries: List<PauseEntry>, version: AppVersion?): List<ProtocolPause> =
     entries.filter { it.areas.isNotEmpty() && it.appliesTo(version) }.map(PauseEntry::toPause)
 
-/** An app version's `major.minor.patch`, as Alba's version names start. */
-data class AppVersion(val major: Int, val minor: Int, val patch: Int) : Comparable<AppVersion> {
-    override fun compareTo(other: AppVersion): Int = compareValuesBy(this, other, AppVersion::major, AppVersion::minor, AppVersion::patch)
+/**
+ * An app version name, `major.minor.patch` with an optional `-pre-release` such as `-rc1` or the debug build's `-dev`.
+ * Versions compare as Semantic Versioning orders them: a pre-release comes before its release, so 0.5.0-rc1 and
+ * 0.5.0-dev are below 0.5.0 and above 0.4.x. Pre-releases of one version compare identifier by identifier, numbers
+ * numerically (rc.2 before rc.10) and before words. A range `"max": "0.5.0"` therefore covers 0.5.0's pre-releases,
+ * and `"min": "0.5.0"` does not.
+ */
+data class AppVersion(val major: Int, val minor: Int, val patch: Int, val preRelease: String? = null) : Comparable<AppVersion> {
+    override fun compareTo(other: AppVersion): Int {
+        val release = compareValuesBy(this, other, AppVersion::major, AppVersion::minor, AppVersion::patch)
+        if (release != 0) return release
+        return when {
+            preRelease == other.preRelease -> 0
+            preRelease == null -> 1
+            other.preRelease == null -> -1
+            else -> comparePreReleases(preRelease.split('.'), other.preRelease.split('.'))
+        }
+    }
 
-    override fun toString(): String = "$major.$minor.$patch"
+    override fun toString(): String = "$major.$minor.$patch" + (preRelease?.let { "-$it" } ?: "")
 
     companion object {
-        private val PATTERN = Regex("""^(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})""")
+        private val PATTERN = Regex(
+            """^(?<major>0|[1-9]\d{0,8})\.(?<minor>0|[1-9]\d{0,8})\.(?<patch>0|[1-9]\d{0,8})""" +
+                """(?:-(?<pre>[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*))?$""",
+        )
 
-        /** The leading `x.y.z` of [name], so "0.4.2-dev" is 0.4.2; null when it does not start with one. */
-        fun parse(name: String): AppVersion? = PATTERN.find(name.trim())?.destructured?.let { (major, minor, patch) ->
-            AppVersion(major.toInt(), minor.toInt(), patch.toInt())
+        /** [name] as a version, or null unless it is exactly `x.y.z` or `x.y.z-pre.release`. */
+        fun parse(name: String): AppVersion? = PATTERN.matchEntire(name.trim())?.groups?.let { groups ->
+            fun number(group: String) = requireNotNull(groups[group]).value.toInt()
+            AppVersion(number("major"), number("minor"), number("patch"), groups["pre"]?.value)
+        }
+
+        private fun comparePreReleases(left: List<String>, right: List<String>): Int {
+            for ((a, b) in left.zip(right)) {
+                val numberA = a.toLongOrNull()
+                val numberB = b.toLongOrNull()
+                val order = when {
+                    numberA != null && numberB != null -> numberA.compareTo(numberB)
+                    numberA != null -> -1
+                    numberB != null -> 1
+                    else -> a.compareTo(b)
+                }
+                if (order != 0) return order
+            }
+            return left.size.compareTo(right.size)
         }
     }
 }

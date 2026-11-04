@@ -28,7 +28,9 @@ internal object LiveSession {
     fun load(): Loaded? {
         System.getenv(SESSION_VARIABLE)?.trim()?.takeIf { it.isNotEmpty() }?.let { value ->
             val json = if (value.startsWith("{")) value else String(Base64.getDecoder().decode(value), Charsets.UTF_8)
-            return Loaded(AppleSessionCodec.decode(json), file = null)
+            // With ALBA_LIVE_SESSION_FILE as well, a renewed session is written there; otherwise it can't be kept.
+            val file = System.getenv(FILE_VARIABLE)?.takeIf { it.isNotBlank() }?.let(::File)
+            return Loaded(AppleSessionCodec.decode(json), file)
         }
         val file = sessionFile()
         if (!file.isFile) return null

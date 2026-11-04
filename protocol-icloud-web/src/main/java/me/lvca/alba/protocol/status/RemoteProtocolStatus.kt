@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import me.lvca.alba.engine.model.ProtocolArea
 import me.lvca.alba.engine.model.ProtocolPause
 import me.lvca.alba.engine.model.ProtocolStatusGate
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -45,41 +46,60 @@ class RemoteProtocolStatus(
     private val now: () -> Long = System::currentTimeMillis,
 ) : ProtocolStatusGate {
     private val version = AppVersion.parse(appVersionName)
-    private val gate = Mutex()
-    private val state = MutableStateFlow<List<ProtocolPause>>(emptyList())
-    private var loaded = false
-    private var current: CachedProtocolStatus? = null
-    private var nextAttemptAt = 0L
 
-    override val pauses: Flow<List<ProtocolPause>> = state.onStart { gate.withLock { load(); publish(now()) } }
+    /** Held only to read the disk cache once; never across a fetch, so observers never wait for the network. */
+    private val loadLock = Mutex()
+
+    /** One fetch at a time. Writers wait here for a fresh copy, at most the fetcher's call timeout. */
+    private val fetchLock = Mutex()
+    private val state = MutableStateFlow<List<ProtocolPause>>(emptyList())
+
+    @Volatile private var loaded = false
+
+    @Volatile private var current: CachedProtocolStatus? = null
+
+    @Volatile private var nextAttemptAt = 0L
+
+    /** The cached state, at once: collecting it never waits for a fetch in flight. */
+    override val pauses: Flow<List<ProtocolPause>> = state.onStart { load(); publish(now()) }
 
     override suspend fun pauseFor(area: ProtocolArea): ProtocolPause? = refresh().firstOrNull { area in it.areas }
 
     /** The pauses in effect for this app version, after fetching the document when the cached one is stale. */
-    suspend fun refresh(): List<ProtocolPause> = gate.withLock {
+    suspend fun refresh(): List<ProtocolPause> {
         load()
-        val at = now()
-        if (!isFresh(current, at) && at >= nextAttemptAt) {
-            try {
-                val document = fetch()
-                val fetched = CachedProtocolStatus(document, at).also { it.entries }
-                current = fetched
-                nextAttemptAt = 0L
-                runCatching { withContext(Dispatchers.IO) { cache.write(fetched) } }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                // Unreachable, refused or malformed: keep what was known, and wait before asking again.
-                nextAttemptAt = at + RETRY_AFTER_FAILURE_MILLIS
-            }
+        fetchLock.withLock {
+            // Checked again under the lock: a fetch that finished while this one waited has already refreshed it.
+            val at = now()
+            if (!isFresh(current, at) && at >= nextAttemptAt) fetchNow(at)
         }
-        publish(at)
+        return publish(now())
+    }
+
+    private suspend fun fetchNow(at: Long) {
+        try {
+            val document = fetch()
+            val fetched = CachedProtocolStatus(document, at).also { it.entries }
+            current = fetched
+            nextAttemptAt = 0L
+            runCatching { withContext(Dispatchers.IO) { cache.write(fetched) } }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // Unreachable, refused or malformed: keep what was known, and wait before asking again.
+            nextAttemptAt = at + RETRY_AFTER_FAILURE_MILLIS
+        }
     }
 
     private suspend fun load() {
         if (loaded) return
-        loaded = true
-        current = runCatching { withContext(Dispatchers.IO) { cache.read() }?.also { it.entries } }.getOrNull()
+        loadLock.withLock {
+            if (loaded) return
+            val cached = runCatching { withContext(Dispatchers.IO) { cache.read() }?.also { it.entries } }.getOrNull()
+            // A fetch may have finished first; never replace a fresher copy with the disk's.
+            if (current == null) current = cached
+            loaded = true
+        }
     }
 
     private fun publish(at: Long): List<ProtocolPause> {
@@ -151,17 +171,20 @@ class OkHttpProtocolStatusFetcher(
         require(url.startsWith("https://")) { "The protocol status must be fetched over HTTPS" }
     }
 
-    private val client = client.newBuilder()
+    /** Redirects between HTTPS hosts are followed; one to plain HTTP is not, and is refused below as a non-200. */
+    internal val client = client.newBuilder()
         .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .retryOnConnectionFailure(false)
+        .followSslRedirects(false)
         .cache(null)
         .build()
 
     override suspend fun invoke(): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).header("Accept", "application/json").build()
         client.newCall(request).execute().use { response ->
+            requireHttps(response.request.url)
             if (response.code != HTTP_OK) throw IOException("The protocol status returned HTTP ${response.code}")
             val source = response.body.source()
             if (source.request(MAX_BYTES + 1L)) throw IOException("The protocol status is too large")
@@ -169,7 +192,12 @@ class OkHttpProtocolStatusFetcher(
         }
     }
 
-    private companion object {
+    internal companion object {
+        /** Refuses a response that, after any redirect, did not come over HTTPS. */
+        fun requireHttps(finalUrl: HttpUrl) {
+            if (!finalUrl.isHttps) throw IOException("The protocol status was not served over HTTPS")
+        }
+
         const val HTTP_OK = 200
         const val TIMEOUT_SECONDS = 5L
         const val CALL_TIMEOUT_SECONDS = 8L

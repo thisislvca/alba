@@ -115,11 +115,31 @@ class ProtocolStatusDocumentTest {
     @Test
     fun appVersionsReadTheLeadingMajorMinorPatch() {
         assertEquals(AppVersion(0, 4, 2), AppVersion.parse("0.4.2"))
-        assertEquals(AppVersion(0, 4, 2), AppVersion.parse("0.4.2-dev"))
+        assertEquals(AppVersion(0, 4, 2, "dev"), AppVersion.parse("0.4.2-dev"))
+        assertEquals(AppVersion(0, 5, 0, "rc.1"), AppVersion.parse("0.5.0-rc.1"))
         assertEquals(AppVersion(12, 0, 31), AppVersion.parse("12.0.31"))
-        assertNull(AppVersion.parse("dev"))
-        assertNull(AppVersion.parse("1.2"))
-        assertNull(AppVersion.parse("01.2.3"))
+        listOf("dev", "1.2", "01.2.3", "0.4.2.1", "0.4.2x", "0.4.2-", "0.4.2-rc..1", "0.4.2 beta").forEach {
+            assertNull("Parsed $it", AppVersion.parse(it))
+        }
+    }
+
+    @Test
+    fun preReleasesComeBeforeTheirRelease() {
+        fun v(name: String) = requireNotNull(AppVersion.parse(name))
+
+        assertTrue(v("0.5.0-rc1") < v("0.5.0"))
+        assertTrue(v("0.5.0-dev") < v("0.5.0"))
+        assertTrue(v("0.5.0-rc1") > v("0.4.9"))
+        assertTrue(v("0.5.0-rc1") < v("0.5.0-rc2"))
+        assertTrue("Numbers compare numerically", v("0.5.0-rc.2") < v("0.5.0-rc.10"))
+        assertTrue("Numbers come before words", v("0.5.0-1") < v("0.5.0-alpha"))
+        assertTrue("A longer pre-release with the same start is later", v("0.5.0-rc") < v("0.5.0-rc.1"))
+        assertEquals(0, v("0.5.0-rc1").compareTo(v("0.5.0-rc1")))
+
+        val upTo = PauseEntry("a", setOf(ProtocolArea.UPLOADS), maxVersion = v("0.5.0"))
+        assertTrue("max 0.5.0 covers its release candidates", upTo.appliesTo(v("0.5.0-rc1")))
+        val from = PauseEntry("b", setOf(ProtocolArea.UPLOADS), minVersion = v("0.5.0"))
+        assertFalse("min 0.5.0 leaves its release candidates out", from.appliesTo(v("0.5.0-rc1")))
     }
 
     @Test

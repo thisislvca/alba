@@ -170,9 +170,11 @@ The app reads [`status/protocol-status.json`](status/protocol-status.json) from 
 ```
 
 - `areas`: `uploads` (backup and photos the user uploads), `library-edits` (favorites, albums, Hidden, Recently Deleted), `shared-albums` (every Shared Album change), or `all`. Reads, browsing and verification are never paused.
-- `versions`: optional `min` and `max`, both inclusive, compared as `major.minor.patch` of the version name. Leave it out to cover every version.
+- `versions`: optional `min` and `max`, both inclusive, as `x.y.z` or `x.y.z-pre`. Leave it out to cover every version. As in Semantic Versioning, a pre-release comes before its release: 0.5.0-rc1 and debug builds' 0.5.0-dev are below 0.5.0, so `"max": "0.5.0"` covers them and `"min": "0.5.0"` doesn't.
 - `message`: optional, a string or text by language. Without one, the app shows its own wording.
-- To lift a pause, remove its entry (leave `"pauses": []`). `ProtocolStatusDocumentTest` checks the committed file, so a malformed edit fails CI.
+- To lift a pause, remove its entry (leave `"pauses": []`).
+
+Phones ignore a document that doesn't parse: they keep their last good copy for up to 12 hours, then pause nothing. A broken edit can therefore neither pause nor lift anything, and it can quietly let a pause lapse. `ProtocolStatusDocumentTest` checks the committed file, but CI only runs on pull requests and pushes, after the file is already live on `main`. Flip it through a pull request and merge once CI is green. If you must push straight to `main`, first run `./gradlew :protocol-icloud-web:testDebugUnitTest --tests '*ProtocolStatusDocumentTest'` locally.
 
 While uploads are paused, queued items stay pending, nothing is sent or marked failed, and backup continues on its next pass once the pause clears. Uploads the user started wait in the queue and continue the next time Alba schedules them, such as when the app opens. Paused edits are refused with a message and change nothing.
 
@@ -191,7 +193,9 @@ It is never part of `testDebugUnitTest` or CI's normal jobs. To run it, preferab
 
 The password is read without echo and never saved. The session file is ignored by git and readable only by you; `ALBA_LIVE_SESSION_FILE` puts it elsewhere. Without a session the test is skipped. Sessions expire, so run `liveSignIn` again when validation fails.
 
-To run it in GitHub Actions, add the repository secret `ALBA_LIVE_SESSION` with `base64 < .live/icloud-session.json`, then start Actions > Live iCloud contract > Run workflow. Without the secret the workflow does nothing. Apple may treat sign-ins from GitHub's data centres with suspicion, and the secret has to be renewed whenever the session expires, so the local run is the main path.
+When Apple renews the session during a run, the new tokens are saved back to the session file. With `ALBA_LIVE_SESSION`, they are saved only if `ALBA_LIVE_SESSION_FILE` is also set; otherwise the report ends with a note that the session was renewed and the variable still holds the older tokens.
+
+To run it in GitHub Actions, add the repository secret `ALBA_LIVE_SESSION` with `base64 < .live/icloud-session.json`, then start Actions > Live iCloud contract > Run workflow. Without the secret the workflow does nothing. CI can't save renewed tokens (they would have to be printed), so when the report notes a renewal, or `session.validate` starts failing, run `liveSignIn` locally and update the secret. Apple may treat sign-ins from GitHub's data centres with suspicion, so the local run is the main path.
 
 ## Contribute
 

@@ -58,9 +58,17 @@ class LiveContractTest {
         )
         val contract = LiveContract(requireNotNull(loaded).snapshot)
         val results = contract.run()
-        loaded.file?.let { file -> runCatching { LiveSession.save(file, contract.latestSession) } }
+        val renewed = contract.latestSession.sessionToken != loaded.snapshot.sessionToken ||
+            contract.latestSession.trustToken != loaded.snapshot.trustToken
+        val saved = loaded.file?.let { file -> runCatching { LiveSession.save(file, contract.latestSession) }.isSuccess } == true
         val report = render(results)
         println(report)
+        if (renewed && !saved) {
+            // CI: the renewed tokens can't be saved or printed. The old ones keep working until Apple expires them.
+            println("NOTE: Apple renewed this session, but it came from ${LiveSession.SESSION_VARIABLE} with nowhere to save it. " +
+                "The secret still holds the older tokens; when session.validate starts failing, run liveSignIn locally " +
+                "and update the secret with base64 < .live/icloud-session.json.")
+        }
         val broken = results.filter { it.outcome == Outcome.FAILED }
         if (broken.isNotEmpty()) {
             fail("${broken.size} iCloud protocol assumption(s) broke:\n" +
@@ -293,11 +301,7 @@ internal class LiveContract(initial: AppleSessionSnapshot) {
         val chain = generateSequence(error) { it.cause }.take(3).map { cause ->
             if (cause is Broken) cause.message.orEmpty() else "${cause::class.java.simpleName}: ${cause.message.orEmpty()}"
         }.joinToString(" <- ")
-        var text = Regex("""(https?://[^\s?"]+)\?\S*""").replace(chain) { "${it.groupValues[1]}?…" }
-        listOf(latestSession.dsid, latestSession.clientId, latestSession.accountName, latestSession.sessionToken)
-            .filter { it.length >= MIN_REDACTED }
-            .forEach { text = text.replace(it, "<redacted>") }
-        return text.take(MAX_DETAIL)
+        return redact(chain, latestSession).take(MAX_DETAIL)
     }
 
     private class CountingStream : OutputStream() {
@@ -309,7 +313,33 @@ internal class LiveContract(initial: AppleSessionSnapshot) {
     private companion object {
         const val FIRST_PAGE = 5
         const val MAX_DETAIL = 600
-        const val MIN_REDACTED = 4
         val PREVIEWS = listOf("resJPEGThumbRes", "resJPEGMedRes", "resJPEGLargeRes")
     }
+}
+
+private const val MIN_REDACTED = 4
+private val signedQuery = Regex("""(https?://[^\s?"]+)\?\S*""")
+
+/** Token-like runs: long base64, hex or UUID-ish strings, as cookies, tokens and CloudKit record names are. */
+private val tokenLike = Regex("""[A-Za-z0-9+/_=.:-]*[0-9][A-Za-z0-9+/_=.:-]*""")
+private const val TOKEN_MIN_LENGTH = 16
+
+/** File names with an extension, as photo names appear in messages. */
+private val fileNamePattern = Regex("""[^\s/"'(),:]+\.(?i:jpe?g|heic|heif|png|gif|tiff?|webp|dng|raw|mov|mp4|m4v|avi|3gp)\b""")
+
+/** Key-value pairs whose value is a secret, such as `X-APPLE-WEBAUTH-TOKEN=…` or `"sessionToken": "…"`. */
+private val secretPair = Regex("""(?i)((?:token|cookie|session|scnt|auth|trust|dsid|clientid|password)[\w-]*"?\s*[:=]\s*"?)[^\s",;&]+""")
+
+/**
+ * [text] with nothing that identifies the account or could reuse the session: the session's own values and cookies,
+ * signed URL queries, secret key-value pairs, token-like strings (record names included) and file names.
+ */
+internal fun redact(text: String, session: AppleSessionSnapshot): String {
+    var result = signedQuery.replace(text) { "${it.groupValues[1]}?…" }
+    val known = listOfNotNull(session.dsid, session.clientId, session.accountName, session.sessionToken, session.sessionId,
+        session.trustToken, session.displayName) + session.cookies.map { it.value }
+    known.filter { it.length >= MIN_REDACTED }.sortedByDescending { it.length }.forEach { result = result.replace(it, "<redacted>") }
+    result = secretPair.replace(result) { "${it.groupValues[1]}<redacted>" }
+    result = fileNamePattern.replace(result, "<file>")
+    return tokenLike.replace(result) { if (it.value.length >= TOKEN_MIN_LENGTH) "<redacted>" else it.value }
 }

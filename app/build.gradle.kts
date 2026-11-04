@@ -30,7 +30,9 @@ require(appVersionCode in 1..2100000000) { "Invalid Alba version code." }
 // their own copy, or pass an empty value to build without remote pauses.
 val protocolStatusUrl = providers.gradleProperty("albaProtocolStatusUrl")
     .getOrElse("https://raw.githubusercontent.com/thisislvca/alba/main/status/protocol-status.json").trim()
-require(protocolStatusUrl.isEmpty() || protocolStatusUrl.matches(Regex("https://[^\\s\"]+"))) { "albaProtocolStatusUrl must be an https URL." }
+require(protocolStatusUrl.isEmpty() || protocolStatusUrl.matches(Regex("https://[^\\s\"'\\\\$]+"))) {
+    "albaProtocolStatusUrl must be an https URL without spaces, quotes, backslashes or dollar signs."
+}
 
 android {
     namespace = "me.lvca.alba.app"
