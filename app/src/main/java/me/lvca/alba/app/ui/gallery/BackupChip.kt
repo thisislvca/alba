@@ -25,7 +25,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaIcons
  */
 @Composable
 internal fun BackupStatusChip(session: SessionState, transfers: TransferState, openBackup: () -> Unit, modifier: Modifier = Modifier) {
-    val status = backupStatus(transfers, session.accountState, session.network)
+    val status = backupStatus(transfers, session.accountState, session.network, session.charging)
     val label = status.chipLabel() ?: return
     val problem = status is BackupStatus.Failed || status == BackupStatus.StorageFull || status == BackupStatus.SignInNeeded ||
         status == BackupStatus.NeedsPermission

@@ -5,6 +5,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -56,6 +57,8 @@ data class SessionState(
     val accountInfo: AccountInfo = AccountInfo(),
     val isAccountOpen: Boolean = false,
     val network: NetworkStatus? = null,
+    /** Whether the phone is charging; null while unknown. */
+    val charging: Boolean? = null,
     val isRefreshing: Boolean = true,
     val lastRefreshedAt: Instant? = null,
     /** Restoring the saved account failed; the account screen offers a retry instead of a spinner. */
@@ -73,6 +76,25 @@ data class SessionState(
         get() = if (accountState != ICloudAccountState.Demo) "iCloud Personal Library" else "Demo iCloud library"
 }
 
+/** The account, the photo companion and the library the account screen reads and resets. */
+internal data class AccountSources(
+    val accountManager: ICloudAccountManager,
+    val photos: PhotoCompanion,
+    val repository: GalleryRepository,
+)
+
+/** What the rest of the app does when the account changes. */
+internal interface AccountSwitchHooks {
+    /** Stops work that belongs to the outgoing account. */
+    suspend fun cancelCloudWork()
+
+    /** Resets what the outgoing account left behind; [refresh] reads the new library. */
+    suspend fun accountChanged(refresh: Boolean)
+}
+
+/** What the phone itself is doing that backup depends on: its network, and whether it is charging (null while unknown). */
+internal data class PhoneConditions(val network: NetworkStatus?, val charging: Boolean?)
+
 private data class AccountFlags(
     val busy: Boolean,
     val info: AccountInfo,
@@ -83,21 +105,23 @@ private data class AccountFlags(
 
 /**
  * Sign-in, two-factor verification, sign-out, switching between the demo and iCloud, and connection checks.
- * Work that belongs to the outgoing account is stopped through [cancelCloudWork]; [onAccountChanged] resets the rest.
+ * Work that belongs to the outgoing account is stopped through [AccountSwitchHooks.cancelCloudWork];
+ * [AccountSwitchHooks.accountChanged] resets the rest.
  */
 internal class AccountController(
     private val scope: CoroutineScope,
     private val savedState: SavedStateHandle,
-    private val accountManager: ICloudAccountManager,
-    private val photos: PhotoCompanion,
-    private val repository: GalleryRepository,
+    sources: AccountSources,
     private val diagnostics: AlbaDiagnostics,
     private val messages: UserMessages,
     private val sync: LibrarySync,
-    network: StateFlow<NetworkStatus?>,
-    private val cancelCloudWork: suspend () -> Unit,
-    private val onAccountChanged: suspend (refresh: Boolean) -> Unit,
+    phone: Flow<PhoneConditions>,
+    private val hooks: AccountSwitchHooks,
 ) {
+    private val accountManager = sources.accountManager
+    private val photos = sources.photos
+    private val repository = sources.repository
+
     private val busy = MutableStateFlow(false)
     private val problem = MutableStateFlow<SignInProblem?>(null)
 
@@ -114,15 +138,16 @@ internal class AccountController(
     val state: StateFlow<SessionState> = combine(
         accountManager.state,
         combine(busy, accountInfo, accountOpen, problem, requestedPage, ::AccountFlags),
-        network,
+        phone,
         sync.state,
-    ) { account, flags, network, sync ->
+    ) { account, flags, (network, charging), sync ->
         SessionState(
             accountState = account,
             accountBusy = flags.busy,
             accountInfo = flags.info,
             isAccountOpen = flags.open,
             network = network,
+            charging = charging,
             isRefreshing = sync.isRefreshing,
             lastRefreshedAt = sync.lastRefreshedAt,
             restoreFailed = sync.restoreFailed,
@@ -163,7 +188,7 @@ internal class AccountController(
     private fun selectLibraryMode(demo: Boolean) {
         scope.launch {
             try {
-                cancelCloudWork()
+                hooks.cancelCloudWork()
                 sync.restoreAccount()
                 if (accountManager.session.value == null) {
                     accountManager.selectDemo(demo)
@@ -243,7 +268,7 @@ internal class AccountController(
                     messages.show(localizedStoredMessage(accountChange.reason))
                     return@launch
                 }
-                cancelCloudWork()
+                hooks.cancelCloudWork()
                 messages.clear()
                 problem.value = null
                 val result = accountManager.signIn(appleId, password)
@@ -269,7 +294,7 @@ internal class AccountController(
         busy.value = true
         scope.launch {
             try {
-                cancelCloudWork()
+                hooks.cancelCloudWork()
                 messages.clear()
                 problem.value = null
                 accountManager.submitTwoFactor(code)
@@ -339,7 +364,7 @@ internal class AccountController(
                     messages.show(localizedStoredMessage(accountChange.reason))
                     return@launch
                 }
-                cancelCloudWork()
+                hooks.cancelCloudWork()
                 messages.clear()
                 problem.value = null
                 signInDraft.password = ""
@@ -368,7 +393,7 @@ internal class AccountController(
         if (accountManager.session.value == null || signInPreviousDsid != accountManager.session.value?.dsid) {
             repository.clearCloudCatalog()
         }
-        onAccountChanged(refresh)
+        hooks.accountChanged(refresh)
     }
 
     private companion object {

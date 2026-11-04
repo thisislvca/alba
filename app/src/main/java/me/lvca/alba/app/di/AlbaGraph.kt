@@ -8,6 +8,7 @@ import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PhotoEditStore
+import me.lvca.alba.app.platform.chargingStatus
 import me.lvca.alba.app.platform.networkStatus
 import me.lvca.alba.app.sharing.SharedActivityStore
 import me.lvca.alba.app.transfers.TransferScheduler
@@ -104,6 +105,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
             onSessionUpdated = accountManager::updateSession,
             onSessionRejected = accountManager::rejectSession,
             uploadJournal = uploadJournal,
+            metadataEditor = liveCatalog.uploadMetadataEditor,
         ),
         scheduler = WorkManagerWakeupScheduler(appContext) { backupPreferences.settings.value },
         automaticBackupPolicy = AndroidAutomaticBackupPolicy(appContext, backupPreferences),
@@ -129,4 +131,5 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         override suspend fun cancel() = cancelUserTransfers(appContext)
     }
     val network = networkStatus(appContext)
+    val charging = chargingStatus(appContext)
 }

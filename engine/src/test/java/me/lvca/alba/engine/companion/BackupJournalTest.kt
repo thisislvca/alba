@@ -24,6 +24,7 @@ import me.lvca.alba.engine.model.ICloudDestination
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
+import me.lvca.alba.engine.model.PhoneMetadata
 import me.lvca.alba.engine.model.PhotoCompanionException
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.RemoteOriginalObservation
@@ -70,6 +71,7 @@ class BackupJournalTest {
     private var elapsed = 5_000_000L
     private var network = BackupNetwork.UNMETERED
     private var settings = BackupSettings()
+    private var charging = true
 
     /** When set, the network turns metered on the check after this many more. */
     private var meteredAfterChecks: Int? = null
@@ -82,6 +84,7 @@ class BackupJournalTest {
             return network
         }
         override fun settings() = settings
+        override fun isCharging() = charging
     }
 
     @Before
@@ -135,6 +138,69 @@ class BackupJournalTest {
         network = BackupNetwork.METERED
         photos.syncNow()
         assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+    }
+
+    @Test
+    fun backupWaitsForTheChargerOnlyWhenTheUserChoseIt() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        settings = settings.copy(onlyWhileCharging = true)
+        charging = false
+
+        photos.syncNow()
+        assertEquals(0, protocol.uploadStarts)
+        assertTrue("Nothing is staged off the charger either", photos.observeTransfers().first().isEmpty())
+        val manual = photos.uploadSelected(UserSelectedPhoto("content://picker/one", "one.jpg"))
+        photos.runUserUploads()
+        assertEquals("A photo the user picked does not wait for the charger", TransferViewState.VERIFIED,
+            photos.observeTransfers().first().single { it.id == manual.id }.state)
+
+        charging = true
+        photos.syncNow()
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single { it.displayName == "camera.jpg" }.state)
+    }
+
+    @Test
+    fun aVerifiedUploadCarriesThePhonesFavouriteAndCaptionIntoICloudOnce() = runBlocking {
+        source.items += item(1, "liked.jpg", "image/jpeg")
+        source.items += item(2, "plain.jpg", "image/jpeg")
+        source.metadata["content://media/external/images/media/1"] = PhoneMetadata(favorite = true, caption = "Lake at dawn")
+        val photos = enrolled()
+
+        repeat(3) { photos.syncNow() }
+
+        assertTrue(photos.observeTransfers().first().all { it.state == TransferViewState.VERIFIED })
+        assertEquals("Only the item with something to carry is edited, once", 1, protocol.applied.size)
+        val (asset, metadata) = protocol.applied.single()
+        assertTrue(asset.startsWith("asset:"))
+        assertEquals(PhoneMetadata(favorite = true, caption = "Lake at dawn"), metadata)
+    }
+
+    @Test
+    fun anAssetICloudAlreadyHadIsNotReFavourited() = runBlocking {
+        source.items += item(1, "liked.jpg", "image/jpeg")
+        source.metadata["content://media/external/images/media/1"] = PhoneMetadata(favorite = true, caption = "Lake at dawn")
+        protocol.duplicate = true
+        val photos = enrolled()
+
+        repeat(3) { photos.syncNow() }
+
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        assertEquals("The user may have un-favourited it in iCloud on purpose", 0, protocol.metadataAttempts)
+    }
+
+    @Test
+    fun aFailedMetadataEditNeitherFailsNorRepeatsTheUpload() = runBlocking {
+        source.items += item(1, "liked.jpg", "image/jpeg")
+        source.metadata["content://media/external/images/media/1"] = PhoneMetadata(favorite = true)
+        protocol.metadataFails = true
+        val photos = enrolled()
+
+        repeat(3) { photos.syncNow() }
+
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        assertEquals(1, protocol.uploadStarts)
+        assertEquals("The edit is tried once, when the upload is verified", 1, protocol.metadataAttempts)
     }
 
     @Test
@@ -624,6 +690,9 @@ class BackupJournalTest {
         /** MediaStore's DATE_TAKEN by content URI; items without one have only their modification date. */
         val dateTaken = mutableMapOf<String, Long>()
         val refusals = mutableMapOf<String, String>()
+
+        /** What the phone records about an item beyond its bytes, by content URI. */
+        val metadata = mutableMapOf<String, PhoneMetadata>()
         val changed = mutableSetOf<String>()
         val unreadable = mutableSetOf<String>()
         val editedAfterCheck = mutableSetOf<String>()
@@ -695,6 +764,8 @@ class BackupJournalTest {
 
         override suspend fun readTrashState(contentUri: String): LocalTrashState? = LocalTrashState(true, null)
 
+        override suspend fun phoneMetadata(contentUri: String, mimeType: String) = metadata[contentUri] ?: PhoneMetadata()
+
         private fun evidence(contentUri: String, name: String, output: OutputStream?, override: ByteArray? = null): ExactOriginalEvidence {
             val id = sameBytes[contentUri] ?: (items + existing).firstOrNull { it.contentUri == contentUri }?.mediaStoreId
                 ?: contentUri.hashCode().toLong()
@@ -723,6 +794,18 @@ class BackupJournalTest {
         val uploadedNames = mutableListOf<String>()
         val preparedDates = mutableListOf<Triple<String, Long?, Int?>>()
         private val uploads = mutableMapOf<String, ByteArray>()
+        val applied = mutableListOf<Pair<String, PhoneMetadata>>()
+        var metadataFails = false
+
+        /** Whether Apple reports each upload as a copy of an asset already in the library (HTTP 409). */
+        var duplicate = false
+        var metadataAttempts = 0
+
+        override suspend fun applyPhoneMetadata(binding: AccountBinding, assetRecordName: String, metadata: PhoneMetadata) {
+            metadataAttempts += 1
+            if (metadataFails) throw java.io.IOException("connection reset while editing")
+            applied += assetRecordName to metadata
+        }
 
         override suspend fun canResume(binding: AccountBinding, attemptId: String) = attemptId !in interrupted
         override suspend fun registrationNeverSent(binding: AccountBinding, attemptId: String) =
@@ -747,7 +830,7 @@ class BackupJournalTest {
                 }
                 uploadedNames += fileName
                 uploads[attemptId] = source.openOnce().use { it.readBytes() }
-                return UploadAcceptance("request", "master:$attemptId", "asset:$attemptId", false)
+                return UploadAcceptance("request", "master:$attemptId", "asset:$attemptId", duplicate)
             }
 
             override fun cancel() = Unit
