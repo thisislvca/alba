@@ -48,6 +48,19 @@ Never commit goldens recorded on a Mac.
 - Run one emulator at a time, and don't run other Gradle builds while device tests run.
 - Shut down emulators you started.
 
+## Cloud sessions
+
+Claude Code cloud sessions (claude.ai/code) build Alba and run the JVM layers: unit tests, Robolectric and screenshot rendering. They have no emulator, so device tests stay in CI, and goldens are still recorded only by CI's bot.
+
+- `scripts/cloud/setup.sh` installs the Android SDK packages CI uses into `/opt/android-sdk`. The cloud image already has JDK 21.
+- The SessionStart hook in `.claude/settings.json` runs `scripts/cloud/session-start.sh`. It installs the SDK if the setup script didn't, and exports `JAVA_HOME`, `ANDROID_HOME` and CI's no-Sentry variables. On your own machine it does nothing.
+- The cloud environment ("Alba"):
+  - Network access: Limited, with "Allow package managers" on.
+  - Allowed domains: `dl.google.com`, `dl-ssl.google.com` and `*.gradle.org`.
+  - Setup script: the contents of `scripts/cloud/setup.sh`.
+  - No secrets. Leave `GH_TOKEN` unset; GitHub goes through the cloud's own proxy.
+- The VM has about 4 CPUs and 16 GB of memory, so run the classes you touched plus ktlint and detekt, and let CI run the rest.
+
 ## UI
 
 - Google Photos is the reference for gestures, motion and small details. Keep Alba's layout and Apple's names for iCloud data. Polish; don't redesign.
