@@ -72,7 +72,9 @@ internal class ICloudWebSession(
         // A stale validation cookie does not necessarily mean Apple's longer-lived
         // session and trust tokens have expired. Match iCloud.com's token login before
         // asking the person for their password and another verification code.
-        if (response.code == 401 || response.code == 403) {
+        // Apple also answers 421 when the web auth cookie is gone (pyicloud's LOGIN_TOKEN_EXPIRED,
+        // icloud-photos-downloader issue 1363); pyicloud then tries the same token login.
+        if (response.code in EXPIRED_SESSION_STATUSES) {
             telemetry.record(
                 AccountOperation.VALIDATE,
                 AccountOutcome.EXPIRED,
@@ -123,7 +125,8 @@ internal class ICloudWebSession(
             )
             throw error
         }
-        if (response.code == 401 || response.code == 403) {
+        // A rejected token login, 421 included, ends in the sign-in-again state; renewal is never retried.
+        if (response.code in EXPIRED_SESSION_STATUSES) {
             telemetry.record(
                 AccountOperation.RENEW,
                 AccountOutcome.EXPIRED,
@@ -277,5 +280,8 @@ internal class ICloudWebSession(
         val DISCOVERED_SERVICES = listOf("ckdatabasews", "photosupload", "account", "contacts")
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         val JSON_HEADERS = mapOf("Content-Type" to "application/json")
+
+        /** Unauthorized, Forbidden and Misdirected Request (Apple's LOGIN_TOKEN_EXPIRED): Apple refused the session. */
+        val EXPIRED_SESSION_STATUSES = setOf(401, 403, 421)
     }
 }
