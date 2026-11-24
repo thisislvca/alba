@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +80,8 @@ fun ICloudAccountScreen(
     mediaBusy: Boolean,
     diagnostics: DiagnosticsConsent,
     actions: AccountScreenActions,
+    /** Leaves sign-in for the sample library; null where it isn't offered (release builds, or with an account). */
+    tryDemo: (() -> Unit)? = null,
 ) {
     val state = session.accountState
     var page by rememberSaveable { mutableStateOf(ProfilePage.OVERVIEW) }
@@ -131,7 +135,7 @@ fun ICloudAccountScreen(
                 onAppleId = { appleId = it; actions.clearSignInProblem() },
                 onPassword = { draft.password = it; actions.clearSignInProblem() },
                 onVerificationCode = { verificationCode = it; actions.clearSignInProblem() },
-                onNavigate = { page = it }, onBack = back)
+                onNavigate = { page = it }, onBack = back, tryDemo = tryDemo)
         }
     }
 }
@@ -154,6 +158,7 @@ private fun AccountPage(
     onVerificationCode: (String) -> Unit,
     onNavigate: (ProfilePage) -> Unit,
     onBack: () -> Unit,
+    tryDemo: (() -> Unit)?,
 ) {
     val state = session.accountState
     val busy = session.accountBusy
@@ -169,7 +174,7 @@ private fun AccountPage(
         SignInPage(
             expired = signedIn?.status == SessionStatus.EXPIRED, appleId = shownAppleId, password = password,
             problem = session.signInProblem, onAppleIdChange = onAppleId, onPasswordChange = onPassword,
-            onSubmit = { actions.signIn(shownAppleId, password) }, onBack = onBack,
+            onSubmit = { actions.signIn(shownAppleId, password) }, onTryDemo = tryDemo,
         )
         return
     }
@@ -279,13 +284,18 @@ internal fun SignInProblemNotice(problem: SignInProblem?) {
 
 /** A link to a page on Apple's or Alba's site, opened in the browser. */
 @Composable
-internal fun HelpLink(label: Int, url: String, modifier: Modifier = Modifier) {
+internal fun HelpLink(
+    label: Int,
+    url: String,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
+) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     TextButton(onClick = {
         try { uriHandler.openUri(url) }
         catch (_: ActivityNotFoundException) { Toast.makeText(context, R.string.browser_unavailable, Toast.LENGTH_LONG).show() }
-    }, modifier = modifier) { Text(stringResource(label)) }
+    }, modifier = modifier, contentPadding = contentPadding) { Text(stringResource(label)) }
 }
 
 /**

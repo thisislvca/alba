@@ -52,4 +52,9 @@ class NavigationStateTest {
         assertEquals(RootBack.CLOSE_ACCOUNT, rootBack(Destination.Account, hasSelection = false))
         assertNull(rootBack(Destination.Gallery, hasSelection = false))
     }
+
+    @Test fun signInAtTheStartLeavesBackToTheSystem() {
+        assertNull(rootBack(Destination.Account, hasSelection = false, signInFirst = true))
+        assertEquals(RootBack.CLEAR_SELECTION, rootBack(Destination.Account, hasSelection = true, signInFirst = true))
+    }
 }

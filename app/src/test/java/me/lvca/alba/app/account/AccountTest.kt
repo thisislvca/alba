@@ -4,6 +4,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.AlbaAppRule
+import me.lvca.alba.app.testing.pressBack
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -32,12 +34,25 @@ class AccountTest {
         compose.onNodeWithText(app.string(R.string.sign_in_heading)).assertIsDisplayed()
         compose.onNodeWithTag("sign-in-submit").assertIsNotEnabled()
         compose.onNodeWithTag("sign-in-compatibility").performClick()
+        compose.onNodeWithTag("sign-in-compatibility-dialog").assertIsDisplayed()
         compose.onNodeWithText(app.string(R.string.supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke))
             .performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText(app.string(R.string.sign_in_compatibility_hide)).performClick()
+        compose.onNodeWithTag("sign-in-compatibility-close").performClick()
+        compose.onNodeWithTag("sign-in-compatibility-dialog").assertDoesNotExist()
         compose.onNodeWithText(app.string(R.string.apple_account)).assertIsDisplayed()
         compose.onNodeWithText(app.string(R.string.password)).assertIsDisplayed()
         compose.onNodeWithTag("sign-in-submit").assertIsDisplayed()
+    }
+
+    /** Sign-in opened from the demo's profile has no back button and no demo link; the system's back returns. */
+    @Test fun signInFromTheProfileLeavesByTheBackGesture() {
+        openSignIn()
+        compose.onNodeWithTag("sign-in-page").assertIsDisplayed()
+        compose.onNodeWithContentDescription(app.string(R.string.back_action)).assertDoesNotExist()
+        compose.onNodeWithTag("sign-in-demo").assertDoesNotExist()
+        compose.pressBack()
+        compose.onNodeWithTag("sign-in-page").assertDoesNotExist()
+        compose.onNodeWithTag("profile-sign-in").assertIsDisplayed()
     }
 
     /**

@@ -15,7 +15,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -78,6 +81,7 @@ import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.app.ui.AlbaApp
 import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.app.ui.InvitationActions
+import me.lvca.alba.app.ui.LocalSignInFirst
 import me.lvca.alba.app.ui.account.BackupDisclosure
 import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.LocalStatusBarIcons
@@ -88,8 +92,6 @@ import me.lvca.alba.app.ui.gallery.LocalBackupBadges
 import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
 import me.lvca.alba.app.ui.gallery.backupBadges
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
-import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
-import me.lvca.alba.app.ui.onboarding.WelcomeScreen
 import me.lvca.alba.app.ui.shared.LocalNotificationAccess
 import me.lvca.alba.app.ui.shared.LocalSharedActivity
 import me.lvca.alba.app.ui.shared.NotificationAccess
@@ -185,36 +187,35 @@ internal fun AlbaRoot(
     incoming: IncomingSession,
     onIncomingChange: (IncomingSession) -> Unit,
 ) {
-    var showWelcome by rememberSaveable { mutableStateOf(!onboarding.completed) }
-    // Sign-in opened from the introduction: leaving it without an account returns there, not to an empty library.
-    var connectingFromWelcome by rememberSaveable { mutableStateOf(false) }
-    // Signing out returns to the introduction's choices rather than dropping silently into an empty library.
+    // Until there is an account (or, in debug builds, the demo), sign-in is where Alba starts, with no way back
+    // behind it: back leaves the app as from any first screen.
+    var signInFirst by rememberSaveable { mutableStateOf(!onboarding.completed) }
+    val session by viewModel.account.state.collectAsStateWithLifecycle()
+    // Signing out starts over at sign-in rather than dropping silently into an empty library.
     val returnToWelcome by viewModel.returnToWelcome.collectAsStateWithLifecycle()
     LaunchedEffect(returnToWelcome) {
         if (returnToWelcome) {
-            connectingFromWelcome = false
-            showWelcome = true
+            signInFirst = true
             viewModel.welcomeShown()
         }
     }
+    val accountState = session.accountState
+    LaunchedEffect(accountState) {
+        if (accountState is ICloudAccountState.SignedIn || accountState == ICloudAccountState.Demo) {
+            onboarding.complete()
+            signInFirst = false
+        }
+    }
+    val startAtSignIn = signInFirst && incoming.request == null
+    LaunchedEffect(startAtSignIn) { if (startAtSignIn) viewModel.account.beginAtSignIn() }
     // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
     AlbaTheme(darkTheme = isSystemInDarkTheme()) {
-        if (showWelcome && incoming.request == null) {
-            WelcomeScreen(
-                // Returning from sign-in lands on the page that offers it, next to the demo.
-                initialPage = if (onboarding.completed) WELCOME_CHOICES_PAGE else 0,
-                onConnect = {
-                    onboarding.complete(); viewModel.account.connectAccount()
-                    connectingFromWelcome = true; showWelcome = false
-                },
-                onDemo = { onboarding.complete(); viewModel.account.startDemo(); showWelcome = false },
-            )
-        } else {
+        // Until sign-in opens, the sky it opens on, rather than a frame of the empty library behind it.
+        if (startAtSignIn && !session.isAccountOpen) Box(Modifier.fillMaxSize().background(AlbaTheme.colors.dawn.sky))
+        else CompositionLocalProvider(LocalSignInFirst provides startAtSignIn) {
             AlbaMain(viewModel, incoming, onIncomingChange, onAccountClosed = {
-                if (connectingFromWelcome) {
-                    connectingFromWelcome = false
-                    if (viewModel.account.state.value.accountState !is ICloudAccountState.SignedIn) showWelcome = true
-                }
+                // Leaving a code page at the start returns to sign-in.
+                if (startAtSignIn) viewModel.account.beginAtSignIn()
             })
         }
     }

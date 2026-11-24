@@ -64,6 +64,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.gallery.GallerySection
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.platform.demoEntry
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.BrowseActions
 import me.lvca.alba.app.ui.GalleryScreenActions
@@ -847,7 +848,7 @@ private fun PhotoGrid(
                 else if (query.collectionId?.startsWith("shared:") == true) Unit
                 else if (query.trashOnly) Text(stringResource(R.string.trash_empty))
                 else if (query.collectionId == GalleryQuery.HIDDEN) Text(stringResource(R.string.hidden_empty))
-                else if (connectPrompt) ConnectLibrary(connect = actions::openAccount, demo = actions::startDemo)
+                else if (connectPrompt) ConnectLibrary(connect = actions::openAccount, demo = demoEntry(actions::startDemo))
                 else {
                     EmptyLibrary()
                     if (query != unfiltered) TextButton(onClick = { actions.changeQuery(unfiltered) }) { Text(stringResource(R.string.clear_filters)) }

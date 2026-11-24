@@ -149,6 +149,13 @@ abstract class AppScreenshots(
         show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true, signInProblem = SignInProblem.WRONG_PASSWORD))
         capture("sign-in-wrong-password")
     }
+
+    @Test fun signInCompatibility() {
+        state("sign-in-compatibility")
+        show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true))
+        compose.onNodeWithTag("sign-in-compatibility").performClick()
+        capture("sign-in-compatibility")
+    }
 }
 
 /** A Pixel 9 class phone, light theme: every state. */

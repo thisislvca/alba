@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,7 @@ import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.actions.MediaWork
 import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.messages.UiMessage
+import me.lvca.alba.app.platform.demoEntry
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
 import me.lvca.alba.app.ui.gallery.GalleryHome
@@ -68,6 +70,7 @@ import me.lvca.alba.app.ui.viewer.ViewerBurst
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.protocol.account.ICloudAccountState
 
 /**
  * Where the app is. Derived from the account screen flag and the open photo, which the ViewModel keeps in saved
@@ -94,12 +97,19 @@ internal sealed interface Destination {
 
 private const val MEDIA_KEY = "media"
 
+/**
+ * Whether the account screen is sign-in at the start of the app (a fresh install, or after signing out), with nothing
+ * behind it: the root provides it, and back then leaves the app instead of closing the screen.
+ */
+internal val LocalSignInFirst = compositionLocalOf { false }
+
 /** What the system back gesture does at the top level, before a screen's own back handling. */
 internal enum class RootBack { CLEAR_SELECTION, CLOSE_ACCOUNT, CLOSE_MEDIA }
 
-internal fun rootBack(destination: Destination, hasSelection: Boolean): RootBack? = when {
+/** [signInFirst]: the account screen is sign-in at the start, with nothing behind it to go back to. */
+internal fun rootBack(destination: Destination, hasSelection: Boolean, signInFirst: Boolean = false): RootBack? = when {
     hasSelection -> RootBack.CLEAR_SELECTION
-    destination is Destination.Account -> RootBack.CLOSE_ACCOUNT
+    destination is Destination.Account -> RootBack.CLOSE_ACCOUNT.takeUnless { signInFirst }
     destination is Destination.Media -> RootBack.CLOSE_MEDIA
     else -> null
 }
@@ -150,7 +160,7 @@ fun AlbaApp(
         confirmButton = { TextButton(onClick = actions::cancelShare) { Text(stringResource(R.string.cancel)) } })
 
     val destination = Destination.of(session, gallery)
-    val back = rootBack(destination, gallery.selection.isNotEmpty())
+    val back = rootBack(destination, gallery.selection.isNotEmpty(), LocalSignInFirst.current)
     BackHandler(enabled = back == RootBack.CLEAR_SELECTION || back == RootBack.CLOSE_MEDIA) {
         when (back) {
             RootBack.CLEAR_SELECTION -> actions.clearSelection()
@@ -208,6 +218,8 @@ fun AlbaApp(
                             mediaBusy = mediaWork.busy,
                             diagnostics = diagnostics,
                             actions = actions,
+                            // Only an unconnected library can switch to the demo, and only where the build offers it.
+                            tryDemo = demoEntry(actions::startDemo).takeIf { session.accountState == ICloudAccountState.SignedOut },
                         )
                     }
                 } else {

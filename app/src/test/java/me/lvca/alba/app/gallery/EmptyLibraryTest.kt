@@ -8,7 +8,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.platform.demoEntry
 import me.lvca.alba.app.testing.setAlbaContent
+import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.gallery.ConnectLibrary
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -39,6 +42,15 @@ class EmptyLibraryTest {
         compose.onNodeWithTag("empty-connect-button").assertIsDisplayed().performClick()
         compose.onNodeWithTag("empty-demo-button").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(1, connects); assertEquals(1, demos) }
+    }
+
+    @Test
+    fun releaseBuildsOfferOnlyConnecting() {
+        var demos = 0
+        compose.setContent { AlbaTheme(darkTheme = false) { ConnectLibrary(connect = {}, demo = demoEntry({ demos++ }, enabled = false)) } }
+        compose.onNodeWithTag("empty-connect-button").assertIsDisplayed()
+        compose.onNodeWithTag("empty-demo-button").assertDoesNotExist()
+        assertEquals(0, demos)
     }
 
     @Test

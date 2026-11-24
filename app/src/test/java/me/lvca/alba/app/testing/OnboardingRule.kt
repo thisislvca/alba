@@ -11,7 +11,7 @@ import org.robolectric.shadows.ShadowStatFs
 
 /**
  * Prepares Robolectric's fresh application for Alba: a phone with free space, a test WorkManager, and the
- * introduction either completed with the demo selected ([completed]) or not yet seen, as on a fresh install.
+ * first run either completed with the demo selected ([completed]) or starting at sign-in, as on a fresh install.
  *
  * Robolectric creates a new application, database, files and preferences for every test, so nothing needs restoring.
  */

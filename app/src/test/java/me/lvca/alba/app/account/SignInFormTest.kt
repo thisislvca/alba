@@ -7,7 +7,11 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -20,6 +24,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.R
+import me.lvca.alba.app.platform.demoEntry
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
@@ -46,33 +51,57 @@ class SignInFormTest {
     private var smsRequests = 0
     private val signIns = mutableListOf<Pair<String, String>>()
     private var closes = 0
+    private var demos = 0
 
     @Test fun wrongPasswordShowsUnderTheFieldWithHelp() {
         render(SessionState(accountState = ICloudAccountState.SignedOut, signInProblem = SignInProblem.WRONG_PASSWORD))
-        compose.onNodeWithText(string(R.string.invalid_credentials)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-wrong-password").performScrollTo().assertIsDisplayed()
+            .assertTextEquals(string(R.string.invalid_credentials))
         val password = compose.onNodeWithTag("sign-in-password").fetchSemanticsNode()
         assertTrue(SemanticsProperties.Error in password.config)
         compose.onNodeWithTag("sign-in-forgot-password").performScrollTo().performClick()
         assertEquals(listOf("https://iforgot.apple.com"), opened)
     }
 
-    @Test fun pageLeadsWithAlbaAndKeepsTheCompatibilityWarningBehindDetails() {
+    @Test fun pageLeadsWithAlbaAndKeepsTheCompatibilityWarningInADialog() {
         render(SessionState(accountState = ICloudAccountState.SignedOut))
         // The brand shrinks to the space the sheet leaves, which on this small test window may be none.
         compose.onNodeWithTag("sign-in-brand").assertExists()
         compose.onNodeWithTag("sign-in-sheet").assertIsDisplayed()
         compose.onNodeWithTag("sign-in-title").performScrollTo().assertIsDisplayed()
-        // The trust line and the details sit below the button, outside the scrolling form.
+        // The trust line and the details link sit below the button, outside the scrolling form.
         compose.onNodeWithTag("sign-in-trust").assertIsDisplayed()
         compose.onNodeWithTag("sign-in-unsupported").assertDoesNotExist()
-        compose.onNodeWithTag("sign-in-compatibility").performClick()
-        compose.onNodeWithTag("sign-in-unsupported").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-compatibility").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("sign-in-compatibility-dialog").assertIsDisplayed()
+        compose.onNode(hasTestTag("sign-in-unsupported") and hasAnyAncestor(isDialog())).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke))
+            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-compatibility-close").performClick()
+        compose.onNodeWithTag("sign-in-compatibility-dialog").assertDoesNotExist()
+        compose.onNodeWithTag("sign-in-unsupported").assertDoesNotExist()
     }
 
-    @Test fun backLeavesTheSignInPage() {
+    @Test fun signInHasNoBackButton() {
         render(SessionState(accountState = ICloudAccountState.SignedOut))
-        compose.onNodeWithContentDescription(string(R.string.back_action)).performClick()
-        assertEquals(1, closes)
+        compose.onNodeWithTag("sign-in-page").assertIsDisplayed()
+        compose.onNodeWithContentDescription(string(R.string.back_action)).assertDoesNotExist()
+        compose.onNodeWithTag("sign-in-back").assertDoesNotExist()
+        assertEquals(0, closes)
+    }
+
+    @Test fun releaseBuildsOfferNoDemo() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut), tryDemo = demoEntry({ demos++ }, enabled = false))
+        compose.onNodeWithTag("sign-in-compatibility").assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-demo").assertDoesNotExist()
+        compose.onNodeWithText(string(R.string.welcome_demo)).assertDoesNotExist()
+    }
+
+    @Test fun debugBuildsOfferTheDemoAsAQuietLink() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut), tryDemo = demoEntry({ demos++ }, enabled = true))
+        compose.onNodeWithTag("sign-in-demo").assertIsDisplayed().assertTextEquals(string(R.string.welcome_demo)).performClick()
+        assertEquals(1, demos)
+        assertEquals(0, closes)
     }
 
     @Test fun signInIsPinnedBelowTheFormAndSubmitsFromTheKeyboard() {
@@ -151,7 +180,7 @@ class SignInFormTest {
         assertEquals(listOf("https://support.apple.com/102630"), opened)
     }
 
-    private fun render(session: SessionState) {
+    private fun render(session: SessionState, tryDemo: (() -> Unit)? = null) {
         val handler = object : UriHandler { override fun openUri(uri: String) { opened += uri } }
         compose.setContent {
             CompositionLocalProvider(LocalUriHandler provides handler) {
@@ -164,6 +193,7 @@ class SignInFormTest {
                         diagnostics = DiagnosticsConsent(),
                         actions = testAlbaActions(signOut = { signOuts++ }, sendCodeBySms = { smsRequests++ },
                             signIn = { appleId, password -> signIns += appleId to password }, closeAccount = { closes++ }),
+                        tryDemo = tryDemo,
                     )
                 }
             }
