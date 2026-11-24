@@ -31,6 +31,25 @@ internal data class AlbaColors(
     val viewer: ViewerColors,
     /** The account card and its artwork, which keep their own palette in both themes. */
     val profile: ProfileColors,
+    /** The app icon's sunrise, behind the sign-in page. */
+    val dawn: DawnColors,
+)
+
+/**
+ * The app icon's dawn, top to bottom: violet sky, a magenta-pink band, coral, then the warm yellow of the sun. The light
+ * set is sampled from the icon; the dark set is the same hues deepened to dusk, so it isn't a bright block at night.
+ * White text belongs on [sky] and [skyHigh] only: the lower stops are too light for it.
+ */
+@Immutable
+internal data class DawnColors(
+    val sky: Color,
+    val skyHigh: Color,
+    val rose: Color,
+    val coral: Color,
+    val horizon: Color,
+    val sun: Color,
+    /** Text and icons drawn on the sky. */
+    val onSky: Color = Color.White,
 )
 
 /** Neutral viewer surfaces that keep the media in focus: white or black canvas with soft greys around it. */
@@ -114,6 +133,10 @@ internal val LightAlbaColors = AlbaColors(
         card = Color(0xFFEDEDF6), chip = Color(0xFFE3E3EA), disabled = Color(0xFF9A9BA0),
     ),
     profile = ProfileColors(),
+    dawn = DawnColors(
+        sky = Color(0xFF7558CC), skyHigh = Color(0xFF8C63CC), rose = Color(0xFFD372A4),
+        coral = Color(0xFFF1888A), horizon = Color(0xFFF8A270), sun = Color(0xFFF5C46F),
+    ),
 )
 
 internal val DarkAlbaColors = AlbaColors(
@@ -131,6 +154,10 @@ internal val DarkAlbaColors = AlbaColors(
         card = Color(0xFF1F1F1F), chip = Color(0xFF303030), disabled = Color(0xFF777777),
     ),
     profile = ProfileColors(),
+    dawn = DawnColors(
+        sky = Color(0xFF241A4D), skyHigh = Color(0xFF34225E), rose = Color(0xFF6A2F62),
+        coral = Color(0xFF8C3F55), horizon = Color(0xFF9F5644), sun = Color(0xFFC98A4A),
+    ),
 )
 
 internal val LocalAlbaColors = staticCompositionLocalOf { LightAlbaColors }

@@ -45,6 +45,7 @@ class SignInFormTest {
     private var signOuts = 0
     private var smsRequests = 0
     private val signIns = mutableListOf<Pair<String, String>>()
+    private var closes = 0
 
     @Test fun wrongPasswordShowsUnderTheFieldWithHelp() {
         render(SessionState(accountState = ICloudAccountState.SignedOut, signInProblem = SignInProblem.WRONG_PASSWORD))
@@ -57,12 +58,21 @@ class SignInFormTest {
 
     @Test fun pageLeadsWithAlbaAndKeepsTheCompatibilityWarningBehindDetails() {
         render(SessionState(accountState = ICloudAccountState.SignedOut))
-        compose.onNodeWithTag("sign-in-connection-mark").assertIsDisplayed()
-        compose.onNodeWithTag("sign-in-title").assertIsDisplayed()
+        // The brand shrinks to the space the sheet leaves, which on this small test window may be none.
+        compose.onNodeWithTag("sign-in-brand").assertExists()
+        compose.onNodeWithTag("sign-in-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-title").performScrollTo().assertIsDisplayed()
+        // The trust line and the details sit below the button, outside the scrolling form.
         compose.onNodeWithTag("sign-in-trust").assertIsDisplayed()
         compose.onNodeWithTag("sign-in-unsupported").assertDoesNotExist()
-        compose.onNodeWithTag("sign-in-compatibility").performScrollTo().performClick()
+        compose.onNodeWithTag("sign-in-compatibility").performClick()
         compose.onNodeWithTag("sign-in-unsupported").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun backLeavesTheSignInPage() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut))
+        compose.onNodeWithContentDescription(string(R.string.back_action)).performClick()
+        assertEquals(1, closes)
     }
 
     @Test fun signInIsPinnedBelowTheFormAndSubmitsFromTheKeyboard() {
@@ -153,7 +163,7 @@ class SignInFormTest {
                         mediaBusy = false,
                         diagnostics = DiagnosticsConsent(),
                         actions = testAlbaActions(signOut = { signOuts++ }, sendCodeBySms = { smsRequests++ },
-                            signIn = { appleId, password -> signIns += appleId to password }),
+                            signIn = { appleId, password -> signIns += appleId to password }, closeAccount = { closes++ }),
                     )
                 }
             }

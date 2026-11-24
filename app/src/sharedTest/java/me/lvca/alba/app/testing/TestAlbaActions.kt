@@ -49,6 +49,7 @@ internal fun testAlbaActions(
     clearLocalMedia: (LocalMediaCategory) -> Unit = {},
     checkConnection: () -> Unit = {},
     signIn: (String, String) -> Unit = { _, _ -> },
+    closeAccount: () -> Unit = {},
     submitTwoFactor: (String) -> Unit = {},
     requestDevicePhotos: () -> Unit = {},
     pickUpload: () -> Unit = {},
@@ -79,7 +80,7 @@ internal fun testAlbaActions(
     val onPendingInvitations = pendingSharedInvitations; val onResolveInvitation = resolveSharedInvitation; val onRespondInvitation = respondSharedInvitation
     val onSharedManagement = sharedManagement; val onSharedDiscussion = sharedDiscussion; val onChangeSharedAlbum = changeSharedAlbum
     val onClearLocalMedia = clearLocalMedia; val onCheckConnection = checkConnection; val onSubmitTwoFactor = submitTwoFactor
-    val onSignIn = signIn
+    val onSignIn = signIn; val onCloseAccount = closeAccount
     val onRequestDevicePhotos = requestDevicePhotos; val onPickUpload = pickUpload; val onContinue = continuePastUnresolved
     val onMoveVerifiedPhotoToTrash = moveVerifiedPhotoToTrash; val onOpenAccount = openAccount; val onStartDemo = startDemo
     val onOpenHidden = openHidden; val onSetHidden = setHidden; val onExpandBurst = expandBurst
@@ -169,7 +170,7 @@ internal fun testAlbaActions(
         override fun keepOriginalOffline(mediaId: String) = Unit
         override fun removeCachedOriginal(mediaId: String) = Unit
         override fun cancelOfflineDownload() = Unit
-        override fun closeAccount() = Unit
+        override fun closeAccount() = onCloseAccount()
         override fun signIn(appleId: String, password: String) = onSignIn(appleId, password)
         override fun resendTwoFactor() = Unit
         override fun sendCodeBySms() = onSendCodeBySms()

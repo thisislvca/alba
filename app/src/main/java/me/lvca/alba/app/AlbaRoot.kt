@@ -80,6 +80,8 @@ import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.app.ui.InvitationActions
 import me.lvca.alba.app.ui.account.BackupDisclosure
 import me.lvca.alba.app.ui.account.ProfilePage
+import me.lvca.alba.app.ui.designsystem.LocalStatusBarIcons
+import me.lvca.alba.app.ui.designsystem.StatusBarIcons
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
 import me.lvca.alba.app.ui.gallery.LocalBackupBadges
@@ -568,10 +570,12 @@ private fun AlbaMain(
     val darkTheme = isSystemInDarkTheme()
     var viewerLightBars by remember { mutableStateOf(true) }
     val lightBars = if (gallery.selectedMedia != null && !session.isAccountOpen) viewerLightBars else !darkTheme
+    val statusBarIcons = remember { StatusBarIcons() }
+    val lightStatusBar = lightBars && !statusBarIcons.lightIcons
     SideEffect {
         activity?.window?.let { window ->
             WindowCompat.getInsetsController(window, window.decorView).apply {
-                isAppearanceLightStatusBars = lightBars
+                isAppearanceLightStatusBars = lightStatusBar
                 isAppearanceLightNavigationBars = lightBars
             }
         }
@@ -581,6 +585,7 @@ private fun AlbaMain(
         backupBadges(transfers.backup.enabled, transfers.uploadsByMediaId)
     })
     CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalBackupBadges provides backupBadges,
+        LocalStatusBarIcons provides statusBarIcons,
         LocalSharedActivity provides sharedActivity, LocalNotificationAccess provides notificationAccess) {
         AlbaApp(
             gallery = gallery,
