@@ -11,6 +11,7 @@ import com.github.takahirom.roborazzi.captureScreenRoboImage
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.account.SignInProblem
 import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.setAlbaContent
@@ -142,6 +143,12 @@ abstract class AppScreenshots(
         show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true))
         capture("sign-in")
     }
+
+    @Test fun signInWrongPassword() {
+        state("sign-in-wrong-password")
+        show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true, signInProblem = SignInProblem.WRONG_PASSWORD))
+        capture("sign-in-wrong-password")
+    }
 }
 
 /** A Pixel 9 class phone, light theme: every state. */
@@ -151,15 +158,15 @@ class StandardScreenshots : AppScreenshots("standard")
 /** A small phone (360 × 640 dp). */
 @Config(qualifiers = "w360dp-h640dp-port-hdpi")
 class CompactScreenshots : AppScreenshots("compact",
-    states = setOf("gallery", "gallery-selection", "empty-signed-out", "viewer", "viewer-details", "filter-sheet", "profile"))
+    states = setOf("gallery", "gallery-selection", "empty-signed-out", "viewer", "viewer-details", "filter-sheet", "profile", "sign-in"))
 
 /** A tablet or unfolded window in landscape, where navigation moves to a rail. */
 @Config(qualifiers = "w900dp-h600dp-land-hdpi")
-class WideScreenshots : AppScreenshots("wide", states = setOf("gallery", "collections", "viewer", "viewer-details", "profile"))
+class WideScreenshots : AppScreenshots("wide", states = setOf("gallery", "collections", "viewer", "viewer-details", "profile", "sign-in"))
 
 @Config(qualifiers = STANDARD)
 class DarkScreenshots : AppScreenshots("dark", darkTheme = true,
-    states = setOf("gallery", "gallery-selection", "viewer", "filter-sheet", "profile", "sign-in"))
+    states = setOf("gallery", "gallery-selection", "viewer", "filter-sheet", "profile", "sign-in", "sign-in-wrong-password"))
 
 /** The largest common accessibility text size short of the system maximum. */
 @Config(qualifiers = STANDARD)

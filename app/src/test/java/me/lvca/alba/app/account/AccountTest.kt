@@ -30,14 +30,14 @@ class AccountTest {
     @Test fun signInStartsDisabledAndExplainsCompatibility() {
         openSignIn()
         compose.onNodeWithText(app.string(R.string.sign_in_heading)).assertIsDisplayed()
-        compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).assertIsNotEnabled()
+        compose.onNodeWithTag("sign-in-submit").assertIsNotEnabled()
         compose.onNodeWithText(app.string(R.string.sign_in_compatibility)).performScrollTo().performClick()
         compose.onNodeWithText(app.string(R.string.supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke))
             .performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(app.string(R.string.sign_in_compatibility_hide)).performScrollTo().performClick()
         compose.onNodeWithText(app.string(R.string.apple_account)).assertIsDisplayed()
         compose.onNodeWithText(app.string(R.string.password)).assertIsDisplayed()
-        compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-submit").assertIsDisplayed()
     }
 
     /**
@@ -53,11 +53,11 @@ class AccountTest {
         fun passwordLength() = compose.onNodeWithText(app.string(R.string.password)).fetchSemanticsNode()
             .config[SemanticsProperties.EditableText].length
         assertEquals("never-persist-this".length, passwordLength())
-        compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag("sign-in-submit").assertIsEnabled()
         app.recreate()
         compose.onNodeWithText("local-restoration@example.invalid").assertIsDisplayed()
         assertEquals("never-persist-this".length, passwordLength())
-        compose.onNodeWithText(app.string(R.string.sign_in_to_icloud)).performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag("sign-in-submit").assertIsEnabled()
     }
 
     @Test fun demoProfileShowsTheDemoBadgeAndStorageAcrossRecreation() {

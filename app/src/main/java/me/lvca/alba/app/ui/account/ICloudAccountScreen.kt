@@ -10,30 +10,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,12 +35,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
-import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -59,26 +46,17 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.account.SignInProblem
-import me.lvca.alba.app.demo.DemoTransferMode
-import me.lvca.alba.app.messages.localizedStoredMessage
 import me.lvca.alba.app.transfers.TransferState
-import me.lvca.alba.app.ui.AccountActions
 import me.lvca.alba.app.ui.AccountScreenActions
 import me.lvca.alba.app.ui.designsystem.AlbaCard
-import me.lvca.alba.app.ui.designsystem.AlbaDivider
-import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaPageScaffold
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
-import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.navigation.BackPhase
 import me.lvca.alba.app.ui.navigation.NavigationDirection
 import me.lvca.alba.app.ui.navigation.NavigationMotion
@@ -87,13 +65,7 @@ import me.lvca.alba.app.ui.navigation.PredictiveBackState
 import me.lvca.alba.app.ui.navigation.navigationTransform
 import me.lvca.alba.app.ui.navigation.predictiveBackPose
 import me.lvca.alba.app.ui.navigation.rememberNavigationTransition
-import me.lvca.alba.app.ui.timestampLabel
-import me.lvca.alba.app.ui.transfers.TransferQueueCard
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
-import me.lvca.alba.engine.model.BackupView
-import me.lvca.alba.engine.model.TransferId
-import me.lvca.alba.engine.model.TransferView
-import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import me.lvca.alba.protocol.account.TwoFactorDelivery
@@ -192,12 +164,17 @@ private fun AccountPage(
         AboutScreen(diagnostics, actions::setDiagnosticsEnabled, onBack)
         return
     }
+    if (!authenticating && (page == ProfilePage.SIGN_IN || state == ICloudAccountState.SignedOut)) {
+        val shownAppleId = appleId.ifBlank { signedIn?.appleId.orEmpty() }
+        SignInPage(
+            expired = signedIn?.status == SessionStatus.EXPIRED, appleId = shownAppleId, password = password,
+            problem = session.signInProblem, onAppleIdChange = onAppleId, onPasswordChange = onPassword,
+            onSubmit = { actions.signIn(shownAppleId, password) }, onBack = onBack,
+        )
+        return
+    }
     AlbaPageScaffold(
-        title = stringResource(when {
-            authenticating -> R.string.icloud_account
-            state == ICloudAccountState.SignedOut -> R.string.icloud_account
-            else -> page.title
-        }),
+        title = stringResource(if (authenticating) R.string.icloud_account else page.title),
         onBack = onBack,
     ) {
         when {
@@ -223,17 +200,6 @@ private fun AccountPage(
                 { actions.submitTwoFactor(verificationCode); onVerificationCode("") },
                 actions::resendTwoFactor, actions::sendCodeBySms, actions::signOut,
             )
-            page == ProfilePage.SIGN_IN || state == ICloudAccountState.SignedOut -> {
-                if (signedIn?.status == SessionStatus.EXPIRED) {
-                    Text(stringResource(R.string.your_saved_library_is_available_sign_in_again_to_reconnect))
-                    Spacer(Modifier.height(20.dp))
-                }
-                SignInForm(
-                    appleId.ifBlank { signedIn?.appleId.orEmpty() }, password, session.signInProblem,
-                    onAppleId, onPassword,
-                    { actions.signIn(appleId.ifBlank { signedIn?.appleId.orEmpty() }, password) },
-                )
-            }
             page == ProfilePage.BACKUP -> BackupPage(session, transfers, actions, onNavigate)
             page == ProfilePage.BACKUP_FOLDERS -> DeviceFoldersPage(transfers, actions)
             page == ProfilePage.FREE_UP_SPACE -> FreeUpSpacePage(transfers, actions)
@@ -293,111 +259,9 @@ private fun PhotosNotEnabledAccount(
     }
 }
 
-@Composable
-private fun SignInForm(
-    appleId: String,
-    password: String,
-    problem: SignInProblem?,
-    onAppleIdChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-) {
-    var showCompatibility by rememberSaveable { mutableStateOf(false) }
-    var showPassword by rememberSaveable { mutableStateOf(false) }
-    val focus = LocalFocusManager.current
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.height(12.dp))
-        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary.copy(alpha = .09f)) {
-            Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.Lock, null, Modifier.size(AlbaIconSize.large), tint = MaterialTheme.colorScheme.primary)
-            }
-        }
-        Spacer(Modifier.height(18.dp))
-        Text(stringResource(R.string.sign_in_heading), style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center)
-        Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.sign_in_intro), Modifier.padding(horizontal = 16.dp),
-            style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(8.dp))
-        // Said before any credentials are typed, so these accounts learn it up front.
-        Text(stringResource(R.string.sign_in_unsupported_accounts), Modifier.padding(horizontal = 16.dp).testTag("sign-in-unsupported"),
-            style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-    Spacer(Modifier.height(28.dp))
-    val fieldColors = TextFieldDefaults.colors(
-        focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
-        errorContainerColor = Color.Transparent,
-        focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
-        errorIndicatorColor = Color.Transparent,
-    )
-    val wrongPassword = problem == SignInProblem.WRONG_PASSWORD
-    val canSubmit = appleId.isNotBlank() && password.isNotBlank()
-    AlbaCard {
-        TextField(
-            value = appleId, onValueChange = onAppleIdChange,
-            label = { Text(stringResource(R.string.apple_account)) },
-            placeholder = { Text(stringResource(R.string.email_placeholder)) },
-            singleLine = true, shape = RectangleShape, colors = fieldColors,
-            isError = wrongPassword,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
-            modifier = Modifier.fillMaxWidth().testTag("sign-in-apple-id")
-                .semantics { contentType = ContentType.Username + ContentType.EmailAddress },
-        )
-        AlbaDivider(Modifier.padding(horizontal = 16.dp))
-        TextField(
-            value = password, onValueChange = onPasswordChange,
-            label = { Text(stringResource(R.string.password)) },
-            singleLine = true, shape = RectangleShape, colors = fieldColors,
-            isError = wrongPassword,
-            supportingText = if (wrongPassword) { { Text(stringResource(R.string.invalid_credentials)) } } else null,
-            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { showPassword = !showPassword }, modifier = Modifier.testTag("sign-in-show-password")) {
-                    Icon(if (showPassword) AlbaIcons.VisibilityOff else AlbaIcons.Visibility,
-                        stringResource(if (showPassword) R.string.sign_in_hide_password else R.string.sign_in_show_password))
-                }
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { if (canSubmit) onSubmit() }),
-            modifier = Modifier.fillMaxWidth().testTag("sign-in-password").semantics { contentType = ContentType.Password },
-        )
-    }
-    SignInProblemNotice(problem)
-    Spacer(Modifier.height(4.dp))
-    HelpLink(R.string.sign_in_forgot_password, FORGOT_PASSWORD_URL, Modifier.testTag("sign-in-forgot-password"))
-    Spacer(Modifier.height(4.dp))
-    Text(stringResource(R.string.sign_in_password_note), Modifier.padding(horizontal = 12.dp),
-        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center)
-    Spacer(Modifier.height(24.dp))
-    Button(
-        onClick = onSubmit,
-        enabled = canSubmit,
-        shape = CircleShape,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
-    ) { Text(stringResource(R.string.sign_in_to_icloud)) }
-    Spacer(Modifier.height(12.dp))
-    TextButton(onClick = { showCompatibility = !showCompatibility }, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(if (showCompatibility) R.string.sign_in_compatibility_hide else R.string.sign_in_compatibility))
-        Icon(if (showCompatibility) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-            null, Modifier.padding(start = 6.dp).size(18.dp))
-    }
-    if (showCompatibility) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.alba_connects_straight_to_apple_s_icloud_web_services_your_password_is_used_only_for_),
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(stringResource(R.string.supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke),
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
 /** Problems that are about the account rather than one field: an explanation and, where Apple has one, its help page. */
 @Composable
-private fun SignInProblemNotice(problem: SignInProblem?) {
+internal fun SignInProblemNotice(problem: SignInProblem?) {
     val (message, help) = when (problem) {
         SignInProblem.SECURITY_KEY -> R.string.sign_in_error_security_key to (R.string.sign_in_help_security_keys to SECURITY_KEYS_URL)
         SignInProblem.TOO_MANY_ATTEMPTS -> R.string.sign_in_error_too_many_attempts to (R.string.sign_in_help_unlock to FORGOT_PASSWORD_URL)

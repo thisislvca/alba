@@ -113,7 +113,6 @@
     <string name="media_types">Media types</string>
     <string name="medium">Medium</string>
     <string name="alba_can_read_your_personal_library_and_upload_jpeg_originals_directly_from_this_phon">Alba shows your Personal Library and uploads photos and videos from this phone straight to iCloud. Each upload is checked in iCloud before it counts as backed up.</string>
-    <string name="alba_connects_straight_to_apple_s_icloud_web_services_your_password_is_used_only_for_">Alba connects straight to Apple’s iCloud web services. Your password is used only to sign in and is never saved.</string>
     <string name="alba_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi">Alba checks each item against iCloud once more, then Android asks you to confirm.</string>
     <string name="message_a_previous_upload_of_these_bytes_is_unresolved_and_will_not_be_repeated">An earlier upload of this file may have reached iCloud, so Alba won’t send it again.</string>
     <string name="message_a_system_trash_request_may_still_execute_finish_the_android_dialog_or_restart_your_device_and_r">Android may still move items to the phone trash. Finish the Android prompt, or restart your phone and reopen Alba, before you switch accounts.</string>
@@ -727,9 +726,8 @@
     <string name="profile_plan_family">Family storage</string>
     <string name="profile_plan_complimentary">Complimentary storage</string>
     <string name="profile_plan_managed">Managed storage</string>
-    <string name="sign_in_heading">Connect to iCloud</string>
-    <string name="sign_in_intro">Use your Apple Account to see your photos in Alba.</string>
-    <string name="sign_in_password_note">Your password is used only to sign in and is never saved.</string>
+    <string name="sign_in_heading">Sign in to iCloud</string>
+    <string name="sign_in_intro">Use the Apple Account you use for Photos on your iPhone or Mac.</string>
     <string name="sign_in_compatibility">Compatibility details</string>
     <string name="sign_in_compatibility_hide">Hide compatibility details</string>
     <string name="about_features">Features</string>
@@ -1103,6 +1101,8 @@
     <string name="sign_in_unsupported_accounts">Accounts that use Advanced Data Protection or security keys can’t sign in to Alba yet.</string>
     <string name="sign_in_show_password">Show password</string>
     <string name="sign_in_hide_password">Hide password</string>
+    <string name="sign_in_trust">Alba signs in directly with Apple. Your password is never stored.</string>
+    <string name="sign_in_submit">Sign in</string>
     <string name="sign_in_forgot_password">Forgot password?</string>
     <string name="sign_in_code_by_sms">Get a code by text message</string>
     <string name="sign_in_error_security_key">This Apple Account uses security keys. Apple’s web sign-in, which Alba uses, can’t accept them yet, so Alba can’t connect to this account.</string>

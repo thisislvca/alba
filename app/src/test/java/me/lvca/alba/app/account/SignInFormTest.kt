@@ -5,13 +5,17 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.DiagnosticsConsent
@@ -19,9 +23,11 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
+import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 import me.lvca.alba.protocol.account.TwoFactorDelivery
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -38,15 +44,46 @@ class SignInFormTest {
     private val opened = mutableListOf<String>()
     private var signOuts = 0
     private var smsRequests = 0
+    private val signIns = mutableListOf<Pair<String, String>>()
 
     @Test fun wrongPasswordShowsUnderTheFieldWithHelp() {
         render(SessionState(accountState = ICloudAccountState.SignedOut, signInProblem = SignInProblem.WRONG_PASSWORD))
-        compose.onNodeWithTag("sign-in-unsupported").assertIsDisplayed()
         compose.onNodeWithText(string(R.string.invalid_credentials)).performScrollTo().assertIsDisplayed()
         val password = compose.onNodeWithTag("sign-in-password").fetchSemanticsNode()
         assertTrue(SemanticsProperties.Error in password.config)
         compose.onNodeWithTag("sign-in-forgot-password").performScrollTo().performClick()
         assertEquals(listOf("https://iforgot.apple.com"), opened)
+    }
+
+    @Test fun pageLeadsWithAlbaAndKeepsTheCompatibilityWarningBehindDetails() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut))
+        compose.onNodeWithTag("sign-in-connection-mark").assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-title").assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-trust").assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-unsupported").assertDoesNotExist()
+        compose.onNodeWithTag("sign-in-compatibility").performScrollTo().performClick()
+        compose.onNodeWithTag("sign-in-unsupported").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun signInIsPinnedBelowTheFormAndSubmitsFromTheKeyboard() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut))
+        // The button sits outside the scrolling form, so it is on screen without scrolling to it.
+        compose.onNodeWithTag("sign-in-submit").assertIsDisplayed().assertIsNotEnabled()
+        compose.onNodeWithTag("sign-in-apple-id").performTextInput("alex@example.com")
+        compose.onNodeWithTag("sign-in-password").performTextInput("correct horse")
+        compose.onNodeWithTag("sign-in-submit").assertIsEnabled()
+        compose.onNodeWithTag("sign-in-password").performImeAction()
+        assertEquals(listOf("alex@example.com" to "correct horse"), signIns)
+        compose.onNodeWithTag("sign-in-submit").performClick()
+        assertEquals(2, signIns.size)
+    }
+
+    @Test fun anExpiredSessionSaysTheLibraryIsStillHere() {
+        render(SessionState(accountState = ICloudAccountState.SignedIn("alex@example.com", SessionStatus.EXPIRED),
+            requestedPage = ProfilePage.SIGN_IN))
+        compose.onNodeWithTag("sign-in-expired").assertIsDisplayed()
+        // The saved account is filled in, so only the password is missing.
+        compose.onNodeWithText("alex@example.com").assertIsDisplayed()
     }
 
     @Test fun passwordCanBeShownAndHidden() {
@@ -115,7 +152,8 @@ class SignInFormTest {
                         phoneStorage = PhoneStorageState(),
                         mediaBusy = false,
                         diagnostics = DiagnosticsConsent(),
-                        actions = testAlbaActions(signOut = { signOuts++ }, sendCodeBySms = { smsRequests++ }),
+                        actions = testAlbaActions(signOut = { signOuts++ }, sendCodeBySms = { smsRequests++ },
+                            signIn = { appleId, password -> signIns += appleId to password }),
                     )
                 }
             }

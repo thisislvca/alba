@@ -25,11 +25,17 @@ import me.lvca.alba.app.ui.designsystem.theme.sheet
 
 /**
  * A utility page: a centred top app bar over a scrolling column. The bar takes the surface-container tint once
- * content scrolls under it, as Material settings pages do.
+ * content scrolls under it, as Material settings pages do. A blank [title] leaves only the back arrow, as onboarding
+ * does. [bottomBar], when given, stays at the bottom of the page and above the keyboard while the content scrolls.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun AlbaPageScaffold(
+    title: String,
+    onBack: () -> Unit,
+    bottomBar: (@Composable ColumnScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val background = MaterialTheme.colorScheme.background
     key(title) {
         val scroll = rememberScrollState()
@@ -39,7 +45,7 @@ internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Compo
             // Inset controls, not the scrolling viewport: cards can pass behind the gesture bar.
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).imePadding()) {
                 CenterAlignedTopAppBar(
-                    title = { Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center) },
+                    title = { if (title.isNotBlank()) Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center) },
                     navigationIcon = {
                         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back_action)) }
                     },
@@ -53,7 +59,14 @@ internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Compo
                 Column(Modifier.weight(1f).fillMaxWidth().nestedScroll(scrollBehavior.nestedScrollConnection)
                     .verticalScroll(scroll).testTag("alba-page-scroll"), horizontalAlignment = Alignment.CenterHorizontally) {
                     Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.xl)
-                        .padding(top = AlbaSpacing.md, bottom = AlbaSpacing.xxl).navigationBarsPadding(), content = content)
+                        .padding(top = AlbaSpacing.md, bottom = AlbaSpacing.xxl)
+                        .then(if (bottomBar == null) Modifier.navigationBarsPadding() else Modifier), content = content)
+                }
+                if (bottomBar != null) {
+                    Column(Modifier.fillMaxWidth().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(Modifier.widthIn(max = 560.dp).fillMaxWidth()
+                            .padding(horizontal = AlbaSpacing.xl, vertical = AlbaSpacing.md), content = bottomBar)
+                    }
                 }
             }
         }
