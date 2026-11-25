@@ -1,9 +1,12 @@
 package me.lvca.alba.app.gallery
 
 import android.content.Context
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -18,10 +21,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.R
 import me.lvca.alba.app.screenshots.ScreenshotFixtures
 import me.lvca.alba.app.testing.setAlbaContent
+import me.lvca.alba.app.ui.designsystem.theme.AlbaLightColorScheme
+import me.lvca.alba.app.ui.designsystem.theme.floating
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.math.abs
 
 /** The floating destination capsule: what it leaves clear and how quickly it answers. */
 @RunWith(AndroidJUnit4::class)
@@ -58,5 +64,24 @@ class FloatingNavigationTest {
         compose.onNodeWithTag("tab-LIBRARY").performClick()
         compose.onNodeWithTag("gallery-grid").assertIsDisplayed()
         compose.onNodeWithTag("tab-LIBRARY").assertIsSelected()
+    }
+
+    @Test fun searchLeavesNoPillInTheCapsule() {
+        compose.setAlbaContent(ScreenshotFixtures.gallery(), ScreenshotFixtures.signedIn)
+        val floating = AlbaLightColorScheme.floating
+
+        // Just inside Photos' start edge, level with its centre: on the pill when Photos is selected, and clear of its label.
+        fun photosStart(): Color {
+            val node = compose.onNodeWithTag("tab-LIBRARY")
+            val image = node.captureToImage().toPixelMap()
+            return image[with(compose.density) { 3.dp.roundToPx() }, image.height / 2]
+        }
+        fun Color.distanceTo(other: Color) = abs(red - other.red) + abs(green - other.green) + abs(blue - other.blue)
+        val selected = photosStart()
+        assertTrue("Photos has its pill", selected.distanceTo(floating.active) < selected.distanceTo(floating.container))
+        compose.onNodeWithTag("tab-SEARCH").performClick()
+        compose.waitForIdle()
+        val searching = photosStart()
+        assertTrue("no pill is left under Photos", searching.distanceTo(floating.container) < searching.distanceTo(floating.active))
     }
 }

@@ -54,6 +54,7 @@ import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
 import me.lvca.alba.app.intake.albaComponents
 import me.lvca.alba.app.messages.UndoAction
+import me.lvca.alba.app.platform.AppearancePreferences
 import me.lvca.alba.app.platform.ExportDocument
 import me.lvca.alba.app.platform.FREE_UP_SPACE_ENABLED
 import me.lvca.alba.app.platform.HiddenLock
@@ -81,6 +82,9 @@ import me.lvca.alba.app.ui.InvitationActions
 import me.lvca.alba.app.ui.account.BackupDisclosure
 import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.LocalWallpaperColors
+import me.lvca.alba.app.ui.designsystem.theme.WallpaperColorsSetting
+import me.lvca.alba.app.ui.designsystem.theme.wallpaperColorsAvailable
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
 import me.lvca.alba.app.ui.gallery.LocalBackupBadges
 import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
@@ -180,6 +184,7 @@ private fun Context.granted(permission: String) =
 internal fun AlbaRoot(
     viewModel: AlbaViewModel,
     onboarding: OnboardingPreferences,
+    appearance: AppearancePreferences,
     incoming: IncomingSession,
     onIncomingChange: (IncomingSession) -> Unit,
 ) {
@@ -195,8 +200,12 @@ internal fun AlbaRoot(
             viewModel.welcomeShown()
         }
     }
+    val wallpaperColors by appearance.wallpaperColors.collectAsStateWithLifecycle()
+    val wallpaperSetting = remember(wallpaperColors) {
+        WallpaperColorsSetting(wallpaperColorsAvailable(), wallpaperColors, appearance::setWallpaperColors)
+    }
     // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
-    AlbaTheme(darkTheme = isSystemInDarkTheme()) {
+    CompositionLocalProvider(LocalWallpaperColors provides wallpaperSetting) { AlbaTheme(darkTheme = isSystemInDarkTheme()) {
         if (showWelcome && incoming.request == null) {
             WelcomeScreen(
                 // Returning from sign-in lands on the page that offers it, next to the demo.
@@ -215,7 +224,7 @@ internal fun AlbaRoot(
                 }
             })
         }
-    }
+    } }
 }
 
 @OptIn(FlowPreview::class)

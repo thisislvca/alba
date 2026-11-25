@@ -19,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.R
@@ -30,9 +31,11 @@ import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.engine.model.MediaAvailability
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 /** The photo viewer's own controls, from fixed state: offline originals and quick-scale zoom. */
 @RunWith(AndroidJUnit4::class)
@@ -152,5 +155,17 @@ class ViewerControlsTest {
         compose.runOnIdle { requested.clear() }
         compose.onNode(hasTestTag("retry-preview") and onThisPhoto).assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(listOf(photo.id), requested) }
+    }
+
+    /** In landscape the details panel leaves the photo a short slot; Try again must keep a full-height, labelled button. */
+    @Config(qualifiers = "w900dp-h600dp-land-hdpi")
+    @Test fun aShortPhotoSlotKeepsTryAgainWhole() {
+        compose.setAlbaContent(gallery.copy(selectedMedia = gallery.items[0]), ScreenshotFixtures.signedIn)
+        compose.openViewerDetails()
+        val onThisPhoto = hasAnyAncestor(hasTestTag("viewer-image-${gallery.items[0].id}"))
+        val retry = compose.onNode(hasTestTag("retry-preview") and onThisPhoto).assertIsDisplayed()
+        val height = with(compose.density) { retry.fetchSemanticsNode().size.height.toDp() }
+        assertTrue("Try again is $height tall", height >= 40.dp)
+        compose.onNode(hasText(text(R.string.try_again)) and onThisPhoto).assertIsDisplayed()
     }
 }
