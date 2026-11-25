@@ -21,7 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.AccountBox
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
