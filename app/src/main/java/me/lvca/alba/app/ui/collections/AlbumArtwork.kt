@@ -13,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -31,6 +30,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.designsystem.AlbaCover
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.InitialAvatar
@@ -38,6 +38,7 @@ import me.lvca.alba.app.ui.designsystem.MediaScrim
 import me.lvca.alba.app.ui.designsystem.MediaScrimStrength
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.cover
 import me.lvca.alba.app.ui.designsystem.theme.heroTitle
 import me.lvca.alba.app.ui.gallery.GalleryFeel
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
@@ -50,7 +51,8 @@ import me.lvca.alba.app.ui.shared.sharedAlbumListLine
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.*
 
-internal data class CollectionPreview(val count: Int = 0, val media: List<GalleryMedia> = emptyList())
+/** A collection's item count, its first few items for covers, and when its newest item was added. */
+internal data class CollectionPreview(val count: Int = 0, val media: List<GalleryMedia> = emptyList(), val latestAddedAt: Long? = null)
 
 /** One bounded preview index; never decode originals to build collection mosaics. */
 @Composable
@@ -67,8 +69,10 @@ internal fun rememberCollectionPreviews(media: List<GalleryMedia>, collections: 
                 )
                 for (id in ids) {
                     val previous = result[id] ?: CollectionPreview()
+                    val added = item.addedAtEpochMillis ?: item.capturedAtEpochMillis
                     result[id] = CollectionPreview(previous.count + 1,
-                        if (covers[id] == item.id) listOf(item) + previous.media.take(5) else if (previous.media.size < 6) previous.media + item else previous.media)
+                        if (covers[id] == item.id) listOf(item) + previous.media.take(5) else if (previous.media.size < 6) previous.media + item else previous.media,
+                        maxOf(previous.latestAddedAt ?: added, added))
                 }
             }
             result
@@ -130,11 +134,13 @@ internal fun OwnerAvatar(name: String?, modifier: Modifier = Modifier) {
 @Composable
 internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, retry: Int,
     preview: (String) -> Unit, modifier: Modifier = Modifier, featured: Boolean = false, unread: Boolean = false, open: () -> Unit) {
+    // The card paints nothing of its own: its ripple and the cover clip to the one cover shape, so no block or frame
+    // shows around the image or the title on whatever surface the card sits on.
     Surface(onClick = open, modifier = modifier.testTag("${if (album.shared != null) "shared-" else ""}album-${album.id}"),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.background) {
+        shape = MaterialTheme.shapes.cover, color = Color.Transparent, contentColor = MaterialTheme.colorScheme.onSurface) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(MaterialTheme.shapes.medium)) {
+            AlbaCover(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).testTag("album-cover-${album.id}"),
+                contentAlignment = Alignment.TopStart) {
                 AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), coverMediaId = album.coverMediaId)
                 if (album.shared != null) OwnerAvatar(album.shared?.ownerName, Modifier.align(Alignment.TopStart).padding(10.dp))
                 if (unread) UnreadDot(album.id, Modifier.align(Alignment.TopEnd).padding(10.dp))
@@ -186,7 +192,8 @@ private fun UnreadDot(albumId: String, modifier: Modifier) {
 internal fun SharedAlbumsStrip(albums: List<GalleryCollection>, summaries: Map<String, CollectionPreview>, retry: Int,
     preview: (String) -> Unit, open: (String) -> Unit, seeAll: () -> Unit) {
     // An empty album would only be a grey card above the photos; it stays in Collections > Shared albums.
-    val shown = albums.filter { (summaries[it.id]?.count ?: 0) > 0 }
+    // Newest activity first, as Photos lists shared albums.
+    val shown = byRecentActivity(albums.filter { (summaries[it.id]?.count ?: 0) > 0 }, summaries)
     if (shown.isEmpty()) return
     Column(Modifier.padding(bottom = 18.dp).testTag("shared-albums-strip")) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

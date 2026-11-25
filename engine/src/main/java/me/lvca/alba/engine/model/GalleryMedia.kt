@@ -27,7 +27,11 @@ data class GalleryQuery(
     val trashOnly: Boolean = false,
 ) {
     fun apply(items: List<GalleryMedia>, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): List<GalleryMedia> {
-        val comparator = compareBy<GalleryMedia> { it.dateMillis(date) }.thenBy { it.id }
+        val byDate = compareBy<GalleryMedia> { it.dateMillis(date) }.thenBy { it.id }
+        // Recently Deleted lists items by when they were deleted, as Photos does. Every item is deleted for good a fixed
+        // 30 days after it was deleted, so its expiry orders it the same way; an item with no known expiry goes last.
+        val comparator = if (trashOnly) compareBy<GalleryMedia, Long?>(nullsFirst()) { it.expiresAtEpochMillis }.then(byDate)
+            else byDate
         val search = GallerySearch.parse(filename)
         // Hidden photos appear only in Hidden (and, once deleted, in Recently Deleted), never in the library, albums,
         // other collections or search.
@@ -132,9 +136,13 @@ enum class SmartCollection(val id: String, val title: String, val appleFilter: S
     ANIMATED("smart:animated", "Animated", "ANIMATED"),
 }
 
+/**
+ * iCloud storage as Apple reports it, in bytes. [categories] are this account's own usage; [familyBytes] is what the
+ * rest of its Family Sharing group uses of a shared plan. Both count toward [usedBytes].
+ */
 data class CloudStorageUsage(val usedBytes: Long, val totalBytes: Long,
     val categories: List<StorageCategory>, val checkedAtEpochMillis: Long,
-    val isDemo: Boolean = false) {
+    val isDemo: Boolean = false, val familyBytes: Long = 0) {
     val fraction: Float get() = (usedBytes.toDouble() / totalBytes.coerceAtLeast(1)).coerceIn(0.0, 1.0).toFloat()
 }
 data class StorageCategory(val name: String, val bytes: Long)

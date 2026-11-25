@@ -332,6 +332,13 @@
     <string name="storage_is_full_uploads_may_be_refused">Lo spazio è esaurito. I caricamenti potrebbero non riuscire.</string>
     <string name="storage_usage_is_not_available_yet">L’utilizzo dello spazio non è ancora disponibile.</string>
     <string name="storage_used">%1$s utilizzati su %2$s</string>
+    <string name="storage_family">Famiglia</string>
+    <string name="icloud_size_bytes">%1$s byte</string>
+    <string name="icloud_size_kb">%1$s KB</string>
+    <string name="icloud_size_mb">%1$s MB</string>
+    <string name="icloud_size_gb">%1$s GB</string>
+    <string name="icloud_size_tb">%1$s TB</string>
+    <string name="icloud_size_pb">%1$s PB</string>
     <string name="supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke">Alba funziona con l’autenticazione a due fattori standard, la libreria personale e gli Album condivisi. Il backup include la fotocamera, le cartelle che scegli e, se vuoi, le foto e i video già presenti sul telefono; puoi anche caricarne altri tu. La Libreria foto condivisa di iCloud e gli account con chiavi di sicurezza o Protezione avanzata dei dati non sono ancora supportati.</string>
     <string name="terms_update_required">Apri iCloud in un browser e accetta le condizioni aggiornate di Apple, poi torna ad Alba.</string>
     <string name="the_saved_account_could_not_be_opened_your_library_has_not_been_replaced">Impossibile aprire l’account salvato. La tua libreria non è stata sostituita.</string>
@@ -823,6 +830,7 @@
     <string name="shared_notifications_off_in_android">Android non sta consentendo le notifiche di Alba.</string>
     <string name="shared_added_to_album">Aggiunto a %1$s</string>
     <string name="album_sort_custom">Ordine personalizzato</string>
+    <string name="album_sort_activity">Attività recente</string>
     <string name="album_sort_recent">Foto più recente</string>
     <string name="album_sort_name">Nome album</string>
     <string name="album_sort_oldest">Foto meno recente</string>
@@ -1218,6 +1226,13 @@
         <item quantity="many">%1$d giorni rimasti</item>
         <item quantity="other">%1$d giorni rimasti</item>
     </plurals>
+    <plurals name="trash_tile_days">
+        <item quantity="one">1 giorno</item>
+        <item quantity="many">%1$d giorni</item>
+        <item quantity="other">%1$d giorni</item>
+    </plurals>
+    <string name="recently_deleted_note">Foto e video mostrano i giorni rimanenti prima dell’eliminazione. Trascorso questo periodo, gli elementi verranno eliminati definitivamente. L’operazione potrebbe richiedere fino a 40 giorni.</string>
+    <string name="badge_not_backed_up">Backup non eseguito</string>
     <string name="catalog_scan_large_library">Con le librerie grandi può volerci un po’.</string>
     <string name="catalog_scan_notification">Caricamento della libreria di iCloud</string>
     <string name="catalog_scan_loading_albums">Foto caricate. Caricamento degli album…</string>

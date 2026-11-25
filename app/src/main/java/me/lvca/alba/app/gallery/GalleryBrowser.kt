@@ -48,6 +48,8 @@ data class GalleryState(
     val bursts: BurstIndex = BurstIndex.EMPTY,
     /** Bursts the user opened, shown photo by photo. */
     val expandedBursts: Set<String> = emptySet(),
+    /** Phone items not in iCloud, which their tiles mark as not backed up. */
+    val phoneOnly: Set<String> = emptySet(),
 )
 
 /**
@@ -146,6 +148,7 @@ internal class GalleryBrowser(
             limitedPhotoAccess = browsing.access.limited,
             bursts = projected.catalog.bursts,
             expandedBursts = browsing.expandedBursts,
+            phoneOnly = projected.catalog.phoneOnly,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), GalleryState())
 

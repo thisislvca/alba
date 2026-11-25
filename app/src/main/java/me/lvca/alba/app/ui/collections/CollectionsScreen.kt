@@ -25,6 +25,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaChevron
+import me.lvca.alba.app.ui.designsystem.AlbaCover
 import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
@@ -33,6 +34,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
+import me.lvca.alba.app.ui.designsystem.theme.cover
 import me.lvca.alba.app.ui.designsystem.theme.mosaicCell
 import me.lvca.alba.app.ui.itemCount
 import me.lvca.alba.app.ui.localizedTitle
@@ -53,9 +55,9 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
     createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: Dp = 16.dp, openHidden: () -> Unit = {}) {
     var chosenSort by rememberSaveable { mutableStateOf(AlbumSort.CUSTOM) }
     val sortable = page != CollectionsPage.DEVICE
-    // Only personal albums have an iCloud position; shared albums keep Most recent photo as their first choice.
-    val sorts = if (page == CollectionsPage.SHARED) AlbumSort.entries - AlbumSort.CUSTOM else AlbumSort.entries
-    val sort = chosenSort.takeIf { it in sorts } ?: AlbumSort.RECENT
+    // Only personal albums have an iCloud position; shared albums open newest activity first, as in Photos.
+    val sorts = if (page == CollectionsPage.SHARED) AlbumSort.entries - AlbumSort.CUSTOM else AlbumSort.entries - AlbumSort.ACTIVITY
+    val sort = chosenSort.takeIf { it in sorts } ?: if (page == CollectionsPage.SHARED) AlbumSort.ACTIVITY else AlbumSort.RECENT
     val albums = remember(gallery.collections, folder, page, sort, summaries) {
         pageCollections(gallery.collections, folder, page, sort.takeIf { sortable }, summaries)
     }
@@ -187,6 +189,7 @@ internal fun pageCollections(collections: List<GalleryCollection>, folder: Strin
             else -> it.parentId == folder && it.isPersonal
         }
     }
+    if (sort == AlbumSort.ACTIVITY) return byRecentActivity(shown, summaries)
     return sort?.apply(shown) { album ->
         val members = if (album.isFolder) collections.filter { it.parentId == album.id }.map { it.id } else listOf(album.id)
         members.mapNotNull { summaries[it]?.media?.maxOfOrNull(GalleryMedia::capturedAtEpochMillis) }.maxOrNull()
@@ -220,24 +223,28 @@ private fun AlbumSortMenu(sort: AlbumSort, options: List<AlbumSort>, change: (Al
     }
 }
 
+private val MosaicGap = 3.dp
+
 @Composable
 private fun MosaicCard(title: String, subtitle: String, covers: List<GalleryMedia>, previewRetryVersion: Int, preview: (String) -> Unit, tag: String,
     emptyIcon: Painter, click: () -> Unit) {
-    // Clip the press ripple to the card corners rather than a hard rectangle over cover and title.
-    Column(Modifier.clip(MaterialTheme.shapes.medium).clickable(role = Role.Button, onClick = click).testTag(tag)) {
-        AlbaCard(shape = MaterialTheme.shapes.medium) {
+    // The press ripple clips to the cover shape too, rather than a hard rectangle over cover and title.
+    Column(Modifier.clip(MaterialTheme.shapes.cover).clickable(role = Role.Button, onClick = click).testTag(tag)) {
+        // The cover fills its shape edge to edge: no inset container, so no frame shows around the image.
+        AlbaCover(Modifier.fillMaxWidth().aspectRatio(1f).testTag("$tag-cover")) {
             // With no photos to show, a tonal tile with the section's glyph on a disc, like Google Photos' utilities.
-            if (covers.isEmpty()) Box(Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.secondaryContainer)
+            if (covers.isEmpty()) Box(Modifier.matchParentSize().background(MaterialTheme.colorScheme.secondaryContainer)
                 .testTag("$tag-empty"), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(72.dp).background(MaterialTheme.colorScheme.surface, CircleShape), contentAlignment = Alignment.Center) {
                     Icon(emptyIcon, null, Modifier.size(AlbaIconSize.large), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
             }
-            else if (covers.size == 1) CoverImage(covers.first(), previewRetryVersion, preview, Modifier.fillMaxWidth().aspectRatio(1f))
-            else Column(Modifier.fillMaxWidth().aspectRatio(1f).padding(AlbaSpacing.xs).clip(MaterialTheme.shapes.small), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            else if (covers.size == 1) CoverImage(covers.first(), previewRetryVersion, preview, Modifier.matchParentSize())
+            else Column(Modifier.matchParentSize(), verticalArrangement = Arrangement.spacedBy(MosaicGap)) {
                 repeat(2) { row ->
-                    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(MosaicGap)) {
                         repeat(2) { col ->
+                            // Cells round only where they meet; the cover's clip draws the outer corners.
                             val cell = Modifier.weight(1f).fillMaxHeight().clip(MaterialTheme.shapes.mosaicCell)
                             val cover = covers.getOrNull(row * 2 + col)
                             if (cover == null) Box(cell.background(MaterialTheme.colorScheme.surfaceContainerHigh))
@@ -255,7 +262,7 @@ private fun MosaicCard(title: String, subtitle: String, covers: List<GalleryMedi
 
 @Composable
 private fun ShortcutCard(title: String, modifier: Modifier, icon: @Composable () -> Unit, click: () -> Unit) {
-    AlbaCard(modifier.fillMaxHeight(), onClick = click, shape = MaterialTheme.shapes.medium, verticalArrangement = Arrangement.Center) {
+    AlbaCard(modifier.fillMaxHeight(), onClick = click, shape = MaterialTheme.shapes.cover, verticalArrangement = Arrangement.Center) {
         Row(Modifier.heightIn(min = 58.dp).padding(horizontal = 14.dp, vertical = AlbaSpacing.md), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
             Box(Modifier.size(AlbaIconSize.standard), contentAlignment = Alignment.Center) { icon() }
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))

@@ -9,7 +9,9 @@ data class CollectionEntity(val account: String, val collectionId: String, val n
     val sharedGeneration: String? = null, val sharedRole: String? = null,
     val sharedOwnerName: String? = null, val sharedParticipantCount: Int? = null, val sharedWebUrl: String? = null, val coverMediaId: String? = null,
     /** Names of the people an owned shared album is shared with, one per line. */
-    val sharedWith: String? = null, val sharedExpiresAt: Long? = null)
+    val sharedWith: String? = null, val sharedExpiresAt: Long? = null,
+    /** When a shared album was shared, so an album with no items yet still ranks by activity. */
+    val sharedCreatedAt: Long? = null)
 @Entity(tableName = "collection_members", primaryKeys = ["account", "collectionId", "mediaId"])
 data class CollectionMemberEntity(val account: String, val collectionId: String, val mediaId: String)
 @Entity(tableName = "batch_items", primaryKeys = ["batchId", "mediaId"])
@@ -62,7 +64,8 @@ internal fun CollectionEntity.toModel() = me.lvca.alba.engine.model.GalleryColle
     sharedGeneration?.let { me.lvca.alba.engine.model.SharedAlbumInfo(
         me.lvca.alba.engine.model.SharedAlbumGeneration.valueOf(it),
         sharedRole?.let(me.lvca.alba.engine.model.SharedAlbumRole::valueOf) ?: me.lvca.alba.engine.model.SharedAlbumRole.VIEWER,
-        sharedOwnerName, sharedParticipantCount, sharedWebUrl, sharedWith?.split('\n')?.filter(String::isNotBlank).orEmpty(), sharedExpiresAt) }, coverMediaId)
+        sharedOwnerName, sharedParticipantCount, sharedWebUrl, sharedWith?.split('\n')?.filter(String::isNotBlank).orEmpty(),
+        sharedExpiresAt, sharedCreatedAt) }, coverMediaId)
 internal fun me.lvca.alba.engine.model.GalleryCollection.toEntity(account: String) = CollectionEntity(account, id, name, parentId, isFolder, position,
     shared?.generation?.name, shared?.role?.name, shared?.ownerName, shared?.participantCount, shared?.webUrl, coverMediaId,
-    shared?.sharedWith?.takeIf { it.isNotEmpty() }?.joinToString("\n") { it.replace('\n', ' ') }, shared?.expiresAt)
+    shared?.sharedWith?.takeIf { it.isNotEmpty() }?.joinToString("\n") { it.replace('\n', ' ') }, shared?.expiresAt, shared?.createdAt)

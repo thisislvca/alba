@@ -116,7 +116,8 @@ internal fun ProfileOverview(
                     if (demo) DemoBadge(color = profileColors.badge, contentColor = profileColors.onCard, large = true)
                     allowance?.let {
                         Surface(color = profileColors.badge, contentColor = profileColors.onCard, shape = MaterialTheme.shapes.small) {
-                            Text(Formatter.formatShortFileSize(context, it.totalBytes), Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.titleSmall)
+                            Text(icloudSize(it.totalBytes), Modifier.padding(horizontal = 10.dp, vertical = 7.dp).testTag("profile-plan-size"),
+                                style = MaterialTheme.typography.titleSmall)
                         }
                     }
                 }
@@ -223,38 +224,38 @@ private fun PlanLink(hero: Boolean = false) {
 @Composable
 internal fun ProfileStorage(session: SessionState, demo: Boolean, hasAccount: Boolean, check: () -> Unit,
     labelRes: Int = R.string.icloud_storage) {
-    val context = LocalContext.current
     val info = session.accountInfo
     val storage = info.storage?.takeIf { it.isDemo == demo }
-    fun bytes(value: Long) = Formatter.formatShortFileSize(context, value)
     val categoryColors = AlbaTheme.colors.profile.storage
     AlbaCard {
         Column(Modifier.padding(AlbaSpacing.xl).testTag("profile-storage"), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
             Text(stringResource(labelRes), style = MaterialTheme.typography.titleMedium)
             if (storage != null) {
-                val usageLabel = stringResource(R.string.storage_used, bytes(storage.usedBytes), bytes(storage.totalBytes))
+                // iCloud figures in Apple's units, so a 2 TB plan reads "2 TB" as on an iPhone.
+                val usageLabel = stringResource(R.string.storage_used, icloudSize(storage.usedBytes), icloudSize(storage.totalBytes))
                 Text(usageLabel, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                 val track = MaterialTheme.colorScheme.surfaceContainerHigh
-                val unclassified = MaterialTheme.colorScheme.onSurfaceVariant
+                // The bar and its legend are the same segments: the account's categories, Family, then Other.
+                val segments = storage.storageSegments()
+                val segmentColors = segments.map { categoryColors.forSegment(it) }
                 Canvas(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).semantics { contentDescription = usageLabel }) {
                     drawRect(track)
-                    val total = storage.totalBytes.coerceAtLeast(1).toDouble()
-                    val used = storage.usedBytes.toDouble().coerceIn(0.0, total)
-                    var drawn = 0.0
-                    storage.categories.filter { it.bytes > 0 }.forEach { category ->
-                        val amount = category.bytes.toDouble().coerceAtMost((used - drawn).coerceAtLeast(0.0))
-                        if (amount > 0) drawRect(categoryColors.forCategory(category.name), Offset((size.width * drawn / total).toFloat(), 0f), Size((size.width * amount / total).toFloat(), size.height))
-                        drawn += amount
+                    val scale = maxOf(storage.totalBytes, storage.usedBytes).coerceAtLeast(1).toDouble()
+                    var drawn = 0L
+                    segments.forEachIndexed { index, segment ->
+                        drawRect(segmentColors[index], Offset((size.width * drawn / scale).toFloat(), 0f),
+                            Size((size.width * segment.bytes / scale).toFloat(), size.height))
+                        drawn += segment.bytes
                     }
-                    if (drawn < used) drawRect(unclassified, Offset((size.width * drawn / total).toFloat(), 0f), Size((size.width * (used - drawn) / total).toFloat(), size.height))
                 }
-                Text(stringResource(R.string.storage_available, bytes((storage.totalBytes - storage.usedBytes).coerceAtLeast(0))),
+                Text(stringResource(R.string.storage_available, icloudSize((storage.totalBytes - storage.usedBytes).coerceAtLeast(0))),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                storage.categories.filter { it.bytes > 0 }.sortedByDescending { it.bytes }.forEach { category ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Box(Modifier.size(8.dp).background(categoryColors.forCategory(category.name), CircleShape))
-                        Text(storageCategoryLabel(category.name), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        Text(bytes(category.bytes), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                segments.forEachIndexed { index, segment ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).testTag("storage-legend-${segment.key}"),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(Modifier.size(8.dp).background(segmentColors[index], CircleShape))
+                        Text(segment.label(), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Text(icloudSize(segment.bytes), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 if (storage.usedBytes >= storage.totalBytes) Text(stringResource(R.string.storage_is_full_uploads_may_be_refused), color = MaterialTheme.colorScheme.error)
@@ -273,8 +274,27 @@ internal fun ProfileStorage(session: SessionState, demo: Boolean, hasAccount: Bo
     }
 }
 
+private val StorageSegment.key: String get() = when (this) {
+    is StorageSegment.Category -> "category-$name"
+    is StorageSegment.Family -> "family"
+    is StorageSegment.Other -> "other"
+}
+
+@Composable
+private fun StorageSegment.label(): String = when (this) {
+    is StorageSegment.Category -> storageCategoryLabel(name)
+    is StorageSegment.Family -> stringResource(R.string.storage_family)
+    is StorageSegment.Other -> stringResource(R.string.other)
+}
+
+private fun StorageColors.forSegment(segment: StorageSegment): Color = when (segment) {
+    is StorageSegment.Category -> forCategory(segment.name)
+    is StorageSegment.Family -> family
+    is StorageSegment.Other -> other
+}
+
 private fun StorageColors.forCategory(name: String): Color = when (name.lowercase(Locale.ROOT)) {
-    "photos", "icloud photos" -> photos
+    "photos", "icloud photos", "photos and videos" -> photos
     "documents", "docs" -> documents
     "backups", "backup" -> backups
     "messages" -> messages

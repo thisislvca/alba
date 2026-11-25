@@ -599,8 +599,8 @@ private fun AlbaMain(
         }
     }
     // Each tile reads its own badge through this State, so a badge change recomposes that tile alone.
-    val backupBadges = rememberUpdatedState(remember(transfers.backup.enabled, transfers.uploadsByMediaId) {
-        backupBadges(transfers.backup.enabled, transfers.uploadsByMediaId)
+    val backupBadges = rememberUpdatedState(remember(transfers.backup.enabled, transfers.uploadsByMediaId, gallery.phoneOnly) {
+        backupBadges(transfers.backup.enabled, transfers.uploadsByMediaId, phoneOnly = gallery.phoneOnly)
     })
     CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalBackupBadges provides backupBadges,
         LocalSharedActivity provides sharedActivity, LocalNotificationAccess provides notificationAccess) {

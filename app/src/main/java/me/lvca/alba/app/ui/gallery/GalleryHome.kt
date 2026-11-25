@@ -295,7 +295,12 @@ internal fun GalleryHome(
     val searchAlbums = remember(gallery.collections, query.filename, tab) {
         if (tab == GalleryTab.SEARCH && query.filename.isNotBlank()) matchingAlbums(gallery.collections, query.filename) else emptyList()
     }
-    val leadingItems = if (hero || showSharedStrip || searchAlbums.isNotEmpty()) 1 else 0
+    // iCloud's Recently Deleted opens with Apple's note on how long items stay.
+    val cloudTrash = inCollection && query.trashOnly && query.origin == MediaOrigin.ICLOUD
+    val leadsWithContent = hero || showSharedStrip || searchAlbums.isNotEmpty()
+    val leadingItems = if (leadsWithContent || cloudTrash) 1 else 0
+    // A shared album's hero and Recently Deleted show their photos without date headers.
+    val flatGrid = hero || query.trashOnly
     // Android 14's partial access: a small note in the prompt's place says how many photos Alba sees, with Change.
     val limitedNote = tab == GalleryTab.LIBRARY && gallery.deviceMediaAccess && gallery.limitedPhotoAccess && !limitedNoteDismissed
     val permissionPrompt = (tab == GalleryTab.LIBRARY && !gallery.deviceMediaAccess && !permissionDismissed) || limitedNote
@@ -504,7 +509,9 @@ internal fun GalleryHome(
                                     }
                                     IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                                 }
-                                IconButton(enabled = sections.isNotEmpty(), onClick = { sheet = GallerySheet.JumpToDate }) {
+                                // Recently Deleted is in deletion order, with no dates to browse by.
+                                val datesBrowsable = sections.isNotEmpty() && !query.trashOnly
+                                IconButton(enabled = datesBrowsable, onClick = { sheet = GallerySheet.JumpToDate }) {
                                     Icon(AlbaIcons.DateRange, stringResource(R.string.browse_by_date))
                                 }
                                 IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
@@ -559,7 +566,7 @@ internal fun GalleryHome(
                             showPermissionPrompt = permissionPrompt,
                             onDismissPermissionPrompt = { if (limitedNote) limitedNoteDismissed = true else permissionDismissed = true },
                             actions = actions,
-                            flat = hero,
+                            flat = flatGrid,
                             onAddMedia = if (hero && collection?.shared?.canContribute == true && canEdit) ({ sheet = GallerySheet.SharedPicker }) else null,
                             leading = if (hero) ({
                                 AlbumHero(requireNotNull(collection), summaries[collection.id], previewRetryVersion, actions::requestPreview,
@@ -582,7 +589,7 @@ internal fun GalleryHome(
                             }) else if (showSharedStrip) ({
                                 SharedAlbumsStrip(sharedAlbums, summaries, previewRetryVersion, actions::requestPreview, ::openShared,
                                     seeAll = { libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED; actions.clearSelection(); actions.changeQuery(GalleryQuery()) })
-                            }) else null,
+                            }) else if (cloudTrash) ({ RecentlyDeletedNote() }) else null,
                         )
                     }
                     }
@@ -616,7 +623,7 @@ internal fun GalleryHome(
     if (sheet == GallerySheet.JumpToDate) {
         val initialIndex = remember { currentGrid.firstVisibleItemIndex }
         GalleryDateSheet(gallery.sections, initialIndex, days = visibleLevel.dayHeaders, date = query.date,
-            permissionHeader = permissionPrompt, leadingItems = leadingItems, showDateHeaders = !hero,
+            permissionHeader = permissionPrompt, leadingItems = leadingItems, showDateHeaders = !flatGrid,
             dismiss = { sheet = null }, jump = { index -> scope.launch { currentGrid.scrollToItem(index) } })
     }
     if (sheet == GallerySheet.Filters) GalleryFilterSheet(gallery, actions::changeQuery, actions::requestDevicePhotos, actions::refresh,
@@ -974,8 +981,10 @@ private fun PhotoGrid(
         galleryMonthOffsets(sections, showPermissionPrompt, dayHeaders, date, leadingItems, showDateHeaders = !flat)
     }
     val locale = currentLocale()
-    val scrollLabels = remember(sections, offsets, locale) {
-        sections.mapIndexed { i, s -> GalleryScrollLabel(offsets[i], monthLabel(s.month, abbreviated = true, locale = locale), s.month.year) }
+    // Recently Deleted is in deletion order, so a capture month would mislabel the scrollbar.
+    val scrollLabels = remember(sections, offsets, locale, query.trashOnly) {
+        if (query.trashOnly) emptyList()
+        else sections.mapIndexed { i, s -> GalleryScrollLabel(offsets[i], monthLabel(s.month, abbreviated = true, locale = locale), s.month.year) }
     }
     val pixelDensity = LocalDensity.current
     val fullSpans = remember(groupedSections, showPermissionPrompt, leadingItems, flat, onAddMedia != null, pixelDensity) {
@@ -983,7 +992,7 @@ private fun PhotoGrid(
             buildMap<Int, Float> {
                 var index = 0
                 if (showPermissionPrompt) put(index++, 190.dp.toPx())
-                if (leadingItems > 0) put(index++, (if (flat) 420.dp else 280.dp).toPx())
+                if (leadingItems > 0) put(index++, (if (query.trashOnly) 96.dp else if (flat) 420.dp else 280.dp).toPx())
                 groupedSections.forEach { (_, groups) ->
                     if (!flat) put(index++, 56.dp.toPx())
                     groups.forEach { (day, photos) ->

@@ -300,7 +300,9 @@ class DefaultGalleryRepository(
         val items = ids.map { require(!SharedMediaIdentity.isShared(it)); requireCloudItem(it) }
         cloudSource.setCloudTrashed(ids, trashed)
         checkEditAccount(account)
-        dao.upsertItems(items.map { it.copy(isTrashed = trashed) })
+        // iCloud deletes an item for good 30 days after it is deleted; the next refresh reads its own `dateExpunged`.
+        val expires = if (trashed) now() + RECENTLY_DELETED_DAYS * DAY_MILLIS else null
+        dao.upsertItems(items.map { it.copy(isTrashed = trashed, expiresAtEpochMillis = expires) })
     }
 
     override suspend fun setHidden(mediaIds: List<String>, hidden: Boolean) = edit(ProtocolArea.LIBRARY_EDITS) { account ->
@@ -1011,6 +1013,8 @@ class DefaultGalleryRepository(
         const val MAX_BACKOFF_SHIFT = 5
         const val MAX_THROTTLE_WAIT_MILLIS = 60_000L
         const val MEDIA_LOCK_STRIPES = 64
+        const val RECENTLY_DELETED_DAYS = 30L
+        const val DAY_MILLIS = 86_400_000L
         const val SQLITE_BIND_CHUNK_SIZE = 900
         const val DEFAULT_DEVICE_ACCENT_START = 0xFF5C6670L
         const val DEFAULT_DEVICE_ACCENT_END = 0xFF1F252BL

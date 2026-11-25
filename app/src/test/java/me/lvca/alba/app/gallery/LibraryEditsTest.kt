@@ -1,8 +1,10 @@
 package me.lvca.alba.app.gallery
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -82,7 +84,12 @@ class LibraryEditsTest {
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasTestTag("collection-cloud-trash"))
         compose.onNodeWithTag("collection-cloud-trash").performClick()
         compose.waitUntilExists("media-$id")
+        // Like Photos: Apple's note, one flat grid with no date headers, and the days left on each tile.
+        compose.onNodeWithTag("recently-deleted-note").assertTextEquals(app.string(R.string.recently_deleted_note))
+        compose.onAllNodesWithTag("month-header").assertCountEquals(0)
         compose.scrollToGalleryMedia(id)
+        compose.onNodeWithTag("deleted-days-left-$id", useUnmergedTree = true)
+            .assertTextEquals(app.activity.resources.getQuantityString(R.plurals.trash_tile_days, 30, 30))
         compose.onNodeWithTag("media-$id").performClick()
         compose.openViewerDetails()
         compose.onNodeWithTag("detail-cloud-trash").assertTextEquals(app.string(R.string.restore_from_icloud)).performScrollTo().performClick()

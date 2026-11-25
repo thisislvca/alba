@@ -121,6 +121,8 @@ class SharedAlbumsCatalogTest {
         val owned = albums.getValue(SharedAlbumGeneration.MODERN to SharedAlbumRole.OWNER).shared!!
         assertNull(owned.ownerName); assertEquals(listOf("guest@example.com"), owned.sharedWith)
         assertEquals(1796755487192L, owned.expiresAt)
+        // When the album was shared, from its share record's creation; the legacy album list gives none.
+        assertEquals(SHARED_AT, owned.createdAt); assertEquals(SHARED_AT, subscribed.createdAt); assertNull(legacy.createdAt)
         // Without an answer about people the albums are still listed, unnamed.
         t.sharingInfoFails = true
         assertNull(source(t).sharedAlbums().collections.collections.first { it.shared!!.generation == SharedAlbumGeneration.LEGACY }.shared!!.ownerName)
@@ -559,6 +561,7 @@ class SharedAlbumsCatalogTest {
         private fun share(scope: String): JsonObject { val base = Json.parseToJsonElement("""{"recordName":"cloudkit.zoneshare","recordType":"cloudkit.share","fields":{"cloudkit.title":{"value":"Same name"}},"recordChangeTag":"v1","participants":[{"participantId":"owner-participant","type":"OWNER","userIdentity":{"userRecordName":"owner","nameComponents":{"givenName":"Sample","familyName":"Owner"}}}],"currentUserParticipant":{"type":"${if(scope == "private") "OWNER" else "USER"}","acceptanceStatus":"ACCEPTED","permission":"READ_WRITE","customRole":"$customRole"}}""").jsonObject
             return JsonObject(base + buildJsonObject {
                 put("publicPermission", if(publicShare) "READ_WRITE" else "NONE")
+                putJsonObject("created") { put("timestamp", SHARED_AT); put("userRecordName", "owner") }
                 temporaryUntil?.let { until -> put("fields", JsonObject(base["fields"]!!.jsonObject + buildJsonObject {
                     putJsonObject("expiryDate") { put("value", until) }; putJsonObject("sharedCollectionState") { put("value", 1) }
                 })) }
@@ -716,3 +719,5 @@ class SharedAlbumsCatalogTest {
         override fun snapshotCookies() = emptyList<PersistedCookie>()
     }
 }
+
+private const val SHARED_AT = 1_700_000_000_000L

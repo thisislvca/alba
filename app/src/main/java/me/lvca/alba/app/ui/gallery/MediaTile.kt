@@ -128,15 +128,10 @@ internal fun MediaTile(
                 // quiet ink with no scrim; the scrim and white badges fade in with the photo, on the photo's own fade.
                 val ink = tileBadgeInk(reveal)
                 val photoOnly = Modifier.graphicsLayer { alpha = reveal.progress }
-                val daysLeft = trashDaysLeftLabel(media)
-                if (media.kind == MediaKind.VIDEO || media.availability == MediaAvailability.ORIGINAL_CACHED || daysLeft != null)
+                val status = tileStatus(media)
+                if (media.kind == MediaKind.VIDEO || status != null)
                     MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(GalleryFeel.TILE_SCRIM_HEIGHT).then(photoOnly))
-                // In a trash the time left takes the offline badge's corner, as in Google Photos' trash.
-                if (daysLeft != null) BasicText(daysLeft, style = MaterialTheme.typography.labelSmall, maxLines = 1, color = ink,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).testTag("trash-days-left"))
-                else if (media.availability == MediaAvailability.ORIGINAL_CACHED) TileGlyph(
-                    AlbaIcons.DownloadForOffline, stringResource(R.string.available_offline), ink,
-                    Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
+                status?.let { TileStatusBadge(it, media.id, ink, Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET)) }
                 if (media.kind == MediaKind.VIDEO) {
                     val duration = mediaDuration(media.durationMillis)
                     if (duration != null) BasicText(duration, style = MaterialTheme.typography.labelMedium, color = ink,
@@ -196,6 +191,39 @@ private fun Modifier.selectedBacking(selected: Boolean, reducedMotion: Boolean):
     val alpha by animateFloatAsState(if (selected) 1f else 0f,
         if (reducedMotion) snap() else tween(GalleryFeel.SELECT_TOGGLE_MILLIS, easing = LinearOutSlowInEasing), label = "selected-backing")
     return drawBehind { if (alpha > 0f) drawRect(backing.copy(alpha = alpha)) }
+}
+
+/** What a tile says in its bottom-start corner: time left in a trash, not backed up, or kept offline. */
+private sealed interface TileStatus {
+    data class DaysLeft(val label: String) : TileStatus
+    data object NotBackedUp : TileStatus
+    data object Offline : TileStatus
+}
+
+/**
+ * [media]'s corner status. In a trash the time left takes the offline badge's corner, as in Google Photos' trash, and a
+ * phone item not in iCloud yet is marked as Google Photos marks items that aren't backed up.
+ */
+@Composable
+private fun tileStatus(media: GalleryMedia): TileStatus? {
+    val daysLeft = trashTileDaysLabel(media)
+    val phoneOnly = media.origin == MediaOrigin.DEVICE && notBackedUp(media.id)
+    return when {
+        daysLeft != null -> TileStatus.DaysLeft(daysLeft)
+        phoneOnly -> TileStatus.NotBackedUp
+        media.availability == MediaAvailability.ORIGINAL_CACHED -> TileStatus.Offline
+        else -> null
+    }
+}
+
+@Composable
+private fun TileStatusBadge(status: TileStatus, mediaId: String, ink: ColorProducer, modifier: Modifier) = when (status) {
+    is TileStatus.DaysLeft -> BasicText(status.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, color = ink,
+        modifier = modifier.testTag("deleted-days-left-$mediaId"))
+    TileStatus.NotBackedUp -> TileGlyph(AlbaIcons.CloudOff, stringResource(R.string.badge_not_backed_up), ink,
+        modifier.size(GalleryFeel.TILE_TYPE_ICON).testTag("not-backed-up-$mediaId"))
+    TileStatus.Offline -> TileGlyph(AlbaIcons.DownloadForOffline, stringResource(R.string.available_offline), ink,
+        modifier.size(GalleryFeel.TILE_TYPE_ICON))
 }
 
 /** The one photo type a tile names in its corner, as Google Photos marks panoramas, slow motion and bursts. */

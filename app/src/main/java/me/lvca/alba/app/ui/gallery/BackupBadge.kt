@@ -39,8 +39,11 @@ import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
 
-/** A phone item's backup state on its grid tile. Google Photos' rule: a backed-up item has no badge. */
-enum class BackupBadge { QUEUED, FAILED, DONE }
+/**
+ * A phone item's backup state on its grid tile. Google Photos' rule: a backed-up item has no badge, and one only on
+ * this phone is marked [NOT_BACKED_UP] until it is in iCloud.
+ */
+enum class BackupBadge { QUEUED, FAILED, DONE, NOT_BACKED_UP }
 
 /**
  * Each tile's backup badge, read through a [State] so a tile recomposes only when its own badge changes, never the
@@ -50,15 +53,24 @@ internal val LocalBackupBadges = staticCompositionLocalOf<State<Map<String, Back
 
 /**
  * Badges for phone items while backup is on: waiting or uploading, failed, and verified only if it finished in the last
- * [RECENT_DONE_MILLIS] (a tile shows that briefly). Older verified items carry no badge and no map entry.
+ * [RECENT_DONE_MILLIS] (a tile shows that briefly). Older verified items carry no badge and no map entry. Items in
+ * [phoneOnly], on this phone and not in iCloud, are [BackupBadge.NOT_BACKED_UP] whether or not backup is on, unless an
+ * upload has a badge of its own or has put them in iCloud.
  */
 internal fun backupBadges(
     backupEnabled: Boolean,
     uploadsByMediaId: Map<String, TransferView>,
     now: Long = System.currentTimeMillis(),
+    phoneOnly: Set<String> = emptySet(),
 ): Map<String, BackupBadge> {
-    if (!backupEnabled) return emptyMap()
-    return uploadsByMediaId.mapNotNull { (mediaId, transfer) ->
+    val transfers = if (backupEnabled) transferBadges(uploadsByMediaId, now) else emptyMap()
+    if (phoneOnly.isEmpty()) return transfers
+    val notBackedUp = phoneOnly.filter { it !in transfers && uploadsByMediaId[it]?.state != TransferViewState.VERIFIED }
+    return if (notBackedUp.isEmpty()) transfers else transfers + notBackedUp.associateWith { BackupBadge.NOT_BACKED_UP }
+}
+
+private fun transferBadges(uploadsByMediaId: Map<String, TransferView>, now: Long): Map<String, BackupBadge> =
+    uploadsByMediaId.mapNotNull { (mediaId, transfer) ->
         when (transfer.state) {
             TransferViewState.WAITING, TransferViewState.UPLOADING, TransferViewState.CHECKING_ICLOUD -> mediaId to BackupBadge.QUEUED
             TransferViewState.NEEDS_ATTENTION, TransferViewState.UNSUPPORTED, TransferViewState.UNRESOLVED -> mediaId to BackupBadge.FAILED
@@ -68,6 +80,13 @@ internal fun backupBadges(
             else -> null
         }
     }.toMap()
+
+/** Whether [mediaId]'s tile marks it as not backed up. Reads its own badge only, like [BackupBadgeOverlay]. */
+@Composable
+internal fun notBackedUp(mediaId: String): Boolean {
+    val badges = LocalBackupBadges.current
+    val badge by remember(mediaId, badges) { derivedStateOf { badges.value[mediaId] } }
+    return badge == BackupBadge.NOT_BACKED_UP
 }
 
 /** How recently an upload must have finished for its tile to still get the brief cloud-done glyph. */
