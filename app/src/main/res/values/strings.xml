@@ -576,6 +576,14 @@
     <string name="shared_role_contributor">You can add photos</string>
     <string name="shared_role_viewer">You can view this album</string>
     <string name="shared_owner">Shared by %1$s</string>
+    <string name="shared_created_by_you">Created by You</string>
+    <string name="shared_created_by">Created by %1$s</string>
+    <string name="shared_from">From %1$s</string>
+    <string name="shared_with_person">Shared with %1$s</string>
+    <plurals name="shared_with_people"><item quantity="one">Shared with %d person</item><item quantity="other">Shared with %d people</item></plurals>
+    <string name="shared_expires">Expires %1$s</string>
+    <string name="shared_album_subtitle">%1$s · %2$s</string>
+    <string name="shared_album_info">Shared album details</string>
     <string name="shared_copy_notice">A shared copy is separate from your personal library. Saving it to your phone doesn’t back up the original.</string>
     <string name="shared_upgrade_notice">Upgrading affects newly shared items; it does not restore detail lost in older shared copies. Existing albums are never upgraded automatically.</string>
     <string name="shared_understood">Got it</string>

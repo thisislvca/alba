@@ -579,6 +579,14 @@
     <string name="shared_role_contributor">Puoi aggiungere foto</string>
     <string name="shared_role_viewer">Puoi visualizzare questo album</string>
     <string name="shared_owner">Condiviso da %1$s</string>
+    <string name="shared_created_by_you">Creato da te</string>
+    <string name="shared_created_by">Creato da %1$s</string>
+    <string name="shared_from">Da %1$s</string>
+    <string name="shared_with_person">Condiviso con %1$s</string>
+    <plurals name="shared_with_people"><item quantity="one">Condiviso con %d persona</item><item quantity="other">Condiviso con %d persone</item><item quantity="many">Condiviso con %d persone</item></plurals>
+    <string name="shared_expires">Scadenza: %1$s</string>
+    <string name="shared_album_subtitle">%1$s · %2$s</string>
+    <string name="shared_album_info">Dettagli dell’album condiviso</string>
     <string name="shared_copy_notice">Una copia condivisa è separata dalla libreria personale. Salvarla sul telefono non esegue il backup dell’originale.</string>
     <string name="shared_upgrade_notice">L’aggiornamento riguarda i nuovi elementi condivisi: non ripristina i dettagli persi nelle vecchie copie. Gli album esistenti non vengono mai aggiornati automaticamente.</string>
     <string name="shared_understood">Ho capito</string>
