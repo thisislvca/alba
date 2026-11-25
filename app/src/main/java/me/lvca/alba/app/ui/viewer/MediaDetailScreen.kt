@@ -415,7 +415,7 @@ internal fun MediaDetailScreen(
                                     val inHidden = media.isHidden && !media.isTrashed
                                     if (!media.isShared && !inHidden) {
                                     DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,
-                                        { actions.setFavorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = if (media.isFavorite) AlbaTheme.colors.favorite else AlbaTheme.colors.accent) },
+                                        { actions.setFavorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = if (media.isFavorite) AlbaTheme.colors.favorite else MaterialTheme.colorScheme.primary) },
                                         Modifier.testTag("detail-favorite"))
                                     DetailAction(stringResource(R.string.add_to_album), canEdit && !media.isTrashed, { choosingAlbum = true }, { ICloudIcon(R.drawable.icloud_albums) },
                                         Modifier.testTag("detail-add-to-album"))

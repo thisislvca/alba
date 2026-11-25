@@ -1,19 +1,19 @@
 package me.lvca.alba.app.ui.designsystem.theme
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 
 /**
- * Colours Material's scheme has no role for. Read them through [AlbaTheme.colors]; [AlbaTheme] provides
- * the light or dark set, so a screen that forces a palette gets matching values.
+ * Colours Material's scheme has no role for. Read them through [AlbaTheme.colors]; [AlbaTheme] derives them from the
+ * active colour scheme ([albaColors]), so a screen that forces a palette, or wallpaper colour, gets matching values.
  */
 @Immutable
 internal data class AlbaColors(
     /** Whether this is the dark set. Screens can force a palette, so never read the system setting instead. */
     val isDark: Boolean,
-    /** iCloud's brand blue, for collection and media-type glyphs. */
-    val accent: Color,
     /** A healthy state, such as a verified connection. */
     val success: Color,
     /** A set favourite's filled heart on app surfaces. On photos the heart uses [onMedia]. */
@@ -68,7 +68,7 @@ internal data class ProfileColors(
     /** Text on the white call-to-action button. */
     val action: Color = Color(0xFF08386F),
     // Settings-style icon tiles carrying a white glyph.
-    val backupTile: Color = SuccessGreen,
+    val backupTile: Color = SuccessTile,
     val phoneTile: Color = Color(0xFF777C88),
     val aboutTile: Color = Color(0xFF8A5CCD),
     // Artwork: a cool sky gradient opening into lavender, a saturated plane and a faint facet.
@@ -97,40 +97,45 @@ internal data class StorageColors(
     val other: Color = Color(0xFF858B96),
 )
 
-private val SuccessGreen = Color(0xFF268858)
+/*
+ * The two status hues, harmonized toward the iCloud seed (#0071E3) with Material's Blend.harmonize, then taken from
+ * their tonal palettes at tones that pass 3:1 against every surface of the static schemes: the favourite red at tone
+ * 50 (3.47:1 on light surfaceContainerHighest, 4.48:1 on white) and tone 70 in dark (5.37:1 on surfaceContainerHighest,
+ * 9.15:1 on the black viewer); the success green at tone 40 (5.00:1) and tone 70 (5.37:1). ColorSchemeContrastTest
+ * checks them.
+ */
+private val FavoriteLight = Color(0xFFE71B58)
+private val FavoriteDark = Color(0xFFFF8798)
+private val SuccessLight = Color(0xFF006C48)
+private val SuccessDark = Color(0xFF00C385)
+private val SuccessTile = Color(0xFF268858)
 
-internal val LightAlbaColors = AlbaColors(
-    isDark = false,
-    accent = Color(0xFF009FFF),
-    success = SuccessGreen,
-    favorite = Color(0xFFFF3B30),
+/** Material's opacity for a bottom sheet's drag handle (onSurfaceVariant at 40%). */
+private const val HANDLE_ALPHA = .4f
+
+/** Material's opacity for disabled content. */
+private const val DISABLED_ALPHA = .38f
+
+/** Alba's extra colours for [scheme]; everything but the status hues and the photo-bound colours follows its roles. */
+internal fun albaColors(scheme: ColorScheme, isDark: Boolean) = AlbaColors(
+    isDark = isDark,
+    success = if (isDark) SuccessDark else SuccessLight,
+    favorite = if (isDark) FavoriteDark else FavoriteLight,
     mediaScrim = Color.Black,
     onMedia = Color.White,
-    sheetHandle = Color(0xFFDADCE6),
-    avatar = Color(0xFFEEECE8),
-    onAvatar = Color(0xFF35383C),
+    sheetHandle = scheme.onSurfaceVariant.copy(alpha = HANDLE_ALPHA).compositeOver(scheme.surface),
+    avatar = scheme.surfaceContainerHighest,
+    onAvatar = scheme.onSurfaceVariant,
+    // The canvas stays pure white or black like Google Photos'; the chrome and panels use the scheme's neutrals.
     viewer = ViewerColors(
-        canvas = Color.White, foreground = Color(0xFF30323A), secondary = Color(0xFF5D5F68),
-        card = Color(0xFFEDEDF6), chip = Color(0xFFE3E3EA), disabled = Color(0xFF9A9BA0),
+        canvas = if (isDark) Color.Black else Color.White,
+        foreground = scheme.onSurface,
+        secondary = scheme.onSurfaceVariant,
+        card = scheme.surfaceContainer,
+        chip = scheme.surfaceContainerHighest,
+        disabled = scheme.onSurface.copy(alpha = DISABLED_ALPHA).compositeOver(if (isDark) Color.Black else Color.White),
     ),
     profile = ProfileColors(),
 )
 
-internal val DarkAlbaColors = AlbaColors(
-    isDark = true,
-    accent = Color(0xFF3DB4FF),
-    success = Color(0xFF4CB782),
-    favorite = Color(0xFFFF453A),
-    mediaScrim = Color.Black,
-    onMedia = Color.White,
-    sheetHandle = Color(0xFF4A4D57),
-    avatar = Color(0xFF3A3D44),
-    onAvatar = Color(0xFFE5E8EF),
-    viewer = ViewerColors(
-        canvas = Color.Black, foreground = Color(0xFFE3E3E3), secondary = Color(0xFFC4C7C5),
-        card = Color(0xFF1F1F1F), chip = Color(0xFF303030), disabled = Color(0xFF777777),
-    ),
-    profile = ProfileColors(),
-)
-
-internal val LocalAlbaColors = staticCompositionLocalOf { LightAlbaColors }
+internal val LocalAlbaColors = staticCompositionLocalOf { albaColors(AlbaLightColorScheme, isDark = false) }
