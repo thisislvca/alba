@@ -393,8 +393,10 @@ internal fun GalleryHome(
             Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll), contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 containerColor = if (phonePhotos) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
                 topBar = {
+                    // The header belongs to its destination, so it fades through with the screen below it.
                     Column(Modifier.scrollingGalleryHeader(headerState, collapseHeader)
                         .onSizeChanged { headerHeight = with(uiDensity) { it.height.toDp() } }
+                        .graphicsLayer { alpha = tabFade.alpha }
                         // Ignore visibility: the viewer hides the bars, and the header must not jump as they return.
                         .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
                         .drawBehind { drawRect(headerColor.value) }.testTag("gallery-header")
