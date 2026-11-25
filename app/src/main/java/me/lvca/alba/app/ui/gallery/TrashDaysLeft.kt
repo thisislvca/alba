@@ -7,8 +7,8 @@ import me.lvca.alba.engine.model.GalleryMedia
 
 /**
  * Whole days left before a trashed item is deleted for good, rounded up like Google Photos ("1 day" until it goes),
- * or null when the item is not in a trash or its source gives no expiry. Android's trash gives one; iCloud's web
- * service does not expose it to Alba yet.
+ * or null when the item is not in a trash or its source gives no expiry. Android's trash gives one, and iCloud's
+ * Recently Deleted gives each asset's `dateExpunged`, which iCloud.com counts down to the same way.
  */
 internal fun trashDaysLeft(media: GalleryMedia, nowEpochMillis: Long): Int? {
     val expires = media.expiresAtEpochMillis?.takeIf { media.isTrashed } ?: return null

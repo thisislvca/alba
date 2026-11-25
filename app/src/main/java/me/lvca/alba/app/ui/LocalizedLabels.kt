@@ -64,11 +64,13 @@ internal fun monthLabel(month: YearMonth, abbreviated: Boolean, locale: Locale):
 @Composable internal fun SmartCollection.localizedTitle(): String = stringResource(when (this) {
     SmartCollection.VIDEOS -> R.string.videos
     SmartCollection.LIVE_PHOTOS -> R.string.live_photos
+    SmartCollection.PORTRAIT -> R.string.portrait
     SmartCollection.SCREENSHOTS -> R.string.screenshots
     SmartCollection.PANORAMAS -> R.string.panoramas
     SmartCollection.BURSTS -> R.string.bursts
     SmartCollection.SLO_MO -> R.string.slo_mo
     SmartCollection.TIME_LAPSE -> R.string.time_lapse
+    SmartCollection.ANIMATED -> R.string.animated
 })
 @Composable internal fun GalleryCollection.localizedName(): String = SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle() ?: name
 @Composable internal fun storageCategoryLabel(name: String): String = when (name.lowercase(Locale.ROOT)) {

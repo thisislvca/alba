@@ -26,6 +26,8 @@ data class RemoteMediaRecord(
     val byteCount: Long? = null,
     val isHidden: Boolean = false,
     val details: me.lvca.alba.engine.model.MediaDetails = me.lvca.alba.engine.model.MediaDetails(),
+    /** For a trashed item, when its trash deletes it for good. */
+    val expiresAtEpochMillis: Long? = null,
 )
 
 data class CloudChanges(val upserts: List<RemoteMediaRecord>, val deletedRecordNames: Set<String>,

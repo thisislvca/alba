@@ -29,6 +29,14 @@ class AlbumOrderingTest {
         assertEquals(listOf("folder", "alps", "empty", "zoo"), AlbumSort.NAME.apply(albums) { latest[it.id] }.map { it.id })
     }
 
+    /** Positions shaped like a real library's CPLAlbum records: iCloud.com lists albums by them, folders in place. */
+    @Test fun customOrderFollowsApplesAlbumPositions() {
+        val albums = listOf(GalleryCollection("x", "X", position = 1_061_888), GalleryCollection("t", "Test", position = 1_051_392),
+            GalleryCollection("f", "Trips", isFolder = true, position = 1_060_353), GalleryCollection("c", "Cap", position = 1_062_912),
+            GalleryCollection("n", "New", position = 1_060_352))
+        assertEquals(listOf("t", "n", "f", "x", "c"), AlbumSort.CUSTOM.apply(albums) { null }.map { it.id })
+    }
+
     @Test fun chooserShowsFoldersThatHoldAlbumsAndTheAlbumsInside() {
         val shared = GalleryCollection("shared", "Shared", shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))
         val emptyFolder = GalleryCollection("nothing", "Nothing", isFolder = true)
