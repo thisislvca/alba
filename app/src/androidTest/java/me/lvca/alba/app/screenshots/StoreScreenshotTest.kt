@@ -123,11 +123,11 @@ class StoreScreenshotTest {
                         session = SessionState(
                             accountState = ICloudAccountState.SignedIn("demo@example.com"),
                             accountInfo = AccountInfo(storage = CloudStorageUsage(
-                                72_000_000_000, 200_000_000_000,
-                                listOf(StorageCategory("Photos", 64_000_000_000),
-                                    StorageCategory("Documents", 4_000_000_000),
-                                    StorageCategory("Backup", 2_000_000_000),
-                                    StorageCategory("Other", 2_000_000_000)),
+                                72L shl 30, 200L shl 30,
+                                listOf(StorageCategory("Photos", 64L shl 30),
+                                    StorageCategory("Documents", 4L shl 30),
+                                    StorageCategory("Backup", 2L shl 30),
+                                    StorageCategory("Other", 2L shl 30)),
                                 1_790_000_000_000,
                             )),
                         ),

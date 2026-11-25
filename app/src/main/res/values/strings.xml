@@ -332,6 +332,13 @@
     <string name="storage_is_full_uploads_may_be_refused">Storage is full. Uploads may fail.</string>
     <string name="storage_usage_is_not_available_yet">Storage usage is not available yet.</string>
     <string name="storage_used">%1$s of %2$s used</string>
+    <string name="storage_family">Family</string>
+    <string name="icloud_size_bytes">%1$s bytes</string>
+    <string name="icloud_size_kb">%1$s KB</string>
+    <string name="icloud_size_mb">%1$s MB</string>
+    <string name="icloud_size_gb">%1$s GB</string>
+    <string name="icloud_size_tb">%1$s TB</string>
+    <string name="icloud_size_pb">%1$s PB</string>
     <string name="supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke">Alba works with standard two-factor authentication, your Personal Library and Shared Albums. Backup covers your camera, the folders you choose and, if you like, the photos and videos already on your phone, and you can upload more yourself. iCloud Shared Photo Library and accounts that use security keys or Advanced Data Protection aren’t supported yet.</string>
     <string name="terms_update_required">Open iCloud in a browser and accept Apple’s updated terms, then come back to Alba.</string>
     <string name="the_saved_account_could_not_be_opened_your_library_has_not_been_replaced">Couldn’t open the saved account. Your library hasn’t changed.</string>
