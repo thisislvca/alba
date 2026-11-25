@@ -1,13 +1,13 @@
 {
   "dependencies": {
-    "@astrojs/sitemap": "^3.7.4",
-    "@tailwindcss/vite": "^4.3.3",
-    "astro": "^7.3.5",
-    "marked": "^18.0.14",
-    "tailwindcss": "^4.3.3"
+    "@astrojs/sitemap": "^3.7.6",
+    "@tailwindcss/vite": "^4.3.5",
+    "astro": "^7.4.13",
+    "marked": "^18.3.0",
+    "tailwindcss": "^4.3.5"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
+    "@astrojs/check": "^0.9.12",
     "sharp": "^0.35.5",
     "typescript": "6"
   },
@@ -15,7 +15,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=26.12.1 <27"
+    "node": ">=26.13.1 <27"
   },
   "scripts": {
     "dev": "astro dev --host 127.0.0.1 --port 4328",
