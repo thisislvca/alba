@@ -294,7 +294,7 @@ class LiveICloudCatalogSourceTest {
     }
 
     @Test
-    fun `a library Apple is still indexing is a preparing error with its progress, not an empty library`() = runBlocking {
+    fun `a library Apple is still indexing with nothing to read yet is a preparing error with its progress`() = runBlocking {
         val transport = FakePhotosTransport(indexingRecords = indexingRecord("RUNNING", progress = "42"))
         val source = LiveICloudCatalogSource(transport, sessionProvider = { SESSION })
 
@@ -302,7 +302,52 @@ class LiveICloudCatalogSourceTest {
 
         assertEquals(AppleProtocolError.LIBRARY_PREPARING, (error as AppleProtocolException).error)
         assertEquals(42, (error as LibraryPreparingException).progress)
+        assertEquals("The main feed was probed for one record name", 1, transport.probes.size)
+        assertTrue(transport.probes.single().contains("\"resultsLimit\":1"))
         assertTrue("No photo page is read while indexing runs", transport.photoQueries.isEmpty())
+    }
+
+    @Test
+    fun `a RUNNING state on a library that already answers is advisory and the library is read`() = runBlocking {
+        val advisories = mutableListOf<LibraryIndexing>()
+        // Apple starts a new indexing job at 0% on a library iCloud.com reads in full.
+        val transport = FakePhotosTransport(indexingRecords = indexingRecord("RUNNING", progress = "0"),
+            probeRecords = """{"records":[{"recordName":"asset-1","recordType":"CPLAsset"}]}""")
+        val source = LiveICloudCatalogSource(transport, sessionProvider = { SESSION }, onIndexingAdvisory = { advisories += it })
+
+        val page = source.fetchPage(null, limit = 1)
+
+        assertEquals(1, page.records.size)
+        assertEquals(listOf(0), advisories.map { it.progress })
+    }
+
+    @Test
+    fun `a RUNNING state never holds back a library Alba already stores`() = runBlocking {
+        val prefixes = mutableListOf<String>()
+        val transport = FakePhotosTransport(indexingRecords = indexingRecord("RUNNING", progress = "0"))
+        val source = LiveICloudCatalogSource(transport, sessionProvider = { SESSION },
+            hasStoredLibrary = { prefix -> prefixes += prefix; true })
+
+        val page = source.fetchPage(null, limit = 1)
+
+        assertEquals(1, page.records.size)
+        assertEquals(listOf("icloud:${source.accountLabel}:"), prefixes)
+        assertTrue("A stored library needs no probe", transport.probes.isEmpty())
+    }
+
+    @Test
+    fun `an index error from the probe means the library is still preparing, other failures are the read's`() = runBlocking {
+        val indexError = """{"records":[],"serverErrorCode":"BAD_REQUEST",""" +
+            """"reason":"No index with requested name: CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"}"""
+        val preparing = LiveICloudCatalogSource(FakePhotosTransport(indexingRecords = indexingRecord("RUNNING", progress = null),
+            probeRecords = indexError, probeCode = 400), sessionProvider = { SESSION })
+        assertTrue(runCatching { preparing.fetchPage(null, limit = 1) }.exceptionOrNull() is LibraryPreparingException)
+
+        val failing = LiveICloudCatalogSource(FakePhotosTransport(indexingRecords = indexingRecord("RUNNING", progress = null),
+            probeRecords = "{}", probeCode = 500), sessionProvider = { SESSION })
+        val error = runCatching { failing.fetchPage(null, limit = 1) }.exceptionOrNull()
+        assertFalse(error is LibraryPreparingException)
+        assertEquals(AppleProtocolError.NETWORK, (error as AppleProtocolException).error)
     }
 
     @Test
@@ -318,7 +363,7 @@ class LiveICloudCatalogSourceTest {
             }}]}
         """.trimIndent()
         val source = LiveICloudCatalogSource(FakePhotosTransport(indexingRecords = failed), sessionProvider = { SESSION },
-            onIndexingFailed = { failures += it })
+            onIndexingAdvisory = { failures += it })
 
         val page = source.fetchPage(null, limit = 1)
 
@@ -366,8 +411,11 @@ class LiveICloudCatalogSourceTest {
         private val webAccessDisabled: Boolean = false,
         private val firstPage: String = PHOTO_PAGE,
         private val indexingRecords: String = """{"records":[{"fields":{"state":{"value":"FINISHED"}}}]}""",
+        private val probeRecords: String = """{"records":[]}""",
+        private val probeCode: Int = 200,
     ) : AppleHttpTransport {
         val photoQueries = mutableListOf<String>()
+        val probes = mutableListOf<String>()
         val streamedUrls = mutableListOf<String>()
         private var page = 0
 
@@ -377,6 +425,11 @@ class LiveICloudCatalogSourceTest {
                 )
 
                 request.body.orEmpty().contains("CheckIndexingState") -> response(indexingRecords)
+
+                request.body.orEmpty().contains("\"desiredKeys\":[\"recordName\"]") -> {
+                    probes += request.body.orEmpty()
+                    AppleHttpResponse(probeCode, emptyMap(), probeRecords)
+                }
 
                 request.url.contains("/records/query") -> {
                     photoQueries += request.body.orEmpty()

@@ -13,9 +13,9 @@ import me.lvca.alba.protocol.fieldText
  * What the library's CheckIndexingState record says about Apple's server-side indexes. Seen live: `state` RUNNING,
  * FINISHED or FAILED, `progress` a number from 0 to 100, an `indexJobId` and, when FAILED, an `error` text.
  *
- * Only an index still being built holds the library back. A FAILED state is not a library in the making: iCloud.com
- * never asks for this record and shows such a library in full (one account answered FAILED, progress 100, with a
- * missing CPLContainerRelation index), so Alba reads it as well. pyicloud blocks on anything but FINISHED.
+ * The record is advisory. iCloud.com never asks for it and reads libraries it calls FAILED (progress 100, a missing
+ * CPLContainerRelation index) or RUNNING (a new job at 0% on a library already loaded) in full. pyicloud blocks on
+ * anything but FINISHED; Alba waits only when the record says [inProgress] and the library has nothing to read yet.
  */
 data class LibraryIndexing(
     val state: String?,
@@ -29,7 +29,7 @@ data class LibraryIndexing(
     /** A FAILED state that names a missing index, as Apple answered for a library iCloud.com shows in full. */
     val missingIndex: Boolean get() = failed && error?.contains(MISSING_INDEX) == true
 
-    /** Apple is still building the indexes: any state but FINISHED or FAILED, unless it reports them complete. */
+    /** Apple says it is still building the indexes: any state but FINISHED or FAILED, unless it reports them complete. */
     val inProgress: Boolean get() = state != null && state != FINISHED && state != FAILED && (progress == null || progress < COMPLETE)
 
     companion object {

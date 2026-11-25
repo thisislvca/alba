@@ -42,7 +42,7 @@ enum class DiagnosticOperation(val wireName: String, val sampleRate: Double) {
     BACKUP_ENROLLMENT("backup.enrollment", 1.0),
     MAINTENANCE_WAKE("backup.wake", 1.0),
 
-    /** Apple reported the library's indexing FAILED; Alba reads the library anyway. */
+    /** Apple's indexing state was not FINISHED but did not hold the read back: it FAILED, or ran for a readable library. */
     LIBRARY_INDEXING("icloud.library_indexing", 1.0),
 }
 
@@ -299,7 +299,7 @@ class SentryAlbaDiagnostics(context: Context) : AlbaDiagnostics, AccountTelemetr
             "automatic_backup", "batch", "foreground", "background", "process_started",
             "picker_upload", "upload", "offline", "share", "save", "export", "storage_cleanup",
             "favorite", "album", "cloud_trash", "hide", "shared_album", "connection_check",
-            "catalog_scan", "indexing_failed", "indexing_missing_index",
+            "catalog_scan", "indexing_failed", "indexing_missing_index", "indexing_running_readable",
         )
         val SAFE_ACCOUNT_EXTRAS = setOf(
             "session_age_hours",

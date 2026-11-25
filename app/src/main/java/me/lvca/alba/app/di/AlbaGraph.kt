@@ -89,7 +89,8 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         onSessionUpdated = accountManager::updateSession,
         onSessionRejected = accountManager::rejectSession,
         sharedJournal = uploadJournal,
-        onIndexingFailed = ::recordIndexingFailed,
+        onIndexingAdvisory = ::recordIndexingAdvisory,
+        hasStoredLibrary = { prefix -> database.catalogSyncDao().hasCloudItemsWithPrefix(prefix) },
     )
     val demoCatalog = FixtureICloudCatalogSource(
         includeSharedAlbums = true,
@@ -157,10 +158,18 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
     val network = networkStatus(appContext)
     val charging = chargingStatus(appContext)
 
-    /** Only fixed values cross into diagnostics: whether Apple named a missing index, and the progress it reported. */
-    private fun recordIndexingFailed(indexing: LibraryIndexing) {
-        diagnostics.start(DiagnosticOperation.LIBRARY_INDEXING, mapOf(
-            DiagnosticAttribute.REASON to if (indexing.missingIndex) "indexing_missing_index" else "indexing_failed",
-        )).finish(DiagnosticOutcome.FAILED, listOfNotNull(indexing.progress?.let { DiagnosticAttribute.INDEXING_PROGRESS to it }).toMap())
+    /**
+     * Apple's indexing state did not hold the read back: it FAILED, or it runs for a library that already answers. Only
+     * fixed values cross into diagnostics: which of those, whether Apple named a missing index, and its progress.
+     */
+    private fun recordIndexingAdvisory(indexing: LibraryIndexing) {
+        val reason = when {
+            !indexing.failed -> "indexing_running_readable"
+            indexing.missingIndex -> "indexing_missing_index"
+            else -> "indexing_failed"
+        }
+        diagnostics.start(DiagnosticOperation.LIBRARY_INDEXING, mapOf(DiagnosticAttribute.REASON to reason))
+            .finish(if (indexing.failed) DiagnosticOutcome.FAILED else DiagnosticOutcome.SUCCESS,
+                listOfNotNull(indexing.progress?.let { DiagnosticAttribute.INDEXING_PROGRESS to it }).toMap())
     }
 }
