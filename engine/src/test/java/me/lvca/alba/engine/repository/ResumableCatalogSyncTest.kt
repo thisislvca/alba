@@ -73,6 +73,17 @@ class ResumableCatalogSyncTest {
     }
 
     @Test
+    fun theStoredLibraryOfOneAccountIsKnownFromItsFirstPage() = runBlocking {
+        // An account with stored rows reads on even while Apple says it is indexing; another account has none.
+        assertFalse(database.catalogSyncDao().hasCloudItemsWithPrefix("icloud:account-a:"))
+        val source = PagedSource(count = 50).apply { failAt = "10" }
+        assertTrue(runCatching { repository(source).refresh(false) }.isFailure)
+
+        assertTrue(database.catalogSyncDao().hasCloudItemsWithPrefix("icloud:account-a:"))
+        assertFalse(database.catalogSyncDao().hasCloudItemsWithPrefix("icloud:account-b:"))
+    }
+
+    @Test
     fun aReadCutShortResumesFromTheSavedCursorAfterTheProcessDies() = runBlocking {
         val source = PagedSource(count = 50).apply { failAt = "30" }
         assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is IOException)

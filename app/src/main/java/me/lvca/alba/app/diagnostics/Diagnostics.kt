@@ -41,6 +41,9 @@ enum class DiagnosticOperation(val wireName: String, val sampleRate: Double) {
     SHARED_ALBUM("shared_album.action", 1.0),
     BACKUP_ENROLLMENT("backup.enrollment", 1.0),
     MAINTENANCE_WAKE("backup.wake", 1.0),
+
+    /** Apple's indexing state was not FINISHED but did not hold the read back: it FAILED, or ran for a readable library. */
+    LIBRARY_INDEXING("icloud.library_indexing", 1.0),
 }
 
 enum class DiagnosticAttribute(val wireName: String) {
@@ -56,6 +59,7 @@ enum class DiagnosticAttribute(val wireName: String) {
     INVOKED_COUNT("invoked_count"),
     MORE_WORK("more_work"),
     SHARED_UNAVAILABLE("shared_unavailable"),
+    INDEXING_PROGRESS("indexing_progress"),
 }
 
 enum class DiagnosticOutcome { SUCCESS, FAILED, CANCELLED }
@@ -295,6 +299,7 @@ class SentryAlbaDiagnostics(context: Context) : AlbaDiagnostics, AccountTelemetr
             "automatic_backup", "batch", "foreground", "background", "process_started",
             "picker_upload", "upload", "offline", "share", "save", "export", "storage_cleanup",
             "favorite", "album", "cloud_trash", "hide", "shared_album", "connection_check",
+            "catalog_scan", "indexing_failed", "indexing_missing_index", "indexing_running_readable",
         )
         val SAFE_ACCOUNT_EXTRAS = setOf(
             "session_age_hours",

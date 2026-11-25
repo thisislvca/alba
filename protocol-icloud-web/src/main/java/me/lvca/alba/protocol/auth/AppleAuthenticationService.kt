@@ -6,6 +6,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -191,7 +193,7 @@ class AppleAuthenticationService internal constructor(
                         }.toString(),
                     ),
                 )
-                requireAcceptedSecurityCode(verification)
+                requireAcceptedSecurityCode(verification, smsRoute = true)
                 true
             }
         }
@@ -232,15 +234,23 @@ class AppleAuthenticationService internal constructor(
     }
 
     /**
-     * Apple answers a valid code with 2xx, or with 409 and `securityCode.valid: true` in the body.
-     * A 409 without that verdict, and any other non-2xx, is a wrong code; 429 is rate limiting.
+     * Apple answers a valid code with 2xx, or with 409 and `securityCode.valid: true` in the body. On the SMS
+     * route, an account with pending repair steps (such as updated terms) answers a valid code with 412 and an
+     * `X-Apple-Repair-Session-Token` header instead; sign-in goes on to `2sv/trust` as for any accepted code
+     * (pyicloud's `accepted_security_code_repair`, timlaing/pyicloud#466). pyicloud does not send the repair
+     * token anywhere afterwards, so neither does Alba. A 409 without the verdict, a 412 without the header,
+     * and any other non-2xx are a wrong code; 429 is rate limiting.
      */
-    private fun requireAcceptedSecurityCode(verification: AppleHttpResponse) {
+    private fun requireAcceptedSecurityCode(verification: AppleHttpResponse, smsRoute: Boolean = false) {
         if (verification.code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
         if (verification.code in 200..299) return
         if (verification.code == HTTP_CONFLICT && verification.reportsValidSecurityCode()) return
+        if (smsRoute && verification.opensRepairSession()) return
         throw invalidTwoFactorCode()
     }
+
+    private fun AppleHttpResponse.opensRepairSession(): Boolean =
+        code == HTTP_REPAIR_REQUIRED && !header(REPAIR_SESSION_TOKEN_HEADER).isNullOrBlank()
 
     private fun AppleHttpResponse.reportsValidSecurityCode(): Boolean {
         val securityCode = runCatching {
@@ -410,26 +420,29 @@ class AppleAuthenticationService internal constructor(
 
     /** The first code route Apple offers. [listedSecurityKeys] explains why there is none. */
     private suspend fun requestTwoFactor(appleId: String, clientId: String): PendingAuth {
-        val optionsResponse = try {
-            transport.execute(
-                AppleHttpRequest(
-                    method = "GET",
-                    url = AUTH_ENDPOINT,
-                    headers = authHeaders(clientId) + ("Accept" to "text/html"),
-                ),
-            )
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            null
-        }
+        val optionsResponse = authOptionsResponse(clientId, accept = "text/html")
+        // Apple can serve the two-factor bootstrap page with the 409 challenge status instead of 2xx
+        // (pyicloud's `_get_mfa_auth_options`, timlaing/pyicloud#441).
         val bootContext = optionsResponse
-            ?.takeIf { it.code in 200..299 }
+            ?.takeIf { it.code in 200..299 || it.isHtmlChallenge() }
             ?.body
             ?.let(Hsa2BootContext::parse)
-        val authOptions = optionsResponse?.jsonObjectOrNull()
-        val trustedPhone = bootContext?.phoneNumberVerification.findTrustedPhone()
-            ?: authOptions.findTrustedPhone()
+        val htmlOptions = optionsResponse?.jsonObjectOrNull()
+        val htmlPhone = bootContext?.phoneNumberVerification.findTrustedPhone()
+            ?: htmlOptions.findTrustedPhone()
+        // HSA2 accounts with trusted numbers but no trusted devices get a page without the phone data. Like
+        // pyicloud's `_augment_auth_options_from_json` (timlaing/pyicloud#521), ask the same endpoint for JSON and
+        // take its numbers, never replacing one the page offered. pyicloud also reads the JSON's security-key
+        // options, which here only matter when no code route turns up, and its `mode`, which Alba does not use
+        // to pick a route; so the probe runs only when the page offered no number.
+        val jsonOptions = if (htmlPhone == null && !htmlOptions.hasCompleteSecurityKeyChallenge()) {
+            authOptionsResponse(clientId, accept = "application/json")
+                ?.takeIf { it.code in 200..299 }
+                ?.jsonObjectOrNull()
+        } else {
+            null
+        }
+        val trustedPhone = htmlPhone ?: jsonOptions.findTrustedPhone()
         if (bootContext?.supportsTrustedDeviceBridge == true) {
             val bridgeState = try {
                 trustedDeviceBridge.start(bootContext, authHeaders(clientId))
@@ -470,10 +483,14 @@ class AppleAuthenticationService internal constructor(
 
         // No trusted device and no trusted number: with security keys listed, the key is the only way in.
         val phone = trustedPhone
-            ?: throw if (listedSecurityKeys || authOptions.listsSecurityKeys()) securityKeyRequired() else AppleProtocolException(
-                AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
-                "Apple did not offer a trusted-device or SMS verification route.",
-            )
+            ?: throw if (listedSecurityKeys || htmlOptions.listsSecurityKeys() || jsonOptions.listsSecurityKeys()) {
+                securityKeyRequired()
+            } else {
+                AppleProtocolException(
+                    AppleProtocolError.UNSUPPORTED_TWO_FACTOR,
+                    "Apple did not offer a trusted-device or SMS verification route.",
+                )
+            }
         val sms = transport.execute(smsRequest(clientId, phone.id))
         if (sms.code == HTTP_TOO_MANY_REQUESTS) throw tooManyAttempts()
         if (sms.code !in 200..299) {
@@ -490,6 +507,38 @@ class AppleAuthenticationService internal constructor(
             phoneId = phone.id,
             destinationHint = phone.hint,
         )
+    }
+
+    /** `GET /appleauth/auth` with [accept], or null when the request itself failed. */
+    private suspend fun authOptionsResponse(clientId: String, accept: String): AppleHttpResponse? = try {
+        transport.execute(
+            AppleHttpRequest(
+                method = "GET",
+                url = AUTH_ENDPOINT,
+                headers = authHeaders(clientId) + ("Accept" to accept),
+            ),
+        )
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        null
+    }
+
+    /** A 409 whose content type is HTML, as pyicloud checks it: the media type alone, ignoring parameters and case. */
+    private fun AppleHttpResponse.isHtmlChallenge(): Boolean = code == HTTP_CONFLICT &&
+        header("content-type")?.substringBefore(';')?.trim()?.lowercase() == "text/html"
+
+    /** pyicloud skips the JSON probe when the page already carried a complete security-key challenge. */
+    private fun JsonObject?.hasCompleteSecurityKeyChallenge(): Boolean {
+        val challenge = this?.get("fsaChallenge") as? JsonObject ?: return false
+        return SECURITY_KEY_CHALLENGE_FIELDS.all { challenge[it].isPresent() } && listsSecurityKeys()
+    }
+
+    private fun JsonElement?.isPresent(): Boolean = when (this) {
+        null, JsonNull -> false
+        is JsonArray -> isNotEmpty()
+        is JsonObject -> isNotEmpty()
+        is JsonPrimitive -> content.isNotEmpty()
     }
 
     private fun authHeaders(clientId: String): Map<String, String> = buildMap {
@@ -515,14 +564,24 @@ class AppleAuthenticationService internal constructor(
     private fun JsonObject.requiredInt(name: String): Int = int(name)
         ?: throw malformed("Apple's authentication response is missing $name")
 
+    /**
+     * The first usable trusted number, in pyicloud's `_best_trusted_phone_number` order: `trustedPhoneNumber`, then
+     * `phoneNumberVerification`'s `trustedPhoneNumber` and `trustedPhoneNumbers`, then the `trustedPhoneNumbers` list.
+     */
     private fun JsonObject?.findTrustedPhone(): TrustedPhone? {
         if (this == null) return null
-        val direct = this["trustedPhoneNumber"] as? JsonObject
-        val nested = this["phoneNumberVerification"]
-            ?.let { it as? JsonObject }
-            ?.get("trustedPhoneNumber")
-            ?.let { it as? JsonObject }
-        val phone = direct ?: nested ?: return null
+        val verification = this["phoneNumberVerification"] as? JsonObject
+        return this["trustedPhoneNumber"].toTrustedPhone()
+            ?: verification?.get("trustedPhoneNumber").toTrustedPhone()
+            ?: verification?.get("trustedPhoneNumbers").firstTrustedPhone()
+            ?: this["trustedPhoneNumbers"].firstTrustedPhone()
+    }
+
+    private fun JsonElement?.firstTrustedPhone(): TrustedPhone? =
+        (this as? JsonArray)?.firstNotNullOfOrNull { it.toTrustedPhone() }
+
+    private fun JsonElement?.toTrustedPhone(): TrustedPhone? {
+        val phone = this as? JsonObject ?: return null
         val id = (phone["id"] as? JsonPrimitive)?.contentOrNull ?: return null
         val hint = (phone["numberWithDialCode"] as? JsonPrimitive)?.contentOrNull
             ?: (phone["obfuscatedNumber"] as? JsonPrimitive)?.contentOrNull
@@ -607,7 +666,10 @@ class AppleAuthenticationService internal constructor(
     private companion object {
         const val HTTP_TWO_FACTOR_REQUIRED = 409
         const val HTTP_CONFLICT = 409
+        const val HTTP_REPAIR_REQUIRED = 412
         const val HTTP_TOO_MANY_REQUESTS = 429
+        const val REPAIR_SESSION_TOKEN_HEADER = "X-Apple-Repair-Session-Token"
+        val SECURITY_KEY_CHALLENGE_FIELDS = listOf("challenge", "keyHandles", "rpId")
         const val IDMS_ENDPOINT = "https://idmsa.apple.com"
         const val AUTH_ENDPOINT = "$IDMS_ENDPOINT/appleauth/auth"
         const val ICLOUD_HOME = "https://www.icloud.com"

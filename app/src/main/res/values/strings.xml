@@ -698,6 +698,13 @@
     <string name="about_notices">Third-party notices</string>
     <string name="about_hide_notices">Hide notices</string>
     <string name="icloud_photos_still_preparing">iCloud Photos is still preparing this library. Try again in a few minutes.</string>
+    <string name="library_preparing_title">Apple is getting your iCloud Photos ready</string>
+    <string name="library_preparing_body">This can take a while for large libraries. Alba keeps checking and loads your photos as soon as they’re ready.</string>
+    <string name="library_preparing_progress">%1$d%% ready</string>
+    <string name="library_preparing_status">Getting iCloud Photos ready…</string>
+    <string name="library_preparing_status_progress">Getting iCloud Photos ready… %1$d%%</string>
+    <string name="library_preparing_check_now">Check now</string>
+    <string name="photos_service_preparing">Apple is still getting iCloud Photos ready. Alba keeps checking.</string>
     <string name="icloud_photos_is_not_active">iCloud Photos isn’t active</string>
     <string name="icloud_web_only_explanation">Your Apple Account sign-in worked, but Apple did not offer iCloud Photos for this session. That happens when iCloud Photos has never been turned on, for new web-only accounts, and sometimes for accounts with a device on an iOS beta. Check again in a few minutes.</string>
     <string name="how_to_activate_icloud_photos">Activate it once on an Apple device</string>
