@@ -17,6 +17,7 @@ import me.lvca.alba.protocol.obj
 import me.lvca.alba.protocol.text
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.cancellation.CancellationException
 
 /** Shared albums of the legacy shared-streams web service. */
 internal class LegacySharedAlbums(
@@ -58,6 +59,7 @@ internal class LegacySharedAlbums(
         val root = current.webservices["sharedstreams"] ?: return emptyList()
         val response = connection.request("${root.trimEnd('/')}/${current.dsid}/sharedstreams/webgetalbumslist", buildJsonObject {})
         val rows = requireNotNull(response["albums"] as? JsonArray) { "Incomplete shared album list." }
+        val owners = ownersOf(rows.map { it.jsonObject }.filter { it.text("sharingtype") !in OWNED })
         return rows.map { value ->
             val row = value.jsonObject
             val attributes = row.obj("attributes") ?: JsonObject(emptyMap())
@@ -65,17 +67,52 @@ internal class LegacySharedAlbums(
             val owner = requireNotNull(row.text("ownerdsid"))
             val location = requireNotNull(row.text("albumlocation"))
             AppleEndpointPolicy.requireAllowed(location)
-            val owned = row.text("sharingtype") in setOf("owned", "owner")
+            val owned = row.text("sharingtype") in OWNED
             val role = when {
                 owned -> SharedAlbumRole.OWNER
                 attributes.text("allowcontributions") == "1" && row.text("iswebuploadsupported") == "1" -> SharedAlbumRole.CONTRIBUTOR
                 else -> SharedAlbumRole.VIEWER
             }
             val id = ids.album(SharedAlbumRecord.LEGACY_SCOPE, owner, guid)
-            val info = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, role, webUrl = sharedAlbumWebUrl(current, "sa,", guid))
+            val info = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, role, webUrl = sharedAlbumWebUrl(current, "sa,", guid),
+                ownerName = if (owned) null else owners[guid])
             SharedAlbumRecord(GalleryCollection(id, attributes.text("name") ?: guid, shared = info),
                 SharedAlbumRecord.LEGACY_SCOPE, owner, guid, location, row.text("albumctag"), row.text("sharedCollectionZoneIdentifier"))
         }
+    }
+
+    /**
+     * The people of each album in [albums] by its GUID, read in one request on the account's shard. The album list names
+     * no one, so this is where owners' and commenters' names come from.
+     */
+    private suspend fun sharingInfos(albums: List<Pair<String, String>>): Map<String, List<JsonObject>> {
+        if (albums.isEmpty()) return emptyMap()
+        val info = connection.request(accountUrl("webgetsharinginfos"), buildJsonObject {
+            putJsonArray("albums") { albums.forEach { (guid, owner) -> add(buildJsonObject { put("albumguid", guid); put("ownerdsid", owner) }) } }
+        })
+        val rows = (info["albums"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+        // A single album may come back with its people at the top level.
+        if (rows.isEmpty() && albums.size == 1) return mapOf(albums.single().first to (info["sharinginfo"] as? JsonArray).orEmpty().map { it.jsonObject })
+        return rows.mapNotNull { row -> row.text("albumguid")?.let { it to (row["sharinginfo"] as? JsonArray).orEmpty().map { p -> p.jsonObject } } }.toMap()
+    }
+
+    /**
+     * Who created each subscribed album in [rows], by album GUID. A name is extra detail: when Apple does not answer, the
+     * albums are still listed, without it.
+     */
+    private suspend fun ownersOf(rows: List<JsonObject>): Map<String, String> {
+        val albums = rows.mapNotNull { row -> row.text("albumguid")?.let { guid -> row.text("ownerdsid")?.let { guid to it } } }
+        val people = try {
+            sharingInfos(albums)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return emptyMap()
+        }
+        return people.mapNotNull { (guid, rows) ->
+            rows.firstOrNull { it.text("sharingtype") in OWNED }?.let(SharedParticipants::name)
+                ?.takeIf { it != SharedParticipants.UNKNOWN }?.let { guid to it }
+        }.toMap()
     }
 
     override suspend fun readAlbum(album: SharedAlbumRecord): List<CloudPhotoAsset> {
@@ -112,11 +149,7 @@ internal class LegacySharedAlbums(
         val details = albumView(album)
         val row = requireNotNull(details["albums"]?.jsonArray?.map { it.jsonObject }?.firstOrNull { it.text("albumguid") == album.zone })
         val attributes = row.obj("attributes").orEmpty()
-        val info = connection.request(accountUrl("webgetsharinginfos"), buildJsonObject {
-            putJsonArray("albums") { add(buildJsonObject { put("albumguid", album.zone); put("ownerdsid", album.owner) }) }
-        })
-        val sharing = (info["albums"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.firstOrNull { it.text("albumguid") == album.zone }
-        val people = ((sharing?.get("sharinginfo") ?: info["sharinginfo"]) as? JsonArray).orEmpty().map { it.jsonObject }.map { person ->
+        val people = sharingInfos(listOf(album.zone to album.owner))[album.zone].orEmpty().map { person ->
             SharedParticipant(person.text("invitationguid") ?: person.text("personid").orEmpty(), SharedParticipants.name(person),
                 if (person.text("sharingtype") == "owned") SharedAlbumRole.OWNER else SharedAlbumRole.CONTRIBUTOR,
                 pending = person.text("sharingtype") == "pending", isCurrentUser = person.text("personid") == details.text("callerId"))
@@ -237,4 +270,9 @@ internal class LegacySharedAlbums(
 
     /** Legacy comments have no client-assigned ID, and matching text alone is not proof. */
     override suspend fun commentConfirmed(album: SharedAlbumRecord, asset: String, post: Boolean, text: String, pending: JsonObject) = false
+
+    private companion object {
+        /** How the album list marks an album this account created. */
+        val OWNED = setOf("owned", "owner")
+    }
 }

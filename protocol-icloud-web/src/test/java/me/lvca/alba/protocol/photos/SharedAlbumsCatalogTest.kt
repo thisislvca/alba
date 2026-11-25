@@ -96,6 +96,21 @@ class SharedAlbumsCatalogTest {
         assertFalse(t.requests.any { it.body.orEmpty().contains("PrimarySync") && it.url.contains("records/lookup") })
     }
 
+    @Test fun sharedAlbumsNameTheirOwnerAndExpiry() = runBlocking {
+        val t = Transport().apply { guestParticipant = true; temporaryUntil = 1796755487192L }
+        val albums = source(t).sharedAlbums().collections.collections.associateBy { it.shared!!.generation to it.shared!!.role }
+        val legacy = albums.getValue(SharedAlbumGeneration.LEGACY to SharedAlbumRole.VIEWER).shared!!
+        assertEquals("Sample Owner", legacy.ownerName); assertNull(legacy.expiresAt)
+        val subscribed = albums.getValue(SharedAlbumGeneration.MODERN to SharedAlbumRole.CONTRIBUTOR).shared!!
+        assertEquals("Sample Owner", subscribed.ownerName); assertTrue(subscribed.sharedWith.isEmpty())
+        val owned = albums.getValue(SharedAlbumGeneration.MODERN to SharedAlbumRole.OWNER).shared!!
+        assertNull(owned.ownerName); assertEquals(listOf("guest@example.com"), owned.sharedWith)
+        assertEquals(1796755487192L, owned.expiresAt)
+        // Without an answer about people the albums are still listed, unnamed.
+        t.sharingInfoFails = true
+        assertNull(source(t).sharedAlbums().collections.collections.first { it.shared!!.generation == SharedAlbumGeneration.LEGACY }.shared!!.ownerName)
+    }
+
     @Test fun accountSwitchRejectsCachedMediaWithoutNetworkOrBytes() = runBlocking {
         var current = session(); val t = Transport(); val s = source(t, provider = { current })
         val id = s.sharedAlbums().records.first().id
@@ -502,6 +517,8 @@ class SharedAlbumsCatalogTest {
         var legacyCount = 1; var repeatPage = false; var legacyContributes = false; var albumHost = "https://p55-sharedstreams.icloud.com"
         var loseLegacyPut = false; var registeredAsset: String? = null; var createdLegacy: JsonObject? = null; var legacyCreates = 0; var loseLegacyCreate = false
         var expire = false; var streams = 0; var rawUploads = 0; var legacyPuts = 0
+
+        var temporaryUntil: Long? = null; var sharingInfoFails = false
         var loseShareResponse = false; var loseCopyResponse = false; var losePostResponse = false; var loseLegacyStatus = false
         var zoneCreates = 0; var shareCreates = 0; var copyStarts = 0; var postCreates = 0
         var createdZone: JsonObject? = null; var createdShare: JsonObject? = null; var createdPost: JsonObject? = null
@@ -520,9 +537,12 @@ class SharedAlbumsCatalogTest {
         var pendingLegacy = false; var legacyJoined = true; var acceptedModern = false; var loseInviteResponse = false
         var publicShare = false; var pendingRequest = false; var legacyAuthor = "other"
         var responseCode = 200
-        private fun share(scope: String): JsonObject { val base = Json.parseToJsonElement("""{"recordName":"cloudkit.zoneshare","recordType":"cloudkit.share","fields":{"cloudkit.title":{"value":"Same name"}},"recordChangeTag":"v1","participants":[{"participantId":"owner-participant","type":"OWNER","userIdentity":{"userRecordName":"owner"}}],"currentUserParticipant":{"type":"${if(scope == "private") "OWNER" else "USER"}","acceptanceStatus":"ACCEPTED","permission":"READ_WRITE","customRole":"$customRole"}}""").jsonObject
+        private fun share(scope: String): JsonObject { val base = Json.parseToJsonElement("""{"recordName":"cloudkit.zoneshare","recordType":"cloudkit.share","fields":{"cloudkit.title":{"value":"Same name"}},"recordChangeTag":"v1","participants":[{"participantId":"owner-participant","type":"OWNER","userIdentity":{"userRecordName":"owner","nameComponents":{"givenName":"Sample","familyName":"Owner"}}}],"currentUserParticipant":{"type":"${if(scope == "private") "OWNER" else "USER"}","acceptanceStatus":"ACCEPTED","permission":"READ_WRITE","customRole":"$customRole"}}""").jsonObject
             return JsonObject(base + buildJsonObject {
                 put("publicPermission", if(publicShare) "READ_WRITE" else "NONE")
+                temporaryUntil?.let { until -> put("fields", JsonObject(base["fields"]!!.jsonObject + buildJsonObject {
+                    putJsonObject("expiryDate") { put("value", until) }; putJsonObject("sharedCollectionState") { put("value", 1) }
+                })) }
                 if(publicShare) put("participants", JsonArray(base["participants"]!!.jsonArray + buildJsonObject {
                     put("participantId", "public-person"); put("type", "PUBLIC_USER"); put("permission", "READ_WRITE")
                 }))
@@ -624,6 +644,15 @@ class SharedAlbumsCatalogTest {
                 path.endsWith("webuploadstatus") -> { if(loseLegacyStatus) { loseLegacyStatus = false; throw IOException("offline") }; JsonArray(listOf(buildJsonObject { put("status", "COMPLETED"); put("uploadjobid", "legacy-job") })) }
                 path.endsWith("webgetalbumview") -> buildJsonObject { put("callerId", "me"); putJsonArray("albums") { add(buildJsonObject { put("albumguid", "legacy"); putJsonObject("attributes") {} }) } }
                 path.endsWith("getcomments") -> buildJsonObject { put("comments", legacyComments) }
+                path.endsWith("webgetsharinginfos") -> {
+                    if (sharingInfoFails) throw IOException("offline")
+                    buildJsonObject { putJsonArray("albums") { body["albums"]!!.jsonArray.forEach { album ->
+                        add(buildJsonObject { put("albumguid", album.jsonObject.getValue("albumguid")); putJsonArray("sharinginfo") {
+                            add(buildJsonObject { put("personid", "owner-person"); put("sharingtype", "owned"); put("fullname", "Sample Owner") })
+                            add(buildJsonObject { put("personid", "me"); put("sharingtype", "subscribed"); put("fullname", "Sample Subscriber") })
+                        } })
+                    } } }
+                }
                 path.endsWith("addcomment") -> { if(loseLegacyCommentResponse) throw IOException("lost comment"); buildJsonObject { put("commentposition", "1") } }
                 path.endsWith("records/query") -> {
                     val query = body["query"]!!.jsonObject
