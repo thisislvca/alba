@@ -1,7 +1,5 @@
 package me.lvca.alba.app.ui.transfers
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -16,7 +14,7 @@ internal fun TransferViewState.icon(): ImageVector = when (this) {
     TransferViewState.VERIFIED -> AlbaIcons.CloudDone
     TransferViewState.UNRESOLVED -> AlbaIcons.ErrorOutline
     TransferViewState.SKIPPED -> AlbaIcons.ErrorOutline
-    TransferViewState.NEEDS_SIGN_IN -> Icons.Rounded.Lock
+    TransferViewState.NEEDS_SIGN_IN -> AlbaIcons.Lock
     TransferViewState.NEEDS_ATTENTION -> AlbaIcons.ErrorOutline
     TransferViewState.UNSUPPORTED -> AlbaIcons.ErrorOutline
 }

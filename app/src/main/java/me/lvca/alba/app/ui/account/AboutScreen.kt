@@ -2,25 +2,16 @@ package me.lvca.alba.app.ui.account
 
 import android.content.ActivityNotFoundException
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Email
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.List
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.DiagnosticsConsent
@@ -52,21 +43,17 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
     var showNotices by rememberSaveable { mutableStateOf(false) }
     AlbaPageScaffold(stringResource(R.string.about_title), onBack) {
         Column(Modifier.testTag("about-screen"), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xl)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
-                Image(painterResource(R.drawable.alba_logo_mark), contentDescription = null,
-                    modifier = Modifier.size(72.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
-                    Text(stringResource(R.string.about_version, version),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            // The logo is kept for sign-in and empty states; About names the app and its version.
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(R.string.about_version, version),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(stringResource(R.string.about_intro))
             AboutFeatureSection(R.string.about_features, listOf(
                 AboutFeature(R.string.about_feature_library_title, R.string.about_feature_library_detail, AlbaIcons.PhotoLibrary),
-                AboutFeature(R.string.about_feature_shared_title, R.string.about_feature_shared_detail, Icons.Rounded.Share),
+                AboutFeature(R.string.about_feature_shared_title, R.string.about_feature_shared_detail, AlbaIcons.Share),
                 AboutFeature(R.string.about_feature_upload_title, R.string.about_feature_upload_detail, AlbaIcons.CloudUpload),
                 AboutFeature(R.string.about_feature_offline_title, R.string.about_feature_offline_detail, AlbaIcons.DownloadForOffline),
                 AboutFeature(R.string.about_feature_backup_title, R.string.about_feature_backup_detail, AlbaIcons.CloudDone),
@@ -91,13 +78,13 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
             Text(stringResource(R.string.about_privacy))
             AlbaListGroup {
                 AlbaListRow(stringResource(R.string.about_privacy_policy), { open(PRIVACY_POLICY_URL) },
-                    Modifier.testTag("about-privacy-policy"), leading = { Icon(Icons.Rounded.Lock, null) })
+                    Modifier.testTag("about-privacy-policy"), leading = { Icon(AlbaIcons.Lock, null) })
                 AlbaListRow(stringResource(R.string.about_feedback), { open(FEEDBACK_URL) },
                     Modifier.testTag("about-feedback"), subtitle = stringResource(R.string.about_feedback_detail),
-                    leading = { Icon(Icons.Rounded.Email, null) })
+                    leading = { Icon(AlbaIcons.Email, null) })
                 AlbaListRow(stringResource(R.string.about_source), { open(SOURCE_URL) },
                     Modifier.testTag("about-source"), subtitle = stringResource(R.string.about_source_detail),
-                    leading = { Icon(Icons.Rounded.Info, null) })
+                    leading = { Icon(AlbaIcons.Info, null) })
             }
             AlbaListGroup {
                 AlbaSwitchRow(stringResource(R.string.about_diagnostics_title), diagnostics.enabled, onDiagnosticsEnabledChange,

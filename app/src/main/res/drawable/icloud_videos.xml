@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Material Icons Rounded Videocam under Apache-2.0. See THIRD_PARTY_NOTICES.md. -->
+<!-- Material Symbols Rounded videocam (weight 400, grade 0, 24dp optical size), Apache-2.0. See THIRD_PARTY_NOTICES.md. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M17 10.5V7c0 -0.55 -0.45 -1 -1 -1H4c-0.55 0 -1 0.45 -1 1v10c0 0.55 0.45 1 1 1h12c0.55 0 1 -0.45 1 -1v-3.5l2.29 2.29c0.63 0.63 1.71 0.18 1.71 -0.71V8.91c0 -0.89 -1.08 -1.34 -1.71 -0.71L17 10.5Z" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h480q33 0 56.5 23.5T720-720v180l126-126q10-10 22-5t12 19v344q0 14-12 19t-22-5L720-420v180q0 33-23.5 56.5T640-160H160Zm0-80h480v-480H160v480Zm0 0v-480 480Z" />
+    </group>
 </vector>

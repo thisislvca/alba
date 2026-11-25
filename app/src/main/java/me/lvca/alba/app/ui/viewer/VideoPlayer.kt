@@ -14,8 +14,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -260,7 +258,7 @@ fun VideoPlayer(
                     IconButton(onClick = {
                         if (player.isPlaying) player.pause() else { setOverlay(true); player.play() }
                     }, modifier = Modifier.size(48.dp).testTag("video-play-pause")) {
-                        Icon(if (isPlaying) AlbaIcons.Pause else Icons.Rounded.PlayArrow,
+                        Icon(if (isPlaying) AlbaIcons.Pause else AlbaIcons.PlayArrow,
                             stringResource(if (isPlaying) R.string.pause_video else R.string.play_video), tint = ink)
                     }
                     Text("${videoTime(if (scrubbing) scrubPosition else position)} / ${videoTime(duration)}",

@@ -8,8 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -179,7 +177,7 @@ internal fun ProfileOverview(
     Spacer(Modifier.height(AlbaSpacing.xxl))
     AlbaListGroup {
         ProfileRow(stringResource(R.string.about_title), stringResource(R.string.profile_about_detail),
-            Icons.Rounded.Info, profileColors.aboutTile, "profile-about", onClick = { onNavigate(ProfilePage.ABOUT) })
+            AlbaIcons.Info, profileColors.aboutTile, "profile-about", onClick = { onNavigate(ProfilePage.ABOUT) })
     }
     if (signedIn != null) {
         Spacer(Modifier.height(AlbaSpacing.xxl))

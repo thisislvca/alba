@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -83,7 +80,7 @@ internal fun AlbaListRow(
 /** The trailing "opens another page" affordance of a browsing row. Settings rows in an [AlbaListGroup] have none. */
 @Composable
 internal fun AlbaChevron(modifier: Modifier = Modifier) {
-    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, modifier, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    Icon(AlbaIcons.ChevronRight, null, modifier, tint = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** An explanatory row with an accent icon: onboarding and About use these to describe features. */
@@ -112,13 +109,13 @@ internal fun AlbaFact(label: String, value: String, modifier: Modifier = Modifie
 @Composable
 private fun AlbaListRowPreview() = AlbaPreviewSurface {
     AlbaCard {
-        AlbaListRow("Videos", onClick = {}, subtitle = "128 items", leading = { Icon(Icons.Rounded.Info, null) },
+        AlbaListRow("Videos", onClick = {}, subtitle = "128 items", leading = { Icon(AlbaIcons.Info, null) },
             trailing = { AlbaChevron() })
         AlbaDivider(Modifier.padding(start = 68.dp))
-        AlbaListRow("Favorites", onClick = {}, leading = { Icon(Icons.Rounded.Info, null) }, trailing = { AlbaChevron() })
+        AlbaListRow("Favorites", onClick = {}, leading = { Icon(AlbaIcons.Info, null) }, trailing = { AlbaChevron() })
     }
     AlbaCard {
-        AlbaListRow("Selected option", onClick = {}, selected = true, leading = { Icon(Icons.Rounded.Info, null) })
+        AlbaListRow("Selected option", onClick = {}, selected = true, leading = { Icon(AlbaIcons.Info, null) })
     }
 }
 
@@ -126,8 +123,8 @@ private fun AlbaListRowPreview() = AlbaPreviewSurface {
 @Composable
 private fun AlbaFeatureRowPreview() = AlbaPreviewSurface {
     AlbaListGroup(title = "Features") {
-        AlbaFeatureRow(Icons.Rounded.Info, "Your whole library", "Browse every photo and album without downloading originals.")
-        AlbaFeatureRow(Icons.Rounded.Info, "Offline copies", "Keep the originals you choose on this phone.")
+        AlbaFeatureRow(AlbaIcons.Info, "Your whole library", "Browse every photo and album without downloading originals.")
+        AlbaFeatureRow(AlbaIcons.Info, "Offline copies", "Keep the originals you choose on this phone.")
     }
     AlbaFact("Network", "Unmetered internet")
 }

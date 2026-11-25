@@ -19,9 +19,6 @@ import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -385,7 +382,7 @@ internal fun GalleryHome(
             if (wide) NavigationRail(Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
                 Spacer(Modifier.height(24.dp))
                 GalleryTab.entries.forEach { destination -> NavigationRailItem(selected = selectedTab() == destination,
-                    onClick = { navigate(destination) }, icon = { Icon(destination.icon(), null, Modifier.size(AlbaIconSize.standard)) }, label = { Text(stringResource(destination.title)) },
+                    onClick = { navigate(destination) }, icon = { Icon(destination.icon(selectedTab() == destination), null, Modifier.size(AlbaIconSize.standard)) }, label = { Text(stringResource(destination.title)) },
                     modifier = Modifier.testTag("tab-${destination.name}")) }
             }
             Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll)
@@ -404,33 +401,33 @@ internal fun GalleryHome(
                         // The header draws its own surface behind the bar, so the bar itself stays clear.
                         val barColors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent)
                         val back: @Composable () -> Unit = {
-                            IconButton(onClick = ::backInCollections) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back_action)) }
+                            IconButton(onClick = ::backInCollections) { Icon(AlbaIcons.ArrowBack, stringResource(R.string.back_action)) }
                         }
                         // An album with a hero carries its title over the cover, so its bar has none.
                         if (hero) TopAppBar(title = {}, navigationIcon = back, colors = barColors, windowInsets = WindowInsets(0, 0, 0, 0), actions = {
                             if (collection?.shared != null) IconButton(onClick = { sheet = GallerySheet.SharedManage }, enabled = canEdit) {
-                                Icon(Icons.Rounded.AccountCircle, stringResource(R.string.shared_manage))
+                                Icon(AlbaIcons.AccountCircle, stringResource(R.string.shared_manage))
                             }
                             IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                             Box {
                                 IconButton(onClick = { albumMenu = true }, modifier = Modifier.testTag("album-options")) {
-                                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.album_options))
+                                    Icon(AlbaIcons.MoreVert, stringResource(R.string.album_options))
                                 }
                                 AlbaMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
                                     AlbaMenuItem(stringResource(R.string.browse_by_date), onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate },
-                                        enabled = sections.isNotEmpty(), leadingIcon = { Icon(Icons.Rounded.DateRange, null) })
+                                        enabled = sections.isNotEmpty(), leadingIcon = { Icon(AlbaIcons.DateRange, null) })
                                     AlbaMenuDivider()
                                     if (collection?.shared != null) {
                                         AlbaMenuItem(stringResource(R.string.shared_details),
                                             onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo },
-                                            leadingIcon = { Icon(Icons.Rounded.Info, null) })
+                                            leadingIcon = { Icon(AlbaIcons.Info, null) })
                                         if (collection.shared?.canContribute == true) AlbaMenuItem(stringResource(R.string.shared_add_photos),
                                             onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit,
-                                            leadingIcon = { Icon(Icons.Rounded.Add, null) })
+                                            leadingIcon = { Icon(AlbaIcons.Add, null) })
                                     } else {
                                         AlbaMenuItem(stringResource(R.string.rename_album),
                                             onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit,
-                                            leadingIcon = { Icon(Icons.Rounded.Edit, null) }, modifier = Modifier.testTag("album-rename"))
+                                            leadingIcon = { Icon(AlbaIcons.Edit, null) }, modifier = Modifier.testTag("album-rename"))
                                         AlbaMenuItem(stringResource(R.string.delete_album),
                                             onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit,
                                             leadingIcon = { Icon(AlbaIcons.DeleteOutline, null) })
@@ -458,7 +455,7 @@ internal fun GalleryHome(
                                         Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort))
                                     }
                                     IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount, modifier = Modifier.testTag("gallery-upload")) {
-                                        Icon(Icons.Rounded.Add, stringResource(R.string.upload_photos))
+                                        Icon(AlbaIcons.Add, stringResource(R.string.upload_photos))
                                     }
                                     IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
                                         BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
@@ -503,12 +500,12 @@ internal fun GalleryHome(
 
                                 if (inCollection && collection != null && collection.isPersonal) {
                                     IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) {
-                                        Icon(Icons.Rounded.Edit, stringResource(R.string.rename_album))
+                                        Icon(AlbaIcons.Edit, stringResource(R.string.rename_album))
                                     }
                                     IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                                 }
                                 IconButton(enabled = sections.isNotEmpty(), onClick = { sheet = GallerySheet.JumpToDate }) {
-                                    Icon(Icons.Rounded.DateRange, stringResource(R.string.browse_by_date))
+                                    Icon(AlbaIcons.DateRange, stringResource(R.string.browse_by_date))
                                 }
                                 IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                             }
@@ -927,7 +924,7 @@ private fun PhotoGrid(
             Surface(onClick = onAddMedia, modifier = posed("add-media").aspectRatio(1f).testTag("album-add-media"),
                 shape = MaterialTheme.shapes.tile, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Add, stringResource(R.string.shared_add_photos), Modifier.size(AlbaIconSize.large),
+                    Icon(AlbaIcons.Add, stringResource(R.string.shared_add_photos), Modifier.size(AlbaIconSize.large),
                         tint = MaterialTheme.colorScheme.primary)
                 }
             }
@@ -1019,7 +1016,7 @@ private fun SearchLanding(summaries: Map<String, me.lvca.alba.app.ui.collections
         Spacer(Modifier.height(16.dp))
         Column(Modifier.padding(horizontal = 20.dp)) {
             CollectionRow(stringResource(R.string.capture_date), stringResource(R.string.choose_a_date_range),
-                icon = { Icon(Icons.Rounded.DateRange, null) }, onClick = onDates)
+                icon = { Icon(AlbaIcons.DateRange, null) }, onClick = onDates)
             CollectionRow(stringResource(R.string.favorites), stringResource(R.string.photos_you_ve_marked_with_a_heart), icon = { ICloudIcon(R.drawable.icloud_favorites) }, onClick = { choose(GalleryQuery.FAVORITES) })
         }
     }

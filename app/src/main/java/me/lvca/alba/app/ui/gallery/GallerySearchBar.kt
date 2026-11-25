@@ -1,9 +1,6 @@
 package me.lvca.alba.app.ui.gallery
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -16,6 +13,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.designsystem.AlbaIcons
 
 /**
  * The Search destination's field, for file names, titles, captions, albums, dates and photo types. It is drawn as a
@@ -35,10 +33,10 @@ internal fun GallerySearchBar(text: String, onTextChange: (String) -> Unit, modi
             expanded = false,
             onExpandedChange = {},
             placeholder = { Text(stringResource(R.string.search_your_photos)) },
-            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+            leadingIcon = { Icon(AlbaIcons.Search, null) },
             trailingIcon = {
                 if (text.isNotEmpty()) IconButton(onClick = { onTextChange("") }) {
-                    Icon(Icons.Rounded.Close, stringResource(R.string.clear_search))
+                    Icon(AlbaIcons.Close, stringResource(R.string.clear_search))
                 }
             },
             colors = colors.inputFieldColors,

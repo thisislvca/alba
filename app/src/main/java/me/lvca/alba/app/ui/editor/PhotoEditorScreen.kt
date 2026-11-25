@@ -8,9 +8,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -243,7 +240,7 @@ private fun EditorTopBar(
 ) {
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = requestClose, enabled = !saving) { Icon(Icons.Rounded.Close, stringResource(R.string.cancel)) }
+        IconButton(onClick = requestClose, enabled = !saving) { Icon(AlbaIcons.Close, stringResource(R.string.cancel)) }
         // Plain glyphs: the core icon set has no undo or redo arrows.
         val undo = stringResource(R.string.undo_edit)
         val redo = stringResource(R.string.redo_edit)
@@ -257,7 +254,7 @@ private fun EditorTopBar(
         Button(enabled = canSave, onClick = save, modifier = Modifier.testTag("save-edited-copy")) { Text(stringResource(R.string.save_copy)) }
         if (canUpload) Box {
             IconButton(onClick = { menu = true }, enabled = canSave, modifier = Modifier.testTag("save-options")) {
-                Icon(Icons.Rounded.MoreVert, stringResource(R.string.save_options))
+                Icon(AlbaIcons.MoreVert, stringResource(R.string.save_options))
             }
             AlbaMenu(menu, onDismissRequest = { menu = false }) {
                 AlbaMenuItem(stringResource(R.string.save_copy_and_upload), onClick = { menu = false; saveAndUpload() },

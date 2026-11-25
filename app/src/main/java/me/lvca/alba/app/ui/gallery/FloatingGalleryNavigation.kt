@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +33,6 @@ import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -47,6 +44,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaFloatingDefaults
+import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.floating
 import me.lvca.alba.app.ui.designsystem.theme.navigationLabel
@@ -55,13 +53,16 @@ import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 
 internal enum class GalleryTab(val title: Int) { LIBRARY(R.string.gallery_photos), COLLECTIONS(R.string.collections), SEARCH(R.string.search) }
 
-/** One glyph per destination, shared by the floating capsule and the navigation rail. */
+/**
+ * One glyph per destination, shared by the floating capsule and the navigation rail: outlined, and filled while it is
+ * the [selected] destination.
+ */
 @Composable
-internal fun GalleryTab.icon(): Painter = when (this) {
-    GalleryTab.LIBRARY -> painterResource(R.drawable.icloud_library)
-    GalleryTab.COLLECTIONS -> painterResource(R.drawable.icloud_albums)
-    GalleryTab.SEARCH -> rememberVectorPainter(Icons.Rounded.Search)
-}
+internal fun GalleryTab.icon(selected: Boolean = false): Painter = rememberVectorPainter(when (this) {
+    GalleryTab.LIBRARY -> if (selected) AlbaIcons.PhotoLibraryFilled else AlbaIcons.PhotoLibrary
+    GalleryTab.COLLECTIONS -> if (selected) AlbaIcons.PhotoAlbumFilled else AlbaIcons.PhotoAlbum
+    GalleryTab.SEARCH -> AlbaIcons.Search
+})
 
 private enum class TabDisplayMode { EXPANDED, COMPACT, ICON_ONLY }
 
@@ -148,7 +149,8 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
                                 Row(Modifier.padding(start = start, end = end, top = 4.dp, bottom = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically) {
                                     motion.Shown(showIcon) {
-                                        Icon(destination.icon(), null, Modifier.padding(end = if (showLabel) 4.dp else 0.dp).size(20.dp), tint = foreground)
+                                        Icon(destination.icon(selected), null, Modifier.padding(end = if (showLabel) 4.dp else 0.dp).size(20.dp),
+                                            tint = foreground)
                                     }
                                     motion.Shown(showLabel) {
                                         Text(titles[index], color = foreground, style = labelStyle, maxLines = 1, softWrap = false)
