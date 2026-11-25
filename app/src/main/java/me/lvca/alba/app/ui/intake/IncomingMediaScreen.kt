@@ -128,7 +128,7 @@ private fun IncomingPages(items: List<IncomingItem>?, pager: PagerState, request
         when {
             item.mime?.startsWith("video/") == true -> if (index == pager.settledPage) VideoPlayer(item.uri.toString(),
                 reader = { _, _, _ -> error("Local playback only") }, localReference = item.uri.toString(), modifier = Modifier.fillMaxSize())
-            item.mime?.startsWith("image/") == true -> MediaThumbnail(item.uri.toString(), 0xFF171717, 0xFF171717, item.name,
+            item.mime?.startsWith("image/") == true -> MediaThumbnail(item.uri.toString(), item.name,
                 Modifier.fillMaxSize().testTag("incoming-image-$index"), contentScale = ContentScale.Fit, zoomable = true,
                 onZoomChanged = { if (index == pager.currentPage) zoomed = it })
             else -> Text(stringResource(item.failure ?: R.string.incoming_unsupported), Modifier.padding(24.dp))

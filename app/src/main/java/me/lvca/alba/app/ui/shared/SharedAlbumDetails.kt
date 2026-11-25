@@ -124,8 +124,8 @@ internal fun SharedContributionPicker(items: List<GalleryMedia>, preview: (Strin
                     Surface(onClick = { selected = if (media.id in selected) selected - media.id else if (selected.size < 50) selected + media.id else selected },
                         modifier = Modifier.padding(2.dp).aspectRatio(1f).testTag("shared-select-${media.id}")) {
                         Box {
-                            MediaThumbnail(media.previewReference ?: media.viewerReference, media.accentStartArgb, media.accentEndArgb,
-                                media.fileName, Modifier.fillMaxSize(), sourceRevision = media.sourceRevision)
+                            MediaThumbnail(media.previewReference ?: media.viewerReference, media.fileName,
+                                Modifier.fillMaxSize(), sourceRevision = media.sourceRevision)
                             Checkbox(checked = media.id in selected, onCheckedChange = null, modifier = Modifier.align(Alignment.TopEnd))
                             if (media.kind == MediaKind.VIDEO) MediaPill(Modifier.align(Alignment.BottomStart).padding(AlbaSpacing.xs)) {
                                 Icon(Icons.Filled.PlayArrow, null, Modifier.size(AlbaIconSize.badge))

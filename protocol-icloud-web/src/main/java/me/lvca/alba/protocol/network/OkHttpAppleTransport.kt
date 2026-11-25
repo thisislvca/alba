@@ -6,6 +6,7 @@ import me.lvca.alba.protocol.account.PersistedCookie
 import okhttp3.Authenticator
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.Dispatcher
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -48,6 +49,7 @@ class OkHttpAppleTransport(
         }
     }
     private val client = clientBuilder
+        .dispatcher(Dispatcher().apply { maxRequestsPerHost = MAX_REQUESTS_PER_HOST })
         .cookieJar(cookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
@@ -276,6 +278,14 @@ class OkHttpAppleTransport(
         const val MAX_DOWNLOAD_REDIRECTS = 5
         const val MAX_JSON_RESPONSE_BYTES = 8 * 1_024 * 1_024
         const val MAX_UPLOAD_RESPONSE_BYTES = 1 * 1_024 * 1_024
+
+        /**
+         * Calls in flight to one host. Every call here is enqueued, and OkHttp holds a media download's slot until
+         * its body is copied, so OkHttp's default of 5 would cap the grid's 8 concurrent previews from Apple's CDN
+         * and leave nothing for the viewer. Twelve fits 8 previews plus the viewer's own downloads; the CDN speaks
+         * HTTP/2, so they share one connection as streams rather than opening sockets.
+         */
+        const val MAX_REQUESTS_PER_HOST = 12
 
         /** One socket write of an upload: a stalled connection fails after this, however large the file. */
         const val UPLOAD_WRITE_TIMEOUT_SECONDS = 60L
