@@ -320,7 +320,7 @@
     <string name="sign_in_to_upload">Accedi per caricare</string>
     <string name="sign_out_and_use_demo_library">Esci</string>
     <string name="signed_in_to_icloud">Accesso a iCloud effettuato</string>
-    <string name="signing_in">Accesso in corso</string>
+    <string name="signing_in">Accesso in corso…</string>
     <string name="six_digit_code">Codice a sei cifre</string>
     <string name="slo_mo">Slo-mo</string>
     <string name="small">Piccola</string>
@@ -355,7 +355,6 @@
     <string name="uploads">Caricamenti</string>
     <string name="uploads_and_activity">Caricamenti e attività</string>
     <string name="uploads_downloads_and_backup">Caricamenti, download e backup</string>
-    <string name="use_a_different_apple_account">Usa un altro Account Apple</string>
     <string name="uses_the_capture_date_when_the_added_date_is_unavailable">Usa la data di scatto quando la data di aggiunta non è disponibile.</string>
     <string name="verified_in_icloud">Backup su iCloud eseguito</string>
     <string name="already_in_icloud">Già in iCloud</string>
@@ -1119,6 +1118,8 @@
     <string name="sign_in_trust">Alba accede direttamente tramite Apple. La password non viene mai salvata.</string>
     <string name="sign_in_submit">Accedi</string>
     <string name="sign_in_forgot_password">Password dimenticata?</string>
+    <string name="sign_in_sending_code">Invio di un nuovo codice…</string>
+    <string name="sign_in_checking_code">Verifica del codice…</string>
     <string name="sign_in_code_by_sms">Ricevi un codice tramite SMS</string>
     <string name="sign_in_error_security_key">Questo Account Apple usa chiavi di sicurezza. L’accesso web di Apple, usato da Alba, non le accetta ancora, quindi Alba non può collegarsi a questo account.</string>
     <string name="sign_in_error_too_many_attempts">Apple ha sospeso l’accesso dopo troppi tentativi. Attendi un po’ e riprova. Se Apple ha bloccato l’account, sbloccalo su iforgot.apple.com.</string>

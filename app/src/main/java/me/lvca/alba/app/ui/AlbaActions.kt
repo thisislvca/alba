@@ -188,6 +188,9 @@ interface AccountActions {
     /** Asks Apple to text the verification code to the trusted phone number instead. */
     fun sendCodeBySms()
 
+    /** Leaves the code step for the Apple Account and password, keeping any saved account. */
+    fun cancelTwoFactor()
+
     /** The user edited the sign-in or code form, so its error no longer applies. */
     fun clearSignInProblem()
     fun signOut()

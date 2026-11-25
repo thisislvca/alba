@@ -3,7 +3,10 @@ package me.lvca.alba.protocol.auth
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
+import me.lvca.alba.protocol.account.AppleSessionStore
 import me.lvca.alba.protocol.account.AppleSignInResult
+import me.lvca.alba.protocol.account.ICloudAccountManager
+import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.PersistedCookie
 import me.lvca.alba.protocol.account.TwoFactorDelivery
 import me.lvca.alba.protocol.network.AppleHttpRequest
@@ -247,6 +250,31 @@ class AppleAuthenticationServiceTest {
         val signIn = service.signIn(APPLE_ID, PASSWORD)
 
         assertEquals(AppleSignInResult.RequiresTwoFactor(APPLE_ID, TwoFactorDelivery.TRUSTED_DEVICE), signIn)
+    }
+
+    @Test
+    fun `abandoning the code returns the account to where sign in started`() = runBlocking {
+        var saves = 0
+        val store = object : AppleSessionStore {
+            override suspend fun load(): AppleSessionSnapshot? = null
+            override suspend fun save(snapshot: AppleSessionSnapshot) { saves++ }
+            override suspend fun clear() = Unit
+        }
+        val manager = ICloudAccountManager(
+            AppleAuthenticationService(ScriptedTransport(completeBody = SECURITY_KEY_BODY), clientIdProvider = { CLIENT_ID }),
+            store,
+        )
+        manager.restore()
+
+        manager.signIn(APPLE_ID, PASSWORD)
+        assertTrue(manager.state.value is ICloudAccountState.AwaitingTwoFactor)
+        manager.cancelTwoFactor()
+
+        assertEquals(ICloudAccountState.SignedOut, manager.state.value)
+        assertEquals(0, saves)
+        // Nothing is pending any more, so a second cancel changes nothing.
+        manager.cancelTwoFactor()
+        assertEquals(ICloudAccountState.SignedOut, manager.state.value)
     }
 
     @Test

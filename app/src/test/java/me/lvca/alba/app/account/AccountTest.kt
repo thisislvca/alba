@@ -33,14 +33,14 @@ class AccountTest {
         openSignIn()
         compose.onNodeWithText(app.string(R.string.sign_in_heading)).assertIsDisplayed()
         compose.onNodeWithTag("sign-in-submit").assertIsNotEnabled()
-        compose.onNodeWithTag("sign-in-compatibility").performClick()
+        compose.onNodeWithTag("sign-in-compatibility").performScrollTo().performClick()
         compose.onNodeWithTag("sign-in-compatibility-dialog").assertIsDisplayed()
         compose.onNodeWithText(app.string(R.string.supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke))
             .performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("sign-in-compatibility-close").performClick()
         compose.onNodeWithTag("sign-in-compatibility-dialog").assertDoesNotExist()
-        compose.onNodeWithText(app.string(R.string.apple_account)).assertIsDisplayed()
-        compose.onNodeWithText(app.string(R.string.password)).assertIsDisplayed()
+        compose.onNodeWithText(app.string(R.string.apple_account)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(app.string(R.string.password)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("sign-in-submit").assertIsDisplayed()
     }
 

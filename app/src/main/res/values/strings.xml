@@ -320,7 +320,7 @@
     <string name="sign_in_to_upload">Sign in to upload</string>
     <string name="sign_out_and_use_demo_library">Sign out</string>
     <string name="signed_in_to_icloud">Signed in to iCloud</string>
-    <string name="signing_in">Signing in</string>
+    <string name="signing_in">Signing in…</string>
     <string name="six_digit_code">Six-digit code</string>
     <string name="slo_mo">Slo-mo</string>
     <string name="small">Small</string>
@@ -355,7 +355,6 @@
     <string name="uploads">Uploads</string>
     <string name="uploads_and_activity">Uploads and activity</string>
     <string name="uploads_downloads_and_backup">Uploads, downloads and backup</string>
-    <string name="use_a_different_apple_account">Use a different Apple Account</string>
     <string name="uses_the_capture_date_when_the_added_date_is_unavailable">Uses the capture date when the added date is unavailable.</string>
     <string name="verified_in_icloud">Backed up to iCloud</string>
     <string name="already_in_icloud">Already in iCloud</string>
@@ -1086,6 +1085,8 @@
     <string name="sign_in_trust">Alba signs in directly with Apple. Your password is never stored.</string>
     <string name="sign_in_submit">Sign in</string>
     <string name="sign_in_forgot_password">Forgot password?</string>
+    <string name="sign_in_sending_code">Sending a new code…</string>
+    <string name="sign_in_checking_code">Checking the code…</string>
     <string name="sign_in_code_by_sms">Get a code by text message</string>
     <string name="sign_in_error_security_key">This Apple Account uses security keys. Apple’s web sign-in, which Alba uses, can’t accept them yet, so Alba can’t connect to this account.</string>
     <string name="sign_in_error_too_many_attempts">Apple paused sign-in after too many attempts. Wait a while, then try again. If Apple locked your account, unlock it at iforgot.apple.com.</string>

@@ -71,6 +71,7 @@ import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 
 /**
  * Where the app is. Derived from the account screen flag and the open photo, which the ViewModel keeps in saved
@@ -102,6 +103,13 @@ private const val MEDIA_KEY = "media"
  * behind it: the root provides it, and back then leaves the app instead of closing the screen.
  */
 internal val LocalSignInFirst = compositionLocalOf { false }
+
+/**
+ * Whether reaching [state] ends sign-in at the start of the app ([signInFirst]) by closing it onto the library: a
+ * verified account does; one without iCloud Photos stays, to explain what to turn on.
+ */
+internal fun signInHandsOff(state: ICloudAccountState, signInFirst: Boolean): Boolean =
+    signInFirst && state is ICloudAccountState.SignedIn && state.status == SessionStatus.VERIFIED
 
 /** What the system back gesture does at the top level, before a screen's own back handling. */
 internal enum class RootBack { CLEAR_SELECTION, CLOSE_ACCOUNT, CLOSE_MEDIA }

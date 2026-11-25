@@ -94,6 +94,10 @@ fun ICloudAccountScreen(
     LaunchedEffect(state) {
         if (signedIn?.status == SessionStatus.VERIFIED && page == ProfilePage.SIGN_IN) page = ProfilePage.OVERVIEW
     }
+    // A code belongs to one challenge: leaving the code step, either way, drops it.
+    LaunchedEffect(state is ICloudAccountState.AwaitingTwoFactor) {
+        if (state !is ICloudAccountState.AwaitingTwoFactor) verificationCode = ""
+    }
     LaunchedEffect(page) {
         if (page == ProfilePage.OVERVIEW) actions.checkPhoneStorage()
     }
@@ -163,23 +167,36 @@ private fun AccountPage(
     val state = session.accountState
     val busy = session.accountBusy
     val signedIn = state as? ICloudAccountState.SignedIn
-    val authenticating = state is ICloudAccountState.SigningIn || state is ICloudAccountState.AwaitingTwoFactor ||
-        state == ICloudAccountState.Restoring
     if (page == ProfilePage.ABOUT) {
         AboutScreen(diagnostics, actions::setDiagnosticsEnabled, onBack)
         return
     }
-    if (!authenticating && (page == ProfilePage.SIGN_IN || state == ICloudAccountState.SignedOut)) {
-        val shownAppleId = appleId.ifBlank { signedIn?.appleId.orEmpty() }
-        SignInPage(
-            expired = signedIn?.status == SessionStatus.EXPIRED, appleId = shownAppleId, password = password,
-            problem = session.signInProblem, onAppleIdChange = onAppleId, onPasswordChange = onPassword,
-            onSubmit = { actions.signIn(shownAppleId, password) }, onTryDemo = tryDemo,
+    val signingIn = state is ICloudAccountState.SigningIn || state is ICloudAccountState.AwaitingTwoFactor
+    if (signingIn || page == ProfilePage.SIGN_IN || state == ICloudAccountState.SignedOut) {
+        val shownAppleId = when (state) {
+            is ICloudAccountState.SigningIn -> appleId.ifBlank { state.appleId }
+            else -> appleId.ifBlank { signedIn?.appleId.orEmpty() }
+        }
+        SignInFlow(
+            SignInFlowState(
+                challenge = state as? ICloudAccountState.AwaitingTwoFactor,
+                busy = busy || state is ICloudAccountState.SigningIn,
+                expired = signedIn?.status == SessionStatus.EXPIRED,
+                appleId = shownAppleId, password = password, code = verificationCode, problem = session.signInProblem,
+            ),
+            SignInFlowActions(
+                onAppleIdChange = onAppleId, onPasswordChange = onPassword, onCodeChange = onVerificationCode,
+                onSignIn = { actions.signIn(shownAppleId, password) },
+                onSubmitCode = actions::submitTwoFactor,
+                onResendCode = actions::resendTwoFactor, onSendCodeBySms = actions::sendCodeBySms,
+                onCancelCode = { onVerificationCode(""); actions.cancelTwoFactor() },
+                onTryDemo = tryDemo,
+            ),
         )
         return
     }
     AlbaPageScaffold(
-        title = stringResource(if (authenticating) R.string.icloud_account else page.title),
+        title = stringResource(if (state == ICloudAccountState.Restoring) R.string.icloud_account else page.title),
         onBack = onBack,
     ) {
         when {
@@ -195,15 +212,6 @@ private fun AccountPage(
             } else ProgressState(
                 stringResource(R.string.restoring_your_session),
                 stringResource(R.string.checking_the_encrypted_icloud_session_stored_on_this_phone),
-            )
-            state is ICloudAccountState.SigningIn -> ProgressState(
-                stringResource(R.string.signing_in), stringResource(R.string.connecting_as, state.appleId),
-            )
-            state is ICloudAccountState.AwaitingTwoFactor -> VerificationForm(
-                busy, state, verificationCode, session.signInProblem,
-                { onVerificationCode(it.filter(Char::isDigit).take(6)) },
-                { actions.submitTwoFactor(verificationCode); onVerificationCode("") },
-                actions::resendTwoFactor, actions::sendCodeBySms, actions::signOut,
             )
             page == ProfilePage.BACKUP -> BackupPage(session, transfers, actions, onNavigate)
             page == ProfilePage.BACKUP_FOLDERS -> DeviceFoldersPage(transfers, actions)
@@ -289,13 +297,14 @@ internal fun HelpLink(
     url: String,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
+    enabled: Boolean = true,
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     TextButton(onClick = {
         try { uriHandler.openUri(url) }
         catch (_: ActivityNotFoundException) { Toast.makeText(context, R.string.browser_unavailable, Toast.LENGTH_LONG).show() }
-    }, modifier = modifier, contentPadding = contentPadding) { Text(stringResource(label)) }
+    }, modifier = modifier, enabled = enabled, contentPadding = contentPadding) { Text(stringResource(label)) }
 }
 
 /**
@@ -334,71 +343,6 @@ internal fun WebAccessOffCard() {
                 color = MaterialTheme.colorScheme.onTertiaryContainer)
             HelpLink(R.string.web_access_off_help, WEB_ACCESS_URL)
         }
-    }
-}
-
-@Composable
-private fun VerificationForm(
-    busy: Boolean,
-    state: ICloudAccountState.AwaitingTwoFactor,
-    code: String,
-    problem: SignInProblem?,
-    onCodeChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    onResend: () -> Unit,
-    onSendBySms: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    Text(stringResource(R.string.enter_the_verification_code), style = MaterialTheme.typography.headlineMedium)
-    Spacer(Modifier.height(8.dp))
-    val hasHint = !state.destinationHint.isNullOrBlank()
-    val deliveryMessage = when (state.delivery) {
-        TwoFactorDelivery.TRUSTED_DEVICE -> if (hasHint) R.string.code_sent_device_hint else R.string.code_sent_device
-        TwoFactorDelivery.SMS -> if (hasHint) R.string.code_sent_sms_hint else R.string.code_sent_sms
-    }
-    Text(
-        if (hasHint) stringResource(deliveryMessage, state.destinationHint.orEmpty()) else stringResource(deliveryMessage),
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(24.dp))
-    val wrongCode = problem == SignInProblem.WRONG_CODE
-    OutlinedTextField(
-        value = code,
-        onValueChange = onCodeChange,
-        label = { Text(stringResource(R.string.six_digit_code)) },
-        singleLine = true,
-        isError = wrongCode,
-        supportingText = if (wrongCode) { { Text(stringResource(R.string.invalid_two_factor_code)) } } else null,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.NumberPassword,
-            imeAction = ImeAction.Done,
-        ),
-        keyboardActions = KeyboardActions(onDone = { if (!busy && code.length == 6) onSubmit() }),
-        modifier = Modifier.fillMaxWidth().testTag("verification-code").semantics { contentType = ContentType.SmsOtpCode },
-    )
-    SignInProblemNotice(problem)
-    Spacer(Modifier.height(18.dp))
-    Button(
-        onClick = onSubmit,
-        enabled = !busy && code.length == 6,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(if (busy) stringResource(R.string.contacting_apple) else stringResource(R.string.verify_and_continue))
-    }
-    Spacer(Modifier.height(10.dp))
-    OutlinedButton(enabled = !busy, onClick = onResend, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.send_another_code))
-    }
-    if (state.smsAvailable) {
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(enabled = !busy, onClick = onSendBySms, modifier = Modifier.fillMaxWidth().testTag("code-by-sms")) {
-            Text(stringResource(R.string.sign_in_code_by_sms))
-        }
-    }
-    Spacer(Modifier.height(8.dp))
-    OutlinedButton(enabled = !busy, onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.use_a_different_apple_account))
     }
 }
 

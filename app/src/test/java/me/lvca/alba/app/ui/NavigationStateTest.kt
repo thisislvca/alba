@@ -9,8 +9,12 @@ import me.lvca.alba.app.ui.gallery.GallerySheet
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NavigationStateTest {
@@ -56,5 +60,14 @@ class NavigationStateTest {
     @Test fun signInAtTheStartLeavesBackToTheSystem() {
         assertNull(rootBack(Destination.Account, hasSelection = false, signInFirst = true))
         assertEquals(RootBack.CLEAR_SELECTION, rootBack(Destination.Account, hasSelection = true, signInFirst = true))
+    }
+
+    @Test fun signingInAtTheStartHandsOverToTheLibrary() {
+        assertTrue(signInHandsOff(ICloudAccountState.SignedIn("alex@example.com"), signInFirst = true))
+        // Inside the app, signing in stays on the profile it was opened from.
+        assertFalse(signInHandsOff(ICloudAccountState.SignedIn("alex@example.com"), signInFirst = false))
+        // An account without iCloud Photos stays, to say what to turn on.
+        assertFalse(signInHandsOff(ICloudAccountState.SignedIn("alex@example.com", SessionStatus.PHOTOS_NOT_ENABLED), signInFirst = true))
+        assertFalse(signInHandsOff(ICloudAccountState.Demo, signInFirst = true))
     }
 }

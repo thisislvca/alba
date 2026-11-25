@@ -70,6 +70,8 @@ internal fun testAlbaActions(
     includeExistingInBackup: () -> Unit = {},
     signOut: () -> Unit = {},
     sendCodeBySms: () -> Unit = {},
+    resendTwoFactor: () -> Unit = {},
+    cancelTwoFactor: () -> Unit = {},
     confirmMixedTrash: (List<GalleryMedia>) -> Unit = {},
     useElsewhere: (GalleryMedia, ExternalUse) -> Unit = { _, _ -> },
 ): AlbaActions {
@@ -86,7 +88,8 @@ internal fun testAlbaActions(
     val onOpenHidden = openHidden; val onSetHidden = setHidden; val onExpandBurst = expandBurst
     val onRetry = retryTransfer; val onRetryAll = retryAllTransfers; val onCancelUploads = cancelUploads; val onFreeUp = freeUpSpace
     val onSettings = setBackupSettings; val onOpenBackup = openBackup; val onRetryStorage = retryAfterStorageFull
-    val onSignOut = signOut; val onSendCodeBySms = sendCodeBySms; val onConfirmMixedTrash = confirmMixedTrash
+    val onSignOut = signOut; val onSendCodeBySms = sendCodeBySms; val onResend = resendTwoFactor
+    val onCancelTwoFactor = cancelTwoFactor; val onConfirmMixedTrash = confirmMixedTrash
     val onUseElsewhere = useElsewhere; val onIncludeExisting = includeExistingInBackup
     return object : AlbaActions {
         override fun retryTransfer(transferId: TransferId) = onRetry(transferId)
@@ -172,8 +175,9 @@ internal fun testAlbaActions(
         override fun cancelOfflineDownload() = Unit
         override fun closeAccount() = onCloseAccount()
         override fun signIn(appleId: String, password: String) = onSignIn(appleId, password)
-        override fun resendTwoFactor() = Unit
+        override fun resendTwoFactor() = onResend()
         override fun sendCodeBySms() = onSendCodeBySms()
+        override fun cancelTwoFactor() = onCancelTwoFactor()
         override fun clearSignInProblem() = Unit
         override val signInDraft = SignInDraft()
         override fun confirmMixedTrash(items: List<GalleryMedia>) = onConfirmMixedTrash(items)

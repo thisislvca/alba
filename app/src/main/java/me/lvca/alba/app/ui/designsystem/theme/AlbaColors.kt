@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 internal data class AlbaColors(
     /** Whether this is the dark set. Screens can force a palette, so never read the system setting instead. */
     val isDark: Boolean,
-    /** iCloud's brand blue, for collection and media-type glyphs. */
+    /** iCloud's brand blue, for collection and media-type glyphs; deep enough on light surfaces for 3:1 non-text contrast. */
     val accent: Color,
     /** A healthy state, such as a verified connection. */
     val success: Color,
@@ -120,7 +120,7 @@ private val SuccessGreen = Color(0xFF268858)
 
 internal val LightAlbaColors = AlbaColors(
     isDark = false,
-    accent = Color(0xFF009FFF),
+    accent = Color(0xFF0071E3),
     success = SuccessGreen,
     favorite = Color(0xFFFF3B30),
     mediaScrim = Color.Black,

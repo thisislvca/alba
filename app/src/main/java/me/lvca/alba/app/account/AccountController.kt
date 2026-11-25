@@ -361,6 +361,22 @@ internal class AccountController(
         }
     }
 
+    /** Leaves the code step for the Apple Account and password, as they were before Apple asked for a code. */
+    fun cancelTwoFactor() {
+        if (busy.value) return
+        scope.launch {
+            try {
+                messages.clear()
+                problem.value = null
+                signInDraft.password = ""
+                accountManager.cancelTwoFactor()
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                messages.show(error.toUserMessage(R.string.message_could_not_sign_in_to_icloud))
+            }
+        }
+    }
+
     /** The user changed the form, so the problem it showed no longer applies. */
     fun clearSignInProblem() {
         problem.value = null

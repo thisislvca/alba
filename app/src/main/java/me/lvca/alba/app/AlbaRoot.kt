@@ -20,6 +20,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -84,8 +85,6 @@ import me.lvca.alba.app.ui.InvitationActions
 import me.lvca.alba.app.ui.LocalSignInFirst
 import me.lvca.alba.app.ui.account.BackupDisclosure
 import me.lvca.alba.app.ui.account.ProfilePage
-import me.lvca.alba.app.ui.designsystem.LocalStatusBarIcons
-import me.lvca.alba.app.ui.designsystem.StatusBarIcons
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
 import me.lvca.alba.app.ui.gallery.LocalBackupBadges
@@ -96,6 +95,7 @@ import me.lvca.alba.app.ui.shared.LocalNotificationAccess
 import me.lvca.alba.app.ui.shared.LocalSharedActivity
 import me.lvca.alba.app.ui.shared.NotificationAccess
 import me.lvca.alba.app.ui.shared.SharedInvitations
+import me.lvca.alba.app.ui.signInHandsOff
 import me.lvca.alba.app.work.canNotify
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.BackupSettings
@@ -202,6 +202,8 @@ internal fun AlbaRoot(
     val accountState = session.accountState
     LaunchedEffect(accountState) {
         if (accountState is ICloudAccountState.SignedIn || accountState == ICloudAccountState.Demo) {
+            // Signing in at the start ends in the library, as a setup flow ends on the home screen.
+            if (signInHandsOff(accountState, signInFirst)) viewModel.account.closeAccount()
             onboarding.complete()
             signInFirst = false
         }
@@ -210,8 +212,8 @@ internal fun AlbaRoot(
     LaunchedEffect(startAtSignIn) { if (startAtSignIn) viewModel.account.beginAtSignIn() }
     // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
     AlbaTheme(darkTheme = isSystemInDarkTheme()) {
-        // Until sign-in opens, the sky it opens on, rather than a frame of the empty library behind it.
-        if (startAtSignIn && !session.isAccountOpen) Box(Modifier.fillMaxSize().background(AlbaTheme.colors.dawn.sky))
+        // Until sign-in opens, the surface it opens on, rather than a frame of the empty library behind it.
+        if (startAtSignIn && !session.isAccountOpen) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface))
         else CompositionLocalProvider(LocalSignInFirst provides startAtSignIn) {
             AlbaMain(viewModel, incoming, onIncomingChange, onAccountClosed = {
                 // Leaving a code page at the start returns to sign-in.
@@ -571,12 +573,10 @@ private fun AlbaMain(
     val darkTheme = isSystemInDarkTheme()
     var viewerLightBars by remember { mutableStateOf(true) }
     val lightBars = if (gallery.selectedMedia != null && !session.isAccountOpen) viewerLightBars else !darkTheme
-    val statusBarIcons = remember { StatusBarIcons() }
-    val lightStatusBar = lightBars && !statusBarIcons.lightIcons
     SideEffect {
         activity?.window?.let { window ->
             WindowCompat.getInsetsController(window, window.decorView).apply {
-                isAppearanceLightStatusBars = lightStatusBar
+                isAppearanceLightStatusBars = lightBars
                 isAppearanceLightNavigationBars = lightBars
             }
         }
@@ -586,7 +586,6 @@ private fun AlbaMain(
         backupBadges(transfers.backup.enabled, transfers.uploadsByMediaId)
     })
     CompositionLocalProvider(LocalPreviewStorageLow provides previewStorageLow, LocalBackupBadges provides backupBadges,
-        LocalStatusBarIcons provides statusBarIcons,
         LocalSharedActivity provides sharedActivity, LocalNotificationAccess provides notificationAccess) {
         AlbaApp(
             gallery = gallery,
@@ -895,6 +894,7 @@ private class AlbaRootActions(
     override fun submitTwoFactor(code: String) = account.submitTwoFactor(code)
     override fun resendTwoFactor() = account.resendTwoFactor()
     override fun sendCodeBySms() = account.sendCodeBySms()
+    override fun cancelTwoFactor() = account.cancelTwoFactor()
     override fun clearSignInProblem() = account.clearSignInProblem()
     override val signInDraft get() = account.signInDraft
     override fun signOut() = viewModel.signOut()
