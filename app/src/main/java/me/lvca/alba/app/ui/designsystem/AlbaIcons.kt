@@ -21,7 +21,9 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 /**
  * Alba's one icon family: Material Symbols Rounded at weight 400, grade 0 and 24dp optical size, as Google Photos and
  * Android 16 use. Glyphs are outlined; the `Filled` ones and [Favorite] are FILL 1, only for selected or active states
- * (the current destination, a favourite). Directional glyphs mirror in right-to-left layouts. The collection glyphs
+ * (the current destination, a favourite). [PlayArrow] is the one exception and always solid, as Google Photos and
+ * Apple draw it: an outlined triangle reads as disabled over photos. Directional glyphs mirror in right-to-left
+ * layouts. The collection glyphs
  * in `res/drawable` are the same family. Don't use `Icons.*` from material-icons or another family.
  */
 internal object AlbaIcons {
@@ -404,12 +406,12 @@ internal object AlbaIcons {
         )
     }
 
-    /** Material Symbols Rounded play_arrow, outlined. */
+    /** Material Symbols Rounded play_arrow, filled. */
     val PlayArrow: ImageVector by lazy {
         symbol(
             "PlayArrow",
             "M320-273v-414q0-17 12-28.5t28-11.5q5 0 10.5 1.5T381-721l326 207q9 6 13.5 15t4.5 19q0 10-4.5 19T707-446L381-239q-" +
-            "5 3-10.5 4.5T360-233q-16 0-28-11.5T320-273Zm80-207Zm0 134 210-134-210-134v268Z",
+            "5 3-10.5 4.5T360-233q-16 0-28-11.5T320-273Z",
         )
     }
 
