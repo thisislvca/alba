@@ -34,25 +34,12 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 
 /** How far a [MediaScrim] darkens the photo beneath it, as alpha stops from top to bottom. */
 internal enum class MediaScrimStrength(vararg val alphas: Float) {
-    /**
-     * Grid tiles: just enough behind a duration or an offline badge. Over the light grey placeholder of a tile still
-     * waiting for its photo this keeps white text at about 4.5:1 where the duration sits, so it reads the same before
-     * and after the photo lands.
-     */
-    Subtle(0f, TILE_SCRIM_ALPHA),
-
-    /** The top of a grid tile behind the favourite heart; mirrors [Subtle] and fades out before the middle. */
-    SubtleTop(TILE_TOP_SCRIM_ALPHA, 0f),
+    /** Grid tiles: just enough behind a duration or an offline badge. */
+    Subtle(0f, .6f),
 
     /** Covers with titles: keeps the top of the photo clear, then darkens strongly behind the text. */
     Strong(0f, .12f, .85f),
 }
-
-/** The darkest point of a grid tile's bottom scrim, behind a duration or an offline badge. */
-private const val TILE_SCRIM_ALPHA = .7f
-
-/** The darkest point of a grid tile's top scrim; with a 16 dp heart this keeps it at about 3.4:1 on the light placeholder. */
-private const val TILE_TOP_SCRIM_ALPHA = .55f
 
 /** A vertical gradient that keeps text and icons drawn over a photo legible. Size and place it with [modifier]. */
 @Composable

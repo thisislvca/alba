@@ -25,7 +25,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Icon
@@ -42,27 +44,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.collections.coverReference
 import me.lvca.alba.app.ui.collections.icon
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
-import me.lvca.alba.app.ui.designsystem.FavoriteIcon
 import me.lvca.alba.app.ui.designsystem.MediaPill
 import me.lvca.alba.app.ui.designsystem.MediaScrim
-import me.lvca.alba.app.ui.designsystem.MediaScrimStrength
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.label
@@ -110,7 +114,9 @@ internal fun MediaTile(
         val reducedMotion = reduceGalleryMotion()
         Box(Modifier.selectedBacking(selected, reducedMotion)) {
             Box(Modifier.selectedInset(selected, selecting, reducedMotion)) {
+                val reveal = remember(media.id) { TileReveal() }
                 MediaThumbnail(
+                    reveal = reveal,
                     retryVersion = retryVersion,
                     sharedMediaId = media.id,
                     reference = media.coverReference(),
@@ -118,34 +124,30 @@ internal fun MediaTile(
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                 )
-                // Badges come from catalog metadata, so they show on the grey placeholder before the photo arrives.
-                // Their scrims and text shadow are the same with or without a photo, so nothing shifts when it lands.
-                val onMedia = AlbaTheme.colors.onMedia
-                val overlayText = tileOverlayText()
+                // Badges come from catalog metadata, so they show before the photo arrives. On the bare placeholder they are
+                // quiet ink with no scrim; the scrim and white badges fade in with the photo, on the photo's own fade.
+                val ink = tileBadgeInk(reveal)
+                val photoOnly = Modifier.graphicsLayer { alpha = reveal.progress }
                 val daysLeft = trashDaysLeftLabel(media)
                 if (media.kind == MediaKind.VIDEO || media.availability == MediaAvailability.ORIGINAL_CACHED || daysLeft != null)
-                    MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(GalleryFeel.TILE_SCRIM_HEIGHT))
-                val heart = media.isFavorite && !selected
-                if (heart) MediaScrim(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(GalleryFeel.TILE_SCRIM_HEIGHT),
-                    MediaScrimStrength.SubtleTop)
+                    MediaScrim(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(GalleryFeel.TILE_SCRIM_HEIGHT).then(photoOnly))
                 // In a trash the time left takes the offline badge's corner, as in Google Photos' trash.
-                if (daysLeft != null) Text(daysLeft, color = onMedia, style = MaterialTheme.typography.labelSmall.merge(overlayText), maxLines = 1,
+                if (daysLeft != null) BasicText(daysLeft, style = MaterialTheme.typography.labelSmall, maxLines = 1, color = ink,
                     modifier = Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).testTag("trash-days-left"))
-                else if (media.availability == MediaAvailability.ORIGINAL_CACHED) Icon(
-                    AlbaIcons.DownloadForOffline, contentDescription = stringResource(R.string.available_offline), tint = onMedia,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
+                else if (media.availability == MediaAvailability.ORIGINAL_CACHED) TileGlyph(
+                    AlbaIcons.DownloadForOffline, stringResource(R.string.available_offline), ink,
+                    Modifier.align(Alignment.BottomStart).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
                 if (media.kind == MediaKind.VIDEO) {
                     val duration = mediaDuration(media.durationMillis)
-                    if (duration != null) Text(duration, color = onMedia, style = MaterialTheme.typography.labelMedium.merge(overlayText),
+                    if (duration != null) BasicText(duration, style = MaterialTheme.typography.labelMedium, color = ink,
                         modifier = Modifier.align(Alignment.BottomEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).testTag("tile-duration-${media.id}"))
-                    else Icon(Icons.Filled.PlayArrow, stringResource(R.string.videos), tint = onMedia,
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
+                    else TileGlyph(Icons.Filled.PlayArrow, stringResource(R.string.videos), ink,
+                        Modifier.align(Alignment.BottomEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
                 }
                 // The selection circle takes the top-start corner while choosing, as in Photos.
                 if (!selecting) TileKindBadge(media, Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET))
-                if (heart) FavoriteIcon(true,
-                    contentDescription = stringResource(R.string.favorite), tint = onMedia,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(16.dp))
+                if (media.isFavorite && !selected) TileGlyph(Icons.Filled.Favorite, stringResource(R.string.favorite), ink,
+                    Modifier.align(Alignment.TopEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(16.dp))
                 // Backup state, phone items only; a separate slot so other badges can change independently.
                 if (media.origin == MediaOrigin.DEVICE) BackupBadgeOverlay(media.id)
             }
@@ -234,11 +236,24 @@ private fun TypeBadge(badge: TileBadge, modifier: Modifier) {
     }
 }
 
-/** A soft shadow under text drawn on a tile, so it stays crisp over a bright photo or the light placeholder alike. */
+/**
+ * The colour of a tile's badges: quiet ink on the bare placeholder, white over the photo, blended by how far the photo
+ * has faded in. Read while drawing, so the fade never recomposes the tile.
+ */
 @Composable
-private fun tileOverlayText(): TextStyle {
-    val shadow = AlbaTheme.colors.mediaScrim.copy(alpha = .5f)
-    return remember(shadow) { TextStyle(shadow = Shadow(shadow, Offset(0f, 1f), blurRadius = 3f)) }
+private fun tileBadgeInk(reveal: TileReveal): ColorProducer {
+    val waiting = MaterialTheme.colorScheme.onSurfaceVariant
+    val onPhoto = AlbaTheme.colors.onMedia
+    return remember(reveal, waiting, onPhoto) { ColorProducer { lerp(waiting, onPhoto, reveal.progress) } }
+}
+
+/** A badge icon tinted by [ink] at draw time, announced as [description]. */
+@Composable
+private fun TileGlyph(icon: ImageVector, description: String, ink: ColorProducer, modifier: Modifier) {
+    val painter = rememberVectorPainter(icon)
+    Box(modifier
+        .semantics { contentDescription = description; role = Role.Image }
+        .drawBehind { with(painter) { draw(size, colorFilter = ColorFilter.tint(ink())) } })
 }
 
 /** An unselected tile's corner radius, matching the tile shape. */
