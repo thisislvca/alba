@@ -70,7 +70,10 @@ data class SessionState(
     val signInProblem: SignInProblem? = null,
     /** The last refresh found "Access iCloud Data on the Web" off for this account. */
     val webAccessOff: Boolean = false,
-    /** The first full read of the iCloud library, while it is unfinished: how many photos it has loaded. */
+    /**
+     * The first load of the iCloud library, while it is unfinished: how many photos it has loaded. Null during a
+     * refresh or rescan of a library Alba already stores.
+     */
     val catalogScan: CatalogScanProgress? = null,
     /** Apple is still indexing the iCloud library; Alba keeps checking and loads it once ready. */
     val libraryPreparing: LibraryPreparing? = null,
@@ -158,7 +161,8 @@ internal class AccountController(
             signInProblem = flags.problem,
             webAccessOff = sync.webAccessOff,
             // Only an iCloud library is large enough to read for a while; the demo and signed-out reads are instant.
-            catalogScan = sync.catalogScan.takeIf { account is ICloudAccountState.SignedIn },
+            // A rescan of a library Alba already shows is a quiet refresh, so only a first load carries its progress.
+            catalogScan = sync.catalogScan.takeIf { account is ICloudAccountState.SignedIn && it?.initialLoad == true },
             libraryPreparing = sync.libraryPreparing.takeIf { account is ICloudAccountState.SignedIn },
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), SessionState())
@@ -185,9 +189,21 @@ internal class AccountController(
         signInDraft.password = ""
     }
 
-    fun startDemo() = selectLibraryMode(demo = true)
+    /** Switches to the sample library, leaving sign-in if it was open. */
+    fun startDemo() {
+        closeAccount()
+        selectLibraryMode(demo = true)
+    }
 
     fun connectAccount() = selectLibraryMode(demo = false)
+
+    /**
+     * Opens sign-in as the first screen. A recreation finds it open already, and must not restart an attempt that is
+     * waiting for its verification code.
+     */
+    fun beginAtSignIn() {
+        if (!accountOpen.value) connectAccount()
+    }
 
     private fun selectLibraryMode(demo: Boolean) {
         scope.launch {
@@ -353,12 +369,28 @@ internal class AccountController(
         }
     }
 
+    /** Leaves the code step for the Apple Account and password, as they were before Apple asked for a code. */
+    fun cancelTwoFactor() {
+        if (busy.value) return
+        scope.launch {
+            try {
+                messages.clear()
+                problem.value = null
+                signInDraft.password = ""
+                accountManager.cancelTwoFactor()
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                messages.show(error.toUserMessage(R.string.message_could_not_sign_in_to_icloud))
+            }
+        }
+    }
+
     /** The user changed the form, so the problem it showed no longer applies. */
     fun clearSignInProblem() {
         problem.value = null
     }
 
-    /** Signs out; [onSavedAccountRemoved] runs when a saved account was removed, so the UI can show the introduction. */
+    /** Signs out; [onSavedAccountRemoved] runs when a saved account was removed, so the UI can start over at sign-in. */
     fun signOut(onSavedAccountRemoved: () -> Unit = {}) {
         scope.launch {
             try {
@@ -407,7 +439,7 @@ internal class AccountController(
 }
 
 /**
- * Whether signing out from [state] removes a saved account, so the UI returns to the introduction. That includes a
+ * Whether signing out from [state] removes a saved account, so the UI starts over at sign-in. That includes a
  * restore that failed before its session loaded, but not a sign-in abandoned at the code step.
  */
 internal fun signOutRemovesSavedAccount(state: ICloudAccountState, hasSession: Boolean): Boolean =

@@ -218,7 +218,7 @@ class AlbaViewModel(
 
     private val welcome = MutableStateFlow(false)
 
-    /** A saved account was signed out: the root shows the introduction once, then reports it through [welcomeShown]. */
+    /** A saved account was signed out: the root starts over at sign-in, then reports it through [welcomeShown]. */
     val returnToWelcome: StateFlow<Boolean> = welcome.asStateFlow()
 
     fun signOut() = account.signOut(onSavedAccountRemoved = { welcome.value = true })

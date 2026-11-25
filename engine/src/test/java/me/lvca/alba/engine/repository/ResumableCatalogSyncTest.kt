@@ -108,6 +108,38 @@ class ResumableCatalogSyncTest {
     }
 
     @Test
+    fun aStoredLibraryRefreshesFromItsChangesWithoutReadingAPage() = runBlocking {
+        val source = PagedSource(count = 30)
+        repository(source).refresh(false)
+        source.requested.clear()
+        source.changes = CloudChanges(listOf(source.record(99)), emptySet(), "token-later", false)
+
+        // App start, pull-to-refresh and the background worker all refresh through here.
+        val summary = repository(source).refresh(false)
+
+        assertTrue(source.requested.isEmpty())
+        assertEquals(31, summary.cloudItemCount)
+        assertNull(database.catalogSyncDao().scan("account-a"))
+        assertEquals("token-later", database.catalogDao().checkpoint("icloud:account-a")?.changeToken)
+    }
+
+    @Test
+    fun onlyTheFirstLoadOfALibraryIsAnInitialLoadAndARescanKeepsTheLibraryVisible() = runBlocking {
+        val source = PagedSource(count = 30).apply { failAt = "10" }
+        assertTrue(runCatching { repository(source).refresh(false) }.isFailure)
+        assertEquals(true, repository(source).observeCatalogScan().first()?.initialLoad)
+        repository(source).refresh(false)
+
+        // iCloud no longer accepts the token: the library is read again, as a refresh rather than a first load.
+        source.resetChanges = true
+        source.failAt = "20"
+        assertTrue(runCatching { repository(source).refresh(false) }.isFailure)
+
+        assertEquals(CatalogScanProgress(loadedCount = 20, totalCount = 30, initialLoad = false), repository(source).observeCatalogScan().first())
+        assertEquals(30, repository(source).observeGallery().first().size)
+    }
+
+    @Test
     fun anAccountChangeDuringTheReadDiscardsThePartialRead() = runBlocking {
         val source = PagedSource(count = 30)
         source.onFetch = { cursor -> if (cursor == "10") source.accountLabel = "account-b" }
