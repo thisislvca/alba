@@ -124,6 +124,8 @@ data class GallerySearch(
             words(SmartCollection.BURSTS.id, "burst", "bursts", "raffica", "raffiche", "sequenza", "sequenze")
             words(SmartCollection.SLO_MO.id, "slo-mo", "slomo", "slow-mo", "slow motion", "rallentatore", "rallenty")
             words(SmartCollection.TIME_LAPSE.id, "time-lapse", "timelapse", "time lapse")
+            words(SmartCollection.PORTRAIT.id, "portrait", "portraits", "ritratto", "ritratti")
+            words(SmartCollection.ANIMATED.id, "animated", "animation", "animations", "gif", "animata", "animate", "animazione", "animazioni")
             words(GalleryQuery.FAVORITES, "favorite", "favorites", "favourite", "favourites", "preferito", "preferiti",
                 "preferita", "preferite")
         }

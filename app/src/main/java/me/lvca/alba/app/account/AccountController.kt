@@ -19,6 +19,7 @@ import me.lvca.alba.app.diagnostics.AlbaDiagnostics
 import me.lvca.alba.app.diagnostics.DiagnosticAttribute
 import me.lvca.alba.app.diagnostics.DiagnosticOperation
 import me.lvca.alba.app.diagnostics.DiagnosticOutcome
+import me.lvca.alba.app.gallery.LibraryPreparing
 import me.lvca.alba.app.gallery.LibrarySync
 import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.messages.UserMessages
@@ -71,6 +72,8 @@ data class SessionState(
     val webAccessOff: Boolean = false,
     /** The first full read of the iCloud library, while it is unfinished: how many photos it has loaded. */
     val catalogScan: CatalogScanProgress? = null,
+    /** Apple is still indexing the iCloud library; Alba keeps checking and loads it once ready. */
+    val libraryPreparing: LibraryPreparing? = null,
 ) {
     val cloudSourceLabel: String
         get() = if (accountState != ICloudAccountState.Demo) "iCloud Personal Library" else "Demo iCloud library"
@@ -156,6 +159,7 @@ internal class AccountController(
             webAccessOff = sync.webAccessOff,
             // Only an iCloud library is large enough to read for a while; the demo and signed-out reads are instant.
             catalogScan = sync.catalogScan.takeIf { account is ICloudAccountState.SignedIn },
+            libraryPreparing = sync.libraryPreparing.takeIf { account is ICloudAccountState.SignedIn },
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), SessionState())
 

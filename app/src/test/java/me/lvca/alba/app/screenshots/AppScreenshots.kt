@@ -17,6 +17,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.account.SignInProblem
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.gallery.LibraryPreparing
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.setAlbaContent
 import me.lvca.alba.app.transfers.TransferState
@@ -84,6 +85,15 @@ abstract class AppScreenshots(
         state("gallery-offline")
         show(session = ScreenshotFixtures.offline)
         capture("gallery-offline")
+    }
+
+    @Test fun galleryPreparing() {
+        state("gallery-preparing")
+        // Apple is still indexing the iCloud library: the phone's own photos show under a calm note with Apple's progress.
+        val phone = ScreenshotFixtures.library(6).map { it.copy(origin = me.lvca.alba.engine.model.MediaOrigin.DEVICE) }
+        show(GalleryState(items = phone, deviceCount = phone.size, deviceMediaAccess = true),
+            ScreenshotFixtures.signedIn.copy(libraryPreparing = LibraryPreparing(progress = 42)))
+        capture("gallery-preparing")
     }
 
     @Test fun emptySignedOut() {

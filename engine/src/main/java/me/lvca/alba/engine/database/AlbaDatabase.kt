@@ -38,9 +38,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CollectionEntity::class, CollectionMemberEntity::class, BatchItemEntity::class, UploadCheckpointEntity::class,
         UploadPauseEntity::class, DiscoveryFailureEntity::class, CatalogScanEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15), AutoMigration(from = 15, to = 16)],
+    autoMigrations = [
+        AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15), AutoMigration(from = 15, to = 16),
+        // Shared albums keep who they are shared with and when a temporary one expires.
+        AutoMigration(from = 20, to = 21),
+    ],
 )
 abstract class AlbaDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao

@@ -11,6 +11,8 @@ internal data class SharedAlbumRecord(
     val zone: String,
     val location: String? = null,
     val ctag: String? = null,
+    /** For a legacy album Apple has moved to a CloudKit shared zone: that zone's name, under which it is listed too. */
+    val migratedZone: String? = null,
 ) {
     val isLegacy: Boolean get() = scope == LEGACY_SCOPE
 

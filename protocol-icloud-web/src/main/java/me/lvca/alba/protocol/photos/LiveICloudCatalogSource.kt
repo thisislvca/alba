@@ -44,6 +44,14 @@ class LiveICloudCatalogSource(
     private val sharedJournal: UploadJournal? = null,
     private val onSessionUpdated: suspend (AppleSessionSnapshot) -> Unit = {},
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
+    private val clock: () -> Long = System::currentTimeMillis,
+    /**
+     * Apple's indexing state did not hold the read back although it was not FINISHED: it FAILED, or it is still running
+     * for a library that already answers. Only for diagnostics.
+     */
+    private val onIndexingAdvisory: (LibraryIndexing) -> Unit = {},
+    /** Whether Alba already stores library rows whose media ids start with the prefix, from an earlier read. */
+    private val hasStoredLibrary: suspend (prefix: String) -> Boolean = { false },
 ) : CloudCatalogSource {
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected).apply {
         onAccountChanged { downloads.clear(); currentRefreshIds.clear() }
@@ -188,18 +196,27 @@ class LiveICloudCatalogSource(
         }
         val members = mutableMapOf<String, Set<String>>()
         fun id(name: String) = "icloud:$accountLabel:$name"
-        for (album in albums.filterNot { it.isFolder }) {
-            members[album.id] = database.queryAll("CPLContainerRelationLiveByAssetDate", "parentId", album.id, true)
-                .mapNotNull { it.fieldText("itemId")?.let(::id) }.toSet()
+
+        // Membership reads ask only for the fields they use and keep only record names, a page at a time: the full
+        // asset and master records of a large smart album (thousands of Live Photos) do not fit in the app's heap.
+        suspend fun names(type: String, field: String?, value: String?, keys: List<String>, pick: (JsonObject) -> String?): Set<String> {
+            val found = mutableSetOf<String>()
+            database.queryPages(type, field, value, ranked = true, desiredKeys = keys) { page -> page.mapNotNullTo(found, pick) }
+            return found
         }
-        members[GalleryQuery.FAVORITES] = database.queryAll("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", "FAVORITE", true)
-            .filter { it.recordType() == "CPLAsset" }.mapNotNull { it.recordName()?.let(::id) }.toSet()
+        for (album in albums.filterNot { it.isFolder }) {
+            members[album.id] = names("CPLContainerRelationLiveByAssetDate", "parentId", album.id, RELATION_KEYS) { it.fieldText("itemId")?.let(::id) }
+        }
+        members[GalleryQuery.FAVORITES] = names("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", "FAVORITE", MEMBERSHIP_KEYS) {
+            if (it.recordType() == "CPLAsset") it.recordName()?.let(::id) else null
+        }
         for (smart in SmartCollection.entries) {
             albums += GalleryCollection(smart.id, smart.title, position = smart.ordinal.toLong())
-            val records = if (smart == SmartCollection.BURSTS) database.queryAll("CPLBurstStackAssetAndMasterByAssetDate", ranked = true)
-                else database.queryAll("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", smart.appleFilter, true)
-            members[smart.id] = records.filter { it.recordType() == "CPLAsset" && !it.isRemovedFromLibrary() }
-                .mapNotNull { it.recordName()?.let(::id) }.toSet()
+            val pick: (JsonObject) -> String? = { record ->
+                if (record.recordType() == "CPLAsset" && !record.isRemovedFromLibrary()) record.recordName()?.let(::id) else null
+            }
+            members[smart.id] = if (smart == SmartCollection.BURSTS) names("CPLBurstStackAssetAndMasterByAssetDate", null, null, MEMBERSHIP_KEYS, pick)
+                else names("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", smart.appleFilter, MEMBERSHIP_KEYS, pick)
         }
         return CollectionSnapshot(albums, members)
     }
@@ -231,7 +248,9 @@ class LiveICloudCatalogSource(
         val parsed = parser.parse(buildJsonObject { put("records", JsonArray(records)) }.toString(), includeTrashed = true, includeHidden = true).photos
         val expected = records.count { it.recordType() == "CPLAsset" && !it.fieldFlag("isExpunged") }
         check(parsed.size == expected) { "Recently Deleted was incomplete. Refresh to try again." }
-        return parsed.filter { it.isTrashed }.map(::mapped)
+        // iCloud keeps listing an item for a while after its `dateExpunged`; iCloud.com leaves those out, and so does Alba.
+        val now = clock()
+        return parsed.filter { it.isTrashed && (it.expiresAtEpochMillis ?: Long.MAX_VALUE) > now }.map(::mapped)
     }
 
     /** The Hidden album, read from its own index as iCloud.com and pyicloud do (`CPLAssetAndMasterHiddenByAssetDate`). */
@@ -429,18 +448,55 @@ class LiveICloudCatalogSource(
                 }.toString(),
             ),
         )
-        val state = indexing.jsonObjectOrNull()
-            ?.get("records")
-            ?.let { it as? kotlinx.serialization.json.JsonArray }
-            ?.firstOrNull()
-            ?.let { it as? JsonObject }
-            ?.fieldText("state")
-        if (state != null && state != "FINISHED") {
-            throw AppleProtocolException(
-                AppleProtocolError.LIBRARY_PREPARING,
-                "iCloud Photos is still preparing this library. Try again in a few minutes.",
-            )
+        // Apple's indexing state is advisory. FINISHED, FAILED or no record at all read the library; so does one still
+        // indexing that Alba already stores or that already answers, as Apple can start a new RUNNING job at 0% on a
+        // library iCloud.com reads in full. Only a library with nothing stored and nothing to read yet waits.
+        val state = LibraryIndexing.parse(indexing.jsonObjectOrNull()) ?: return
+        if (state.failed) onIndexingAdvisory(state)
+        if (!state.inProgress) return
+        if (hasStoredLibrary("icloud:${ICloudAccountIdentity.namespace(session)}:") || libraryAnswers(session)) {
+            onIndexingAdvisory(state)
+            return
         }
+        throw LibraryPreparingException(state.progress)
+    }
+
+    /**
+     * Whether the main feed already answers: one record name from its first rank. An index error means it is not built
+     * yet; any other failure is the read's to report.
+     */
+    private suspend fun libraryAnswers(session: AppleSessionSnapshot): Boolean {
+        val response = cloudKit.exchange(session, AppleHttpRequest(
+            method = "POST",
+            url = database.url(session, "records/query"),
+            headers = PersonalLibraryDatabase.HEADERS,
+            body = buildJsonObject {
+                putJsonObject("query") {
+                    put("recordType", PHOTO_LIST_RECORD_TYPE)
+                    putJsonArray("filterBy") {
+                        add(buildJsonObject {
+                            put("fieldName", "direction"); put("comparator", "EQUALS")
+                            putJsonObject("fieldValue") { put("type", "STRING"); put("value", "ASCENDING") }
+                        })
+                        add(buildJsonObject {
+                            put("fieldName", "startRank"); put("comparator", "EQUALS")
+                            putJsonObject("fieldValue") { put("type", "INT64"); put("value", 0) }
+                        })
+                    }
+                }
+                put("zoneID", PrimarySyncZone.zoneId())
+                putJsonArray("desiredKeys") { add(JsonPrimitive("recordName")) }
+                put("resultsLimit", 1)
+            }.toString(),
+        ))
+        val root = response.jsonObjectOrNull()
+        if (response.code in HTTP_SUCCESS && root != null && !CloudKitErrors.rejectedRequest(root)) {
+            return (root["records"] as? kotlinx.serialization.json.JsonArray)?.isNotEmpty() == true
+        }
+        if (root?.toString()?.contains(INDEX_ERROR, ignoreCase = true) == true) return false
+        cloudKit.requireSuccess(session, response)
+        root?.let(CloudKitErrors::requireAccepted)
+        return false
     }
 
     private fun requireSession(): AppleSessionSnapshot = sessionProvider()
@@ -548,11 +604,21 @@ class LiveICloudCatalogSource(
     private companion object {
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         const val PHOTO_LIST_RECORD_TYPE = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"
+
+        /** CloudKit's words for a query index it has not built yet. */
+        private const val INDEX_ERROR = "No index with requested name"
+        private val HTTP_SUCCESS = 200..299
         const val LIBRARY_COUNT_INDEX = "CPLAssetByAssetDateWithoutHiddenOrDeleted"
         const val NOT_FOUND = "NOT_FOUND"
         const val HIDDEN_LIST_RECORD_TYPE = "CPLAssetAndMasterHiddenByAssetDate"
         const val HIDDEN_INCOMPLETE = "Hidden was incomplete. Refresh to try again."
         const val RECORDS_PER_PHOTO = 2
+
+        /** What a membership read uses of each record: the asset's name and whether it is still in the library. */
+        val MEMBERSHIP_KEYS = listOf("isDeleted", "isExpunged", "isHidden")
+
+        /** What an album's membership read uses: the asset each relation names. */
+        val RELATION_KEYS = listOf("itemId")
         val PHOTO_DESIRED_KEYS = listOf(
             "resOriginalVidComplRes", "resOriginalVidComplFileType", "resOriginalVidComplFingerprint",
             "isHidden", "isDeleted", "isFavorite", "duration", "resOriginalFingerprint", "resVidMedRes", "resVidFullRes",

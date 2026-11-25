@@ -20,9 +20,13 @@ import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.CatalogScanProgress
 import java.text.NumberFormat
 
-/** "12,400 of 52,000 photos loaded", or without the total when iCloud did not say how many there are. */
+/**
+ * "12,400 of 52,000 photos loaded", or without the total when iCloud did not say how many there are. Once every page is
+ * in, the read goes on to albums, shared albums, Hidden and Recently Deleted, which can take minutes, so it says that.
+ */
 @Composable
 internal fun catalogScanLabel(progress: CatalogScanProgress): String {
+    if (progress.pagesComplete) return stringResource(R.string.catalog_scan_loading_albums)
     val locale = LocalConfiguration.current.locales[0]
     val format = remember(locale) { NumberFormat.getIntegerInstance(locale) }
     val loaded = format.format(progress.loadedCount)
@@ -31,9 +35,9 @@ internal fun catalogScanLabel(progress: CatalogScanProgress): String {
     else pluralStringResource(R.plurals.catalog_scan_progress, progress.loadedCount, loaded)
 }
 
-/** How far the first read of the library is, from 0 to 1, when iCloud said how many items there are. */
+/** How far the first read of the library is, from 0 to 1, when iCloud said how many items there are and pages are still loading. */
 internal fun CatalogScanProgress.fraction(): Float? =
-    shownTotal()?.let { (loadedCount.toFloat() / it).coerceIn(0f, 1f) }
+    if (pagesComplete) null else shownTotal()?.let { (loadedCount.toFloat() / it).coerceIn(0f, 1f) }
 
 /** iCloud's count, while it is still above what has loaded; past it the count is stale, so neither label nor bar use it. */
 private fun CatalogScanProgress.shownTotal(): Int? = totalCount?.takeIf { it > 0 && it >= loadedCount }

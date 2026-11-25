@@ -41,10 +41,31 @@ internal class PersonalLibraryDatabase(
      */
     suspend fun queryAll(type: String, field: String? = null, value: String? = null, ranked: Boolean = false): List<JsonObject> {
         val result = mutableListOf<JsonObject>()
+        queryPages(type, field, value, ranked) { records ->
+            result += records
+            check(result.size <= 200_000) { "Collection is too large" }
+        }
+        return result
+    }
+
+    /**
+     * Hands each page of the query [type] to [onPage] and keeps none of them, so a read of thousands of photos holds
+     * one page at a time. [desiredKeys] limits the fields Apple returns, as iCloud.com does for membership reads: a
+     * photo's full asset and master records are about 15 KB each, and a large smart album of them ran out of memory.
+     */
+    suspend fun queryPages(
+        type: String,
+        field: String? = null,
+        value: String? = null,
+        ranked: Boolean = false,
+        desiredKeys: List<String>? = null,
+        onPage: (List<JsonObject>) -> Unit,
+    ) {
         val visited = mutableSetOf<String>()
         var marker: String? = null
         var offset = 0
         var logicalCount = 0
+        var total = 0
         var nextRank: Boolean
         do {
             check(visited.add("$offset:${marker.orEmpty()}")) { "Repeated collection cursor" }
@@ -61,18 +82,19 @@ internal class PersonalLibraryDatabase(
                         if (ranked) { add(filter("direction", "ASCENDING")); add(filter("startRank", offset.toString(), "INT64")) }
                     }
                 }
+                desiredKeys?.let { keys -> putJsonArray("desiredKeys") { keys.forEach { add(JsonPrimitive(it)) } } }
                 marker?.let { put("continuationMarker", it) }
             })
             val records = page["records"]!!.jsonArray.map { it.jsonObject }
-            result += records
+            total += records.size
+            check(total <= 200_000) { "Collection is too large" }
+            onPage(records)
             logicalCount += records.count { it.recordType() in setOf("CPLAsset", "CPLContainerRelation") }
-            check(result.size <= 200_000) { "Collection is too large" }
             marker = page["continuationMarker"]?.jsonPrimitive?.contentOrNull
             val logicalLimit = if (type.contains("AssetAndMaster")) 100 else 200
             nextRank = ranked && marker == null && logicalCount >= logicalLimit
             if (nextRank) { offset += logicalCount; logicalCount = 0 }
         } while (marker != null || nextRank)
-        return result
     }
 
     /** Fails when the account or its authorization changed since [session] was read. */

@@ -74,6 +74,7 @@ internal fun testAlbaActions(
     cancelTwoFactor: () -> Unit = {},
     confirmMixedTrash: (List<GalleryMedia>) -> Unit = {},
     useElsewhere: (GalleryMedia, ExternalUse) -> Unit = { _, _ -> },
+    refresh: () -> Unit = {},
 ): AlbaActions {
     // Renamed so the overrides below cannot resolve to themselves.
     val onSharedActivity = sharedActivity; val onSharedPostDiscussion = sharedPostDiscussion; val onSharedPostPhotos = sharedPostPhotos
@@ -90,7 +91,7 @@ internal fun testAlbaActions(
     val onSettings = setBackupSettings; val onOpenBackup = openBackup; val onRetryStorage = retryAfterStorageFull
     val onSignOut = signOut; val onSendCodeBySms = sendCodeBySms; val onResend = resendTwoFactor
     val onCancelTwoFactor = cancelTwoFactor; val onConfirmMixedTrash = confirmMixedTrash
-    val onUseElsewhere = useElsewhere; val onIncludeExisting = includeExistingInBackup
+    val onUseElsewhere = useElsewhere; val onIncludeExisting = includeExistingInBackup; val onRefresh = refresh
     return object : AlbaActions {
         override fun retryTransfer(transferId: TransferId) = onRetry(transferId)
         override fun retryAllTransfers() = onRetryAll()
@@ -137,7 +138,7 @@ internal fun testAlbaActions(
         override fun openMedia(mediaId: String) = Unit
         override fun requestPreview(mediaId: String) = Unit
         override fun prefetchPreviews(mediaIds: List<String>) = Unit
-        override fun refresh() = Unit
+        override fun refresh() = onRefresh()
         override fun openAccount() = onOpenAccount()
         override fun startDemo() = onStartDemo()
         override fun openHidden() = onOpenHidden()

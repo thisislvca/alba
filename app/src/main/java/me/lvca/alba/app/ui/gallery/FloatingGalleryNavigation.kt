@@ -109,8 +109,10 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
                     val target = pills[tab]
                     val indicator = remember { Animatable(Rect.Zero, Rect.VectorConverter) }
                     LaunchedEffect(target) {
-                        val bounds = target ?: return@LaunchedEffect
-                        if (indicator.value == Rect.Zero) indicator.snapTo(bounds) else indicator.animateTo(bounds, motion.rect)
+                        // Search lives outside the capsule: with it selected, no destination here has a pill.
+                        if (target == null) indicator.snapTo(Rect.Zero)
+                        else if (indicator.value == Rect.Zero) indicator.snapTo(target)
+                        else indicator.animateTo(target, motion.rect)
                     }
                     val pillColor = floating.active
                     Row(Modifier.padding(4.dp).selectableGroup().drawBehind {

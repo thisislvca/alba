@@ -52,8 +52,12 @@ internal class ModernSharedAlbums(
                     user?.text("acceptanceStatus") == "ACCEPTED" && user.text("permission") == "READ_WRITE" -> SharedAlbumRole.CONTRIBUTOR
                     else -> SharedAlbumRole.VIEWER
                 }
+                val owned = role == SharedAlbumRole.OWNER
                 val info = SharedAlbumInfo(SharedAlbumGeneration.MODERN, role, participantCount = participants.size,
-                    webUrl = share.text("shortGUID")?.let { sharedAlbumWebUrl(current, "sharedalbums/sc,", it) })
+                    webUrl = share.text("shortGUID")?.let { sharedAlbumWebUrl(current, "sharedalbums/sc,", it) },
+                    ownerName = if (owned) null else SharedParticipants.ownerName(share),
+                    sharedWith = if (owned) SharedParticipants.joined(participants.map { it.jsonObject }) else emptyList(),
+                    expiresAt = SharedParticipants.expiry(share))
                 result += SharedAlbumRecord(GalleryCollection(ids.album(scope, owner, name),
                     share.field("cloudkit.title")?.jsonPrimitive?.contentOrNull ?: name, shared = info), scope, owner, name)
             }

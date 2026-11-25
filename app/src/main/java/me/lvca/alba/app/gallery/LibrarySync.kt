@@ -3,6 +3,7 @@ package me.lvca.alba.app.gallery
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,7 @@ import me.lvca.alba.protocol.account.ICloudAccountManager
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
 import me.lvca.alba.protocol.auth.AppleProtocolError
+import me.lvca.alba.protocol.photos.LibraryPreparingException
 import java.time.Instant
 
 /** Whether the library is refreshing, when it last did, and whether the saved account could not be opened. */
@@ -38,7 +40,12 @@ data class SyncState(
     val webAccessOff: Boolean = false,
     /** The first full read of the iCloud library, while it is unfinished. */
     val catalogScan: CatalogScanProgress? = null,
+    /** Apple is still indexing the iCloud library, so Alba cannot read it yet; it keeps checking. */
+    val libraryPreparing: LibraryPreparing? = null,
 )
+
+/** Apple is still indexing the iCloud library; [progress] is its percentage, when Apple said. */
+data class LibraryPreparing(val progress: Int? = null)
 
 /** Restores the saved account at start, and refreshes the library from iCloud and the phone. */
 internal class LibrarySync(
@@ -127,7 +134,7 @@ internal class LibrarySync(
                 )
                 mutableState.update {
                     it.copy(isRefreshing = false, lastRefreshedAt = Instant.ofEpochMilli(summary.refreshedAtEpochMillis),
-                        webAccessOff = false)
+                        webAccessOff = false, libraryPreparing = null)
                 }
                 when {
                     summary.sharedAlbumsUnavailable -> messages.show(R.string.shared_refresh_unavailable)
@@ -141,8 +148,10 @@ internal class LibrarySync(
             } catch (error: Throwable) {
                 span.finish(DiagnosticOutcome.FAILED, error = error)
                 val webAccessOff = error.appleProtocolError() == AppleProtocolError.WEB_ACCESS_DISABLED
-                mutableState.update { it.copy(isRefreshing = false, webAccessOff = webAccessOff) }
-                messages.show(error.toUserMessage(R.string.message_could_not_refresh_the_library))
+                val preparing = error.libraryPreparing()
+                mutableState.update { it.copy(isRefreshing = false, webAccessOff = webAccessOff, libraryPreparing = preparing) }
+                // Indexing is a state the library screen shows for as long as it lasts, not an error to repeat on every check.
+                if (preparing == null) messages.show(error.toUserMessage(R.string.message_could_not_refresh_the_library))
             }
         }
     }
@@ -159,11 +168,22 @@ internal class LibrarySync(
 
     /** After an account change: forget the old refresh time, then load the new account's library. */
     suspend fun accountChanged(refresh: Boolean) {
-        mutableState.update { it.copy(lastRefreshedAt = null) }
+        mutableState.update { it.copy(lastRefreshedAt = null, libraryPreparing = null) }
         if (!refresh) return
         launchRefresh(replaceActive = true)
         wakeMaintenance(WakeReason.FOREGROUND, "foreground")
         transfers.schedulePendingInBackground()
+    }
+
+    /**
+     * While Apple is still indexing the library, checks again every [PREPARING_RECHECK_MILLIS] until it is ready, so the
+     * library loads by itself. The caller runs this only while Alba is on screen; background work checks less often.
+     */
+    suspend fun recheckWhilePreparing() {
+        while (state.value.libraryPreparing != null) {
+            delay(PREPARING_RECHECK_MILLIS)
+            if (state.value.libraryPreparing != null) refresh()
+        }
     }
 
     /** Cancels a running refresh and returns its job, so the caller can wait for it. */
@@ -181,3 +201,15 @@ internal class LibrarySync(
 
 /** Owns the messages a library refresh shows. */
 private object RefreshMessages
+
+/** How often Alba, on screen, checks whether Apple finished indexing the library. */
+internal const val PREPARING_RECHECK_MILLIS = 60_000L
+
+/** The indexing this failure reports, looking through wrapping exceptions; null for any other failure. */
+private fun Throwable.libraryPreparing(): LibraryPreparing? {
+    if (appleProtocolError() != AppleProtocolError.LIBRARY_PREPARING) return null
+    val progress = generateSequence(this) { it.cause }.take(MAX_CAUSE_DEPTH).filterIsInstance<LibraryPreparingException>().firstOrNull()?.progress
+    return LibraryPreparing(progress)
+}
+
+private const val MAX_CAUSE_DEPTH = 8

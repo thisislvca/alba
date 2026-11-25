@@ -58,6 +58,7 @@ import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
 import me.lvca.alba.app.intake.albaComponents
 import me.lvca.alba.app.messages.UndoAction
+import me.lvca.alba.app.platform.AppearancePreferences
 import me.lvca.alba.app.platform.ExportDocument
 import me.lvca.alba.app.platform.FREE_UP_SPACE_ENABLED
 import me.lvca.alba.app.platform.HiddenLock
@@ -86,6 +87,9 @@ import me.lvca.alba.app.ui.LocalSignInFirst
 import me.lvca.alba.app.ui.account.BackupDisclosure
 import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.LocalWallpaperColors
+import me.lvca.alba.app.ui.designsystem.theme.WallpaperColorsSetting
+import me.lvca.alba.app.ui.designsystem.theme.wallpaperColorsAvailable
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
 import me.lvca.alba.app.ui.gallery.LocalBackupBadges
 import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
@@ -184,6 +188,7 @@ private fun Context.granted(permission: String) =
 internal fun AlbaRoot(
     viewModel: AlbaViewModel,
     onboarding: OnboardingPreferences,
+    appearance: AppearancePreferences,
     incoming: IncomingSession,
     onIncomingChange: (IncomingSession) -> Unit,
 ) {
@@ -210,8 +215,12 @@ internal fun AlbaRoot(
     }
     val startAtSignIn = signInFirst && incoming.request == null
     LaunchedEffect(startAtSignIn) { if (startAtSignIn) viewModel.account.beginAtSignIn() }
+    val wallpaperColors by appearance.wallpaperColors.collectAsStateWithLifecycle()
+    val wallpaperSetting = remember(wallpaperColors) {
+        WallpaperColorsSetting(wallpaperColorsAvailable(), wallpaperColors, appearance::setWallpaperColors)
+    }
     // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
-    AlbaTheme(darkTheme = isSystemInDarkTheme()) {
+    CompositionLocalProvider(LocalWallpaperColors provides wallpaperSetting) { AlbaTheme(darkTheme = isSystemInDarkTheme()) {
         // Until sign-in opens, the surface it opens on, rather than a frame of the empty library behind it.
         if (startAtSignIn && !session.isAccountOpen) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface))
         else CompositionLocalProvider(LocalSignInFirst provides startAtSignIn) {
@@ -220,7 +229,7 @@ internal fun AlbaRoot(
                 if (startAtSignIn) viewModel.account.beginAtSignIn()
             })
         }
-    }
+    } }
 }
 
 @OptIn(FlowPreview::class)
@@ -281,6 +290,12 @@ private fun AlbaMain(
         recheckDevicePhotoAccess()
         viewModel.setDeviceMediaAccess(hasDevicePhotoAccess, hasLimitedPhotoAccess(Build.VERSION.SDK_INT, context::granted))
         viewModel.sync.refresh()
+    }
+    // While Apple is still indexing the library, Alba checks again every minute it is on screen, and the library loads
+    // by itself once it is ready. Off screen, background work checks less often.
+    val libraryPreparing = session.libraryPreparing != null
+    LaunchedEffect(libraryPreparing) {
+        if (libraryPreparing) lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.sync.recheckWhilePreparing() }
     }
     LaunchedEffect(hasDevicePhotoAccess) {
         viewModel.setDeviceMediaAccess(hasDevicePhotoAccess, hasLimitedPhotoAccess(Build.VERSION.SDK_INT, context::granted))

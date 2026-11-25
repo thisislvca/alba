@@ -31,10 +31,15 @@ class CollectionsHubTest {
     @get:Rule val compose = createComposeRule()
     private val app get() = ApplicationProvider.getApplicationContext<AlbaApplication>()
 
-    private fun openCollections(screenshots: Int = 0) {
+    private fun openCollections(screenshots: Int = 0, portrait: Int = 0, animated: Int = 0) {
         val gallery = ScreenshotFixtures.gallery()
         val items = gallery.items.mapIndexed { index, media ->
-            if (index < screenshots) media.copy(collectionIds = setOf(SmartCollection.SCREENSHOTS.id)) else media
+            when {
+                index < screenshots -> media.copy(collectionIds = setOf(SmartCollection.SCREENSHOTS.id))
+                index < screenshots + portrait -> media.copy(collectionIds = setOf(SmartCollection.PORTRAIT.id))
+                index < screenshots + portrait + animated -> media.copy(collectionIds = setOf(SmartCollection.ANIMATED.id))
+                else -> media
+            }
         }
         compose.setAlbaContent(gallery.copy(items = items, catalogItems = items), ScreenshotFixtures.signedIn)
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
@@ -64,6 +69,19 @@ class CollectionsHubTest {
         compose.onNodeWithTag("collection-screenshots").assertIsDisplayed()
         compose.onAllNodesWithTag("collection-live_photos").assertCountEquals(0)
         compose.onNodeWithTag("collection-screenshots").assert(hasText("2"))
+    }
+
+    @Test fun portraitAndAnimatedAreMediaTypesUnderApplesNames() {
+        openCollections(portrait = 3, animated = 1)
+        compose.onNodeWithTag("collections-grid").performScrollToNode(hasTestTag("collection-animated"))
+        compose.onNodeWithTag("collection-portrait").assert(hasText(app.getString(R.string.portrait))).assert(hasText("3"))
+        compose.onNodeWithTag("collection-animated").assert(hasText(app.getString(R.string.animated))).assert(hasText("1"))
+    }
+
+    @Test fun albumsOpenInApplesCustomOrder() {
+        openCollections()
+        compose.onNodeWithTag("collection-albums").performClick()
+        compose.onNodeWithTag("album-sort").assert(hasText(app.getString(R.string.album_sort_custom)))
     }
 
     @Test fun lastRowScrollsClearOfTheFloatingNavigation() {

@@ -198,6 +198,10 @@ interface CatalogSyncDao {
     @Query("SELECT COUNT(*) FROM catalog_items WHERE origin = 'ICLOUD'")
     suspend fun cloudCount(): Int
 
+    /** Whether any iCloud row whose media id starts with [prefix] is stored, such as one account's library. */
+    @Query("SELECT EXISTS(SELECT 1 FROM catalog_items WHERE origin = 'ICLOUD' AND substr(mediaId, 1, length(:prefix)) = :prefix)")
+    suspend fun hasCloudItemsWithPrefix(prefix: String): Boolean
+
     @Query("SELECT mediaId FROM catalog_items WHERE origin = 'ICLOUD' AND mediaId IN (:ids)")
     suspend fun existingIds(ids: List<String>): List<String>
 

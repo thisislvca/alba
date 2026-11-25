@@ -340,6 +340,8 @@
     <string name="this_device_cannot_decode_this_video_format">Questo telefono non può riprodurre questo formato video.</string>
     <string name="this_phone">Questo telefono</string>
     <string name="time_lapse">Time-lapse</string>
+    <string name="portrait">Ritratti</string>
+    <string name="animated">Animate</string>
     <string name="turn_off_automatic_backup">Disattiva backup automatico</string>
     <string name="uncertain_item_kept_blocked">Saltato</string>
     <string name="unfavorite">Rimuovi dai preferiti</string>
@@ -559,6 +561,14 @@
     <string name="shared_role_contributor">Puoi aggiungere foto</string>
     <string name="shared_role_viewer">Puoi visualizzare questo album</string>
     <string name="shared_owner">Condiviso da %1$s</string>
+    <string name="shared_created_by_you">Creato da te</string>
+    <string name="shared_created_by">Creato da %1$s</string>
+    <string name="shared_from">Da %1$s</string>
+    <string name="shared_with_person">Condiviso con %1$s</string>
+    <plurals name="shared_with_people"><item quantity="one">Condiviso con %d persona</item><item quantity="other">Condiviso con %d persone</item><item quantity="many">Condiviso con %d persone</item></plurals>
+    <string name="shared_expires">Scadenza: %1$s</string>
+    <string name="shared_album_subtitle">%1$s · %2$s</string>
+    <string name="shared_album_info">Dettagli dell’album condiviso</string>
     <string name="shared_copy_notice">Una copia condivisa è separata dalla libreria personale. Salvarla sul telefono non esegue il backup dell’originale.</string>
     <string name="shared_upgrade_notice">L’aggiornamento riguarda i nuovi elementi condivisi: non ripristina i dettagli persi nelle vecchie copie. Gli album esistenti non vengono mai aggiornati automaticamente.</string>
     <string name="shared_understood">Ho capito</string>
@@ -671,6 +681,13 @@
     <string name="about_notices">Licenze e riconoscimenti</string>
     <string name="about_hide_notices">Nascondi licenze</string>
     <string name="icloud_photos_still_preparing">Foto di iCloud sta ancora preparando questa libreria. Riprova tra qualche minuto.</string>
+    <string name="library_preparing_title">Apple sta preparando le tue Foto di iCloud</string>
+    <string name="library_preparing_body">Con le librerie grandi può volerci un po’. Alba continua a controllare e carica le tue foto appena sono pronte.</string>
+    <string name="library_preparing_progress">Pronto al %1$d%%</string>
+    <string name="library_preparing_status">Preparazione di Foto di iCloud…</string>
+    <string name="library_preparing_status_progress">Preparazione di Foto di iCloud… %1$d%%</string>
+    <string name="library_preparing_check_now">Controlla ora</string>
+    <string name="photos_service_preparing">Apple sta ancora preparando Foto di iCloud. Alba continua a controllare.</string>
     <string name="icloud_photos_is_not_active">Foto di iCloud non è attivo</string>
     <string name="icloud_web_only_explanation">L’accesso all’Account Apple è riuscito, ma Apple non ha reso disponibile Foto di iCloud per questa sessione. Succede se Foto di iCloud non è mai stato attivato, per i nuovi account creati sul web e a volte per gli account con un dispositivo con iOS beta. Controlla di nuovo tra qualche minuto.</string>
     <string name="how_to_activate_icloud_photos">Attiva Foto di iCloud su un dispositivo Apple</string>
@@ -690,6 +707,9 @@
     <string name="profile_title">Il mio profilo</string>
     <string name="profile_demo_description">Esplora Alba con una libreria di esempio.</string>
     <string name="profile_library_section">LA TUA LIBRERIA</string>
+    <string name="profile_appearance_section">ASPETTO</string>
+    <string name="wallpaper_colors_title">Abbina i colori dello sfondo</string>
+    <string name="wallpaper_colors_detail">Usa i colori del tuo sfondo al posto del blu di iCloud</string>
     <string name="profile_backup_connect">Collega il tuo account per iniziare</string>
     <string name="profile_backup_on">Attivo</string>
     <string name="profile_backup_off">Disattivato</string>
@@ -784,6 +804,7 @@
     <string name="shared_activity_notifications_detail">Nuovi inviti e nuove foto, controllati alcune volte al giorno. Vale per tutti i tuoi album condivisi.</string>
     <string name="shared_notifications_off_in_android">Android non sta consentendo le notifiche di Alba.</string>
     <string name="shared_added_to_album">Aggiunto a %1$s</string>
+    <string name="album_sort_custom">Ordine personalizzato</string>
     <string name="album_sort_recent">Foto più recente</string>
     <string name="album_sort_name">Nome album</string>
     <string name="album_sort_oldest">Foto meno recente</string>
@@ -1181,6 +1202,7 @@
     </plurals>
     <string name="catalog_scan_large_library">Con le librerie grandi può volerci un po’.</string>
     <string name="catalog_scan_notification">Caricamento della libreria di iCloud</string>
+    <string name="catalog_scan_loading_albums">Foto caricate. Caricamento degli album…</string>
     <plurals name="catalog_scan_progress">
         <item quantity="one">%1$s foto caricata</item>
         <item quantity="other">%1$s foto caricate</item>

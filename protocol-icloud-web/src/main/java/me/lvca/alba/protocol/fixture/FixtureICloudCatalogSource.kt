@@ -246,7 +246,8 @@ class FixtureICloudCatalogSource(
                 me.lvca.alba.engine.model.SmartCollection.SCREENSHOTS -> it.index == 4
                 me.lvca.alba.engine.model.SmartCollection.PANORAMAS -> it.index == 10
                 me.lvca.alba.engine.model.SmartCollection.BURSTS -> it.index == 6
-                me.lvca.alba.engine.model.SmartCollection.SLO_MO, me.lvca.alba.engine.model.SmartCollection.TIME_LAPSE -> false
+                me.lvca.alba.engine.model.SmartCollection.PORTRAIT, me.lvca.alba.engine.model.SmartCollection.SLO_MO,
+                me.lvca.alba.engine.model.SmartCollection.TIME_LAPSE, me.lvca.alba.engine.model.SmartCollection.ANIMATED -> false
             }
         }.map { it.recordId }.toSet() + extraRecords.values.filter { record ->
             record.id.startsWith("fixture:") && when (collection) {

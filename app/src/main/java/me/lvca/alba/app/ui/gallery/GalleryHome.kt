@@ -64,6 +64,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.gallery.GallerySection
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.gallery.LibraryPreparing
 import me.lvca.alba.app.platform.demoEntry
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.BrowseActions
@@ -281,6 +282,8 @@ internal fun GalleryHome(
         signedIn?.status == SessionStatus.EXPIRED -> stringResource(R.string.sign_in_again_saved_photos_available)
         signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED -> stringResource(R.string.icloud_photos_is_not_active)
         session.network?.online == false || signedIn?.status == SessionStatus.OFFLINE -> stringResource(R.string.offline_saved_photos_available)
+        // Apple is still indexing: say so for as long as it lasts, through the quiet checks Alba makes meanwhile.
+        session.libraryPreparing != null -> libraryPreparingLabel(session.libraryPreparing)
         // The first read of a large library takes a while: say how far it is rather than only that it is updating.
         session.isRefreshing && session.catalogScan != null -> catalogScanLabel(session.catalogScan)
         session.isRefreshing -> stringResource(R.string.updating_library)
@@ -455,7 +458,7 @@ internal fun GalleryHome(
                                 }
                                 IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
                                     BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
-                                        Icon(AlbaIcons.SwapVert, stringResource(R.string.uploads_and_activity))
+                                        Icon(AlbaIcons.CloudSync, stringResource(R.string.uploads_and_activity))
                                     }
                                 }
                                 IconButton(onClick = actions::openAccount, modifier = Modifier.testTag("account-button").semantics { contentDescription = contextAccountLabel }) {
@@ -466,12 +469,14 @@ internal fun GalleryHome(
                         }
                         if (!hero && !connectPrompt && session.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = actions::openAccount))
+                                modifier = Modifier.padding(horizontal = 16.dp).testTag("gallery-account-status")
+                                    .overhangingTouchTarget(actions::openAccount))
                         }
                         val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
                         if (libraryHeader && gallery.selection.isEmpty()) BackupStatusChip(session, transfers, actions::openBackup)
                         val scanFraction = session.catalogScan?.fraction()
-                        if (session.isRefreshing && scanFraction != null) {
+                        if (session.libraryPreparing != null) Unit
+                        else if (session.isRefreshing && scanFraction != null) {
                             LinearProgressIndicator(progress = { scanFraction }, modifier = Modifier.fillMaxWidth().height(2.dp).testTag("catalog-scan-bar"))
                         } else if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions, Modifier.padding(vertical = 8.dp))
@@ -533,7 +538,7 @@ internal fun GalleryHome(
                             connectPrompt = connectPrompt,
                             isRefreshing = session.isRefreshing,
                             counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount, limitedAccess = limitedNote,
-                                catalogScan = session.catalogScan),
+                                catalogScan = session.catalogScan, libraryPreparing = session.libraryPreparing),
                             previewRetryVersion = previewRetryVersion,
                             grid = when (shown.tab) {
                                 GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid
@@ -714,6 +719,8 @@ internal data class PhotoCounts(
     val limitedAccess: Boolean = false,
     /** The first full read of the iCloud library, while it is unfinished. */
     val catalogScan: CatalogScanProgress? = null,
+    /** Apple is still indexing the iCloud library. */
+    val libraryPreparing: LibraryPreparing? = null,
 )
 
 /**
@@ -836,12 +843,20 @@ private fun PhotoGrid(
                 }
             }
         }
+        // Only the main library waits for Apple's indexing; the phone's own photos show below the note meanwhile.
+        val preparing = counts.libraryPreparing?.takeIf { query == unfiltered && query.collectionId == null &&
+            !query.trashOnly && !query.offlineOnly }
+        if (preparing != null) item(key = "library-preparing", span = { GridItemSpan(maxLineSpan) }) {
+            LibraryPreparingCard(preparing, checking = isRefreshing, checkNow = actions::refresh,
+                modifier = posed("library-preparing").padding(horizontal = 16.dp, vertical = 12.dp))
+        }
         if (leading != null) item(key = "gallery-leading", span = { GridItemSpan(maxLineSpan) }) { Column(posed("gallery-leading")) { leading() } }
         if (items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 // Only the main library loads page by page; Trash, Hidden and albums keep the plain loading line.
                 val scan = counts.catalogScan?.takeIf { query.collectionId == null && !query.trashOnly && !query.offlineOnly }
-                if (isRefreshing && scan != null) LibraryLoading(scan)
+                if (preparing != null) Unit
+                else if (isRefreshing && scan != null) LibraryLoading(scan)
                 else if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
                 // Where photos can be added, the album's leading item shows the first steps instead.
                 // A shared album's hero shows its own empty or unreachable state.
@@ -863,7 +878,7 @@ private fun PhotoGrid(
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), monthLabel(month))
                     AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
                         HeaderSelectionCircle(section.items.all { it.id in selection }, selectionLabel,
-                            { actions.selectItems(section.items.map { it.id }.toSet(), it) }, Modifier.padding(end = 12.dp))
+                            { actions.selectItems(section.items.map { it.id }.toSet(), it) })
                     }
                 }
             }
@@ -873,8 +888,9 @@ private fun PhotoGrid(
                     Text(dateLabel(day), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), dateLabel(day))
                     AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
+                        // The target overhangs the row's end padding so the circle stays aligned with the photos' edge.
                         HeaderSelectionCircle(photos.all { it.id in selection }, selectionLabel,
-                            { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) })
+                            { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) }, Modifier.offset(x = 12.dp))
                     }
                 }
             }
@@ -909,7 +925,10 @@ private fun PhotoGrid(
         if (items.isNotEmpty()) item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
             Column(posed("summary").fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
-                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // While Apple is indexing, "0 iCloud photos" would read as an empty library: count only the phone's.
+                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(if (counts.libraryPreparing != null) stringResource(R.string.phone_photo_count, counts.device)
+                    else stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -996,15 +1015,37 @@ private fun SearchLanding(summaries: Map<String, me.lvca.alba.app.ui.collections
 }
 
 /**
- * A date header's select-all control: the same check circle as a photo's, as in Google Photos. Compose extends its
- * touch area to the minimum touch target.
+ * A date header's select-all control: the same check circle as a photo's, as in Google Photos, centred in a 48dp
+ * target. The header lays it out without height, so the target never makes the row taller.
  */
 @Composable
 private fun HeaderSelectionCircle(checked: Boolean, label: String, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
     SelectionCircle(checked, onPhoto = false, modifier = modifier
         .toggleable(checked, interactionSource = null, indication = ripple(bounded = false, radius = 20.dp), role = Role.Checkbox,
             onValueChange = onCheckedChange)
-        .semantics { contentDescription = label })
+        .semantics { contentDescription = label }
+        .minimumInteractiveComponentSize())
+}
+
+/**
+ * Makes a line of text a button with Material's 48dp touch target, without making its row taller: the target overhangs
+ * the text evenly above and below, as a small control's target does.
+ */
+@Composable
+private fun Modifier.overhangingTouchTarget(onClick: () -> Unit): Modifier {
+    val contentHeight = remember { IntArray(1) }
+    return layout { measurable, constraints ->
+        val target = measurable.measure(constraints.copy(minHeight = 0))
+        val height = contentHeight[0].coerceAtMost(target.height)
+        layout(target.width, height) { target.place(0, -(target.height - height) / 2) }
+    }
+        .clickable(role = Role.Button, onClick = onClick)
+        .minimumInteractiveComponentSize()
+        .layout { measurable, constraints ->
+            val content = measurable.measure(constraints)
+            contentHeight[0] = content.height
+            layout(content.width, content.height) { content.place(0, 0) }
+        }
 }
 
 /**

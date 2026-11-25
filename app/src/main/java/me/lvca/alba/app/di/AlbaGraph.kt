@@ -4,8 +4,12 @@ import android.content.Context
 import kotlinx.coroutines.flow.map
 import me.lvca.alba.app.BuildConfig
 import me.lvca.alba.app.demo.DemoMediaImporter
+import me.lvca.alba.app.diagnostics.DiagnosticAttribute
+import me.lvca.alba.app.diagnostics.DiagnosticOperation
+import me.lvca.alba.app.diagnostics.DiagnosticOutcome
 import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 import me.lvca.alba.app.platform.AndroidAutomaticBackupPolicy
+import me.lvca.alba.app.platform.AppearancePreferences
 import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.LiveProtocolStatus
@@ -43,6 +47,7 @@ import me.lvca.alba.protocol.fixture.FixtureICloudCatalogSource
 import me.lvca.alba.protocol.network.OkHttpAppleTransport
 import me.lvca.alba.protocol.photos.AccountAwareICloudCatalogSource
 import me.lvca.alba.protocol.photos.EncryptedUploadJournal
+import me.lvca.alba.protocol.photos.LibraryIndexing
 import me.lvca.alba.protocol.photos.LiveICloudCatalogSource
 import me.lvca.alba.protocol.photos.LiveICloudPhotoProtocol
 import me.lvca.alba.protocol.status.RemoteProtocolStatus
@@ -77,6 +82,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         isDemo = { accountManager.state.value == ICloudAccountState.Demo },
     )
     val backupPreferences = BackupPreferences(appContext)
+    internal val appearance = AppearancePreferences(appContext)
     internal val backupNotifications = BackupNotifications(appContext, backupPreferences)
     private val liveCatalog = LiveICloudCatalogSource(
         transport = transport,
@@ -85,6 +91,8 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         onSessionUpdated = accountManager::updateSession,
         onSessionRejected = accountManager::rejectSession,
         sharedJournal = uploadJournal,
+        onIndexingAdvisory = ::recordIndexingAdvisory,
+        hasStoredLibrary = { prefix -> database.catalogSyncDao().hasCloudItemsWithPrefix(prefix) },
     )
     val demoCatalog = FixtureICloudCatalogSource(
         includeSharedAlbums = true,
@@ -151,4 +159,19 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
     }
     val network = networkStatus(appContext)
     val charging = chargingStatus(appContext)
+
+    /**
+     * Apple's indexing state did not hold the read back: it FAILED, or it runs for a library that already answers. Only
+     * fixed values cross into diagnostics: which of those, whether Apple named a missing index, and its progress.
+     */
+    private fun recordIndexingAdvisory(indexing: LibraryIndexing) {
+        val reason = when {
+            !indexing.failed -> "indexing_running_readable"
+            indexing.missingIndex -> "indexing_missing_index"
+            else -> "indexing_failed"
+        }
+        diagnostics.start(DiagnosticOperation.LIBRARY_INDEXING, mapOf(DiagnosticAttribute.REASON to reason))
+            .finish(if (indexing.failed) DiagnosticOutcome.FAILED else DiagnosticOutcome.SUCCESS,
+                listOfNotNull(indexing.progress?.let { DiagnosticAttribute.INDEXING_PROGRESS to it }).toMap())
+    }
 }
