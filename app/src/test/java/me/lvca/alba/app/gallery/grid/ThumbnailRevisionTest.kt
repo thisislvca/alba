@@ -37,7 +37,7 @@ class ThumbnailRevisionTest {
         val taps = java.util.concurrent.atomic.AtomicInteger()
         try {
             compose.setContent {
-                MediaThumbnail(reference.value, 0xff000000, 0xff000000, null,
+                MediaThumbnail(reference.value, null,
                     Modifier.size(200.dp).testTag("upgrading-photo"), contentScale = ContentScale.Fit,
                     zoomable = true, sharedMediaId = "same-photo", sourceRevision = "same-revision", onTap = { taps.incrementAndGet() })
             }
@@ -67,7 +67,7 @@ class ThumbnailRevisionTest {
         try {
             writeColor(android.graphics.Color.RED)
             compose.setContent {
-                MediaThumbnail(file.path, 0xff000000, 0xff000000, null,
+                MediaThumbnail(file.path, null,
                     Modifier.size(100.dp).testTag("thumbnail"), sourceRevision = revision.value, sharedMediaId = "revision-photo")
             }
             compose.waitUntil(SHORT_WAIT) { hasColor(red = true) }
@@ -93,10 +93,10 @@ class ThumbnailRevisionTest {
         try {
             compose.setContent {
                 androidx.compose.foundation.layout.Column {
-                    MediaThumbnail(preview.path, 0xff000000, 0xff000000, null,
+                    MediaThumbnail(preview.path, null,
                         Modifier.size(80.dp).testTag("visible-tile"),
                         sharedMediaId = "visible-handoff", sourceRevision = "first")
-                    if (showViewer.value) MediaThumbnail(null, 0xff000000, 0xff000000, null,
+                    if (showViewer.value) MediaThumbnail(null, null,
                         Modifier.size(200.dp).testTag("incoming-viewer"), contentScale = ContentScale.Fit,
                         sharedMediaId = "visible-handoff", sourceRevision = "first")
                 }
@@ -125,7 +125,7 @@ class ThumbnailRevisionTest {
         }
         try {
             compose.setContent {
-                MediaThumbnail(if (viewer.value) original.path else preview.path, 0xff000000, 0xff000000, null,
+                MediaThumbnail(if (viewer.value) original.path else preview.path, null,
                     Modifier.size(if (viewer.value) 280.dp else 80.dp).testTag("continuity"),
                     contentScale = if (viewer.value) ContentScale.Fit else ContentScale.Crop,
                     fallbackReference = preview.path, sourceRevision = "unchanged")

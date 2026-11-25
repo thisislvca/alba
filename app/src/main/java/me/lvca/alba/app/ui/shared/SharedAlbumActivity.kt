@@ -132,7 +132,7 @@ private fun PostThumbnails(preview: SharedPostPreview, byId: Map<String, Gallery
         shown.forEachIndexed { index, id ->
             Box(Modifier.weight(1f).aspectRatio(1f).clip(MaterialTheme.shapes.extraSmall)) {
                 val item = byId[id]
-                if (item != null) MediaThumbnail(item.previewReference, item.accentStartArgb, item.accentEndArgb, item.fileName, Modifier.fillMaxSize())
+                if (item != null) MediaThumbnail(item.previewReference, item.fileName, Modifier.fillMaxSize())
                 else Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh))
                 if (index == shown.lastIndex && more > 0) Box(Modifier.fillMaxSize().background(AlbaTheme.colors.mediaScrim.copy(alpha = .55f)),
                     contentAlignment = Alignment.Center) {
@@ -163,7 +163,7 @@ private fun SharedPostPhotos(post: SharedPost, byId: Map<String, GalleryMedia>, 
                     val item = byId[id]
                     Box(Modifier.aspectRatio(1f).clip(MaterialTheme.shapes.extraSmall)
                         .then(if (item != null) Modifier.clickable(role = Role.Button) { open(id) } else Modifier)) {
-                        if (item != null) MediaThumbnail(item.previewReference, item.accentStartArgb, item.accentEndArgb, item.fileName, Modifier.fillMaxSize())
+                        if (item != null) MediaThumbnail(item.previewReference, item.fileName, Modifier.fillMaxSize())
                         else Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh))
                     }
                 }

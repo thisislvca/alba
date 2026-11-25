@@ -8,7 +8,7 @@ import me.lvca.alba.app.platform.OnboardingPreferences
 import org.junit.rules.ExternalResource
 
 /**
- * Starts past the introduction with the demo selected ([completed]), or at the introduction as a fresh install does.
+ * Starts past sign-in with the demo selected ([completed]), or at sign-in as a fresh install does.
  *
  * Nothing is restored afterwards: the test orchestrator clears the app's data before every test (`clearPackageData`
  * in the build's device-test conventions), so no test sees another's preferences.

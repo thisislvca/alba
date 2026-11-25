@@ -15,8 +15,8 @@ import org.junit.runners.model.Statement
 /**
  * The whole app on a device: [MainActivity] with the real graph in demo mode, like the JVM tests' rule of the same name.
  *
- * [onboarded] starts past the introduction with the demo selected, and its catalog in the repository and on screen
- * before the test's first Compose call ([DemoCatalogRule]). `false` starts at the introduction as a fresh install does.
+ * [onboarded] starts past sign-in with the demo selected, and its catalog in the repository and on screen
+ * before the test's first Compose call ([DemoCatalogRule]). `false` starts at sign-in as a fresh install does.
  * A failing test saves a screenshot and its semantics tree ([FailureCapture]).
  */
 class AlbaAppRule(private val onboarded: Boolean = true) : TestRule {

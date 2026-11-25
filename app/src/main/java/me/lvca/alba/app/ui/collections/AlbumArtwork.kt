@@ -90,7 +90,7 @@ internal fun CoverImage(media: GalleryMedia?, retry: Int, preview: (String) -> U
     }
     Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
         if (media == null) ICloudIcon(R.drawable.icloud_albums)
-        else MediaThumbnail(media.coverReference(), media.accentStartArgb, media.accentEndArgb, null,
+        else MediaThumbnail(media.coverReference(), null,
             Modifier.fillMaxSize(), sourceRevision = media.sourceRevision, retryVersion = retry)
     }
 }

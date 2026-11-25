@@ -24,6 +24,15 @@ internal val HIDE_EDITS_ENABLED: Boolean get() = me.lvca.alba.app.BuildConfig.DE
  */
 internal val FREE_UP_SPACE_ENABLED: Boolean get() = me.lvca.alba.app.BuildConfig.DEBUG
 
+/**
+ * Whether the sample library is offered. Release builds start at sign-in and offer nothing else; debug builds keep a
+ * quiet way into the demo for development.
+ */
+internal val DEMO_MODE_ENABLED: Boolean get() = me.lvca.alba.app.BuildConfig.DEBUG
+
+/** The way into the demo, or none where [enabled] (the build) doesn't offer it. */
+internal fun demoEntry(start: () -> Unit, enabled: Boolean = DEMO_MODE_ENABLED): (() -> Unit)? = start.takeIf { enabled }
+
 /** What came of asking the user to unlock Hidden. */
 internal enum class UnlockResult { UNLOCKED, CANCELED, NO_SCREEN_LOCK, FAILED }
 

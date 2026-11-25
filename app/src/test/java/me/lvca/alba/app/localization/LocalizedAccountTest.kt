@@ -55,10 +55,11 @@ class LocalizedAccountTest {
             }
         }
         compose.onNodeWithText(context.getString(R.string.code_sent_sms_hint, "+39 ••• 1234")).performScrollTo().assertIsDisplayed()
+        // The sixth digit sends the code without reaching for the button, which stays in reach at this text size.
         compose.onNodeWithText(context.getString(R.string.six_digit_code)).performScrollTo().performTextInput("123456")
-        compose.hideKeyboard()
-        compose.onNodeWithText(context.getString(R.string.verify_and_continue)).performScrollTo().performClick()
         assertEquals("123456", submitted)
+        compose.hideKeyboard()
+        compose.onNodeWithText(context.getString(R.string.verify_and_continue)).assertIsDisplayed()
         compose.runOnIdle { state = ICloudAccountState.SignedIn("family@example.com") }
         compose.onNodeWithTag("profile-backup").performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.message_automatic_backup_is_off)).performScrollTo().assertIsDisplayed()

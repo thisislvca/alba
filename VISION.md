@@ -15,6 +15,7 @@ Alba is a free, open-source Android photo app for teens aged 13 and older and ad
 - Complete Play Store setup and make review and testing straightforward.
 - Make backup work like Google Photos: every photo and video, existing ones included, reaches iCloud reliably with its original file and correct date.
 - Keep deleting phone copies (Free up space) out of release builds until backup is proven on real accounts.
+- Start release builds at iCloud sign-in. The demo library is a development tool and stays out of release builds.
 - Keep photo browsing, sync and account handling reliable.
 - Rebuild the theme and components to that direction: a complete iCloud colour scheme, the Material type scale, grouped lists, large titles, one icon set and tablet layouts.
 

@@ -23,7 +23,8 @@ import java.time.Instant
 
 /**
  * Fixed state for screenshot tests: no clock, network, files or repository, so a golden changes only when the UI does.
- * Photos have no preview files and show their accent colours, which keeps the images small and stable.
+ * Photos have no preview files, so every tile is the flat grey placeholder a waiting tile shows, with its badges;
+ * that keeps the images small and stable.
  */
 internal object ScreenshotFixtures {
     /** 2024-06-14 09:00 UTC; screenshot tests run in UTC so day and month headers never depend on the machine. */

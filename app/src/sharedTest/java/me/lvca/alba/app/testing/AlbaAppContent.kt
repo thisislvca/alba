@@ -25,12 +25,26 @@ internal fun ComposeContentTestRule.setAlbaContent(
     onOpenAccount: () -> Unit = {},
     onStartDemo: () -> Unit = {},
     darkTheme: Boolean = false,
+) = setAlbaContent(gallery, { session }, transfers, onPhotos, onPick, onTrash, onContinue, onOpenAccount, onStartDemo, darkTheme)
+
+/** As above, with a [session] read on each composition, for tests that change it while the UI is shown. */
+internal fun ComposeContentTestRule.setAlbaContent(
+    gallery: GalleryState,
+    session: () -> SessionState,
+    transfers: TransferState = TransferState(),
+    onPhotos: () -> Unit = {},
+    onPick: () -> Unit = {},
+    onTrash: (String) -> Unit = {},
+    onContinue: (TransferId) -> Unit = {},
+    onOpenAccount: () -> Unit = {},
+    onStartDemo: () -> Unit = {},
+    darkTheme: Boolean = false,
 ) {
     setContent {
         AlbaTheme(darkTheme = darkTheme) {
             AlbaApp(
                 gallery = gallery,
-                session = session,
+                session = session(),
                 transfers = transfers,
                 phoneStorage = PhoneStorageState(),
                 mediaWork = MediaWork(),

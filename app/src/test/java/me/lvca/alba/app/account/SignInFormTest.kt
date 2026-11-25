@@ -1,35 +1,52 @@
 package me.lvca.alba.app.account
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.R
+import me.lvca.alba.app.platform.demoEntry
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
+import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 import me.lvca.alba.protocol.account.TwoFactorDelivery
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The sign-in and code forms, and sign-out confirmations, from fixed account states. */
+/** Every step of signing in, and sign-out confirmations, from fixed account states. */
 @RunWith(AndroidJUnit4::class)
 class SignInFormTest {
     @get:Rule val compose = createComposeRule()
@@ -38,15 +55,102 @@ class SignInFormTest {
     private val opened = mutableListOf<String>()
     private var signOuts = 0
     private var smsRequests = 0
+    private val signIns = mutableListOf<Pair<String, String>>()
+    private var closes = 0
+    private var demos = 0
+    private val codes = mutableListOf<String>()
+    private var resends = 0
+    private var codeCancels = 0
 
     @Test fun wrongPasswordShowsUnderTheFieldWithHelp() {
         render(SessionState(accountState = ICloudAccountState.SignedOut, signInProblem = SignInProblem.WRONG_PASSWORD))
-        compose.onNodeWithTag("sign-in-unsupported").assertIsDisplayed()
-        compose.onNodeWithText(string(R.string.invalid_credentials)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-wrong-password", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+            .assertTextEquals(string(R.string.invalid_credentials))
+        // The message is the field's own supporting text, so TalkBack reads it with the field.
+        compose.onNodeWithTag("sign-in-password").assert(hasText(string(R.string.invalid_credentials)))
         val password = compose.onNodeWithTag("sign-in-password").fetchSemanticsNode()
         assertTrue(SemanticsProperties.Error in password.config)
+        // Only the password is wrong as far as the form can tell; the Apple Account field stays as it was.
+        val appleId = compose.onNodeWithTag("sign-in-apple-id").fetchSemanticsNode()
+        assertFalse(SemanticsProperties.Error in appleId.config)
         compose.onNodeWithTag("sign-in-forgot-password").performScrollTo().performClick()
         assertEquals(listOf("https://iforgot.apple.com"), opened)
+    }
+
+    @Test fun pageLeadsWithTheMarkAndKeepsTheCompatibilityWarningInADialog() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut))
+        compose.onNodeWithTag("sign-in-brand").assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-title").assertIsDisplayed().assertTextEquals(string(R.string.sign_in_heading))
+        compose.onNodeWithTag("sign-in-progress").assertDoesNotExist()
+        compose.onNodeWithTag("sign-in-trust").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-unsupported").assertDoesNotExist()
+        compose.onNodeWithTag("sign-in-compatibility").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag("sign-in-compatibility-dialog").assertIsDisplayed()
+        compose.onNode(hasTestTag("sign-in-unsupported") and hasAnyAncestor(isDialog())).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(string(R.string.supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke))
+            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-compatibility-close").performClick()
+        compose.onNodeWithTag("sign-in-compatibility-dialog").assertDoesNotExist()
+        compose.onNodeWithTag("sign-in-unsupported").assertDoesNotExist()
+    }
+
+    @Test fun signingInShowsProgressAndLocksTheForm() {
+        render(SessionState(accountState = ICloudAccountState.SigningIn("alex@example.com"), accountBusy = true),
+            tryDemo = demoEntry({ demos++ }, enabled = true))
+        compose.onNodeWithTag("sign-in-progress").assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-title").assertTextEquals(string(R.string.signing_in))
+        compose.onNodeWithText(context.getString(R.string.connecting_as, "alex@example.com")).assertIsDisplayed()
+        // The fields keep what was entered but are locked, and nothing else can be pressed.
+        compose.onNodeWithTag("sign-in-apple-id").assertIsNotEnabled().assert(notEditable()).assert(hasText("alex@example.com"))
+        compose.onNodeWithTag("sign-in-password").assertIsNotEnabled().assert(notEditable())
+        compose.onNodeWithTag("sign-in-submit").assertIsNotEnabled()
+        compose.onNodeWithTag("sign-in-demo").assertIsNotEnabled()
+        compose.onNodeWithTag("sign-in-show-password").assertIsNotEnabled()
+        compose.onNodeWithTag("sign-in-forgot-password").assertIsNotEnabled()
+        compose.onNodeWithTag("sign-in-compatibility").assertIsNotEnabled()
+    }
+
+    @Test fun signInHasNoBackButton() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut))
+        compose.onNodeWithTag("sign-in-page").assertIsDisplayed()
+        compose.onNodeWithContentDescription(string(R.string.back_action)).assertDoesNotExist()
+        compose.onNodeWithTag("sign-in-back").assertDoesNotExist()
+        assertEquals(0, closes)
+    }
+
+    @Test fun releaseBuildsOfferNoDemo() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut), tryDemo = demoEntry({ demos++ }, enabled = false))
+        compose.onNodeWithTag("sign-in-compatibility").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-demo").assertDoesNotExist()
+        compose.onNodeWithText(string(R.string.welcome_demo)).assertDoesNotExist()
+    }
+
+    @Test fun debugBuildsOfferTheDemoAsTheWayOut() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut), tryDemo = demoEntry({ demos++ }, enabled = true))
+        compose.onNodeWithTag("sign-in-demo").assertIsDisplayed().assertTextEquals(string(R.string.welcome_demo)).performClick()
+        assertEquals(1, demos)
+        assertEquals(0, closes)
+    }
+
+    @Test fun signInIsPinnedBelowTheFormAndSubmitsFromTheKeyboard() {
+        render(SessionState(accountState = ICloudAccountState.SignedOut))
+        // The button sits in the bar below the scrolling form, so it is on screen without scrolling to it.
+        compose.onNodeWithTag("sign-in-submit").assertIsDisplayed().assertIsNotEnabled()
+        compose.onNodeWithTag("sign-in-apple-id").performTextInput("alex@example.com")
+        compose.onNodeWithTag("sign-in-password").performTextInput("correct horse")
+        compose.onNodeWithTag("sign-in-submit").assertIsEnabled()
+        compose.onNodeWithTag("sign-in-password").performImeAction()
+        assertEquals(listOf("alex@example.com" to "correct horse"), signIns)
+        compose.onNodeWithTag("sign-in-submit").performClick()
+        assertEquals(2, signIns.size)
+    }
+
+    @Test fun anExpiredSessionSaysTheLibraryIsStillHere() {
+        render(SessionState(accountState = ICloudAccountState.SignedIn("alex@example.com", SessionStatus.EXPIRED),
+            requestedPage = ProfilePage.SIGN_IN))
+        compose.onNodeWithTag("sign-in-expired").assertIsDisplayed()
+        // The saved account is filled in, so only the password is missing.
+        compose.onNodeWithText("alex@example.com").assertIsDisplayed()
     }
 
     @Test fun passwordCanBeShownAndHidden() {
@@ -67,14 +171,61 @@ class SignInFormTest {
             accountState = ICloudAccountState.AwaitingTwoFactor("alex@example.com", TwoFactorDelivery.TRUSTED_DEVICE, smsAvailable = true),
             signInProblem = SignInProblem.WRONG_CODE,
         ))
-        compose.onNodeWithText(string(R.string.invalid_two_factor_code)).assertIsDisplayed()
+        compose.onNodeWithTag("verification-code-error", useUnmergedTree = true).assertIsDisplayed()
+            .assertTextEquals(string(R.string.invalid_two_factor_code))
+        compose.onNodeWithTag("verification-code").assert(hasText(string(R.string.invalid_two_factor_code)))
+        assertTrue(SemanticsProperties.Error in compose.onNodeWithTag("verification-code").fetchSemanticsNode().config)
         compose.onNodeWithTag("code-by-sms").performScrollTo().performClick()
         assertEquals(1, smsRequests)
+        compose.onNodeWithTag("code-resend").performScrollTo().performClick()
+        assertEquals(1, resends)
     }
 
     @Test fun textMessageIsNotOfferedWithoutATrustedNumber() {
         render(SessionState(accountState = ICloudAccountState.AwaitingTwoFactor("alex@example.com", TwoFactorDelivery.SMS)))
         compose.onNodeWithTag("code-by-sms").assertDoesNotExist()
+    }
+
+    @Test fun theSixthDigitSendsTheCode() {
+        render(SessionState(accountState = ICloudAccountState.AwaitingTwoFactor("alex@example.com", TwoFactorDelivery.TRUSTED_DEVICE)))
+        compose.onNodeWithTag("sign-in-title").assertTextEquals(string(R.string.enter_the_verification_code))
+        compose.onNodeWithTag("verification-submit").assertIsNotEnabled()
+        compose.onNodeWithTag("verification-code").performTextInput("12a345")
+        assertEquals(emptyList<String>(), codes)
+        compose.onNodeWithTag("verification-code").assert(hasText("12345"))
+        compose.onNodeWithTag("verification-code").performTextInput("6")
+        assertEquals(listOf("123456"), codes)
+    }
+
+    @Test fun verifyingKeepsTheCodeReadOnlyAndEveryActionDisabled() {
+        val awaiting = ICloudAccountState.AwaitingTwoFactor("alex@example.com", TwoFactorDelivery.TRUSTED_DEVICE, smsAvailable = true)
+        var session by mutableStateOf(SessionState(accountState = awaiting))
+        render { session }
+        compose.onNodeWithTag("verification-code").performTextInput("123456")
+        assertEquals(listOf("123456"), codes)
+        // The controller is now checking the code with Apple.
+        session = SessionState(accountState = awaiting, accountBusy = true)
+        compose.onNodeWithTag("sign-in-progress").assertIsDisplayed()
+        compose.onNodeWithTag("sign-in-title").assertTextEquals(string(R.string.sign_in_checking_code))
+        compose.onNodeWithTag("verification-code").assert(notEditable()).assert(hasText("123456"))
+        compose.onNodeWithTag("verification-submit").assertIsNotEnabled()
+        compose.onNodeWithTag("code-resend").assertIsNotEnabled()
+        compose.onNodeWithTag("code-by-sms").assertIsNotEnabled()
+        compose.onNodeWithTag("sign-in-back").assertIsNotEnabled()
+        assertEquals(listOf("123456"), codes)
+        // Apple answered that the code was wrong: the field opens again with the reason under it.
+        session = SessionState(accountState = awaiting, signInProblem = SignInProblem.WRONG_CODE)
+        compose.onNodeWithTag("sign-in-progress").assertDoesNotExist()
+        compose.onNodeWithTag("verification-code").assert(editable())
+        compose.onNodeWithTag("verification-code-error", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test fun backFromTheCodeReturnsToTheFirstStep() {
+        render(SessionState(accountState = ICloudAccountState.AwaitingTwoFactor("alex@example.com", TwoFactorDelivery.SMS)))
+        compose.onNodeWithTag("sign-in-back").assertIsDisplayed().assertTextEquals(string(R.string.back_action)).performClick()
+        assertEquals(1, codeCancels)
+        assertEquals(0, signOuts)
+        assertEquals(0, closes)
     }
 
     @Test fun signOutAsksFirstAndSaysICloudIsUntouched() {
@@ -104,18 +255,26 @@ class SignInFormTest {
         assertEquals(listOf("https://support.apple.com/102630"), opened)
     }
 
-    private fun render(session: SessionState) {
+    private fun notEditable() = SemanticsMatcher.expectValue(SemanticsProperties.IsEditable, false)
+    private fun editable() = SemanticsMatcher.expectValue(SemanticsProperties.IsEditable, true)
+
+    private fun render(session: SessionState, tryDemo: (() -> Unit)? = null) = render(tryDemo) { session }
+
+    private fun render(tryDemo: (() -> Unit)? = null, session: () -> SessionState) {
         val handler = object : UriHandler { override fun openUri(uri: String) { opened += uri } }
         compose.setContent {
             CompositionLocalProvider(LocalUriHandler provides handler) {
                 AlbaTheme(darkTheme = false) {
                     ICloudAccountScreen(
-                        session = session,
+                        session = session(),
                         transfers = TransferState(backup = BackupView(false)),
                         phoneStorage = PhoneStorageState(),
                         mediaBusy = false,
                         diagnostics = DiagnosticsConsent(),
-                        actions = testAlbaActions(signOut = { signOuts++ }, sendCodeBySms = { smsRequests++ }),
+                        actions = testAlbaActions(signOut = { signOuts++ }, sendCodeBySms = { smsRequests++ },
+                            signIn = { appleId, password -> signIns += appleId to password }, closeAccount = { closes++ },
+                            submitTwoFactor = { codes += it }, resendTwoFactor = { resends++ }, cancelTwoFactor = { codeCancels++ }),
+                        tryDemo = tryDemo,
                     )
                 }
             }

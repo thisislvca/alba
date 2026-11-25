@@ -329,7 +329,7 @@ internal fun MediaDetailScreen(
                             MediaThumbnail(reference = item.linkedDeviceReference ?: item.originalReference ?: item.viewerReference ?: item.previewReference,
                                 sourceRevision = item.sourceRevision,
                                 fallbackReference = item.previewReference, sharedMediaId = if (active) item.id else null,
-                                accentStartArgb = item.accentStartArgb, accentEndArgb = item.accentEndArgb, contentDescription = item.fileName,
+                                contentDescription = item.fileName,
                                 contentScale = ContentScale.Fit, zoomable = active && !expanded, onTap = { if (!expanded) controls = !controls },
                                 onZoomChanged = { if (active) zoomed = it }, sourceSize = IntSize(item.width, item.height),
                                 presentationScale = if (active) { { pose().scale } } else { { 1f } },
