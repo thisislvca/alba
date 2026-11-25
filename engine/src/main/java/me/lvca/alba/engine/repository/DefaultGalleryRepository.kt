@@ -844,6 +844,7 @@ class DefaultGalleryRepository(
             kind = record.kind.name, mimeType = record.mimeType, durationMillis = record.durationMillis,
             masterRecordName = record.masterRecordName, assetRecordName = record.assetRecordName,
             resourceFingerprint = record.resourceFingerprint, motionMimeType = record.motionMimeType, isTrashed = record.isTrashed,
+            expiresAtEpochMillis = record.expiresAtEpochMillis.takeIf { record.isTrashed },
             isHidden = record.isHidden, details = record.details.takeIf { it != MediaDetails() },
         )
 

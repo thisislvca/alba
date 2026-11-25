@@ -44,6 +44,8 @@ internal data class CloudPhotoAsset(
     val byteCount: Long? = null,
     val isHidden: Boolean = false,
     val details: me.lvca.alba.engine.model.MediaDetails = me.lvca.alba.engine.model.MediaDetails(),
+    /** When Recently Deleted removes a trashed asset for good: CPLAsset `dateExpunged`, 30 days after the deletion. */
+    val expiresAtEpochMillis: Long? = null,
 )
 
 /** The engine record for this asset, published under [id]. */
@@ -73,6 +75,7 @@ internal fun CloudPhotoAsset.toRemoteMediaRecord(
     byteCount = byteCount,
     isHidden = isHidden,
     details = details,
+    expiresAtEpochMillis = expiresAtEpochMillis,
 )
 
 internal data class ParsedCloudPhotoPage(
@@ -154,6 +157,7 @@ internal class CloudKitPhotoResponseParser {
         return CloudPhotoAsset(
             assetRecordName = assetRecordName,
             isTrashed = trashed,
+            expiresAtEpochMillis = if (trashed) asset.fieldEpochMillis("dateExpunged") else null,
             byteCount = ((master.field("resOriginalRes") as? JsonObject)?.get("size") as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 }
                 ?: (master.field("resOriginalFileSize") as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 },
             fileName = master.decodedFileName() ?: assetRecordName,
