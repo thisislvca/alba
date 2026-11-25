@@ -82,6 +82,12 @@ interface OfflineThumbnails {
      */
     suspend fun saveOfflineThumbnail(mediaId: String) = Unit
 
+    /**
+     * Whether background filling may start its next download now. False while a library refresh runs, or a thumbnail or
+     * full-size image is wanted on screen: the fill waits, so they never queue behind it.
+     */
+    fun backgroundTurn(): Boolean = true
+
     /** Free space left before the low-storage reserve, which background filling never eats into. */
     suspend fun offlineThumbnailRoom(): Long = Long.MAX_VALUE
 }

@@ -144,6 +144,8 @@ class OfflineThumbnailFill(
             repeat(minOf(concurrency, batch.size)) {
                 launch {
                     while (true) {
+                        // A refresh or what is on screen goes first: wait for it between downloads, never during one.
+                        while (!thumbnails.backgroundTurn() && go()) delay(YIELD_POLL_MILLIS)
                         val id = synchronized(lock) {
                             if (stop != null) return@synchronized null
                             if (!go()) { stop = FillOutcome.Interrupted; return@synchronized null }
@@ -192,5 +194,8 @@ class OfflineThumbnailFill(
 
         /** Skipped photos after which a run ends: something is wrong beyond single photos. */
         const val MAX_SKIPPED = 200
+
+        /** How often a fill waiting for a refresh or the screen checks whether it may go on. */
+        const val YIELD_POLL_MILLIS = 100L
     }
 }
