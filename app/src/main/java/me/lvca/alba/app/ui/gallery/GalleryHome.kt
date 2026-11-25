@@ -64,6 +64,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.gallery.GallerySection
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.gallery.LibraryPreparing
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.BrowseActions
 import me.lvca.alba.app.ui.GalleryScreenActions
@@ -280,6 +281,8 @@ internal fun GalleryHome(
         signedIn?.status == SessionStatus.EXPIRED -> stringResource(R.string.sign_in_again_saved_photos_available)
         signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED -> stringResource(R.string.icloud_photos_is_not_active)
         session.network?.online == false || signedIn?.status == SessionStatus.OFFLINE -> stringResource(R.string.offline_saved_photos_available)
+        // Apple is still indexing: say so for as long as it lasts, through the quiet checks Alba makes meanwhile.
+        session.libraryPreparing != null -> libraryPreparingLabel(session.libraryPreparing)
         // The first read of a large library takes a while: say how far it is rather than only that it is updating.
         session.isRefreshing && session.catalogScan != null -> catalogScanLabel(session.catalogScan)
         session.isRefreshing -> stringResource(R.string.updating_library)
@@ -470,7 +473,8 @@ internal fun GalleryHome(
                         val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
                         if (libraryHeader && gallery.selection.isEmpty()) BackupStatusChip(session, transfers, actions::openBackup)
                         val scanFraction = session.catalogScan?.fraction()
-                        if (session.isRefreshing && scanFraction != null) {
+                        if (session.libraryPreparing != null) Unit
+                        else if (session.isRefreshing && scanFraction != null) {
                             LinearProgressIndicator(progress = { scanFraction }, modifier = Modifier.fillMaxWidth().height(2.dp).testTag("catalog-scan-bar"))
                         } else if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
                         if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions, Modifier.padding(vertical = 8.dp))
@@ -532,7 +536,7 @@ internal fun GalleryHome(
                             connectPrompt = connectPrompt,
                             isRefreshing = session.isRefreshing,
                             counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount, limitedAccess = limitedNote,
-                                catalogScan = session.catalogScan),
+                                catalogScan = session.catalogScan, libraryPreparing = session.libraryPreparing),
                             previewRetryVersion = previewRetryVersion,
                             grid = when (shown.tab) {
                                 GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid
@@ -713,6 +717,8 @@ internal data class PhotoCounts(
     val limitedAccess: Boolean = false,
     /** The first full read of the iCloud library, while it is unfinished. */
     val catalogScan: CatalogScanProgress? = null,
+    /** Apple is still indexing the iCloud library. */
+    val libraryPreparing: LibraryPreparing? = null,
 )
 
 /**
@@ -835,12 +841,20 @@ private fun PhotoGrid(
                 }
             }
         }
+        // Only the main library waits for Apple's indexing; the phone's own photos show below the note meanwhile.
+        val preparing = counts.libraryPreparing?.takeIf { query == unfiltered && query.collectionId == null &&
+            !query.trashOnly && !query.offlineOnly }
+        if (preparing != null) item(key = "library-preparing", span = { GridItemSpan(maxLineSpan) }) {
+            LibraryPreparingCard(preparing, checking = isRefreshing, checkNow = actions::refresh,
+                modifier = posed("library-preparing").padding(horizontal = 16.dp, vertical = 12.dp))
+        }
         if (leading != null) item(key = "gallery-leading", span = { GridItemSpan(maxLineSpan) }) { Column(posed("gallery-leading")) { leading() } }
         if (items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 // Only the main library loads page by page; Trash, Hidden and albums keep the plain loading line.
                 val scan = counts.catalogScan?.takeIf { query.collectionId == null && !query.trashOnly && !query.offlineOnly }
-                if (isRefreshing && scan != null) LibraryLoading(scan)
+                if (preparing != null) Unit
+                else if (isRefreshing && scan != null) LibraryLoading(scan)
                 else if (isRefreshing) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.loading_photos)) }
                 // Where photos can be added, the album's leading item shows the first steps instead.
                 // A shared album's hero shows its own empty or unreachable state.
@@ -908,7 +922,10 @@ private fun PhotoGrid(
         if (items.isNotEmpty()) item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
             Column(posed("summary").fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
-                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // While Apple is indexing, "0 iCloud photos" would read as an empty library: count only the phone's.
+                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(if (counts.libraryPreparing != null) stringResource(R.string.phone_photo_count, counts.device)
+                    else stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

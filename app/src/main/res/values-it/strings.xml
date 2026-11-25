@@ -691,6 +691,13 @@
     <string name="about_notices">Licenze e riconoscimenti</string>
     <string name="about_hide_notices">Nascondi licenze</string>
     <string name="icloud_photos_still_preparing">Foto di iCloud sta ancora preparando questa libreria. Riprova tra qualche minuto.</string>
+    <string name="library_preparing_title">Apple sta preparando le tue Foto di iCloud</string>
+    <string name="library_preparing_body">Con le librerie grandi può volerci un po’. Alba continua a controllare e carica le tue foto appena sono pronte.</string>
+    <string name="library_preparing_progress">Pronto al %1$d%%</string>
+    <string name="library_preparing_status">Preparazione di Foto di iCloud…</string>
+    <string name="library_preparing_status_progress">Preparazione di Foto di iCloud… %1$d%%</string>
+    <string name="library_preparing_check_now">Controlla ora</string>
+    <string name="photos_service_preparing">Apple sta ancora preparando Foto di iCloud. Alba continua a controllare.</string>
     <string name="icloud_photos_is_not_active">Foto di iCloud non è attivo</string>
     <string name="icloud_web_only_explanation">L’accesso all’Account Apple è riuscito, ma Apple non ha reso disponibile Foto di iCloud per questa sessione. Succede se Foto di iCloud non è mai stato attivato, per i nuovi account creati sul web e a volte per gli account con un dispositivo con iOS beta. Controlla di nuovo tra qualche minuto.</string>
     <string name="how_to_activate_icloud_photos">Attiva Foto di iCloud su un dispositivo Apple</string>

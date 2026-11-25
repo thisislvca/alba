@@ -277,6 +277,12 @@ private fun AlbaMain(
         viewModel.setDeviceMediaAccess(hasDevicePhotoAccess, hasLimitedPhotoAccess(Build.VERSION.SDK_INT, context::granted))
         viewModel.sync.refresh()
     }
+    // While Apple is still indexing the library, Alba checks again every minute it is on screen, and the library loads
+    // by itself once it is ready. Off screen, background work checks less often.
+    val libraryPreparing = session.libraryPreparing != null
+    LaunchedEffect(libraryPreparing) {
+        if (libraryPreparing) lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.sync.recheckWhilePreparing() }
+    }
     LaunchedEffect(hasDevicePhotoAccess) {
         viewModel.setDeviceMediaAccess(hasDevicePhotoAccess, hasLimitedPhotoAccess(Build.VERSION.SDK_INT, context::granted))
     }

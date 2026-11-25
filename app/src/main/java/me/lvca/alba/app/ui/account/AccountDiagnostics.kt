@@ -49,11 +49,13 @@ internal fun AccountDiagnostics(state: SessionState, check: () -> Unit) {
                 state.network.metered -> R.string.metered_network_automatic_backup_waits_for_unmetered_internet
                 else -> R.string.unmetered_internet_automatic_backup_can_run_when_enabled
             }))
-            if (signedIn != null) AlbaFact(stringResource(R.string.photos), stringResource(when (info.photosAvailable) {
-                true -> R.string.photos_service_is_available_for_this_account
-                false -> R.string.apple_did_not_provide_a_photos_service_for_this_account
-                null -> R.string.photos_service_has_not_been_checked
-            }))
+            if (signedIn != null) AlbaFact(stringResource(R.string.photos), stringResource(when {
+                // Apple is still indexing the library: the service is there, the photos are not readable yet.
+                state.libraryPreparing != null && info.photosAvailable != false -> R.string.photos_service_preparing
+                info.photosAvailable == true -> R.string.photos_service_is_available_for_this_account
+                info.photosAvailable == false -> R.string.apple_did_not_provide_a_photos_service_for_this_account
+                else -> R.string.photos_service_has_not_been_checked
+            }), Modifier.testTag("profile-photos-service"))
             Text(state.lastRefreshedAt?.let { stringResource(R.string.library_refreshed_at, timestampLabel(it)) }
                 ?: stringResource(R.string.library_has_not_refreshed_in_this_session),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
