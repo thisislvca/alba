@@ -314,8 +314,8 @@ class SharedAlbumsCatalogTest {
     }
     @Test fun legacyDiscussionDecodesLiveFractionalAppleEpochAndPreservesPermissions() = runBlocking {
         val t = Transport().apply { legacyComments = Json.parseToJsonElement("""[
-            {"commentposition":"0","commenttype":"0","commenttimestamp":"811934006.899000","comment":"Synthetic fixture","createdbyme":"1","candelete":"1"},
-            {"commentposition":"1","commenttype":"1","commenttimestamp":"811934019.633000","createdbyme":"1","candelete":"1"},
+            {"commentposition":"0","commenttype":"0","commenttimestamp":"811934006.899000","comment":"Synthetic fixture","createdbyme":"1","candelete":"1","personid":"owner-person"},
+            {"commentposition":"1","commenttype":"1","commenttimestamp":"811934019.633000","createdbyme":"1","candelete":"1","personid":"owner-person"},
             {"commentposition":"2","commenttype":"89","commenttimestamp":"811934019.633000"}
         ]""").jsonArray }
         val s = source(t); val snap = s.sharedAlbums()
@@ -325,6 +325,8 @@ class SharedAlbumsCatalogTest {
         assertEquals(1790241206899L, comments[0].timestamp)
         assertEquals(1790241219633L, comments[1].timestamp)
         assertTrue(comments.all { it.isMine && it.canDelete })
+        // Apple's rows name their author only by person ID.
+        assertEquals(listOf("Sample Owner", "Sample Owner"), comments.map { it.author })
         assertTrue(comments[1].reaction)
         assertEquals("811934006.899000", legacyCommentTimestamp(comments[0].timestamp))
         assertEquals(978307200000L, legacyCommentTime("0"))

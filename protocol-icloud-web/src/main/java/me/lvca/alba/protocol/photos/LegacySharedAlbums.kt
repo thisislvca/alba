@@ -161,8 +161,14 @@ internal class LegacySharedAlbums(
     override suspend fun comments(album: SharedAlbumRecord, asset: String, post: Boolean, canManage: Boolean): List<SharedComment> {
         val result = albumCall(album, "getcomments", buildJsonObject { put("assetguid", asset) }).jsonObject
         // Type 0 is a comment and 1 a like; other types are deleted entries.
-        return (result["comments"] as? JsonArray).orEmpty().map { it.jsonObject }.filter { it.text("commenttype") in setOf("0", "1") }.map { row ->
-            SharedComment(requireNotNull(row.text("commentposition")), row.text("fullname") ?: row.text("firstname") ?: "—",
+        val rows = (result["comments"] as? JsonArray).orEmpty().map { it.jsonObject }.filter { it.text("commenttype") in setOf("0", "1") }
+        // Apple's comments name their author only by person ID; the album's people give the names.
+        val names = if (rows.all { it.text("fullname") != null || it.text("firstname") != null }) emptyMap() else
+            sharingInfos(listOf(album.zone to album.owner))[album.zone].orEmpty()
+                .mapNotNull { person -> person.text("personid")?.let { it to SharedParticipants.name(person) } }.toMap()
+        return rows.map { row ->
+            SharedComment(requireNotNull(row.text("commentposition")),
+                row.text("fullname") ?: row.text("firstname") ?: names[row.text("personid")] ?: SharedParticipants.UNKNOWN,
                 row.text("comment") ?: "👍", legacyCommentTime(row.text("commenttimestamp")), row.text("createdbyme") == "1",
                 row.text("candelete") == "1", row.text("commenttype") == "1")
         }
