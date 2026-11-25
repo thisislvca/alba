@@ -78,6 +78,12 @@ class CollectionsHubTest {
         compose.onNodeWithTag("collection-animated").assert(hasText(app.getString(R.string.animated))).assert(hasText("1"))
     }
 
+    @Test fun albumsOpenInApplesCustomOrder() {
+        openCollections()
+        compose.onNodeWithTag("collection-albums").performClick()
+        compose.onNodeWithTag("album-sort").assert(hasText(app.getString(R.string.album_sort_custom)))
+    }
+
     @Test fun lastRowScrollsClearOfTheFloatingNavigation() {
         openCollections()
         val phone = hasText(app.getString(R.string.this_phone))

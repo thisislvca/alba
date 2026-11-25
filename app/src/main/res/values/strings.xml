@@ -795,6 +795,7 @@
     <string name="shared_activity_notifications_detail">New invitations and new photos, checked a few times a day. Applies to all your shared albums.</string>
     <string name="shared_notifications_off_in_android">Android isn’t allowing Alba’s notifications.</string>
     <string name="shared_added_to_album">Added to %1$s</string>
+    <string name="album_sort_custom">Custom order</string>
     <string name="album_sort_recent">Most recent photo</string>
     <string name="album_sort_name">Album name</string>
     <string name="album_sort_oldest">Least recent photo</string>
