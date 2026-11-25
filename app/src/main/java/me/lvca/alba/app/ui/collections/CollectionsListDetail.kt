@@ -13,7 +13,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldDefaults
@@ -31,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.adaptive.albaWindowInfo
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 
@@ -47,7 +47,7 @@ internal fun CollectionsListDetail(
     modifier: Modifier = Modifier,
     detail: @Composable () -> Unit,
 ) {
-    val directive = calculatePaneScaffoldDirective(currentWindowAdaptiveInfo())
+    val directive = calculatePaneScaffoldDirective(albaWindowInfo())
     val value = calculateThreePaneScaffoldValue(directive.maxHorizontalPartitions, ListDetailPaneScaffoldDefaults.adaptStrategies(),
         ThreePaneScaffoldDestinationItem<Nothing>(if (detailOpen) ListDetailPaneScaffoldRole.Detail else ListDetailPaneScaffoldRole.List))
     val reduceMotion = reduceGalleryMotion()
