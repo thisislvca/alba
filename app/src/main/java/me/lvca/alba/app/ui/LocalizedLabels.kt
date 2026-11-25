@@ -11,6 +11,7 @@ import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.SmartCollection
+import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -25,6 +26,15 @@ import java.util.Locale
     return resolve(LocalContext.current)
 }
 @Composable internal fun itemCount(count: Int) = pluralStringResource(R.plurals.item_count, count, count)
+
+/**
+ * A count as people read it in [locale]: "12,607" in English, "12.607" in Italian. Every count Alba shows goes through
+ * this, or through a string resource whose count uses the grouping flag (`%1$,d`), which groups the same way.
+ */
+internal fun formatCount(count: Number, locale: Locale): String = NumberFormat.getIntegerInstance(locale).format(count)
+
+/** [formatCount] in the UI's locale. */
+@Composable internal fun countLabel(count: Int): String = formatCount(count, currentLocale())
 
 /*
  * Every date and time shown in the UI goes through these helpers. Skeletons ("MMMd", "Hm") let each
