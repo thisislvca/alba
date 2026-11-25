@@ -8,9 +8,11 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.TimeUnit
 
 /** The first library read continues as background work that waits for a connection and is never queued twice. */
 @RunWith(AndroidJUnit4::class)
@@ -36,6 +38,22 @@ class CatalogSyncSchedulerTest {
 
         scheduler.cancel()
         assertEquals(WorkInfo.State.CANCELLED, work().single().state)
+    }
+
+    @Test
+    fun aLibraryStillIndexingIsCheckedAgainAfterTheReadThatAskedAndCancelStopsBoth() {
+        val scheduler = WorkManagerCatalogSyncScheduler(context)
+        scheduler.schedule(expedited = false)
+        scheduler.recheckPreparing(check = 1, refresh = false)
+
+        // The check waits for the read that asked for it, then for its delay: new work, with retries of its own.
+        val recheck = work().single { it.state == WorkInfo.State.BLOCKED }
+        assertEquals(2, work().size)
+        assertEquals(TimeUnit.MINUTES.toMillis(CatalogSyncWorker.PREPARING_RECHECK_MINUTES), recheck.initialDelayMillis)
+        assertEquals(NetworkType.CONNECTED, recheck.constraints.requiredNetworkType)
+
+        scheduler.cancel()
+        assertTrue(work().all { it.state == WorkInfo.State.CANCELLED })
     }
 
     private fun work() = WorkManager.getInstance(context).getWorkInfosForUniqueWork("alba-catalog-sync").get()

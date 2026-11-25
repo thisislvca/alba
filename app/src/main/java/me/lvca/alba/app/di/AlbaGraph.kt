@@ -4,6 +4,9 @@ import android.content.Context
 import kotlinx.coroutines.flow.map
 import me.lvca.alba.app.BuildConfig
 import me.lvca.alba.app.demo.DemoMediaImporter
+import me.lvca.alba.app.diagnostics.DiagnosticAttribute
+import me.lvca.alba.app.diagnostics.DiagnosticOperation
+import me.lvca.alba.app.diagnostics.DiagnosticOutcome
 import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 import me.lvca.alba.app.platform.AndroidAutomaticBackupPolicy
 import me.lvca.alba.app.platform.BackupPreferences
@@ -43,6 +46,7 @@ import me.lvca.alba.protocol.fixture.FixtureICloudCatalogSource
 import me.lvca.alba.protocol.network.OkHttpAppleTransport
 import me.lvca.alba.protocol.photos.AccountAwareICloudCatalogSource
 import me.lvca.alba.protocol.photos.EncryptedUploadJournal
+import me.lvca.alba.protocol.photos.LibraryIndexing
 import me.lvca.alba.protocol.photos.LiveICloudCatalogSource
 import me.lvca.alba.protocol.photos.LiveICloudPhotoProtocol
 import me.lvca.alba.protocol.status.RemoteProtocolStatus
@@ -85,6 +89,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         onSessionUpdated = accountManager::updateSession,
         onSessionRejected = accountManager::rejectSession,
         sharedJournal = uploadJournal,
+        onIndexingFailed = ::recordIndexingFailed,
     )
     val demoCatalog = FixtureICloudCatalogSource(
         includeSharedAlbums = true,
@@ -151,4 +156,11 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
     }
     val network = networkStatus(appContext)
     val charging = chargingStatus(appContext)
+
+    /** Only fixed values cross into diagnostics: whether Apple named a missing index, and the progress it reported. */
+    private fun recordIndexingFailed(indexing: LibraryIndexing) {
+        diagnostics.start(DiagnosticOperation.LIBRARY_INDEXING, mapOf(
+            DiagnosticAttribute.REASON to if (indexing.missingIndex) "indexing_missing_index" else "indexing_failed",
+        )).finish(DiagnosticOutcome.FAILED, listOfNotNull(indexing.progress?.let { DiagnosticAttribute.INDEXING_PROGRESS to it }).toMap())
+    }
 }

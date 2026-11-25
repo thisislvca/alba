@@ -294,18 +294,78 @@ class LiveICloudCatalogSourceTest {
     }
 
     @Test
-    fun `a library Apple is still indexing is a retryable preparing error, not an empty library`() = runBlocking {
-        val source = LiveICloudCatalogSource(FakePhotosTransport(indexingState = "RUNNING"), sessionProvider = { SESSION })
+    fun `a library Apple is still indexing is a preparing error with its progress, not an empty library`() = runBlocking {
+        val transport = FakePhotosTransport(indexingRecords = indexingRecord("RUNNING", progress = "42"))
+        val source = LiveICloudCatalogSource(transport, sessionProvider = { SESSION })
 
         val error = runCatching { source.fetchPage(null, limit = 1) }.exceptionOrNull()
 
         assertEquals(AppleProtocolError.LIBRARY_PREPARING, (error as AppleProtocolException).error)
+        assertEquals(42, (error as LibraryPreparingException).progress)
+        assertTrue("No photo page is read while indexing runs", transport.photoQueries.isEmpty())
     }
+
+    @Test
+    fun `a library whose indexing FAILED is read in full and reported, as iCloud com does`() = runBlocking {
+        val failures = mutableListOf<LibraryIndexing>()
+        // The shape Apple returned live for a library iCloud.com shows in full.
+        val failed = """
+            {"records":[{"recordName":"CheckIndexingState","recordType":"CheckIndexingState","fields":{
+              "state":{"value":"FAILED","type":"STRING"},
+              "progress":{"value":100,"type":"INT64"},
+              "indexJobId":{"value":"00000000-0000-0000-0000-000000000000","type":"STRING"},
+              "error":{"value":"CKCloudDBException:No index with requested name: CPLContainerRelationNotHiddenOrDeletedByAddedDate","type":"STRING"}
+            }}]}
+        """.trimIndent()
+        val source = LiveICloudCatalogSource(FakePhotosTransport(indexingRecords = failed), sessionProvider = { SESSION },
+            onIndexingFailed = { failures += it })
+
+        val page = source.fetchPage(null, limit = 1)
+
+        assertEquals(1, page.records.size)
+        assertEquals(1, failures.size)
+        assertEquals(100, failures.single().progress)
+        assertTrue(failures.single().missingIndex)
+    }
+
+    @Test
+    fun `a finished library or one without an indexing record is read`() = runBlocking {
+        for (records in listOf(indexingRecord("FINISHED", progress = "100"), """{"records":[]}""", "{}")) {
+            val source = LiveICloudCatalogSource(FakePhotosTransport(indexingRecords = records), sessionProvider = { SESSION })
+            assertEquals(records, 1, source.fetchPage(null, limit = 1).records.size)
+        }
+    }
+
+    @Test
+    fun `indexing state and progress parse defensively`() {
+        fun parse(json: String) = LibraryIndexing.parse(kotlinx.serialization.json.Json.parseToJsonElement(json) as kotlinx.serialization.json.JsonObject)
+
+        val running = parse(indexingRecord("RUNNING", progress = "\"37.5\""))!!
+        assertEquals(37, running.progress)
+        assertTrue(running.inProgress)
+        // Out of range or not a number is no progress; the state alone still says indexing runs.
+        assertNull(parse(indexingRecord("RUNNING", progress = "140"))!!.progress)
+        assertNull(parse(indexingRecord("RUNNING", progress = "\"soon\""))!!.progress)
+        assertTrue(parse(indexingRecord("RUNNING", progress = null))!!.inProgress)
+        // Apple can answer RUNNING for a library already complete.
+        assertFalse(parse(indexingRecord("RUNNING", progress = "100"))!!.inProgress)
+        assertFalse(parse(indexingRecord("FINISHED", progress = null))!!.inProgress)
+        val failed = parse(indexingRecord("FAILED", progress = "100"))!!
+        assertTrue(failed.failed)
+        assertFalse(failed.inProgress)
+        assertFalse("A FAILED state without Apple's missing-index text", failed.missingIndex)
+        assertNull(parse("{}"))
+        assertNull(parse("""{"records":[{"fields":{}}]}""")!!.state)
+    }
+
+    private fun indexingRecord(state: String, progress: String?): String =
+        """{"records":[{"recordType":"CheckIndexingState","fields":{"state":{"value":"$state"}""" +
+            (progress?.let { ""","progress":{"value":$it}""" } ?: "") + "}}]}"
 
     private class FakePhotosTransport(
         private val webAccessDisabled: Boolean = false,
         private val firstPage: String = PHOTO_PAGE,
-        private val indexingState: String = "FINISHED",
+        private val indexingRecords: String = """{"records":[{"fields":{"state":{"value":"FINISHED"}}}]}""",
     ) : AppleHttpTransport {
         val photoQueries = mutableListOf<String>()
         val streamedUrls = mutableListOf<String>()
@@ -316,11 +376,7 @@ class LiveICloudCatalogSourceTest {
                     "{\"isICDRSDisabled\":$webAccessDisabled}",
                 )
 
-                request.body.orEmpty().contains("CheckIndexingState") -> response(
-                    """
-                    {"records":[{"fields":{"state":{"value":"$indexingState"}}}]}
-                    """.trimIndent(),
-                )
+                request.body.orEmpty().contains("CheckIndexingState") -> response(indexingRecords)
 
                 request.url.contains("/records/query") -> {
                     photoQueries += request.body.orEmpty()

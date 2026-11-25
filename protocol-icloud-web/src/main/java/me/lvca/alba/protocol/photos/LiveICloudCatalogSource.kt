@@ -44,6 +44,8 @@ class LiveICloudCatalogSource(
     private val sharedJournal: UploadJournal? = null,
     private val onSessionUpdated: suspend (AppleSessionSnapshot) -> Unit = {},
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
+    /** Apple reported the library's indexing FAILED; the read goes on, so this is only for diagnostics. */
+    private val onIndexingFailed: (LibraryIndexing) -> Unit = {},
 ) : CloudCatalogSource {
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected).apply {
         onAccountChanged { downloads.clear(); currentRefreshIds.clear() }
@@ -429,18 +431,10 @@ class LiveICloudCatalogSource(
                 }.toString(),
             ),
         )
-        val state = indexing.jsonObjectOrNull()
-            ?.get("records")
-            ?.let { it as? kotlinx.serialization.json.JsonArray }
-            ?.firstOrNull()
-            ?.let { it as? JsonObject }
-            ?.fieldText("state")
-        if (state != null && state != "FINISHED") {
-            throw AppleProtocolException(
-                AppleProtocolError.LIBRARY_PREPARING,
-                "iCloud Photos is still preparing this library. Try again in a few minutes.",
-            )
-        }
+        // Only an index still being built holds the read back; FINISHED, FAILED or no record at all read the library.
+        val state = LibraryIndexing.parse(indexing.jsonObjectOrNull()) ?: return
+        if (state.failed) onIndexingFailed(state)
+        if (state.inProgress) throw LibraryPreparingException(state.progress)
     }
 
     private fun requireSession(): AppleSessionSnapshot = sessionProvider()
