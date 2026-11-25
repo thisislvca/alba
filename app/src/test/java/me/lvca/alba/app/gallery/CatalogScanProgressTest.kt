@@ -44,6 +44,19 @@ class CatalogScanProgressTest {
     }
 
     @Test
+    fun onceEveryPageIsInItSaysAlbumsAreLoadingInsteadOfAFullCount() {
+        compose.setAlbaContent(GalleryState(), SessionState(accountState = ICloudAccountState.SignedIn("alex@example.com"),
+            isRefreshing = true, catalogScan = CatalogScanProgress(loadedCount = 12_603, totalCount = 12_603, pagesComplete = true)))
+
+        compose.onNodeWithTag("catalog-scan-progress").performScrollTo().assertTextEquals(context.getString(R.string.catalog_scan_loading_albums))
+        // The header's status line says the same.
+        assertEquals(2, compose.onAllNodesWithText(context.getString(R.string.catalog_scan_loading_albums)).fetchSemanticsNodes().size)
+        compose.onNodeWithText("12,603 of 12,603 photos loaded").assertDoesNotExist()
+        // The rest has no count to fill a bar with, so the header shows the plain running bar.
+        compose.onNodeWithTag("catalog-scan-bar").assertDoesNotExist()
+    }
+
+    @Test
     fun withoutATotalOnlyTheLoadedCountIsShown() {
         compose.setAlbaContent(GalleryState(), SessionState(accountState = ICloudAccountState.SignedIn("alex@example.com"),
             isRefreshing = true, catalogScan = CatalogScanProgress(loadedCount = 1)))

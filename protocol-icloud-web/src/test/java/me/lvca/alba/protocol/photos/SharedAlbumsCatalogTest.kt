@@ -1,5 +1,9 @@
 package me.lvca.alba.protocol.photos
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.*
@@ -45,6 +49,16 @@ class SharedAlbumsCatalogTest {
         }
     }
 
+    @Test fun aLegacyAlbumAppleMigratedToCloudKitIsListedOnceFromItsZone() = runBlocking {
+        val t = Transport().apply { legacyMigratedTo = "SharedCollection-private" }
+        val albums = source(t).sharedAlbums().collections.collections
+        assertEquals(2, albums.size)
+        assertTrue(albums.none { it.shared!!.generation == SharedAlbumGeneration.LEGACY })
+        // Migrated to a zone this account cannot see, it stays listed from the legacy service.
+        t.legacyMigratedTo = "SharedCollection-elsewhere"
+        assertEquals(1, source(t).sharedAlbums().collections.collections.count { it.shared!!.generation == SharedAlbumGeneration.LEGACY })
+    }
+
     @Test fun scopesDuplicateNamesAndRecordIdsAcrossLegacyAndBothCloudKitDatabases() = runBlocking {
         val t = Transport(); val s = source(t)
         val snapshot = s.sharedAlbums()
@@ -84,6 +98,32 @@ class SharedAlbumsCatalogTest {
         source(t).writePreview(first.id, out)
         assertEquals("image", out.toString()); assertEquals(2, t.streams)
         assertFalse(t.requests.any { it.body.orEmpty().contains("PrimarySync") && it.url.contains("records/lookup") })
+    }
+
+    @Test fun expiredUrlsOfAWholeAlbumAreRenewedByOneReadWithoutListingEveryAlbumAgain() = runBlocking {
+        val t = Transport().apply { legacyCount = 12 }; val s = source(t)
+        val legacy = s.sharedAlbums().records.filter { it.fileName == "legacy.mp4" }
+        // Every URL signed so far has expired, as after a few hours: each thumbnail is refused at once.
+        t.expireBefore = t.legacyReads + 1; t.requests.clear()
+        coroutineScope { legacy.map { record -> async(Dispatchers.Default) { ByteArrayOutputStream().also { s.writePreview(record.id, it) } } }.awaitAll() }
+            .forEach { assertEquals("image", it.toString()) }
+        assertEquals(1, t.requests.count { it.url.toHttpUrl().encodedPath.endsWith("webgetassets") })
+        assertEquals(0, t.requests.count { it.url.contains("webgetalbumslist") || it.url.contains("changes/database") })
+    }
+
+    @Test fun sharedAlbumsNameTheirOwnerAndExpiry() = runBlocking {
+        val t = Transport().apply { guestParticipant = true; temporaryUntil = 1796755487192L }
+        val albums = source(t).sharedAlbums().collections.collections.associateBy { it.shared!!.generation to it.shared!!.role }
+        val legacy = albums.getValue(SharedAlbumGeneration.LEGACY to SharedAlbumRole.VIEWER).shared!!
+        assertEquals("Sample Owner", legacy.ownerName); assertNull(legacy.expiresAt)
+        val subscribed = albums.getValue(SharedAlbumGeneration.MODERN to SharedAlbumRole.CONTRIBUTOR).shared!!
+        assertEquals("Sample Owner", subscribed.ownerName); assertTrue(subscribed.sharedWith.isEmpty())
+        val owned = albums.getValue(SharedAlbumGeneration.MODERN to SharedAlbumRole.OWNER).shared!!
+        assertNull(owned.ownerName); assertEquals(listOf("guest@example.com"), owned.sharedWith)
+        assertEquals(1796755487192L, owned.expiresAt)
+        // Without an answer about people the albums are still listed, unnamed.
+        t.sharingInfoFails = true
+        assertNull(source(t).sharedAlbums().collections.collections.first { it.shared!!.generation == SharedAlbumGeneration.LEGACY }.shared!!.ownerName)
     }
 
     @Test fun accountSwitchRejectsCachedMediaWithoutNetworkOrBytes() = runBlocking {
@@ -274,8 +314,8 @@ class SharedAlbumsCatalogTest {
     }
     @Test fun legacyDiscussionDecodesLiveFractionalAppleEpochAndPreservesPermissions() = runBlocking {
         val t = Transport().apply { legacyComments = Json.parseToJsonElement("""[
-            {"commentposition":"0","commenttype":"0","commenttimestamp":"811934006.899000","comment":"Synthetic fixture","createdbyme":"1","candelete":"1"},
-            {"commentposition":"1","commenttype":"1","commenttimestamp":"811934019.633000","createdbyme":"1","candelete":"1"},
+            {"commentposition":"0","commenttype":"0","commenttimestamp":"811934006.899000","comment":"Synthetic fixture","createdbyme":"1","candelete":"1","personid":"owner-person"},
+            {"commentposition":"1","commenttype":"1","commenttimestamp":"811934019.633000","createdbyme":"1","candelete":"1","personid":"owner-person"},
             {"commentposition":"2","commenttype":"89","commenttimestamp":"811934019.633000"}
         ]""").jsonArray }
         val s = source(t); val snap = s.sharedAlbums()
@@ -285,6 +325,8 @@ class SharedAlbumsCatalogTest {
         assertEquals(1790241206899L, comments[0].timestamp)
         assertEquals(1790241219633L, comments[1].timestamp)
         assertTrue(comments.all { it.isMine && it.canDelete })
+        // Apple's rows name their author only by person ID.
+        assertEquals(listOf("Sample Owner", "Sample Owner"), comments.map { it.author })
         assertTrue(comments[1].reaction)
         assertEquals("811934006.899000", legacyCommentTimestamp(comments[0].timestamp))
         assertEquals(978307200000L, legacyCommentTime("0"))
@@ -488,9 +530,14 @@ class SharedAlbumsCatalogTest {
         var customRole = "contributor"; var loseCommentResponse = false; var loseLegacyCommentResponse = false; var loseCopyStatus = false; var commentWrites = 0
         val comments = mutableMapOf<String, JsonObject>()
         var legacyComments = JsonArray(emptyList())
+        var legacyMigratedTo: String? = null
         var legacyCount = 1; var repeatPage = false; var legacyContributes = false; var albumHost = "https://p55-sharedstreams.icloud.com"
         var loseLegacyPut = false; var registeredAsset: String? = null; var createdLegacy: JsonObject? = null; var legacyCreates = 0; var loseLegacyCreate = false
         var expire = false; var streams = 0; var rawUploads = 0; var legacyPuts = 0
+
+        /** Legacy album pages read; each read signs its download URLs anew. URLs signed before [expireBefore] are refused. */
+        var legacyReads = 0; var expireBefore = 0
+        var temporaryUntil: Long? = null; var sharingInfoFails = false
         var loseShareResponse = false; var loseCopyResponse = false; var losePostResponse = false; var loseLegacyStatus = false
         var zoneCreates = 0; var shareCreates = 0; var copyStarts = 0; var postCreates = 0
         var createdZone: JsonObject? = null; var createdShare: JsonObject? = null; var createdPost: JsonObject? = null
@@ -509,9 +556,12 @@ class SharedAlbumsCatalogTest {
         var pendingLegacy = false; var legacyJoined = true; var acceptedModern = false; var loseInviteResponse = false
         var publicShare = false; var pendingRequest = false; var legacyAuthor = "other"
         var responseCode = 200
-        private fun share(scope: String): JsonObject { val base = Json.parseToJsonElement("""{"recordName":"cloudkit.zoneshare","recordType":"cloudkit.share","fields":{"cloudkit.title":{"value":"Same name"}},"recordChangeTag":"v1","participants":[{"participantId":"owner-participant","type":"OWNER","userIdentity":{"userRecordName":"owner"}}],"currentUserParticipant":{"type":"${if(scope == "private") "OWNER" else "USER"}","acceptanceStatus":"ACCEPTED","permission":"READ_WRITE","customRole":"$customRole"}}""").jsonObject
+        private fun share(scope: String): JsonObject { val base = Json.parseToJsonElement("""{"recordName":"cloudkit.zoneshare","recordType":"cloudkit.share","fields":{"cloudkit.title":{"value":"Same name"}},"recordChangeTag":"v1","participants":[{"participantId":"owner-participant","type":"OWNER","userIdentity":{"userRecordName":"owner","nameComponents":{"givenName":"Sample","familyName":"Owner"}}}],"currentUserParticipant":{"type":"${if(scope == "private") "OWNER" else "USER"}","acceptanceStatus":"ACCEPTED","permission":"READ_WRITE","customRole":"$customRole"}}""").jsonObject
             return JsonObject(base + buildJsonObject {
                 put("publicPermission", if(publicShare) "READ_WRITE" else "NONE")
+                temporaryUntil?.let { until -> put("fields", JsonObject(base["fields"]!!.jsonObject + buildJsonObject {
+                    putJsonObject("expiryDate") { put("value", until) }; putJsonObject("sharedCollectionState") { put("value", 1) }
+                })) }
                 if(publicShare) put("participants", JsonArray(base["participants"]!!.jsonArray + buildJsonObject {
                     put("participantId", "public-person"); put("type", "PUBLIC_USER"); put("permission", "READ_WRITE")
                 }))
@@ -520,13 +570,27 @@ class SharedAlbumsCatalogTest {
             } + (if(reflectShareWrites) createdShare.orEmpty() else emptyMap()))
         }
 
+        /** The legacy album as Apple lists it once migrated: owned, with the CloudKit zone it moved to. */
+        private fun migratedAlbumList(zone: String) = buildJsonObject { putJsonArray("albums") { add(buildJsonObject {
+            put("albumguid", "legacy"); put("ownerdsid", "owner"); put("albumlocation", "$albumHost/owner/sharedstreams/")
+            put("albumctag", "v1"); put("sharingtype", "owned"); put("iswebuploadsupported", "1")
+            put("sharedCollectionMigrationState", "2"); put("sharedCollectionZoneIdentifier", zone)
+            putJsonObject("attributes") { put("name", "Same name"); put("allowcontributions", "1") }
+        }) } }
+
         private fun pair(index: Int, legacy: Boolean): List<JsonObject> {
             val date = if (legacy) "" else "\"assetDate\":{\"value\":1777777777000},"
             val file = if (legacy) "legacy.mp4" else "modern.jpg"
             val encoded = java.util.Base64.getEncoder().encodeToString(file.toByteArray())
             val assetName = if (legacy && index == 0) registeredAsset ?: "asset-$index" else "asset-$index"
+            val preview = "https://cws.icloud-content.com/preview-$index" + if (legacy) "?g=$legacyReads" else ""
             return listOf(
-                Json.parseToJsonElement("""{"recordName":"master-$index","recordType":"CPLMaster","recordChangeTag":"m1","fields":{"filenameEnc":{"value":"$encoded","type":"BYTES"},"resOriginalFileType":{"value":"${if (legacy) "public.mpeg-4" else "public.jpeg"}"},"originalCreationDate":{"value":1777777777000},"resOriginalRes":{"value":{"downloadURL":"https://cws.icloud-content.com/original-$index","fileChecksum":"hash","size":0}},"resOriginalFileSize":{"value":2000},"resJPEGMedRes":{"value":{"downloadURL":"https://cws.icloud-content.com/preview-$index","fileChecksum":"preview"}}}}""").jsonObject,
+                Json.parseToJsonElement("""{"recordName":"master-$index","recordType":"CPLMaster","recordChangeTag":"m1",""" +
+                    """"fields":{"filenameEnc":{"value":"$encoded","type":"BYTES"},""" +
+                    """"resOriginalFileType":{"value":"${if (legacy) "public.mpeg-4" else "public.jpeg"}"},"originalCreationDate":{"value":1777777777000},""" +
+                    """"resOriginalRes":{"value":{"downloadURL":"https://cws.icloud-content.com/original-$index","fileChecksum":"hash","size":0}},""" +
+                    """"resOriginalFileSize":{"value":2000},""" +
+                    """"resJPEGMedRes":{"value":{"downloadURL":"$preview","fileChecksum":"preview"}}}}""").jsonObject,
                 Json.parseToJsonElement("""{"recordName":"$assetName","recordType":"CPLAsset","recordChangeTag":"a1","fields":{$date"contributedBy":{"value":"$legacyAuthor"},"masterRef":{"value":{"recordName":"master-$index"}},"duration":{"value":8733}}}""").jsonObject)
         }
         override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
@@ -551,6 +615,7 @@ class SharedAlbumsCatalogTest {
                         put("share", JsonObject(share("shared") + ("currentUserParticipant" to buildJsonObject { put("acceptanceStatus", if(acceptedModern) "ACCEPTED" else "INVITED") })))
                     }) } }
                 }
+                path.endsWith("webgetalbumslist") && legacyMigratedTo != null -> migratedAlbumList(legacyMigratedTo!!)
                 path.endsWith("webgetalbumslist") -> Json.parseToJsonElement("""{"albums":[{"albumguid":"legacy","ownerdsid":"other","albumlocation":"$albumHost/other/sharedstreams/","albumctag":"v1","sharingtype":"subscribed","iswebuploadsupported":"1","attributes":{"name":"Same name","allowcontributions":"${if(legacyContributes) 1 else 0}"}}]}""").jsonObject.let { root -> JsonObject(root + ("albums" to JsonArray((if(legacyJoined) root["albums"]!!.jsonArray else emptyList()) + listOfNotNull(createdLegacy)))) }
                 path.endsWith("createalbum") -> {
                     legacyCreates++
@@ -560,6 +625,7 @@ class SharedAlbumsCatalogTest {
                 }
                 path.endsWith("webgetassetcount") -> buildJsonObject { put("albumassetcount", legacyCount) }
                 path.endsWith("webgetassets") -> {
+                    legacyReads++
                     val start = body["offset"]!!.jsonPrimitive.content.toInt(); val end = body["limit"]!!.jsonPrimitive.content.toInt()
                     buildJsonObject { put("records", JsonArray((start until end).flatMap { pair(if(repeatPage) it % 100 else it, true) })) }
                 }
@@ -604,6 +670,15 @@ class SharedAlbumsCatalogTest {
                 path.endsWith("webuploadstatus") -> { if(loseLegacyStatus) { loseLegacyStatus = false; throw IOException("offline") }; JsonArray(listOf(buildJsonObject { put("status", "COMPLETED"); put("uploadjobid", "legacy-job") })) }
                 path.endsWith("webgetalbumview") -> buildJsonObject { put("callerId", "me"); putJsonArray("albums") { add(buildJsonObject { put("albumguid", "legacy"); putJsonObject("attributes") {} }) } }
                 path.endsWith("getcomments") -> buildJsonObject { put("comments", legacyComments) }
+                path.endsWith("webgetsharinginfos") -> {
+                    if (sharingInfoFails) throw IOException("offline")
+                    buildJsonObject { putJsonArray("albums") { body["albums"]!!.jsonArray.forEach { album ->
+                        add(buildJsonObject { put("albumguid", album.jsonObject.getValue("albumguid")); putJsonArray("sharinginfo") {
+                            add(buildJsonObject { put("personid", "owner-person"); put("sharingtype", "owned"); put("fullname", "Sample Owner") })
+                            add(buildJsonObject { put("personid", "me"); put("sharingtype", "subscribed"); put("fullname", "Sample Subscriber") })
+                        } })
+                    } } }
+                }
                 path.endsWith("addcomment") -> { if(loseLegacyCommentResponse) throw IOException("lost comment"); buildJsonObject { put("commentposition", "1") } }
                 path.endsWith("records/query") -> {
                     val query = body["query"]!!.jsonObject
@@ -632,6 +707,8 @@ class SharedAlbumsCatalogTest {
         }
         override suspend fun stream(url: String, output: OutputStream) {
             streams++; if(expire && streams == 1) throw AppleMediaHttpException(403)
+            val signed = url.substringAfter("?g=", "").toIntOrNull()
+            if (signed != null && signed < expireBefore) throw AppleMediaHttpException(403)
             output.write("image".toByteArray())
         }
         override fun restore(snapshot: AppleSessionSnapshot) = Unit

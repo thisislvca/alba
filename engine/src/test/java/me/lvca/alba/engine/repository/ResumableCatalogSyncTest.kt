@@ -21,6 +21,7 @@ import me.lvca.alba.engine.source.CatalogScanAbandoned
 import me.lvca.alba.engine.source.CloudCatalogPage
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.engine.source.CloudChanges
+import me.lvca.alba.engine.source.CollectionSnapshot
 import me.lvca.alba.engine.source.KnownCloudRecords
 import me.lvca.alba.engine.source.LibraryLookup
 import me.lvca.alba.engine.source.RemoteMediaRecord
@@ -61,6 +62,15 @@ class ResumableCatalogSyncTest {
 
     /** A new repository on the same database, as after the process was killed. */
     private fun repository(source: CloudCatalogSource) = DefaultGalleryRepository(database, source, null, cache, pause = { pauses += it })
+
+    @Test
+    fun aReadWithEveryPageInSaysSoWhileAlbumsLoad() = runBlocking {
+        val source = PagedSource(count = 20).apply { collectionsFailure = IOException("offline") }
+        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is IOException)
+
+        // The pages are all in; what is left is albums and the rest, which the header names instead of a full count.
+        assertEquals(CatalogScanProgress(loadedCount = 20, totalCount = 20, pagesComplete = true), repository(source).observeCatalogScan().first())
+    }
 
     @Test
     fun theStoredLibraryOfOneAccountIsKnownFromItsFirstPage() = runBlocking {
@@ -148,7 +158,7 @@ class ResumableCatalogSyncTest {
         repository.refresh(false)
         repository.ensurePreview(source.id(4))
         source.changes = CloudChanges(listOf(source.record(99)), setOf("asset-3", "asset-4"), "token-later", false)
-        source.trash = listOf(source.record(4).copy(isTrashed = true))
+        source.trash = listOf(source.record(4).copy(isTrashed = true, expiresAtEpochMillis = TRASH_EXPIRES))
 
         repository.refresh(false)
 
@@ -156,6 +166,8 @@ class ResumableCatalogSyncTest {
         assertFalse(source.id(3) in items)
         assertTrue(source.id(99) in items)
         assertTrue(items.getValue(source.id(4)).isTrashed)
+        // Recently Deleted's countdown needs the date iCloud deletes the item for good.
+        assertEquals(TRASH_EXPIRES, items.getValue(source.id(4)).expiresAtEpochMillis)
         assertEquals(MediaAvailability.PREVIEW_CACHED, items.getValue(source.id(4)).availability)
         assertEquals("token-later", database.catalogDao().checkpoint("icloud:account-a")?.changeToken)
     }
@@ -442,6 +454,8 @@ class ResumableCatalogSyncTest {
         }
         override suspend fun hiddenMedia() = hidden
         override suspend fun recentlyDeleted() = trash
+        var collectionsFailure: Exception? = null
+        override suspend fun collections(): CollectionSnapshot = collectionsFailure?.let { throw it } ?: super.collections()
         override suspend fun writePreview(mediaId: String, output: OutputStream) = output.write(byteArrayOf(1))
         override suspend fun writeOriginal(mediaId: String, output: OutputStream) = output.write(byteArrayOf(1, 2))
     }
@@ -450,5 +464,6 @@ class ResumableCatalogSyncTest {
         const val GC_ATTEMPTS = 10
         const val REFRESH_ROUNDS = 20
         const val PHONE_SCANS = 4
+        const val TRASH_EXPIRES = 1_797_000_000_000L
     }
 }

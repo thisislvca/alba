@@ -14,9 +14,9 @@ data class RefreshSummary(
 
 /**
  * A first full read of the iCloud library while it runs: [loadedCount] items so far, out of [totalCount] when iCloud
- * said how many there are.
+ * said how many there are. Once [pagesComplete], every page is in and the read is loading albums and the rest.
  */
-data class CatalogScanProgress(val loadedCount: Int, val totalCount: Int? = null)
+data class CatalogScanProgress(val loadedCount: Int, val totalCount: Int? = null, val pagesComplete: Boolean = false)
 
 /** Reading the catalog does not imply permission to edit or export originals. */
 interface GalleryReader {

@@ -13,23 +13,30 @@ internal val GalleryCollection.isUserAlbum: Boolean get() = isPersonal && !isFol
 internal fun SmartCollection.icon(): Int = when (this) {
     SmartCollection.VIDEOS -> R.drawable.icloud_videos
     SmartCollection.LIVE_PHOTOS -> R.drawable.icloud_live_photos
+    SmartCollection.PORTRAIT -> R.drawable.icloud_portrait
     SmartCollection.SCREENSHOTS -> R.drawable.icloud_screenshots
     SmartCollection.PANORAMAS -> R.drawable.icloud_panoramas
     SmartCollection.BURSTS -> R.drawable.icloud_bursts
     SmartCollection.SLO_MO -> R.drawable.icloud_slo_mo
     SmartCollection.TIME_LAPSE -> R.drawable.icloud_time_lapse
+    SmartCollection.ANIMATED -> R.drawable.icloud_animated
 }
 
-/** How the Albums page orders albums. Folders always come first, in the same order. */
+/**
+ * How the Albums page orders albums. [CUSTOM] is the order the user arranged in Photos (each album's iCloud `position`),
+ * as iCloud.com lists them; the other orders put folders first.
+ */
 internal enum class AlbumSort(val label: Int) {
+    CUSTOM(R.string.album_sort_custom),
     RECENT(R.string.album_sort_recent),
     NAME(R.string.album_sort_name),
     OLDEST(R.string.album_sort_oldest);
 
-    /** Orders [albums] by name, or by the newest photo each holds ([latest], empty albums last). */
+    /** Orders [albums] by position, by name, or by the newest photo each holds ([latest], empty albums last). */
     fun apply(albums: List<GalleryCollection>, latest: (GalleryCollection) -> Long?): List<GalleryCollection> {
         val byName = compareBy<GalleryCollection, String>(String.CASE_INSENSITIVE_ORDER) { it.name }.thenBy { it.id }
         val order = when (this) {
+            CUSTOM -> return albums.sortedWith(compareBy<GalleryCollection> { it.position }.then(byName))
             NAME -> byName
             RECENT -> compareBy<GalleryCollection> { latest(it) == null }.thenByDescending { latest(it) }.then(byName)
             OLDEST -> compareBy<GalleryCollection> { latest(it) == null }.thenBy { latest(it) }.then(byName)
