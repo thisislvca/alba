@@ -547,8 +547,9 @@ class DefaultGalleryRepository(
             }
 
             cache.pruneTo(sync.cloudCachePaths().toSet())
-            // New photos move the offline set: the oldest that no longer fit join the cache, which trims to its limit.
-            refreshOfflineSet()
+            // New photos may move the offline set. It is named again on the next download or trim that needs it, not
+            // here, so a refresh reads no more of the catalog than before; until then every thumbnail stays.
+            cache.forgetOfflineThumbnails()
             forgetCached(cache.trimCache())
         }
 

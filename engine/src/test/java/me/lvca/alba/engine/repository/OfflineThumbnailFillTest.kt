@@ -29,6 +29,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.IOException
 import java.io.OutputStream
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executor
 
 /**
  * The background fill of the offline set: the newest photos the budget holds, newest first, never one outside the
@@ -128,6 +130,29 @@ class OfflineThumbnailFillTest {
     }
 
     @Test
+    fun aRefreshReadsTheCatalogNoMoreForTheOfflineSet() = runBlocking {
+        database.close()
+        val queries = CopyOnWriteArrayList<String>()
+        database = Room.inMemoryDatabaseBuilder(context, AlbaDatabase::class.java)
+            .setQueryCallback({ sql, _ -> queries += sql.replace(Regex("\\s+"), " ").trim() }, Executor { it.run() })
+            .build()
+        val large = LibrarySource(count = 250)
+        val repository = DefaultGalleryRepository(database, large, null, cache, thumbnailBudget = { budget }, setSize = { 4 })
+
+        repository.refresh(false)
+
+        // As DefaultGalleryRepositoryTest counts on a device: the read before the network and the one before publishing.
+        assertEquals(2, queries.count { it.contains("WHERE c.origin = 'ICLOUD'") })
+        assertTrue(queries.none { it.contains(OFFLINE_SET_QUERY) })
+
+        // The set is named when a download first needs it: the oldest photo goes to the cache, not the set.
+        queries.clear()
+        repository.ensurePreview(large.id(0))
+        assertEquals(1, queries.count { it.contains(OFFLINE_SET_QUERY) })
+        assertEquals(LibrarySource.THUMBNAIL_BYTES, repository.localStorageUsage().cacheBytes)
+    }
+
+    @Test
     fun anInterruptedFillCarriesOnWhereItStoppedInANewProcess() = runBlocking {
         var allowed = 2
         val first = fill(repository().also { it.refresh(false) })
@@ -204,6 +229,11 @@ class OfflineThumbnailFillTest {
 
         assertEquals(FillOutcome.Stopped, run.await())
         assertEquals(listOf(9, 8).map(source::id), source.downloads)
+    }
+
+    private companion object {
+        /** The newest-photos query that names the offline set. */
+        const val OFFLINE_SET_QUERY = "SELECT c.mediaId FROM catalog_items c WHERE"
     }
 
     private class Throttled(override val retryAfterMillis: Long?) : IOException("HTTP 429"), ThrottledFailure
