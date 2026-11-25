@@ -35,6 +35,13 @@ internal val AlbaTypography = with(MaterialDefaults) {
 /** The album title laid over its cover in the album hero: emphasised so it holds its own over a photo. */
 internal val Typography.heroTitle: TextStyle get() = headlineLarge.copy(fontWeight = FontWeight.Bold)
 
+/**
+ * The headline that opens a step of signing in: the theme's headlineLarge, bold and set a little tighter, so the flow
+ * speaks with Alba's voice while its layout stays Android's.
+ */
+internal val Typography.pageHeadline: TextStyle
+    get() = headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+
 /** The capture date in the photo viewer header: titleMedium, so the photo leads. */
 internal val Typography.viewerTitle: TextStyle get() = titleMedium
 

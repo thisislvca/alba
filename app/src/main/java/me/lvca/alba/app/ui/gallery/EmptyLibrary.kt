@@ -47,9 +47,12 @@ internal fun EmptyLibrary() {
     }
 }
 
-/** An unconnected library with nothing to show: connect iCloud, or look around with the sample library. */
+/**
+ * An unconnected library with nothing to show: connect iCloud, or look around with the sample library where the build
+ * offers it ([demo] is null in release builds).
+ */
 @Composable
-internal fun ConnectLibrary(connect: () -> Unit, demo: () -> Unit) {
+internal fun ConnectLibrary(connect: () -> Unit, demo: (() -> Unit)?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -72,7 +75,7 @@ internal fun ConnectLibrary(connect: () -> Unit, demo: () -> Unit) {
         Button(onClick = connect, modifier = Modifier.widthIn(min = 220.dp).heightIn(min = 48.dp).testTag("empty-connect-button")) {
             Text(stringResource(R.string.welcome_connect))
         }
-        TextButton(onClick = demo, modifier = Modifier.heightIn(min = 48.dp).testTag("empty-demo-button")) {
+        if (demo != null) TextButton(onClick = demo, modifier = Modifier.heightIn(min = 48.dp).testTag("empty-demo-button")) {
             Text(stringResource(R.string.welcome_demo))
         }
     }
