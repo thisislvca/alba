@@ -1,6 +1,12 @@
 package me.lvca.alba.protocol.photos
 
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.PersistedCookie
 import me.lvca.alba.protocol.auth.AppleProtocolError
@@ -124,6 +130,43 @@ class LiveICloudCatalogSourceTest {
         assertTrue(CloudKitErrors.cursorRejection(200, error, resumed = true) is me.lvca.alba.engine.source.CatalogCursorRejected)
         for (code in listOf(401, 403, 429, 500, 503)) assertNull("HTTP $code", CloudKitErrors.cursorRejection(code, null, resumed = true))
         assertNull(CloudKitErrors.cursorRejection(400, error, resumed = false))
+    }
+
+    /**
+     * A photo added since the last refresh comes as a new CPLMaster and CPLAsset; Alba stores neither yet. The change is
+     * an upsert, not a reason to read all 12,000 photos again, and a master with no library asset changes nothing.
+     */
+    @Test fun aNewPhotoIsAChangeNotAFullRead() = runBlocking {
+        val records = PHOTO_PAGE.substringAfter("\"records\":[").substringBeforeLast("]")
+        val changes = """{"zones":[{"zoneID":{"zoneName":"PrimarySync"},"syncToken":"next-token","moreComing":false,"records":[
+            $records,
+            {"recordName":"master-in-recently-deleted","recordType":"CPLMaster","fields":{}}
+        ]}]}"""
+        val library = Json.parseToJsonElement(PHOTO_PAGE).jsonObject["records"]!!.jsonArray
+        val source = LiveICloudCatalogSource(ChangesAndLookupTransport(changes, library), { SESSION })
+
+        val result = source.changes("saved-token", me.lvca.alba.engine.source.KnownCloudRecords.NONE)
+
+        assertEquals(listOf("asset-1"), result.upserts.map { it.assetRecordName })
+        assertEquals("master-1", result.upserts.single().masterRecordName)
+        assertTrue(result.deletedRecordNames.isEmpty())
+        assertEquals("next-token", result.nextToken)
+    }
+
+    /** Answers changes/zone with [changes], and records/lookup with the named records from [library]. */
+    private class ChangesAndLookupTransport(private val changes: String, private val library: JsonArray) : AppleHttpTransport {
+        override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse {
+            if (request.url.contains("/changes/zone")) return AppleHttpResponse(200, emptyMap(), changes)
+            assertTrue(request.url, request.url.contains("/records/lookup"))
+            val names = Json.parseToJsonElement(requireNotNull(request.body)).jsonObject["records"]!!.jsonArray
+                .map { it.jsonObject["recordName"]!!.jsonPrimitive.content }
+            val found = library.filter { it.jsonObject["recordName"]!!.jsonPrimitive.content in names }
+            return AppleHttpResponse(200, emptyMap(), JsonObject(mapOf("records" to JsonArray(found))).toString())
+        }
+        override suspend fun stream(url: String, output: OutputStream) = error("Not used")
+        override fun snapshotCookies() = SESSION.cookies
+        override fun restore(snapshot: AppleSessionSnapshot) = Unit
+        override fun clear() = Unit
     }
 
     private class ChangesTransport(private val code: Int, private val body: String) : AppleHttpTransport {
