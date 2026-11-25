@@ -147,7 +147,7 @@ class ResumableCatalogSyncTest {
         repository.refresh(false)
         repository.ensurePreview(source.id(4))
         source.changes = CloudChanges(listOf(source.record(99)), setOf("asset-3", "asset-4"), "token-later", false)
-        source.trash = listOf(source.record(4).copy(isTrashed = true))
+        source.trash = listOf(source.record(4).copy(isTrashed = true, expiresAtEpochMillis = TRASH_EXPIRES))
 
         repository.refresh(false)
 
@@ -155,6 +155,8 @@ class ResumableCatalogSyncTest {
         assertFalse(source.id(3) in items)
         assertTrue(source.id(99) in items)
         assertTrue(items.getValue(source.id(4)).isTrashed)
+        // Recently Deleted's countdown needs the date iCloud deletes the item for good.
+        assertEquals(TRASH_EXPIRES, items.getValue(source.id(4)).expiresAtEpochMillis)
         assertEquals(MediaAvailability.PREVIEW_CACHED, items.getValue(source.id(4)).availability)
         assertEquals("token-later", database.catalogDao().checkpoint("icloud:account-a")?.changeToken)
     }
@@ -451,5 +453,6 @@ class ResumableCatalogSyncTest {
         const val GC_ATTEMPTS = 10
         const val REFRESH_ROUNDS = 20
         const val PHONE_SCANS = 4
+        const val TRASH_EXPIRES = 1_797_000_000_000L
     }
 }

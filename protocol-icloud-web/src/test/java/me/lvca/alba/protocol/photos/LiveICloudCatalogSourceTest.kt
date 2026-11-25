@@ -179,6 +179,25 @@ class LiveICloudCatalogSourceTest {
         assertTrue(transport.photoQueries.single().contains("CPLAssetAndMasterDeletedByExpungedDate"))
     }
 
+    /**
+     * A trashed CPLAsset carries `dateExpunged`, 30 days after it was deleted. iCloud kept listing three items a day past
+     * that date while iCloud.com counted them out (136 listed, 133 shown), and its "N days left" counts down to it.
+     */
+    @Test fun recentlyDeletedKnowsWhenEachItemGoesAndLeavesOutItemsPastIt() = runBlocking {
+        val now = 1_795_000_000_000L
+        val day = 86_400_000L
+        fun trashed(expires: Long) = PHOTO_PAGE.replace("\"assetDate\":",
+            "\"isDeleted\":{\"value\":1},\"dateExpunged\":{\"value\":$expires,\"type\":\"TIMESTAMP\"},\"assetDate\":")
+        val pending = LiveICloudCatalogSource(FakePhotosTransport(firstPage = trashed(now + 11 * day)), { SESSION },
+            isAuthorized = { true }, clock = { now })
+        assertEquals(now + 11 * day, pending.recentlyDeleted().single().expiresAtEpochMillis)
+        val overdue = LiveICloudCatalogSource(FakePhotosTransport(firstPage = trashed(now - 60_000)), { SESSION },
+            isAuthorized = { true }, clock = { now })
+        assertTrue(overdue.recentlyDeleted().isEmpty())
+        // The library never carries an expiry: only trashed assets go away on a date.
+        assertNull(CloudKitPhotoResponseParser().parse(PHOTO_PAGE).photos.single().expiresAtEpochMillis)
+    }
+
     @Test fun hiddenPhotosDeletedElsewhereStayInRecentlyDeleted() = runBlocking {
         val page = PHOTO_PAGE.replace("\"assetDate\":", "\"isDeleted\":{\"value\":1},\"isHidden\":{\"value\":1},\"assetDate\":")
         val source = LiveICloudCatalogSource(FakePhotosTransport(firstPage = page), { SESSION }, isAuthorized = { true })

@@ -44,6 +44,7 @@ class LiveICloudCatalogSource(
     private val sharedJournal: UploadJournal? = null,
     private val onSessionUpdated: suspend (AppleSessionSnapshot) -> Unit = {},
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : CloudCatalogSource {
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected).apply {
         onAccountChanged { downloads.clear(); currentRefreshIds.clear() }
@@ -240,7 +241,9 @@ class LiveICloudCatalogSource(
         val parsed = parser.parse(buildJsonObject { put("records", JsonArray(records)) }.toString(), includeTrashed = true, includeHidden = true).photos
         val expected = records.count { it.recordType() == "CPLAsset" && !it.fieldFlag("isExpunged") }
         check(parsed.size == expected) { "Recently Deleted was incomplete. Refresh to try again." }
-        return parsed.filter { it.isTrashed }.map(::mapped)
+        // iCloud keeps listing an item for a while after its `dateExpunged`; iCloud.com leaves those out, and so does Alba.
+        val now = clock()
+        return parsed.filter { it.isTrashed && (it.expiresAtEpochMillis ?: Long.MAX_VALUE) > now }.map(::mapped)
     }
 
     /** The Hidden album, read from its own index as iCloud.com and pyicloud do (`CPLAssetAndMasterHiddenByAssetDate`). */
