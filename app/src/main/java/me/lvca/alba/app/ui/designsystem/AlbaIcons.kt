@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -347,7 +348,7 @@ internal object AlbaIcons {
         }
     }
 
-    /** Arrows up and down: uploads, downloads and other transfers. */
+    /** Arrows up and down: a sort order. */
     val SwapVert: ImageVector by lazy {
         icon("SwapVert") {
             moveTo(16f, 17.01f); verticalLineTo(10f); horizontalLineToRelative(-2f); verticalLineToRelative(7.01f); horizontalLineToRelative(-3f)
@@ -355,6 +356,16 @@ internal object AlbaIcons {
             moveTo(9f, 3f); lineTo(5f, 6.99f); horizontalLineToRelative(3f); verticalLineTo(14f); horizontalLineToRelative(2f)
             verticalLineTo(6.99f); horizontalLineToRelative(3f); lineTo(9f, 3f); close()
         }
+    }
+
+    /** Material's cloud_sync: a cloud with circling arrows, for uploads and other iCloud activity. */
+    val CloudSync: ImageVector by lazy {
+        pathIcon("CloudSync", "M21.5 14.98c-.02 0-.03 0-.05.01C21.2 13.3 19.76 12 18 12c-1.4 0-2.6.83-3.16 2.02" +
+            "C13.26 14.1 12 15.4 12 17c0 1.66 1.34 3 3 3l6.5-.02c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5z" +
+            "m.01 3.02H15c-.55 0-1-.45-1-1s.45-1 1-1h1.25v-.25c0-.97.78-1.75 1.75-1.75s1.75.78 1.75 1.75V17" +
+            "s1.25 0 1.26.01c.27 0 .49.22.49.49 0 .27-.22.5-.49.5z" +
+            "M10 4.26v2.09C7.67 7.18 6 9.39 6 12c0 1.77.78 3.34 2 4.44V14h2v6H4v-2h2.73C5.06 16.54 4 14.4 4 12" +
+            "c0-3.73 2.55-6.85 6-7.74zM20 6h-2.73c1.43 1.26 2.41 3.01 2.66 5l-2.02.01C17.68 9.64 16.98 8.45 16 7.56V10h-2V4h6v2z")
     }
 
     /** A tray with an arrow into it: saving a copy onto this phone. */
@@ -420,6 +431,14 @@ internal object AlbaIcons {
             "M7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53" +
             "-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z")
     }
+
+    /** Material's outlined VpnKey: a key, for password fields. */
+    val Key: ImageVector by lazy {
+        pathIcon("Key", "M22 19h-6v-4h-2.68c-1.14 2.42-3.6 4-6.32 4-3.86 0-7-3.14-7-7s3.14-7 7-7c2.72 0 5.17 1.58 6.32 4H24v6h-2v4z" +
+            "m-4-2h2v-4h2v-2H11.94l-.23-.67C11.01 8.34 9.11 7 7 7c-2.76 0-5 2.24-5 5s2.24 5 5 5c2.11 0 4.01-1.34 4.71-3.33" +
+            "l.23-.67H18v4zM7 15c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3zm0-4c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1" +
+            "-.45-1-1-1z")
+    }
 }
 
 /** An icon from Material Icons' SVG path data. */
@@ -453,7 +472,8 @@ internal fun FavoriteIcon(favorite: Boolean, contentDescription: String?, modifi
     Icon(if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, contentDescription, modifier, tint)
 }
 
+/** An iCloud collection or media-type glyph, in the primary colour (at least 3:1 on every surface). */
 @Composable
 internal fun ICloudIcon(@DrawableRes resource: Int) {
-    Icon(painterResource(resource), contentDescription = null, tint = AlbaTheme.colors.accent, modifier = Modifier.size(AlbaIconSize.standard))
+    Icon(painterResource(resource), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(AlbaIconSize.standard))
 }

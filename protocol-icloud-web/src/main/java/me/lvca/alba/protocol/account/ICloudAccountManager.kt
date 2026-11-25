@@ -26,6 +26,9 @@ class ICloudAccountManager(
     private val mutableState = MutableStateFlow<ICloudAccountState>(ICloudAccountState.Restoring)
     private val mutableSession = MutableStateFlow<AppleSessionSnapshot?>(null)
 
+    /** Where a sign-in waiting for its verification code started, so abandoning the code returns there. */
+    private var stateBeforeTwoFactor: ICloudAccountState = ICloudAccountState.SignedOut
+
     val state: StateFlow<ICloudAccountState> = mutableState.asStateFlow()
     val session: StateFlow<AppleSessionSnapshot?> = mutableSession.asStateFlow()
 
@@ -111,6 +114,7 @@ class ICloudAccountManager(
                 }
 
                 is AppleSignInResult.RequiresTwoFactor -> {
+                    stateBeforeTwoFactor = previousState
                     mutableState.value = ICloudAccountState.AwaitingTwoFactor(
                         appleId = result.appleId,
                         delivery = result.delivery,
@@ -159,6 +163,16 @@ class ICloudAccountManager(
             } ?: ICloudAccountState.SignedOut
             throw error
         }
+    }
+
+    /**
+     * Abandons the verification code Apple is waiting for and returns to where that sign-in started: signed out, or the
+     * saved account it was renewing, which stays saved.
+     */
+    suspend fun cancelTwoFactor() = accountOperation {
+        if (mutableState.value !is ICloudAccountState.AwaitingTwoFactor) return@accountOperation
+        authentication.cancel()
+        mutableState.value = stateBeforeTwoFactor
     }
 
     /** Asks Apple to text the code to the trusted phone number instead of a trusted device. */

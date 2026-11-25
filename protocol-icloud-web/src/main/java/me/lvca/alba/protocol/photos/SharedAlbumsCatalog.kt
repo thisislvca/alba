@@ -10,6 +10,7 @@ import me.lvca.alba.protocol.text
 import java.io.OutputStream
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Shared albums of both generations behind one [SharedAlbumOperations]. Every operation runs alone
@@ -25,10 +26,13 @@ internal class SharedAlbumsCatalog(
 ) : SharedAlbumOperations {
     /** The photos of the last snapshot, with their signed download URLs, by shared photo ID. */
     private val photos = ConcurrentHashMap<String, CloudPhotoAsset>()
+
+    /** The albums of the last discovery by ID, so a photo whose download URL expired is read again without listing every album. */
+    private val albums = ConcurrentHashMap<String, SharedAlbumRecord>()
     private val ids = SharedAlbumIds(account)
     private val journal = SharedAlbumJournal(journal, account)
     private val connection: SharedAlbumSession = SharedAlbumSession(client, session, authorized) {
-        photos.clear(); legacy.forgetAccount()
+        photos.clear(); albums.clear(); legacy.forgetAccount()
     }
     private val legacy: LegacySharedAlbums = LegacySharedAlbums(connection, ids)
     private val modern = ModernSharedAlbums(connection, ids, transport)
@@ -41,9 +45,16 @@ internal class SharedAlbumsCatalog(
     private fun backend(album: SharedAlbumRecord): SharedAlbumBackend = if (album.isLegacy) legacy else modern
 
     private suspend fun discover(): List<SharedAlbumRecord> {
-        val result = legacy.discover() + modern.discover()
+        val older = legacy.discover()
+        val current = modern.discover()
+        // A legacy album Apple migrated is listed by both services; show it once, from its CloudKit zone, as Photos does.
+        val migrated = current.mapTo(mutableSetOf()) { it.zone }
+        val result = older.filterNot { it.migratedZone != null && it.migratedZone in migrated } + current
         check(result.size <= 10000) { "Too many shared albums." }
-        return result.distinctBy { it.collection.id }
+        return result.distinctBy { it.collection.id }.also { found ->
+            albums.keys.retainAll(found.mapTo(mutableSetOf()) { it.collection.id })
+            found.forEach { albums[it.collection.id] = it }
+        }
     }
 
     private suspend fun fresh(id: String): SharedAlbumRecord {
@@ -74,18 +85,37 @@ internal class SharedAlbumsCatalog(
         SharedCatalogSnapshot(records, CollectionSnapshot(found.map { it.collection }, members))
     }
 
-    /** The photo [mediaId], read again from its album when [refresh] is set or it is not cached. */
-    private suspend fun reference(mediaId: String, refresh: Boolean = false): CloudPhotoAsset = connection.exclusive {
+    /**
+     * The photo [mediaId]: the cached one, unless it is [stale], whose download URL Apple refused, or there is none, when
+     * its album is read again. A cached photo needs no lock, so thumbnails never wait behind a refresh of every album. When
+     * several thumbnails find their URLs expired together, the first read renews the whole album and the others reuse it.
+     */
+    private suspend fun reference(mediaId: String, stale: CloudPhotoAsset? = null): CloudPhotoAsset {
         connection.bound()
         val id = ids.albumOfPhoto(mediaId)
-        if (!refresh) photos[mediaId]?.let { return@exclusive it }
-        val album = discover().firstOrNull { it.collection.id == id }
-            ?: error("Access to this shared album is no longer available. Refresh the library.")
-        val items = backend(album).readAlbum(album)
-        photos.keys.removeAll { it.startsWith("$id:") }
-        items.forEach { photos[ids.photo(album, it.assetRecordName)] = it }
-        requireNotNull(photos[mediaId]) { "This shared photo is no longer available." }
+        photos[mediaId]?.takeIf { it != stale }?.let { return it }
+        return connection.exclusive {
+            photos[mediaId]?.takeIf { it != stale }?.let { return@exclusive it }
+            val known = albums[id]
+            val (album, items) = try {
+                val album = known ?: rediscover(id)
+                album to backend(album).readAlbum(album)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The album may have changed since it was listed; list it again once before giving up.
+                if (known == null) throw e
+                val album = rediscover(id)
+                album to backend(album).readAlbum(album)
+            }
+            photos.keys.removeAll { it.startsWith("$id:") }
+            items.forEach { photos[ids.photo(album, it.assetRecordName)] = it }
+            requireNotNull(photos[mediaId]) { "This shared photo is no longer available." }
+        }
     }
+
+    private suspend fun rediscover(id: String): SharedAlbumRecord = discover().firstOrNull { it.collection.id == id }
+        ?: error("Access to this shared album is no longer available. Refresh the library.")
 
     suspend fun write(mediaId: String, output: OutputStream, kind: String) {
         fun url(photo: CloudPhotoAsset): String = when (kind) {
@@ -99,7 +129,7 @@ internal class SharedAlbumsCatalog(
         try { transport.stream(url(ref), output) }
         catch (e: AppleMediaHttpException) {
             if (e.status !in EXPIRED_URL_STATUSES) throw e
-            transport.stream(url(reference(mediaId, refresh = true)), output)
+            transport.stream(url(reference(mediaId, stale = ref)), output)
         }
         connection.checkSession(current)
     }
@@ -110,7 +140,7 @@ internal class SharedAlbumsCatalog(
         val result = try { transport.openRange(ref.playbackUrl, position, length) }
         catch (e: AppleMediaHttpException) {
             if (e.status !in EXPIRED_URL_STATUSES) throw e
-            ref = reference(mediaId, refresh = true)
+            ref = reference(mediaId, stale = ref)
             transport.openRange(ref.playbackUrl, position, length)
         }
         try { connection.checkSession(current) } catch (e: Exception) { result.close(); throw e }

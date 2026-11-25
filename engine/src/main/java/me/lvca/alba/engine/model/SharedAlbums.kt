@@ -3,12 +3,20 @@ package me.lvca.alba.engine.model
 /** Shared copies have their own identity; they are never proof of a personal-library backup. */
 enum class SharedAlbumGeneration { LEGACY, MODERN }
 enum class SharedAlbumRole { OWNER, CONTRIBUTOR, VIEWER, COMMENTER, MANAGER }
+
+/**
+ * [ownerName] is who created an album shared with this account; it is null for the account's own albums. [sharedWith] names
+ * the people other than the owner who joined an album this account owns, when Apple reports them. [expiresAt] is when a
+ * temporary album is removed, in epoch milliseconds.
+ */
 data class SharedAlbumInfo(
     val generation: SharedAlbumGeneration,
     val role: SharedAlbumRole,
     val ownerName: String? = null,
     val participantCount: Int? = null,
     val webUrl: String? = null,
+    val sharedWith: List<String> = emptyList(),
+    val expiresAt: Long? = null,
 ) {
     val canContribute: Boolean get() = role in setOf(SharedAlbumRole.OWNER, SharedAlbumRole.MANAGER, SharedAlbumRole.CONTRIBUTOR)
     val canManage: Boolean get() = role in setOf(SharedAlbumRole.OWNER, SharedAlbumRole.MANAGER)

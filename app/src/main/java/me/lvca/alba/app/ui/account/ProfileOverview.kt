@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -39,9 +41,11 @@ import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
 import me.lvca.alba.app.ui.designsystem.DemoBadge
+import me.lvca.alba.app.ui.designsystem.albaGroupColor
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.LocalWallpaperColors
 import me.lvca.alba.app.ui.designsystem.theme.StorageColors
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.storageCategoryLabel
@@ -180,6 +184,7 @@ internal fun ProfileOverview(
             }
         }
     }
+    AppearanceSettings()
     Spacer(Modifier.height(AlbaSpacing.xxl))
     AlbaCard {
         ProfileRow(stringResource(R.string.about_title), stringResource(R.string.profile_about_detail),
@@ -195,6 +200,26 @@ internal fun ProfileOverview(
                 }
             }
         }
+    }
+}
+
+/** Appearance: "Match wallpaper colors", where the system has wallpaper colours to offer (Android 12 and later). */
+@Composable
+private fun AppearanceSettings() {
+    val wallpaper = LocalWallpaperColors.current
+    if (!wallpaper.available) return
+    Spacer(Modifier.height(AlbaSpacing.xxl))
+    Text(stringResource(R.string.profile_appearance_section), Modifier.padding(start = AlbaSpacing.lg, bottom = AlbaSpacing.sm),
+        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    AlbaCard {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.wallpaper_colors_title)) },
+            supportingContent = { Text(stringResource(R.string.wallpaper_colors_detail)) },
+            trailingContent = { Switch(checked = wallpaper.enabled, onCheckedChange = null) },
+            colors = ListItemDefaults.colors(containerColor = albaGroupColor()),
+            modifier = Modifier.toggleable(wallpaper.enabled, role = Role.Switch, onValueChange = wallpaper.onChange)
+                .testTag("wallpaper-colors-switch"),
+        )
     }
 }
 

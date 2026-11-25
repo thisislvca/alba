@@ -7,6 +7,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -98,6 +99,118 @@ class PreviewQueueTest {
             gallery.release.complete(Unit)
             withTimeout(10_000) { gallery.started.first { it.size == 33 } }
             assertEquals(ids.take(8) + ids[100] + ids.subList(12, 32) + ids.subList(8, 12).asReversed(), gallery.started.value)
+        } finally {
+            gallery.release.complete(Unit)
+            scope.cancel()
+        }
+    }
+
+    @Test fun aFailedDownloadIsTriedAgainBeforeTheTileIsLeftBlank() = runBlocking {
+        val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext.job))
+        val loads = MutableStateFlow(0)
+        val failures = mutableListOf<Throwable>()
+        val loaded = CompletableDeferred<Unit>()
+        val queue = PreviewQueue(
+            scope = scope,
+            selectedMediaId = { "fixture:queue:flaky" },
+            needsPreview = { !loaded.isCompleted },
+            // Fails twice, as when Apple refuses expired links while the album is read again, then succeeds.
+            load = { if (loads.updateAndGet { it + 1 } < 3) throw java.io.IOException("refused") else loaded.complete(Unit) },
+            diagnostics = AlbaDiagnostics.None,
+            onFailure = { failures += it },
+            retryDelaysMillis = listOf(10L, 10L),
+        )
+        try {
+            queue.request("fixture:queue:flaky")
+            withTimeout(5_000) { loaded.await() }
+            assertEquals(3, loads.value)
+            assertTrue(failures.isEmpty())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test fun aDownloadThatKeepsFailingIsReportedOnceAfterItsRetries() = runBlocking {
+        val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext.job))
+        val loads = MutableStateFlow(0)
+        val failed = CompletableDeferred<Throwable>()
+        val queue = PreviewQueue(
+            scope = scope,
+            selectedMediaId = { "fixture:queue:gone" },
+            needsPreview = { true },
+            load = { loads.update { it + 1 }; throw java.io.IOException("gone") },
+            diagnostics = AlbaDiagnostics.None,
+            onFailure = { failed.complete(it) },
+            retryDelaysMillis = listOf(10L, 10L),
+        )
+        try {
+            queue.request("fixture:queue:gone")
+            withTimeout(5_000) { failed.await() }
+            assertEquals(3, loads.value)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    /** A preview waiting to retry gives its slot to the next tile instead of sitting on it for the whole delay. */
+    @Test fun aRetryingPreviewHoldsNoSlotWhileItWaits() = runBlocking {
+        val gallery = Gallery()
+        val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext.job))
+        val flaky = gallery.ids[0]
+        val attempts = MutableStateFlow(0)
+        val queue = PreviewQueue(
+            scope = scope,
+            selectedMediaId = { null },
+            needsPreview = { id -> id !in gallery.previews.value },
+            load = { id ->
+                if (id == flaky && attempts.updateAndGet { it + 1 } == 1) throw java.io.IOException("refused")
+                gallery.load(id)
+            },
+            diagnostics = AlbaDiagnostics.None,
+            onFailure = {},
+            // Far longer than the test: the tile behind can only start if the waiting retry holds no slot.
+            retryDelaysMillis = listOf(60_000L),
+        )
+        val window = gallery.ids.take(9)
+        try {
+            queue.prefetch(window)
+            // The other seven fill their slots and stay busy; the flaky one fails and starts waiting to retry.
+            withTimeout(5_000) { gallery.started.first { it.size == 8 } }
+            assertEquals(window.drop(1), gallery.started.value)
+            assertEquals(1, attempts.value)
+        } finally {
+            gallery.release.complete(Unit)
+            scope.cancel()
+        }
+    }
+
+    @Test fun aRetryingPreviewTriesAgainAfterItsDelayWithoutAFreeSlotOfItsOwn() = runBlocking {
+        val gallery = Gallery()
+        val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext.job))
+        val flaky = gallery.ids[0]
+        val attempts = MutableStateFlow(0)
+        val queue = PreviewQueue(
+            scope = scope,
+            selectedMediaId = { null },
+            needsPreview = { id -> id !in gallery.previews.value },
+            load = { id ->
+                if (id == flaky && attempts.updateAndGet { it + 1 } == 1) throw java.io.IOException("refused")
+                gallery.load(id)
+            },
+            diagnostics = AlbaDiagnostics.None,
+            onFailure = {},
+            retryDelaysMillis = listOf(10L),
+        )
+        val window = gallery.ids.take(9)
+        try {
+            queue.prefetch(window)
+            withTimeout(5_000) { gallery.started.first { it.size == 8 } }
+            // The other eight hold every slot, so the retry waits in the queue until one frees, then succeeds.
+            assertEquals(1, attempts.value)
+            gallery.release.complete(Unit)
+            withTimeout(5_000) { gallery.previews.first { it.containsAll(window) } }
+            assertEquals(2, attempts.value)
+            assertEquals(window.drop(1) + flaky, gallery.started.value)
         } finally {
             gallery.release.complete(Unit)
             scope.cancel()

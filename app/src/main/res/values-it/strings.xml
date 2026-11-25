@@ -113,7 +113,6 @@
     <string name="media_types">Tipi di contenuto</string>
     <string name="medium">Media</string>
     <string name="alba_can_read_your_personal_library_and_upload_jpeg_originals_directly_from_this_phon">Alba mostra la tua libreria personale e carica foto e video da questo telefono direttamente su iCloud. Ogni caricamento viene controllato su iCloud prima di risultare salvato.</string>
-    <string name="alba_connects_straight_to_apple_s_icloud_web_services_your_password_is_used_only_for_">Alba si collega direttamente ai servizi web iCloud di Apple. La password viene usata solo per accedere e non viene mai salvata.</string>
     <string name="alba_rechecks_the_current_phone_and_icloud_bytes_first_android_then_asks_you_to_confi">Alba controlla ancora una volta ogni elemento con iCloud, poi Android ti chiede di confermare.</string>
     <string name="message_a_previous_upload_of_these_bytes_is_unresolved_and_will_not_be_repeated">Un caricamento precedente di questo file potrebbe essere arrivato su iCloud, quindi Alba non lo invierà di nuovo.</string>
     <string name="message_a_system_trash_request_may_still_execute_finish_the_android_dialog_or_restart_your_device_and_r">Android potrebbe ancora spostare elementi nel cestino del telefono. Completa la richiesta di Android, oppure riavvia il telefono e riapri Alba, prima di cambiare account.</string>
@@ -321,7 +320,7 @@
     <string name="sign_in_to_upload">Accedi per caricare</string>
     <string name="sign_out_and_use_demo_library">Esci</string>
     <string name="signed_in_to_icloud">Accesso a iCloud effettuato</string>
-    <string name="signing_in">Accesso in corso</string>
+    <string name="signing_in">Accesso in corso…</string>
     <string name="six_digit_code">Codice a sei cifre</string>
     <string name="slo_mo">Slo-mo</string>
     <string name="small">Piccola</string>
@@ -341,6 +340,8 @@
     <string name="this_device_cannot_decode_this_video_format">Questo telefono non può riprodurre questo formato video.</string>
     <string name="this_phone">Questo telefono</string>
     <string name="time_lapse">Time-lapse</string>
+    <string name="portrait">Ritratti</string>
+    <string name="animated">Animate</string>
     <string name="turn_off_automatic_backup">Disattiva backup automatico</string>
     <string name="uncertain_item_kept_blocked">Saltato</string>
     <string name="unfavorite">Rimuovi dai preferiti</string>
@@ -356,7 +357,6 @@
     <string name="uploads">Caricamenti</string>
     <string name="uploads_and_activity">Caricamenti e attività</string>
     <string name="uploads_downloads_and_backup">Caricamenti, download e backup</string>
-    <string name="use_a_different_apple_account">Usa un altro Account Apple</string>
     <string name="uses_the_capture_date_when_the_added_date_is_unavailable">Usa la data di scatto quando la data di aggiunta non è disponibile.</string>
     <string name="verified_in_icloud">Backup su iCloud eseguito</string>
     <string name="already_in_icloud">Già in iCloud</string>
@@ -366,28 +366,9 @@
     <string name="viewer_position">%1$d / %2$d</string>
     <string name="waiting">In attesa</string>
     <string name="waiting_to_upload">In attesa di caricamento</string>
-    <string name="welcome_back">Schermata introduttiva precedente</string>
-    <string name="welcome_backup_body">Esegui il backup su iCloud di foto e video di questo telefono, in qualità originale.</string>
-    <string name="welcome_backup_title">Backup del telefono</string>
-    <string name="welcome_choices_intro">Collega il tuo Account Apple oppure esplora prima le foto di esempio.</string>
-    <string name="welcome_choices_title">Decidi tu</string>
     <string name="welcome_connect">Collega iCloud</string>
     <string name="welcome_continue">Continua</string>
     <string name="welcome_demo">Prova la demo</string>
-    <string name="welcome_demo_hint">Foto di esempio. Non serve un account.</string>
-    <string name="welcome_intro">Scopri Alba: la tua libreria di Foto di iCloud, su questo telefono.</string>
-    <string name="welcome_library_body">Sfoglia foto e video, ritrova i preferiti e organizza gli album personali.</string>
-    <string name="welcome_library_title">Ritrova i tuoi momenti</string>
-    <string name="welcome_offline_body">Salva gli originali per vederli offline, oppure condividi ed esporta una copia.</string>
-    <string name="welcome_offline_title">Portali con te</string>
-    <string name="welcome_optional_body">Il backup resta disattivato finché non lo attivi. Quando lo fai, può includere anche le foto e i video già presenti sul telefono, non solo i nuovi.</string>
-    <string name="welcome_optional_title">Il backup parte da te</string>
-    <string name="welcome_phone_body">Scegli tu se includere in Alba le foto di questo telefono. Ti chiederemo l’accesso quando userai questa funzione.</string>
-    <string name="welcome_phone_title">Le foto del telefono sono facoltative</string>
-    <string name="welcome_privacy_body">La password serve solo per accedere e non viene mai salvata. La sessione resta crittografata su questo telefono.</string>
-    <string name="welcome_privacy_title">Direttamente ad Apple</string>
-    <string name="welcome_progress">%1$d di %2$d</string>
-    <string name="welcome_title">Le tue foto di iCloud.\nSu Android.</string>
     <string name="your_personal_albums_will_appear_here">I tuoi album personali appariranno qui.</string>
     <string name="your_saved_library_is_available_sign_in_again_to_reconnect">La libreria salvata è disponibile. Accedi di nuovo per riconnetterti.</string>
     <plurals name="added_to_album_count">
@@ -579,6 +560,14 @@
     <string name="shared_role_contributor">Puoi aggiungere foto</string>
     <string name="shared_role_viewer">Puoi visualizzare questo album</string>
     <string name="shared_owner">Condiviso da %1$s</string>
+    <string name="shared_created_by_you">Creato da te</string>
+    <string name="shared_created_by">Creato da %1$s</string>
+    <string name="shared_from">Da %1$s</string>
+    <string name="shared_with_person">Condiviso con %1$s</string>
+    <plurals name="shared_with_people"><item quantity="one">Condiviso con %d persona</item><item quantity="other">Condiviso con %d persone</item><item quantity="many">Condiviso con %d persone</item></plurals>
+    <string name="shared_expires">Scadenza: %1$s</string>
+    <string name="shared_album_subtitle">%1$s · %2$s</string>
+    <string name="shared_album_info">Dettagli dell’album condiviso</string>
     <string name="shared_copy_notice">Una copia condivisa è separata dalla libreria personale. Salvarla sul telefono non esegue il backup dell’originale.</string>
     <string name="shared_upgrade_notice">L’aggiornamento riguarda i nuovi elementi condivisi: non ripristina i dettagli persi nelle vecchie copie. Gli album esistenti non vengono mai aggiornati automaticamente.</string>
     <string name="shared_understood">Ho capito</string>
@@ -717,6 +706,9 @@
     <string name="profile_title">Il mio profilo</string>
     <string name="profile_demo_description">Esplora Alba con una libreria di esempio.</string>
     <string name="profile_library_section">LA TUA LIBRERIA</string>
+    <string name="profile_appearance_section">ASPETTO</string>
+    <string name="wallpaper_colors_title">Abbina i colori dello sfondo</string>
+    <string name="wallpaper_colors_detail">Usa i colori del tuo sfondo al posto del blu di iCloud</string>
     <string name="profile_backup_connect">Collega il tuo account per iniziare</string>
     <string name="profile_backup_on">Attivo</string>
     <string name="profile_backup_off">Disattivato</string>
@@ -737,11 +729,10 @@
     <string name="profile_plan_family">Spazio in famiglia</string>
     <string name="profile_plan_complimentary">Spazio gratuito aggiuntivo</string>
     <string name="profile_plan_managed">Spazio gestito</string>
-    <string name="sign_in_heading">Collega iCloud</string>
-    <string name="sign_in_intro">Usa il tuo Account Apple per vedere le tue foto in Alba.</string>
-    <string name="sign_in_password_note">La password viene usata solo per accedere e non viene mai salvata.</string>
+    <string name="sign_in_heading">Accedi a iCloud</string>
+    <string name="sign_in_intro">Usa l’Account Apple che usi per Foto su iPhone o Mac.</string>
     <string name="sign_in_compatibility">Dettagli sulla compatibilità</string>
-    <string name="sign_in_compatibility_hide">Nascondi dettagli sulla compatibilità</string>
+    <string name="sign_in_compatibility_title">Quali account funzionano</string>
     <string name="about_features">Funzionalità</string>
     <string name="about_upcoming">In arrivo</string>
     <string name="about_upcoming_note">Miglioramenti previsti, senza date di uscita definite.</string>
@@ -812,6 +803,7 @@
     <string name="shared_activity_notifications_detail">Nuovi inviti e nuove foto, controllati alcune volte al giorno. Vale per tutti i tuoi album condivisi.</string>
     <string name="shared_notifications_off_in_android">Android non sta consentendo le notifiche di Alba.</string>
     <string name="shared_added_to_album">Aggiunto a %1$s</string>
+    <string name="album_sort_custom">Ordine personalizzato</string>
     <string name="album_sort_recent">Foto più recente</string>
     <string name="album_sort_name">Nome album</string>
     <string name="album_sort_oldest">Foto meno recente</string>
@@ -1143,7 +1135,11 @@
     <string name="sign_in_unsupported_accounts">Gli account con Protezione avanzata dei dati o chiavi di sicurezza non possono ancora accedere ad Alba.</string>
     <string name="sign_in_show_password">Mostra password</string>
     <string name="sign_in_hide_password">Nascondi password</string>
+    <string name="sign_in_trust">Alba accede direttamente tramite Apple. La password non viene mai salvata.</string>
+    <string name="sign_in_submit">Accedi</string>
     <string name="sign_in_forgot_password">Password dimenticata?</string>
+    <string name="sign_in_sending_code">Invio di un nuovo codice…</string>
+    <string name="sign_in_checking_code">Verifica del codice…</string>
     <string name="sign_in_code_by_sms">Ricevi un codice tramite SMS</string>
     <string name="sign_in_error_security_key">Questo Account Apple usa chiavi di sicurezza. L’accesso web di Apple, usato da Alba, non le accetta ancora, quindi Alba non può collegarsi a questo account.</string>
     <string name="sign_in_error_too_many_attempts">Apple ha sospeso l’accesso dopo troppi tentativi. Attendi un po’ e riprova. Se Apple ha bloccato l’account, sbloccalo su iforgot.apple.com.</string>
@@ -1205,6 +1201,7 @@
     </plurals>
     <string name="catalog_scan_large_library">Con le librerie grandi può volerci un po’.</string>
     <string name="catalog_scan_notification">Caricamento della libreria di iCloud</string>
+    <string name="catalog_scan_loading_albums">Foto caricate. Caricamento degli album…</string>
     <plurals name="catalog_scan_progress">
         <item quantity="one">%1$s foto caricata</item>
         <item quantity="other">%1$s foto caricate</item>

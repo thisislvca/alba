@@ -1,9 +1,13 @@
 package me.lvca.alba.app.screenshots
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.RoborazziOptions
@@ -11,11 +15,14 @@ import com.github.takahirom.roborazzi.captureScreenRoboImage
 import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.account.SignInProblem
 import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.gallery.LibraryPreparing
 import me.lvca.alba.app.testing.openViewerDetails
 import me.lvca.alba.app.testing.setAlbaContent
 import me.lvca.alba.app.transfers.TransferState
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.TwoFactorDelivery
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
@@ -152,6 +159,49 @@ abstract class AppScreenshots(
         show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true))
         capture("sign-in")
     }
+
+    @Test fun signInWrongPassword() {
+        state("sign-in-wrong-password")
+        show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true, signInProblem = SignInProblem.WRONG_PASSWORD))
+        capture("sign-in-wrong-password")
+    }
+
+    @Test fun signInSigningIn() {
+        state("sign-in-signing-in")
+        show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true,
+            accountState = ICloudAccountState.SigningIn("alex@example.com"), accountBusy = true))
+        capture("sign-in-signing-in")
+    }
+
+    @Test fun signInCode() {
+        state("sign-in-code")
+        show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true, accountState = CodeChallenge))
+        capture("sign-in-code")
+    }
+
+    @Test fun signInWrongCode() {
+        state("sign-in-wrong-code")
+        show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true, accountState = CodeChallenge,
+            signInProblem = SignInProblem.WRONG_CODE))
+        compose.onNodeWithTag("verification-code").performTextInput("123455")
+        capture("sign-in-wrong-code")
+    }
+
+    @Test fun signInVerifying() {
+        state("sign-in-verifying")
+        var session by mutableStateOf(ScreenshotFixtures.signedOut.copy(isAccountOpen = true, accountState = CodeChallenge))
+        compose.setAlbaContent(GalleryState(), { session }, TransferState(), darkTheme = darkTheme)
+        compose.onNodeWithTag("verification-code").performTextInput("123456")
+        session = session.copy(accountBusy = true)
+        capture("sign-in-verifying")
+    }
+
+    @Test fun signInCompatibility() {
+        state("sign-in-compatibility")
+        show(GalleryState(), ScreenshotFixtures.signedOut.copy(isAccountOpen = true))
+        compose.onNodeWithTag("sign-in-compatibility").performClick()
+        capture("sign-in-compatibility")
+    }
 }
 
 /** A Pixel 9 class phone, light theme: every state. */
@@ -161,25 +211,31 @@ class StandardScreenshots : AppScreenshots("standard")
 /** A small phone (360 × 640 dp). */
 @Config(qualifiers = "w360dp-h640dp-port-hdpi")
 class CompactScreenshots : AppScreenshots("compact",
-    states = setOf("gallery", "gallery-selection", "empty-signed-out", "viewer", "viewer-details", "filter-sheet", "profile"))
+    states = setOf("gallery", "gallery-selection", "empty-signed-out", "viewer", "viewer-details", "filter-sheet", "profile", "sign-in",
+        "sign-in-code"))
 
 /** A tablet or unfolded window in landscape, where navigation moves to a rail. */
 @Config(qualifiers = "w900dp-h600dp-land-hdpi")
-class WideScreenshots : AppScreenshots("wide", states = setOf("gallery", "collections", "viewer", "viewer-details", "profile"))
+class WideScreenshots : AppScreenshots("wide",
+    states = setOf("gallery", "collections", "viewer", "viewer-details", "profile", "sign-in", "sign-in-code"))
 
 @Config(qualifiers = STANDARD)
 class DarkScreenshots : AppScreenshots("dark", darkTheme = true,
-    states = setOf("gallery", "gallery-selection", "viewer", "filter-sheet", "profile", "sign-in"))
+    states = setOf("gallery", "gallery-selection", "viewer", "filter-sheet", "profile", "sign-in", "sign-in-wrong-password",
+        "sign-in-signing-in", "sign-in-code", "sign-in-verifying"))
 
 /** The largest common accessibility text size short of the system maximum. */
 @Config(qualifiers = STANDARD)
 class LargeFontScreenshots : AppScreenshots("font-1.3", fontScale = 1.3f,
-    states = setOf("gallery", "empty-signed-out", "filter-sheet", "profile", "sign-in"))
+    states = setOf("gallery", "empty-signed-out", "filter-sheet", "profile", "sign-in", "sign-in-code"))
 
 /**
  * Any changed pixel fails verification. Roborazzi's default tolerates 1% of the image, enough to miss a recoloured icon;
  * recording the goldens twice on CI's Linux runner gave identical images, so no tolerance is needed.
  */
 private val strict = RoborazziOptions(compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0f))
+
+/** Apple asked for a code by text message, and can resend it. */
+private val CodeChallenge = ICloudAccountState.AwaitingTwoFactor("alex@example.com", TwoFactorDelivery.SMS, "+39 ••• ••• ••12")
 
 private const val STANDARD = "en-rUS-w411dp-h914dp-port-hdpi"

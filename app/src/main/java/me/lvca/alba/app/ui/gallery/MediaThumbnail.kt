@@ -15,9 +15,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -57,6 +58,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -310,25 +312,34 @@ private fun ViewerPhotoStatus(decoding: Boolean, icon: ImageVector, description:
         CircularProgressIndicator(Modifier.size(AlbaIconSize.standard).testTag("viewer-photo-loading"), color = colors.foreground, strokeWidth = 2.dp)
         return
     }
-    Surface(Modifier.padding(AlbaSpacing.xxl).widthIn(max = 360.dp).testTag("viewer-photo-status"), shape = MaterialTheme.shapes.large,
-        color = colors.card, contentColor = colors.foreground) {
-        Column(Modifier.padding(horizontal = AlbaSpacing.xxl, vertical = AlbaSpacing.xl), horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
-            Icon(icon, contentDescription = description, tint = colors.secondary, modifier = Modifier.size(AlbaIconSize.large))
-            Text(label, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
-            if (retry != null) {
-                if (decodeFailed) TextButton(onClick = retry, modifier = Modifier.testTag("retry-decode")) { Text(stringResource(R.string.retry_photo)) }
-                // On the light card a tonal container nearly vanishes; light mode fills it with the primary colour.
-                else FilledTonalButton(onClick = retry, modifier = Modifier.heightIn(min = 48.dp).testTag("retry-preview"),
-                    colors = if (AlbaTheme.colors.isDark) ButtonDefaults.filledTonalButtonColors()
-                    else ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary)) {
-                    Text(stringResource(R.string.try_again))
+    // A short photo slot, such as the photo above the details panel in landscape, drops the icon and the outer margin
+    // so the message and a full-height button still fit; anything taller than the slot scrolls instead of squashing.
+    BoxWithConstraints(contentAlignment = Alignment.Center) {
+        val short = maxHeight < StatusShortSlot
+        Surface(Modifier.padding(if (short) AlbaSpacing.md else AlbaSpacing.xxl).widthIn(max = 360.dp).testTag("viewer-photo-status"),
+            shape = MaterialTheme.shapes.large, color = colors.card, contentColor = colors.foreground) {
+            // Scrolls only when it overflows, so drags on a card that fits still reach the viewer's zoom and paging.
+            val scroll = rememberScrollState()
+            Column(Modifier.verticalScroll(scroll, enabled = scroll.maxValue > 0)
+                .padding(horizontal = AlbaSpacing.xxl, vertical = if (short) AlbaSpacing.md else AlbaSpacing.xl),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
+                if (!short) Icon(icon, contentDescription = description, tint = colors.secondary, modifier = Modifier.size(AlbaIconSize.large))
+                // Without the icon, the message carries its description.
+                Text(label, if (short) Modifier.semantics { contentDescription = description } else Modifier,
+                    style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                if (retry != null) {
+                    if (decodeFailed) TextButton(onClick = retry, modifier = Modifier.testTag("retry-decode")) { Text(stringResource(R.string.retry_photo)) }
+                    else FilledTonalButton(onClick = retry, modifier = Modifier.testTag("retry-preview")) {
+                        Text(stringResource(R.string.try_again))
+                    }
                 }
             }
         }
     }
 }
+
+/** Below this height the viewer's photo status leaves out its icon. */
+private val StatusShortSlot = 280.dp
 
 /** The placeholder [color] lifting off a newly decoded tile. Drawn, not recomposed, while it fades. */
 @Composable

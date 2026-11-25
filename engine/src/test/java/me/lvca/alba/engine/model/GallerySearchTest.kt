@@ -28,6 +28,8 @@ class GallerySearchTest {
             "panoramiche" to SmartCollection.PANORAMAS.id, "bursts" to SmartCollection.BURSTS.id, "raffiche" to SmartCollection.BURSTS.id,
             "slo-mo" to SmartCollection.SLO_MO.id, "slow motion" to SmartCollection.SLO_MO.id, "rallentatore" to SmartCollection.SLO_MO.id,
             "time lapse" to SmartCollection.TIME_LAPSE.id, "timelapse" to SmartCollection.TIME_LAPSE.id,
+            "portrait" to SmartCollection.PORTRAIT.id, "ritratti" to SmartCollection.PORTRAIT.id,
+            "animated" to SmartCollection.ANIMATED.id, "animazioni" to SmartCollection.ANIMATED.id,
             "preferiti" to GalleryQuery.FAVORITES, "favourites" to GalleryQuery.FAVORITES,
         )
         for ((text, collection) in cases) {

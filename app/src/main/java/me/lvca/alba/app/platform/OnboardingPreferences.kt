@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.core.content.edit
 import me.lvca.alba.protocol.account.DemoModeStore
 
-/** Installation-level introduction; independent of Apple accounts and backup consent. */
+/** Installation-level first run: done once there is an account or the demo; independent of Apple accounts and backup consent. */
 internal class OnboardingPreferences(context: Context) : DemoModeStore {
     override var enabled: Boolean
         get() = preferences.getBoolean(DEMO_SELECTED, false)
@@ -18,7 +18,7 @@ internal class OnboardingPreferences(context: Context) : DemoModeStore {
         preferences.edit { putBoolean(COMPLETED, true) }
     }
 
-    /** Stored on devices; device tests set them directly to start past or at the introduction. */
+    /** Stored on devices; device tests set them directly to start past or at sign-in. */
     companion object {
         // Named before the Alba rename; keep it.
         const val FILE = "mela-onboarding"

@@ -116,15 +116,20 @@ object AvailabilityResolver {
     }
 }
 
-/** Personal-library indexes, with membership supplied by iCloud (not filename guesses). */
+/**
+ * Personal-library indexes, with membership supplied by iCloud (not filename guesses). [appleFilter] is the `smartAlbum`
+ * value of `CPLAssetAndMasterInSmartAlbumByAssetDate`; Apple calls the Portrait album `DEPTH`.
+ */
 enum class SmartCollection(val id: String, val title: String, val appleFilter: String?) {
     VIDEOS("smart:videos", "Videos", "VIDEO"),
     LIVE_PHOTOS("smart:live", "Live Photos", "LIVE"),
+    PORTRAIT("smart:portrait", "Portrait", "DEPTH"),
     SCREENSHOTS("smart:screenshots", "Screenshots", "SCREENSHOT"),
     PANORAMAS("smart:panoramas", "Panoramas", "PANORAMA"),
     BURSTS("smart:bursts", "Bursts", null),
     SLO_MO("smart:slomo", "Slo-mo", "SLOMO"),
-    TIME_LAPSE("smart:timelapse", "Time-lapse", "TIMELAPSE")
+    TIME_LAPSE("smart:timelapse", "Time-lapse", "TIMELAPSE"),
+    ANIMATED("smart:animated", "Animated", "ANIMATED"),
 }
 
 data class CloudStorageUsage(val usedBytes: Long, val totalBytes: Long,
