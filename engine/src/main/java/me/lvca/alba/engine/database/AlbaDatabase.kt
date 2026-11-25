@@ -38,7 +38,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CollectionEntity::class, CollectionMemberEntity::class, BatchItemEntity::class, UploadCheckpointEntity::class,
         UploadPauseEntity::class, DiscoveryFailureEntity::class, CatalogScanEntity::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15), AutoMigration(from = 15, to = 16),
@@ -92,6 +92,23 @@ abstract class AlbaDatabase : RoomDatabase() {
                 db.execSQL(
                     "UPDATE remote_asset_pairs SET databaseScope = '${RemoteAssetPairEntity.PRIVATE_DATABASE_SCOPE}' " +
                         "WHERE databaseScope = 'com.apple.photos.cloud/private'",
+                )
+            }
+        }
+
+        /**
+         * Records whether a library read is the library's first load. A read already running counts as one only when
+         * the account has no change token and no row an earlier read stored, so a rescan of a stored library is quiet.
+         */
+        internal val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE catalog_scans ADD COLUMN initialLoad INTEGER NOT NULL DEFAULT 1")
+                db.execSQL(
+                    "UPDATE catalog_scans SET initialLoad = 0 WHERE " +
+                        "EXISTS (SELECT 1 FROM catalog_checkpoints WHERE scope = 'icloud:' || catalog_scans.account) OR " +
+                        "EXISTS (SELECT 1 FROM catalog_items WHERE origin = 'ICLOUD' AND " +
+                        "substr(mediaId, 1, length(catalog_scans.account) + 8) = 'icloud:' || catalog_scans.account || ':' " +
+                        "AND lastSeenScanId != catalog_scans.scanId)",
                 )
             }
         }
@@ -257,6 +274,6 @@ abstract class AlbaDatabase : RoomDatabase() {
             AlbaDatabase::class.java,
             // Named before the Alba rename and stored on devices; keep it.
             "mela-catalog.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_21_22).build()
     }
 }

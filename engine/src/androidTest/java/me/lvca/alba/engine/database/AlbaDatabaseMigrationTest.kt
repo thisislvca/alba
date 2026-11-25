@@ -102,6 +102,30 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
+    fun schemaTwentyOneMarksOnlyAReadOfAnEmptyLibraryAsItsFirstLoad() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 21).use { db ->
+            // "stored" has a row an earlier read stored; "fresh" has only rows its own read wrote.
+            db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision," +
+                "resourceFingerprint,accentStartArgb,accentEndArgb,lastSeenScanId) " +
+                "VALUES ('icloud:stored:a','a.heic',1,20,30,'ICLOUD','rev','fp',0,0,'earlier-read')")
+            db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision," +
+                "resourceFingerprint,accentStartArgb,accentEndArgb,lastSeenScanId) " +
+                "VALUES ('icloud:fresh:b','b.heic',1,20,30,'ICLOUD','rev','fp',0,0,'fresh-read')")
+            for ((account, scanId) in listOf("stored" to "stored-read", "fresh" to "fresh-read")) {
+                db.execSQL("INSERT INTO catalog_scans (account,scanId,cursor,pagesComplete,catchUpToken,loadedCount,totalCount," +
+                    "startedAtEpochMillis,updatedAtEpochMillis,restarted) VALUES ('$account','$scanId','100',0,'token',100,500,1,2,0)")
+            }
+        }
+        helper.runMigrationsAndValidate(DATABASE_NAME, 22, true, AlbaDatabase.MIGRATION_21_22).close()
+        val migrated = AlbaDatabase.create(context)
+        try {
+            val sync = migrated.catalogSyncDao()
+            assertFalse(requireNotNull(sync.scan("stored")).initialLoad)
+            assertTrue(requireNotNull(sync.scan("fresh")).initialLoad)
+        } finally { migrated.close() }
+    }
+
+    @Test
     fun schemaSeventeenAddsTheResumableLibraryReadKeepingTheCatalogAndToken() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 17).use { db ->
             db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision," +

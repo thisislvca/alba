@@ -85,4 +85,9 @@ data class CatalogScanEntity(
     val updatedAtEpochMillis: Long,
     /** The read already started over once because its saved cursor was refused; it does not again. */
     @androidx.room.ColumnInfo(defaultValue = "0") val restarted: Boolean = false,
+    /**
+     * Alba stored none of the account's library when the read started, so it is the library's first load and says how
+     * far it is. A read of a library Alba already shows, after iCloud refused the change token, runs quietly.
+     */
+    @androidx.room.ColumnInfo(defaultValue = "1") val initialLoad: Boolean = true,
 )
