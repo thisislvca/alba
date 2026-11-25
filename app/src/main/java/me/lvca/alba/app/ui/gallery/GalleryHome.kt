@@ -465,7 +465,8 @@ internal fun GalleryHome(
                                             Icon(AlbaIcons.CloudSync, stringResource(R.string.uploads_and_activity))
                                         }
                                     }
-                                    AccountButton(signedIn?.appleId, accountStatus, contextAccountLabel, actions::openAccount, Modifier.testTag("account-button"))
+                                    AccountButton(signedIn?.appleId, accountStatus, contextAccountLabel, actions::openAccount,
+                                        Modifier.testTag("account-button"))
                                 }
                             },
                             colors = barColors,
@@ -501,10 +502,14 @@ internal fun GalleryHome(
                                     modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
 
                                 if (inCollection && collection != null && collection.isPersonal) {
-                                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.rename_album)) }
+                                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) {
+                                        Icon(Icons.Rounded.Edit, stringResource(R.string.rename_album))
+                                    }
                                     IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                                 }
-                                IconButton(enabled = sections.isNotEmpty(), onClick = { sheet = GallerySheet.JumpToDate }) { Icon(Icons.Rounded.DateRange, stringResource(R.string.browse_by_date)) }
+                                IconButton(enabled = sections.isNotEmpty(), onClick = { sheet = GallerySheet.JumpToDate }) {
+                                    Icon(Icons.Rounded.DateRange, stringResource(R.string.browse_by_date))
+                                }
                                 IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                             }
                         }
@@ -1013,7 +1018,8 @@ private fun SearchLanding(summaries: Map<String, me.lvca.alba.app.ui.collections
         SmartCollectionChips(summaries, choose)
         Spacer(Modifier.height(16.dp))
         Column(Modifier.padding(horizontal = 20.dp)) {
-            CollectionRow(stringResource(R.string.capture_date), stringResource(R.string.choose_a_date_range), icon = { Icon(Icons.Rounded.DateRange, null) }, onClick = onDates)
+            CollectionRow(stringResource(R.string.capture_date), stringResource(R.string.choose_a_date_range),
+                icon = { Icon(Icons.Rounded.DateRange, null) }, onClick = onDates)
             CollectionRow(stringResource(R.string.favorites), stringResource(R.string.photos_you_ve_marked_with_a_heart), icon = { ICloudIcon(R.drawable.icloud_favorites) }, onClick = { choose(GalleryQuery.FAVORITES) })
         }
     }

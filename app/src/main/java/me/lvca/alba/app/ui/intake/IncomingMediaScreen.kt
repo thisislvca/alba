@@ -103,7 +103,9 @@ private fun IncomingTopBar(title: String, item: IncomingItem?, close: () -> Unit
     val context = LocalContext.current
     val shareLabel = stringResource(R.string.share)
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        FilledTonalIconButton(onClick = close, modifier = Modifier.testTag("incoming-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back_action)) }
+        FilledTonalIconButton(onClick = close, modifier = Modifier.testTag("incoming-back")) {
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back_action))
+        }
         Text(title, modifier = Modifier.weight(1f).padding(horizontal = 12.dp), maxLines = 2)
         item?.takeIf { it.failure == null && (it.mime?.startsWith("image/") == true || it.mime?.startsWith("video/") == true) }?.let { shown ->
             IconButton(onClick = {

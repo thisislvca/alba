@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -22,28 +19,11 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
-
-/**
- * Android 16's grouped list: a section of settings-style rows, each its own rounded segment on surfaceContainer,
- * separated by small gaps instead of dividers. The group rounds its outer corners with the theme's large shape; rows
- * inside keep small inner corners. There are no chevrons: a row that opens a page looks like any other row.
- */
-internal object AlbaListDefaults {
-    /** The gap between segments, through which the page shows. */
-    val SegmentGap = 2.dp
-
-    /** One padding for every row and segment, on both sides. */
-    val Padding = AlbaSpacing.lg
-
-    /** The inner corners of a segment; the group's outer corners come from [MaterialTheme.shapes.large]. */
-    val segmentShape: Shape @Composable get() = MaterialTheme.shapes.extraSmall
-}
 
 /** True inside an [AlbaListGroup], where rows draw themselves as segments. */
 internal val LocalInAlbaListGroup = compositionLocalOf { false }
@@ -54,8 +34,10 @@ internal fun Modifier.albaListSegment(): Modifier =
     if (LocalInAlbaListGroup.current) fillMaxWidth().background(albaGroupColor(), AlbaListDefaults.segmentShape) else this
 
 /**
- * A grouped list section: an optional [title] header in labelLarge and the primary colour, then [content]'s rows as
- * rounded segments. Use [AlbaListRow], [AlbaSwitchRow], [AlbaFeatureRow] and, for anything else, [AlbaListItem].
+ * Android 16's grouped list: an optional [title] header in labelLarge and the primary colour, then [content]'s rows,
+ * each its own rounded segment on surfaceContainer, separated by small gaps instead of dividers. The group rounds its
+ * outer corners with the theme's large shape; segments keep small inner corners. There are no chevrons: a row that
+ * opens a page looks like any other row. Use [AlbaListRow], [AlbaSwitchRow], [AlbaFeatureRow] and, for anything else, [AlbaListItem].
  */
 @Composable
 internal fun AlbaListGroup(modifier: Modifier = Modifier, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
@@ -110,16 +92,5 @@ internal fun AlbaSwitchRow(
             subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         Switch(checked, onCheckedChange = null, enabled = enabled)
-    }
-}
-
-@AlbaPreviews
-@Composable
-private fun AlbaListGroupPreview() = AlbaPreviewSurface {
-    AlbaListGroup(title = "Library") {
-        AlbaListRow("Backup", onClick = {}, subtitle = "On", leading = { Icon(Icons.Rounded.Info, null) })
-        AlbaListRow("Phone storage", onClick = {}, subtitle = "Alba uses 1.2 GB", leading = { Icon(Icons.Rounded.Info, null) })
-        AlbaSwitchRow("Pause backup", checked = false, onCheckedChange = {}, subtitle = "Until you turn it back on")
-        AlbaListItem { Text("Thumbnails are kept unless you clear them.", style = MaterialTheme.typography.bodySmall) }
     }
 }

@@ -429,12 +429,14 @@ internal fun MediaDetailScreen(
                                     if (!media.isShared && !media.isTrashed) HideAction(media, canEdit, actions)
                                     BurstAction(media, actions) { showDetails(false) }
                                     if (media.isShared) {
-                                        DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true }, { Icon(Icons.Rounded.Info, null) })
+                                        DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true },
+                                            { Icon(Icons.Rounded.Info, null) })
                                         Text(stringResource(R.string.shared_copy_notice), Modifier.padding(18.dp))
                                     }
                                     DetailAction(stringResource(if (media.kind == MediaKind.LIVE_PHOTO) R.string.save_photo_and_video_to_gallery else R.string.save_to_phone_gallery),
                                         !isWorking, { actions.saveToGallery(media) }, { Icon(AlbaIcons.PhoneAndroid, null) })
-                                    DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) }, { Icon(Icons.Rounded.Share, null) })
+                                    DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) },
+                                        { Icon(Icons.Rounded.Share, null) })
                                     if (media.kind == MediaKind.LIVE_PHOTO) {
                                         LiveVideoActions(media, !isWorking, actions)
                                         DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,

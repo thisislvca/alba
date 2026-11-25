@@ -120,7 +120,9 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                     if (sortable && albums.size > 1) AlbumSortMenu(sort, sorts) { chosenSort = it }
                     if (page == CollectionsPage.SHARED) {
                         InvitationsButton(activity.unreadInvitations, canEdit, openSharedInvitations)
-                        IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Rounded.Add, stringResource(R.string.shared_create)) }
+                        IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) {
+                            Icon(Icons.Rounded.Add, stringResource(R.string.shared_create))
+                        }
                     } else if (page != CollectionsPage.DEVICE) {
                         TextButton(onClick = createAlbum, enabled = canEdit, modifier = Modifier.testTag("new-album")) {
                             Icon(Icons.Rounded.Add, null, Modifier.size(AlbaIconSize.inline))

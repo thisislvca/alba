@@ -63,7 +63,8 @@ internal fun AlbaListRow(
         else -> Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
     }
     val grouped = LocalInAlbaListGroup.current
-    Row(modifier.albaListSegment().fillMaxWidth().clip(if (grouped) AlbaListDefaults.segmentShape else shape).then(interaction).heightIn(min = minHeight).padding(contentPadding),
+    Row(modifier.albaListSegment().fillMaxWidth().clip(if (grouped) AlbaListDefaults.segmentShape else shape).then(interaction)
+        .heightIn(min = minHeight).padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) {
         if (leading != null) {
             if (leadingSize == null) leading()
