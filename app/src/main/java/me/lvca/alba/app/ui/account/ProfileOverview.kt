@@ -6,11 +6,9 @@ import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -25,7 +23,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -36,12 +33,12 @@ import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.account.SessionState
 import me.lvca.alba.app.ui.designsystem.AccountAvatar
 import me.lvca.alba.app.ui.designsystem.AlbaCard
-import me.lvca.alba.app.ui.designsystem.AlbaChevron
-import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.AlbaListGroup
+import me.lvca.alba.app.ui.designsystem.AlbaListItem
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
+import me.lvca.alba.app.ui.designsystem.AlbaSwitchRow
 import me.lvca.alba.app.ui.designsystem.DemoBadge
-import me.lvca.alba.app.ui.designsystem.albaGroupColor
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -85,12 +82,8 @@ private fun ProfileRow(
             Box(Modifier.size(32.dp).background(color, MaterialTheme.shapes.extraSmall), contentAlignment = Alignment.Center) {
                 Icon(icon, null, tint = AlbaTheme.colors.profile.onCard, modifier = Modifier.size(AlbaIconSize.compact))
             }
-        },
-        trailing = { AlbaChevron(Modifier.size(AlbaIconSize.inline)) })
+        })
 }
-
-@Composable
-private fun ProfileDivider() = AlbaDivider(Modifier.padding(start = 60.dp))
 
 @Composable
 internal fun ProfileOverview(
@@ -162,19 +155,17 @@ internal fun ProfileOverview(
     Spacer(Modifier.height(AlbaSpacing.xl))
     AccountDiagnostics(session, onCheckConnection)
     Spacer(Modifier.height(AlbaSpacing.xxl))
-    Text(stringResource(R.string.profile_library_section), Modifier.padding(start = AlbaSpacing.lg, bottom = AlbaSpacing.sm),
-        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    AlbaCard {
+    AlbaListGroup(title = stringResource(R.string.profile_library_section)) {
         ProfileRow(stringResource(R.string.backup_title),
             stringResource(if (demo) R.string.demo_backup_preview else if (backup.enabled) R.string.profile_backup_on else R.string.profile_backup_off),
             AlbaIcons.CloudUpload, profileColors.backupTile, "profile-backup",
             onClick = { onNavigate(ProfilePage.BACKUP) })
-        ProfileDivider()
         val phoneSummary = phoneStorage.usage?.let { phoneStorageSummary(it) } ?: stringResource(R.string.profile_device_detail)
         ProfileRow(stringResource(R.string.phone_storage_title), phoneSummary,
             AlbaIcons.DownloadForOffline, profileColors.phoneTile, "profile-phone", onClick = { onNavigate(ProfilePage.PHONE) })
         phoneStorage.usage?.let { usage ->
-            Column(Modifier.padding(start = 60.dp, end = AlbaSpacing.lg, bottom = AlbaSpacing.lg), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
+            // Under the row it details, aligned with its text.
+            AlbaListItem(contentPadding = PaddingValues(start = 60.dp, end = AlbaSpacing.lg, top = AlbaSpacing.md, bottom = AlbaSpacing.lg)) {
                 usage.byCategory().forEach { (category, bytes) ->
                     Row(horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
                         Text(stringResource(category.title()), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -186,17 +177,18 @@ internal fun ProfileOverview(
     }
     AppearanceSettings()
     Spacer(Modifier.height(AlbaSpacing.xxl))
-    AlbaCard {
+    AlbaListGroup {
         ProfileRow(stringResource(R.string.about_title), stringResource(R.string.profile_about_detail),
             Icons.Rounded.Info, profileColors.aboutTile, "profile-about", onClick = { onNavigate(ProfilePage.ABOUT) })
     }
     if (signedIn != null) {
         Spacer(Modifier.height(AlbaSpacing.xxl))
-        AlbaCard {
-            ConfirmSignOutButton(onSignOut = onSignOut) { onClick ->
-                TextButton(onClick = onClick, enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("profile-sign-out")) {
-                    Text(stringResource(R.string.sign_out_and_use_demo_library), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+        AlbaListGroup {
+            AlbaListItem(contentPadding = PaddingValues(vertical = 6.dp)) {
+                ConfirmSignOutButton(onSignOut = onSignOut) { onClick ->
+                    TextButton(onClick = onClick, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("profile-sign-out")) {
+                        Text(stringResource(R.string.sign_out_and_use_demo_library), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                    }
                 }
             }
         }
@@ -209,17 +201,9 @@ private fun AppearanceSettings() {
     val wallpaper = LocalWallpaperColors.current
     if (!wallpaper.available) return
     Spacer(Modifier.height(AlbaSpacing.xxl))
-    Text(stringResource(R.string.profile_appearance_section), Modifier.padding(start = AlbaSpacing.lg, bottom = AlbaSpacing.sm),
-        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    AlbaCard {
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.wallpaper_colors_title)) },
-            supportingContent = { Text(stringResource(R.string.wallpaper_colors_detail)) },
-            trailingContent = { Switch(checked = wallpaper.enabled, onCheckedChange = null) },
-            colors = ListItemDefaults.colors(containerColor = albaGroupColor()),
-            modifier = Modifier.toggleable(wallpaper.enabled, role = Role.Switch, onValueChange = wallpaper.onChange)
-                .testTag("wallpaper-colors-switch"),
-        )
+    AlbaListGroup(title = stringResource(R.string.profile_appearance_section)) {
+        AlbaSwitchRow(stringResource(R.string.wallpaper_colors_title), wallpaper.enabled, wallpaper.onChange,
+            Modifier.testTag("wallpaper-colors-switch"), subtitle = stringResource(R.string.wallpaper_colors_detail))
     }
 }
 
@@ -235,7 +219,6 @@ private fun PlanLink(hero: Boolean = false) {
         }
     }, contentPadding = PaddingValues(0.dp), modifier = Modifier.heightIn(min = 48.dp).testTag("profile-manage-plan")) {
         Text(stringResource(R.string.profile_manage_plan), color = ink)
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(AlbaIconSize.inline), tint = ink)
     }
 }
 

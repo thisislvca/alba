@@ -14,7 +14,9 @@ import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.ui.StorageActions
-import me.lvca.alba.app.ui.designsystem.AlbaCard
+import me.lvca.alba.app.ui.designsystem.AlbaListGroup
+import me.lvca.alba.app.ui.designsystem.AlbaListItem
+import me.lvca.alba.app.ui.designsystem.AlbaListRow
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.engine.model.LocalMediaCategory
@@ -27,26 +29,27 @@ internal fun PhoneStorageDetails(state: PhoneStorageState, busy: Boolean, action
     LaunchedEffect(Unit) { actions.checkPhoneStorage() }
     val context = LocalContext.current
     fun bytes(size: Long) = Formatter.formatShortFileSize(context, size)
-    AlbaCard(Modifier.testTag("phone-storage")) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
-            Text(stringResource(R.string.phone_storage_title), style = MaterialTheme.typography.titleMedium)
-            state.usage?.let { usage ->
-                Text(phoneStorageSummary(usage))
-                usage.byCategory().forEach { (category, size) ->
-                    HorizontalDivider()
-                    Text(stringResource(category.title()), style = MaterialTheme.typography.labelLarge)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text(bytes(size), Modifier.weight(1f))
-                        TextButton(onClick = { confirming = category }, enabled = size > 0 && !busy,
-                            modifier = Modifier.testTag("clear-storage-$category")) { Text(stringResource(R.string.clear_storage)) }
+    Column(Modifier.testTag("phone-storage"), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xxl)) {
+        state.usage?.let { usage ->
+            Column {
+                AlbaListGroup(title = stringResource(R.string.phone_storage_used_section)) {
+                    AlbaListItem { Text(phoneStorageSummary(usage), style = MaterialTheme.typography.bodyLarge) }
+                    usage.byCategory().forEach { (category, size) ->
+                        AlbaListRow(stringResource(category.title()), onClick = null, subtitle = bytes(size), trailing = {
+                            TextButton(onClick = { confirming = category }, enabled = size > 0 && !busy,
+                                modifier = Modifier.testTag("clear-storage-$category")) { Text(stringResource(R.string.clear_storage)) }
+                        }, contentPadding = PaddingValues(start = AlbaSpacing.lg, end = AlbaSpacing.xs, top = AlbaSpacing.sm, bottom = AlbaSpacing.sm))
                     }
                 }
-                Text(stringResource(R.string.thumbnails_retained_by_default), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.thumbnails_retained_by_default), Modifier.padding(horizontal = AlbaSpacing.lg, vertical = AlbaSpacing.sm),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            HorizontalDivider()
+        }
+        AlbaListGroup(title = stringResource(R.string.phone_storage_limits_section)) {
             StorageLimitSettings(state, enabled = !busy, chooseBudget = actions::setThumbnailBudget,
                 chooseCacheLimit = actions::setCacheLimit)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
             state.error?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
             OutlinedButton(onClick = actions::checkPhoneStorage, enabled = !state.checking && !busy,
                 modifier = Modifier.fillMaxWidth()) {

@@ -17,15 +17,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.sheet
 
 /**
- * A utility page: a centred top app bar over a scrolling column. The bar takes the surface-container tint once
- * content scrolls under it, as Material settings pages do.
+ * A utility page: a large, start-aligned title over a scrolling column, as Android's settings pages have. The title
+ * collapses into the bar as the page scrolls, and the bar takes the surface-container tint once content passes under it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,12 +34,12 @@ internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Compo
     key(title) {
         val scroll = rememberScrollState()
         val barState = rememberTopAppBarState()
-        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(barState)
+        val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(barState)
         Surface(color = background, modifier = Modifier.fillMaxSize()) {
             // Inset controls, not the scrolling viewport: cards can pass behind the gesture bar.
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).imePadding()) {
-                CenterAlignedTopAppBar(
-                    title = { Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center) },
+                LargeTopAppBar(
+                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = {
                         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back_action)) }
                     },
@@ -52,7 +52,7 @@ internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Compo
                 )
                 Column(Modifier.weight(1f).fillMaxWidth().nestedScroll(scrollBehavior.nestedScrollConnection)
                     .verticalScroll(scroll).testTag("alba-page-scroll"), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.xl)
+                    Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.lg)
                         .padding(top = AlbaSpacing.md, bottom = AlbaSpacing.xxl).navigationBarsPadding(), content = content)
                 }
             }

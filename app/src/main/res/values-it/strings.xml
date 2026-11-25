@@ -722,8 +722,10 @@
     <string name="phone_photo_prompt_action">Scegli foto</string>
     <string name="profile_title">Il mio profilo</string>
     <string name="profile_demo_description">Esplora Alba con una libreria di esempio.</string>
-    <string name="profile_library_section">LA TUA LIBRERIA</string>
-    <string name="profile_appearance_section">ASPETTO</string>
+    <string name="profile_library_section">La tua libreria</string>
+    <string name="profile_appearance_section">Aspetto</string>
+    <string name="phone_storage_used_section">Spazio occupato</string>
+    <string name="phone_storage_limits_section">Limiti di spazio</string>
     <string name="wallpaper_colors_title">Abbina i colori dello sfondo</string>
     <string name="wallpaper_colors_detail">Usa i colori del tuo sfondo al posto del blu di iCloud</string>
     <string name="profile_backup_connect">Collega il tuo account per iniziare</string>
