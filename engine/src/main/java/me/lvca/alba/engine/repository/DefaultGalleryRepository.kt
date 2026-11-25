@@ -464,6 +464,10 @@ class DefaultGalleryRepository(
         }
     }.distinctUntilChanged()
 
+    // Every library refresh saves its change token with the time it ran, whether on screen or in background work.
+    override fun observeLastRefresh(): Flow<Long?> =
+        sync.observeCheckpointTime("icloud:${cloudSource.accountLabel}").distinctUntilChanged()
+
     override suspend fun resumeCatalogScan(): RefreshSummary? = syncLock.withLock {
         if (sync.scan(cloudSource.accountLabel) == null) null else refreshUnderSyncLock(includeDeviceMedia = false)
     }

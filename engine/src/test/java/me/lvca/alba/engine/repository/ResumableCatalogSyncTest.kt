@@ -107,6 +107,23 @@ class ResumableCatalogSyncTest {
         assertTrue(source.requested.isEmpty())
     }
 
+    /** The account screen's "last refreshed" outlives the process, and counts a refresh made by background work. */
+    @Test
+    fun theLastFinishedRefreshIsKeptAcrossProcesses() = runBlocking {
+        val source = PagedSource(count = 30).apply { failAt = "10" }
+        assertTrue(runCatching { DefaultGalleryRepository(database, source, null, cache, now = { 1_000L }, pause = { }).refresh(false) }.isFailure)
+        // An unfinished read is not a refresh.
+        assertNull(repository(source).observeLastRefresh().first())
+
+        source.failAt = null
+        DefaultGalleryRepository(database, source, null, cache, now = { 2_000L }, pause = { }).refresh(false)
+        assertEquals(2_000L, repository(source).observeLastRefresh().first())
+
+        source.changes = CloudChanges(emptyList(), emptySet(), "token-later", false)
+        DefaultGalleryRepository(database, source, null, cache, now = { 3_000L }, pause = { }).refresh(false)
+        assertEquals("A refresh that found no changes still counts", 3_000L, repository(source).observeLastRefresh().first())
+    }
+
     @Test
     fun aStoredLibraryRefreshesFromItsChangesWithoutReadingAPage() = runBlocking {
         val source = PagedSource(count = 30)
