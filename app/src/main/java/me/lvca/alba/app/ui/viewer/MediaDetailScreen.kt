@@ -85,7 +85,6 @@ import me.lvca.alba.app.ui.gallery.ViewerPhotoPage
 import me.lvca.alba.app.ui.gallery.trashDaysLeftLabel
 import me.lvca.alba.app.ui.shared.SharedPhotoControls
 import me.lvca.alba.app.ui.timeLabel
-import me.lvca.alba.app.ui.timestampLabel
 import me.lvca.alba.app.ui.transfers.DeviceUploadControls
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -376,17 +375,13 @@ internal fun MediaDetailScreen(
                     Box(Modifier.fillMaxWidth().height(32.dp).then(handleDrag).testTag("details-drag-handle"), contentAlignment = Alignment.Center) {
                         Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = AlbaTheme.colors.sheetHandle) {}
                     }
-                    Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(timestampLabel(media.capturedAtEpochMillis), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                            IconButton(onClick = { showDetails(false) }) { Icon(AlbaIcons.Close, stringResource(R.string.close_details)) }
-                        }
-                        Spacer(Modifier.height(20.dp))
-                        Text(detailsLabel, style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.height(16.dp))
-                        PhotoCaption(media)
-                        PhotoMetadataCards(media, accountState, uploadTransfer)
-                        PhotoExtraMetadata(media)
+                    // The date is Info's title. Pinned above the scrolling facts, it can never scroll or clip out of reach.
+                    PhotoInfoHeader(media, onClose = { showDetails(false) },
+                        modifier = Modifier.then(handleDrag).padding(horizontal = 20.dp))
+                    Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp).windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility).testTag("photo-info-scroll")) {
+                        Spacer(Modifier.height(8.dp))
+                        PhotoInfoContent(media, accountState, uploadTransfer)
                         if (media.origin == MediaOrigin.DEVICE || media.linkedDeviceReference != null) {
                             Spacer(Modifier.height(16.dp))
                             DetailAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.trash_phone_copy), !isWorking,

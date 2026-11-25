@@ -32,12 +32,22 @@ class TranslationResourcesTest {
         italian.filterKeys { it.endsWith("/many") }.forEach { (key, value) ->
             assertEquals(italian[key.removeSuffix("/many") + "/other"], value)
         }
-        val arguments = Regex("%(?:[0-9]+\\$)?[dsf]")
+        // The grouping flag counts as part of the argument: "1.657" in Italian must stay "1,657" in English.
+        val arguments = Regex("%(?:[0-9]+\\$)?,?[dsf]")
         english.forEach { (key, value) ->
             val translation = requireNotNull(italian[key])
             assertTrue("Empty Italian translation for $key", translation.isNotBlank())
             assertEquals("Format arguments for $key", arguments.findAll(value).map { it.value }.sorted().toList(),
                 arguments.findAll(translation).map { it.value }.sorted().toList())
+        }
+    }
+
+    /** Every count is grouped for the reader's language ("12,607", "12.607"); a plural's number is always a count. */
+    @Test fun pluralCountsUseTheGroupingFlag() {
+        val ungrouped = Regex("%(?:[0-9]+\\$)?d")
+        for (language in listOf("values", "values-it")) {
+            val counts = resources(language).filter { (key, value) -> "/" in key && ungrouped.containsMatchIn(value) }
+            assertTrue("Counts without grouping in $language: ${counts.keys}", counts.isEmpty())
         }
     }
 }
