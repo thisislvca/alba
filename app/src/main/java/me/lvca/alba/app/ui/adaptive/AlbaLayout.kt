@@ -1,0 +1,43 @@
+package me.lvca.alba.app.ui.adaptive
+
+import android.content.res.Configuration
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.window.core.layout.WindowSizeClass
+
+/** Material's window width classes: phones in portrait, then small tablets and unfolded foldables, then wide windows. */
+internal enum class WindowWidth { COMPACT, MEDIUM, EXPANDED }
+
+/**
+ * Where the app's adaptive layouts stand for the current window. Every width decision reads this, so the breakpoints
+ * live in one place: Material's window size classes from `currentWindowAdaptiveInfo()`, never a dp check of its own.
+ */
+@Immutable
+internal data class AlbaLayout(val width: WindowWidth, val landscape: Boolean) {
+    /** A navigation rail beside the content, with Search in its header, instead of the floating pill. */
+    val navigationRail: Boolean get() = width != WindowWidth.COMPACT
+
+    /** Collections keeps its list on the left and shows the opened album, collection or shared album on the right. */
+    val listDetail: Boolean get() = width == WindowWidth.EXPANDED
+
+    /** A photo's Info opens as a pane beside the photo rather than a sheet below it. Compact portrait keeps the sheet. */
+    val infoSidePane: Boolean get() = width != WindowWidth.COMPACT || landscape
+
+    companion object {
+        fun of(sizeClass: WindowSizeClass, landscape: Boolean) = AlbaLayout(
+            width = when {
+                sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> WindowWidth.EXPANDED
+                sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> WindowWidth.MEDIUM
+                else -> WindowWidth.COMPACT
+            },
+            landscape = landscape,
+        )
+    }
+}
+
+/** The adaptive layout for the window this composition is in. */
+@Composable
+internal fun albaLayout(): AlbaLayout = AlbaLayout.of(currentWindowAdaptiveInfo().windowSizeClass,
+    landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE)

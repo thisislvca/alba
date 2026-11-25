@@ -1216,4 +1216,5 @@
     <string name="shared_unreachable_title">Can\'t reach this album</string>
     <string name="shared_unreachable_body">Connect to the internet to see its photos and videos.</string>
     <string name="shared_no_photos_body">Photos and videos people add to this album appear here.</string>
+    <string name="collection_detail_placeholder">Open an album, a collection or a shared album to see its photos here.</string>
 </resources>
