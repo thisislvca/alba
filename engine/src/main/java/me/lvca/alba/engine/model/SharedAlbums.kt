@@ -17,6 +17,8 @@ data class SharedAlbumInfo(
     val webUrl: String? = null,
     val sharedWith: List<String> = emptyList(),
     val expiresAt: Long? = null,
+    /** When the album was shared, from its share record: how a shared album with no items yet ranks by activity. */
+    val createdAt: Long? = null,
 ) {
     val canContribute: Boolean get() = role in setOf(SharedAlbumRole.OWNER, SharedAlbumRole.MANAGER, SharedAlbumRole.CONTRIBUTOR)
     val canManage: Boolean get() = role in setOf(SharedAlbumRole.OWNER, SharedAlbumRole.MANAGER)

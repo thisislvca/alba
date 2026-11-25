@@ -115,6 +115,19 @@ class BackupStatusTest {
     }
 
     @Test
+    fun phoneOnlyItemsAreNotBackedUpUnlessAnUploadSaysMore() {
+        val uploads = listOf(transfer("queued", TransferViewState.UPLOADING), transfer("done", TransferViewState.VERIFIED))
+            .associateBy { requireNotNull(it.mediaId) }
+        val phoneOnly = setOf("queued", "done", "alone")
+        // With backup off, upload badges stay off: an item still uploading is not in iCloud yet, and one verified is.
+        assertEquals("Backup off still marks what isn't in iCloud",
+            mapOf("queued" to BackupBadge.NOT_BACKED_UP, "alone" to BackupBadge.NOT_BACKED_UP),
+            backupBadges(backupEnabled = false, uploads, phoneOnly = phoneOnly))
+        assertEquals(mapOf("queued" to BackupBadge.QUEUED, "alone" to BackupBadge.NOT_BACKED_UP),
+            backupBadges(backupEnabled = true, uploads, now = 10_000_000, phoneOnly = phoneOnly))
+    }
+
+    @Test
     fun manualTransfersAskAboutNotificationsOnceThenMobileData() {
         val ask = MobileDataChoice.ASK
         assertEquals(TransferPrompt.NOTIFICATIONS, nextTransferPrompt(askNotifications = true, mobile, ask, after = null))

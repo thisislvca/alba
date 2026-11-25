@@ -109,6 +109,45 @@ class GalleryProjectionTest {
         assertEquals(listOf(newest, older, picker), projected.queue)
     }
 
+    /** Photos lists Recently Deleted by deletion, most recent first, in one flat grid with no month sections. */
+    @Test fun recentlyDeletedIsOneFlatGridMostRecentlyDeletedFirst() {
+        val day = 86_400_000L
+        val deleted = { id: String, captured: String, expires: Long? ->
+            media(id, MediaOrigin.ICLOUD, captured).copy(isTrashed = true, expiresAtEpochMillis = expires)
+        }
+        // Expiry is deletion + 30 days, so "recent" (expiring last) was deleted most recently, whatever its capture date.
+        val items = listOf(deleted("old-capture", "2019-05-01T00:00:00Z", 30 * day), deleted("recent", "2024-01-01T00:00:00Z", 40 * day),
+            deleted("unknown", "2026-01-01T00:00:00Z", null), deleted("middle", "2026-03-01T00:00:00Z", 35 * day),
+            media("library", MediaOrigin.ICLOUD, "2026-04-01T00:00:00Z"))
+        val projected = GalleryProjection().apply(items, GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true), true,
+            ICloudAccountState.SignedIn("person@example.com"), utc)
+        assertEquals(listOf("recent", "middle", "old-capture", "unknown"), projected.items.map { it.id })
+        assertEquals(1, projected.sections.size)
+        assertEquals(projected.items, projected.sections.single().items)
+        // The library keeps its month sections.
+        val library = GalleryProjection().apply(items + media("other", MediaOrigin.ICLOUD, "2025-04-01T00:00:00Z"), GalleryQuery(), true,
+            ICloudAccountState.SignedIn("person@example.com"), utc)
+        assertEquals(2, library.sections.size)
+    }
+
+    @Test fun phoneOnlyItemsAreTheOnesNoICloudItemIsACopyOf() {
+        val backedUp = media("device:1", MediaOrigin.DEVICE, "2026-01-01T00:00:00Z")
+        val phoneOnly = media("device:2", MediaOrigin.DEVICE, "2026-01-02T00:00:00Z")
+        val hiddenCopy = media("device:3", MediaOrigin.DEVICE, "2026-01-03T00:00:00Z")
+        val deletedCopy = media("device:4", MediaOrigin.DEVICE, "2026-01-04T00:00:00Z")
+        val inPhoneTrash = media("device:5", MediaOrigin.DEVICE, "2026-01-05T00:00:00Z").copy(isTrashed = true)
+        val cloud = listOf(
+            media("icloud:a:1", MediaOrigin.ICLOUD, "2026-01-01T00:00:00Z").copy(linkedDeviceId = backedUp.id),
+            media("icloud:a:3", MediaOrigin.ICLOUD, "2026-01-03T00:00:00Z").copy(linkedDeviceId = hiddenCopy.id, isHidden = true),
+            media("icloud:a:4", MediaOrigin.ICLOUD, "2026-01-04T00:00:00Z").copy(linkedDeviceId = deletedCopy.id, isTrashed = true),
+        )
+        val all = listOf(backedUp, phoneOnly, hiddenCopy, deletedCopy, inPhoneTrash) + cloud
+        assertEquals(setOf(phoneOnly.id, deletedCopy.id),
+            projectGalleryCatalog(all, true, ICloudAccountState.SignedIn("person@example.com")).phoneOnly)
+        // Without an iCloud library there is nothing to be backed up to.
+        assertEquals(emptySet<String>(), projectGalleryCatalog(all, true, ICloudAccountState.SignedOut).phoneOnly)
+    }
+
     private fun media(id: String, origin: MediaOrigin, capturedAt: String) = GalleryMedia(
         id = id,
         fileName = "$id.jpg",

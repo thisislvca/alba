@@ -28,6 +28,9 @@ internal fun SmartCollection.icon(): Int = when (this) {
  */
 internal enum class AlbumSort(val label: Int) {
     CUSTOM(R.string.album_sort_custom),
+
+    /** Shared albums only: the newest item added, else when the album was shared ([sharedActivity]). */
+    ACTIVITY(R.string.album_sort_activity),
     RECENT(R.string.album_sort_recent),
     NAME(R.string.album_sort_name),
     OLDEST(R.string.album_sort_oldest);
@@ -38,9 +41,17 @@ internal enum class AlbumSort(val label: Int) {
         val order = when (this) {
             CUSTOM -> return albums.sortedWith(compareBy<GalleryCollection> { it.position }.then(byName))
             NAME -> byName
-            RECENT -> compareBy<GalleryCollection> { latest(it) == null }.thenByDescending { latest(it) }.then(byName)
+            ACTIVITY, RECENT -> compareBy<GalleryCollection> { latest(it) == null }.thenByDescending { latest(it) }.then(byName)
             OLDEST -> compareBy<GalleryCollection> { latest(it) == null }.thenBy { latest(it) }.then(byName)
         }
         return albums.sortedWith(compareBy<GalleryCollection> { !it.isFolder }.then(order))
     }
 }
+
+/** When [album] last had activity: when its newest item was added, else when it was shared. Null for neither. */
+internal fun sharedActivity(album: GalleryCollection, summaries: Map<String, CollectionPreview>): Long? =
+    summaries[album.id]?.latestAddedAt ?: album.shared?.createdAt
+
+/** Shared [albums] with the newest activity first, as Photos and iCloud.com list them. */
+internal fun byRecentActivity(albums: List<GalleryCollection>, summaries: Map<String, CollectionPreview>): List<GalleryCollection> =
+    AlbumSort.ACTIVITY.apply(albums) { sharedActivity(it, summaries) }

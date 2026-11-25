@@ -35,6 +35,11 @@ internal data class GalleryCatalog(
     val bursts: BurstIndex = BurstIndex.EMPTY,
     /** Phone photos whose iCloud copy is hidden. */
     val hiddenDeviceCopies: Set<String> = emptySet(),
+    /**
+     * Phone items, outside the phone's trash, that no iCloud item in the library or Hidden is a copy of: only on this
+     * phone. Empty without an iCloud library to compare with.
+     */
+    val phoneOnly: Set<String> = emptySet(),
 )
 
 /** The catalog narrowed by a query, with its month sections. */
@@ -79,7 +84,17 @@ internal fun projectGalleryCatalog(
     }
 
     return GalleryCatalog(catalogItems, byId, cloudCount, deviceCount, deviceFolders.values.toList(), BurstIndex.of(catalogItems),
-        catalogItems.mapNotNullTo(HashSet()) { item -> item.linkedDeviceId?.takeIf { item.isHidden } })
+        catalogItems.mapNotNullTo(HashSet()) { item -> item.linkedDeviceId?.takeIf { item.isHidden } },
+        phoneOnlyItems(catalogItems, accountState))
+}
+
+/** The phone items among [items] that are not in iCloud, as [GalleryCatalog.phoneOnly] describes. */
+internal fun phoneOnlyItems(items: List<GalleryMedia>, accountState: ICloudAccountState): Set<String> {
+    if (accountState !is ICloudAccountState.SignedIn && accountState != ICloudAccountState.Demo) return emptySet()
+    val inCloud = items.mapNotNullTo(HashSet()) { item ->
+        item.linkedDeviceId?.takeIf { item.origin == MediaOrigin.ICLOUD && !item.isTrashed && !item.isShared }
+    }
+    return items.mapNotNullTo(HashSet()) { item -> item.id.takeIf { item.origin == MediaOrigin.DEVICE && !item.isTrashed && it !in inCloud } }
 }
 
 /** Projects the library for a query. Incremental, so keep one instance per observer and call it from one thread. */
@@ -106,7 +121,8 @@ internal class GalleryProjection {
             else matching.filterNot { it.id in linked || it.id in hiddenCopies }
         // Like Photos, a burst shows as one photo; Recently Deleted lists each deleted frame.
         val visible = if (query.trashOnly) unlinked else BurstStacks.stack(unlinked, catalog.bursts, expandedBursts)
-        return ProjectedGallery(catalog, visible, sectionProjection.apply(visible, query.date, zone), accountState)
+        // Recently Deleted is one flat grid in deletion order, as in Photos: no month or day sections.
+        return ProjectedGallery(catalog, visible, sectionProjection.apply(visible, query.date, zone, flat = query.trashOnly), accountState)
     }
 }
 
@@ -157,17 +173,23 @@ internal class GallerySectionProjection {
     private var previous: List<GalleryMedia> = emptyList()
     private var previousDate: GalleryDate? = null
     private var previousZone: ZoneId? = null
+    private var previousFlat = false
     private var groups: List<Pair<YearMonth, List<Int>>> = emptyList()
 
-    fun apply(items: List<GalleryMedia>, date: GalleryDate, zone: ZoneId = ZoneId.systemDefault()): List<GallerySection> {
-        if (date != previousDate || zone != previousZone || items.size != previous.size ||
-            items.indices.any { items[it].id != previous[it].id || items[it].dateMillis(date) != previous[it].dateMillis(date) }) {
-            groups = items.indices.groupBy { YearMonth.from(Instant.ofEpochMilli(items[it].dateMillis(date)).atZone(zone)) }
-                .entries.map { it.key to it.value }
+    /** Month sections of [items], or with [flat] a single section holding them all in their order. */
+    fun apply(items: List<GalleryMedia>, date: GalleryDate, zone: ZoneId = ZoneId.systemDefault(), flat: Boolean = false): List<GallerySection> {
+        val sameLayout = date == previousDate && zone == previousZone && flat == previousFlat
+        val sameItems = items.size == previous.size &&
+            items.indices.none { items[it].id != previous[it].id || items[it].dateMillis(date) != previous[it].dateMillis(date) }
+        if (!sameLayout || !sameItems) {
+            val month = { index: Int -> YearMonth.from(Instant.ofEpochMilli(items[index].dateMillis(date)).atZone(zone)) }
+            groups = if (flat) listOfNotNull(items.indices.takeIf { !it.isEmpty() }?.let { month(0) to it.toList() })
+                else items.indices.groupBy(month).entries.map { it.key to it.value }
         }
         previous = items
         previousDate = date
         previousZone = zone
+        previousFlat = flat
         return groups.map { (month, indices) -> GallerySection(month, indices.map(items::get)) }
     }
 }

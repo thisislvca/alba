@@ -58,9 +58,9 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
     createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: Dp = 16.dp, openHidden: () -> Unit = {}) {
     var chosenSort by rememberSaveable { mutableStateOf(AlbumSort.CUSTOM) }
     val sortable = page != CollectionsPage.DEVICE
-    // Only personal albums have an iCloud position; shared albums keep Most recent photo as their first choice.
-    val sorts = if (page == CollectionsPage.SHARED) AlbumSort.entries - AlbumSort.CUSTOM else AlbumSort.entries
-    val sort = chosenSort.takeIf { it in sorts } ?: AlbumSort.RECENT
+    // Only personal albums have an iCloud position; shared albums open newest activity first, as in Photos.
+    val sorts = if (page == CollectionsPage.SHARED) AlbumSort.entries - AlbumSort.CUSTOM else AlbumSort.entries - AlbumSort.ACTIVITY
+    val sort = chosenSort.takeIf { it in sorts } ?: if (page == CollectionsPage.SHARED) AlbumSort.ACTIVITY else AlbumSort.RECENT
     val albums = remember(gallery.collections, folder, page, sort, summaries) {
         pageCollections(gallery.collections, folder, page, sort.takeIf { sortable }, summaries)
     }
@@ -190,6 +190,7 @@ internal fun pageCollections(collections: List<GalleryCollection>, folder: Strin
             else -> it.parentId == folder && it.isPersonal
         }
     }
+    if (sort == AlbumSort.ACTIVITY) return byRecentActivity(shown, summaries)
     return sort?.apply(shown) { album ->
         val members = if (album.isFolder) collections.filter { it.parentId == album.id }.map { it.id } else listOf(album.id)
         members.mapNotNull { summaries[it]?.media?.maxOfOrNull(GalleryMedia::capturedAtEpochMillis) }.maxOrNull()

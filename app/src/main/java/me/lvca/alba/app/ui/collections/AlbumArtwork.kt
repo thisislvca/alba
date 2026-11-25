@@ -52,7 +52,8 @@ import me.lvca.alba.app.ui.shared.sharedAlbumListLine
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.*
 
-internal data class CollectionPreview(val count: Int = 0, val media: List<GalleryMedia> = emptyList())
+/** A collection's item count, its first few items for covers, and when its newest item was added. */
+internal data class CollectionPreview(val count: Int = 0, val media: List<GalleryMedia> = emptyList(), val latestAddedAt: Long? = null)
 
 /** One bounded preview index; never decode originals to build collection mosaics. */
 @Composable
@@ -69,8 +70,10 @@ internal fun rememberCollectionPreviews(media: List<GalleryMedia>, collections: 
                 )
                 for (id in ids) {
                     val previous = result[id] ?: CollectionPreview()
+                    val added = item.addedAtEpochMillis ?: item.capturedAtEpochMillis
                     result[id] = CollectionPreview(previous.count + 1,
-                        if (covers[id] == item.id) listOf(item) + previous.media.take(5) else if (previous.media.size < 6) previous.media + item else previous.media)
+                        if (covers[id] == item.id) listOf(item) + previous.media.take(5) else if (previous.media.size < 6) previous.media + item else previous.media,
+                        maxOf(previous.latestAddedAt ?: added, added))
                 }
             }
             result
@@ -188,7 +191,8 @@ private fun UnreadDot(albumId: String, modifier: Modifier) {
 internal fun SharedAlbumsStrip(albums: List<GalleryCollection>, summaries: Map<String, CollectionPreview>, retry: Int,
     preview: (String) -> Unit, open: (String) -> Unit, seeAll: () -> Unit) {
     // An empty album would only be a grey card above the photos; it stays in Collections > Shared albums.
-    val shown = albums.filter { (summaries[it.id]?.count ?: 0) > 0 }
+    // Newest activity first, as Photos lists shared albums.
+    val shown = byRecentActivity(albums.filter { (summaries[it.id]?.count ?: 0) > 0 }, summaries)
     if (shown.isEmpty()) return
     Column(Modifier.padding(bottom = 18.dp).testTag("shared-albums-strip")) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
