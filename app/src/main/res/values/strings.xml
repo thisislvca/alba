@@ -816,6 +816,7 @@
     <string name="shared_notifications_off_in_android">Android isn’t allowing Alba’s notifications.</string>
     <string name="shared_added_to_album">Added to %1$s</string>
     <string name="album_sort_custom">Custom order</string>
+    <string name="album_sort_activity">Recent activity</string>
     <string name="album_sort_recent">Most recent photo</string>
     <string name="album_sort_name">Album name</string>
     <string name="album_sort_oldest">Least recent photo</string>
@@ -1191,6 +1192,12 @@
         <item quantity="one">1 day left</item>
         <item quantity="other">%1$d days left</item>
     </plurals>
+    <plurals name="trash_tile_days">
+        <item quantity="one">1 day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <string name="recently_deleted_note">Photos and videos show the days remaining before deletion. After that time, items will be permanently deleted. This may take up to 40 days.</string>
+    <string name="badge_not_backed_up">Not backed up</string>
     <string name="catalog_scan_large_library">This can take a while for large libraries.</string>
     <string name="catalog_scan_notification">Loading your iCloud library</string>
     <string name="catalog_scan_loading_albums">Photos loaded. Loading albums…</string>

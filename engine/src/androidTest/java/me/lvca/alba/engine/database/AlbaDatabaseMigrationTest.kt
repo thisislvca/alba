@@ -102,6 +102,26 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
+    fun schemaTwentyTwoKeepsSharedAlbumsAndStoresWhenTheyWereShared() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 22).use { db ->
+            db.execSQL("INSERT INTO collections (account, collectionId, name, isFolder, position, sharedGeneration, sharedRole, " +
+                "sharedExpiresAt) VALUES ('account', 'shared:album', 'Trip', 0, 0, 'MODERN', 'OWNER', 99)")
+        }
+        // 22 to 23 is an auto migration; Room applies and validates it from the exported schemas.
+        helper.runMigrationsAndValidate(DATABASE_NAME, 23, true).close()
+        val migrated = AlbaDatabase.create(context)
+        try {
+            val dao = migrated.libraryDao()
+            val album = requireNotNull(dao.collection("account", "shared:album"))
+            assertEquals("Trip", album.name)
+            assertEquals(99L, album.toModel().shared?.expiresAt)
+            assertEquals(null, album.sharedCreatedAt)
+            dao.putCollections(listOf(album.copy(sharedCreatedAt = 42)))
+            assertEquals(42L, dao.collection("account", "shared:album")?.toModel()?.shared?.createdAt)
+        } finally { migrated.close() }
+    }
+
+    @Test
     fun schemaTwentyOneMarksOnlyAReadOfAnEmptyLibraryAsItsFirstLoad() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 21).use { db ->
             // "stored" has a row an earlier read stored; "fresh" has only rows its own read wrote.

@@ -4,7 +4,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.intake.IncomingItem
 import me.lvca.alba.app.intake.incomingForSharedAlbum
 import me.lvca.alba.app.ui.collections.AlbumSort
+import me.lvca.alba.app.ui.collections.CollectionPreview
+import me.lvca.alba.app.ui.collections.CollectionsPage
 import me.lvca.alba.app.ui.collections.albumChooserEntries
+import me.lvca.alba.app.ui.collections.byRecentActivity
+import me.lvca.alba.app.ui.collections.pageCollections
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedAlbumInfo
@@ -35,6 +39,22 @@ class AlbumOrderingTest {
             GalleryCollection("f", "Trips", isFolder = true, position = 1_060_353), GalleryCollection("c", "Cap", position = 1_062_912),
             GalleryCollection("n", "New", position = 1_060_352))
         assertEquals(listOf("t", "n", "f", "x", "c"), AlbumSort.CUSTOM.apply(albums) { null }.map { it.id })
+    }
+
+    /** Shared albums list the one with the newest item added first; an album with no items yet ranks by when it was shared. */
+    @Test fun sharedAlbumsPutTheNewestActivityFirst() {
+        fun shared(id: String, createdAt: Long? = null) = GalleryCollection(id, id.uppercase(), position = 0,
+            shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER, createdAt = createdAt))
+        val quiet = shared("quiet", createdAt = 5)
+        val busy = shared("busy", createdAt = 1)
+        val newEmpty = shared("new-empty", createdAt = 40)
+        val unknown = shared("unknown")
+        val summaries = mapOf("quiet" to CollectionPreview(3, latestAddedAt = 20), "busy" to CollectionPreview(9, latestAddedAt = 30))
+        val albums = listOf(unknown, quiet, busy, newEmpty, alps)
+        assertEquals(listOf("new-empty", "busy", "quiet", "unknown"), byRecentActivity(albums - alps, summaries).map { it.id })
+        // The See all page opens in this order; My Albums keep iCloud's custom order.
+        assertEquals(listOf("new-empty", "busy", "quiet", "unknown"),
+            pageCollections(albums, null, CollectionsPage.SHARED, AlbumSort.ACTIVITY, summaries).map { it.id })
     }
 
     @Test fun chooserShowsFoldersThatHoldAlbumsAndTheAlbumsInside() {

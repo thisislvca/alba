@@ -27,7 +27,11 @@ data class GalleryQuery(
     val trashOnly: Boolean = false,
 ) {
     fun apply(items: List<GalleryMedia>, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): List<GalleryMedia> {
-        val comparator = compareBy<GalleryMedia> { it.dateMillis(date) }.thenBy { it.id }
+        val byDate = compareBy<GalleryMedia> { it.dateMillis(date) }.thenBy { it.id }
+        // Recently Deleted lists items by when they were deleted, as Photos does. Every item is deleted for good a fixed
+        // 30 days after it was deleted, so its expiry orders it the same way; an item with no known expiry goes last.
+        val comparator = if (trashOnly) compareBy<GalleryMedia, Long?>(nullsFirst()) { it.expiresAtEpochMillis }.then(byDate)
+            else byDate
         val search = GallerySearch.parse(filename)
         // Hidden photos appear only in Hidden (and, once deleted, in Recently Deleted), never in the library, albums,
         // other collections or search.

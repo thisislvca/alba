@@ -57,7 +57,8 @@ internal class ModernSharedAlbums(
                     webUrl = share.text("shortGUID")?.let { sharedAlbumWebUrl(current, "sharedalbums/sc,", it) },
                     ownerName = if (owned) null else SharedParticipants.ownerName(share),
                     sharedWith = if (owned) SharedParticipants.joined(participants.map { it.jsonObject }) else emptyList(),
-                    expiresAt = SharedParticipants.expiry(share))
+                    expiresAt = SharedParticipants.expiry(share),
+                    createdAt = share.obj("created")?.text("timestamp")?.toLongOrNull()?.takeIf { it > 0 })
                 result += SharedAlbumRecord(GalleryCollection(ids.album(scope, owner, name),
                     share.field("cloudkit.title")?.jsonPrimitive?.contentOrNull ?: name, shared = info), scope, owner, name)
             }

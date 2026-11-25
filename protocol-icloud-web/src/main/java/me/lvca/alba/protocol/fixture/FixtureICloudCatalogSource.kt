@@ -201,7 +201,8 @@ class FixtureICloudCatalogSource(
     override suspend fun createSharedAlbum(name: String, operationId: String, generation: me.lvca.alba.engine.model.SharedAlbumGeneration): me.lvca.alba.engine.model.GalleryCollection {
         val id = "shared:demo-library:${generation.name}:owner:$operationId"
         return sharedAlbums.firstOrNull { it.id == id } ?: me.lvca.alba.engine.model.GalleryCollection(id, name,
-            shared = me.lvca.alba.engine.model.SharedAlbumInfo(generation, me.lvca.alba.engine.model.SharedAlbumRole.OWNER, participantCount = 1))
+            shared = me.lvca.alba.engine.model.SharedAlbumInfo(generation, me.lvca.alba.engine.model.SharedAlbumRole.OWNER, participantCount = 1,
+                createdAt = System.currentTimeMillis()))
             .also { sharedAlbums += it }
     }
     override suspend fun uploadSharedPhoto(albumId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource, operationId: String, caption: String): Boolean {
@@ -215,7 +216,10 @@ class FixtureICloudCatalogSource(
         mediaIds.forEach { media -> copyMedia(media, "$id:$operationId-${media.hashCode()}") }
         return true
     }
-    private val trashed = mutableSetOf<String>()
+
+    /** The demo's Recently Deleted: each item and when it is deleted for good, 30 days after it was deleted, as in iCloud. */
+    private val expunges = mutableMapOf<String, Long>()
+    private val trashed: Set<String> get() = expunges.keys
 
     /** Every library item the demo has listed, so a change page can report the ones that left. */
     private val listed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -290,9 +294,11 @@ class FixtureICloudCatalogSource(
     }
     override suspend fun setCloudTrashed(mediaIds: List<String>, trashed: Boolean) {
         mediaIds.forEach(::record)
-        if (trashed) this.trashed.addAll(mediaIds) else this.trashed.removeAll(mediaIds.toSet())
+        val expires = System.currentTimeMillis() + TRASH_DAYS * 86_400_000L
+        if (trashed) mediaIds.forEach { expunges.putIfAbsent(it, expires) } else expunges.keys.removeAll(mediaIds.toSet())
     }
-    override suspend fun recentlyDeleted() = personalRecords().filter { it.id in trashed }.map { it.copy(isTrashed = true) }
+    override suspend fun recentlyDeleted() = personalRecords().filter { it.id in trashed }
+        .map { it.copy(isTrashed = true, expiresAtEpochMillis = expunges[it.id]) }
     override suspend fun hiddenMedia() = personalRecords().filter { it.id in hidden && it.id !in trashed }
     override suspend fun setHidden(mediaIds: List<String>, hidden: Boolean) {
         mediaIds.forEach(::record)
@@ -595,6 +601,7 @@ class FixtureICloudCatalogSource(
 
     private companion object {
         const val CHANGE_TOKEN = "fixture-catalog-pexels-v6"
+        const val TRASH_DAYS = 30L
         const val HIDDEN_SAMPLE = "fixture:icloud:0023"
         private const val BURST = "demo-burst-coast"
 
