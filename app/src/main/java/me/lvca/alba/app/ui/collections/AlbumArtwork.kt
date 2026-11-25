@@ -11,11 +11,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -36,6 +38,7 @@ import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.InitialAvatar
 import me.lvca.alba.app.ui.designsystem.MediaScrim
 import me.lvca.alba.app.ui.designsystem.MediaScrimStrength
+import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.heroTitle
 import me.lvca.alba.app.ui.gallery.GalleryFeel
@@ -43,6 +46,9 @@ import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.itemCount
 import me.lvca.alba.app.ui.localizedName
 import me.lvca.alba.app.ui.shared.LocalSharedActivity
+import me.lvca.alba.app.ui.shared.sharedAlbumCreator
+import me.lvca.alba.app.ui.shared.sharedAlbumExpiry
+import me.lvca.alba.app.ui.shared.sharedAlbumListLine
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.engine.model.*
 
@@ -140,14 +146,31 @@ internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, re
                     Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
                         Text(album.localizedName(), color = onMedia, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(itemCount(summary?.count ?: 0), color = onMedia.copy(alpha = .85f), style = MaterialTheme.typography.bodySmall)
+                        album.shared?.let { SharedAlbumLines(it, onMedia.copy(alpha = .85f)) }
                     }
                 }
             }
             if (!featured) {
                 Text(album.localizedName(), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))
                 Text(if (album.isFolder) pluralStringResource(R.plurals.folder_album_count, summary?.count ?: 0, summary?.count ?: 0) else itemCount(summary?.count ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
+                    modifier = Modifier.padding(top = 2.dp, bottom = if (album.shared == null) 4.dp else 0.dp))
+                album.shared?.let { SharedAlbumLines(it, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(bottom = 4.dp)) }
             }
+        }
+    }
+}
+
+/** Who created or joined a shared album, and when it expires, under its name as in iCloud Photos. */
+@Composable
+private fun SharedAlbumLines(info: SharedAlbumInfo, color: Color, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        sharedAlbumListLine(info)?.let {
+            Text(it, color = color, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("shared-album-owner"))
+        }
+        sharedAlbumExpiry(info)?.let {
+            Text(it, color = color, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("shared-album-expiry"))
         }
     }
 }
@@ -193,15 +216,24 @@ internal fun AlbumHero(album: GalleryCollection, summary: CollectionPreview?, re
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
                 Text(album.localizedName(), style = MaterialTheme.typography.heroTitle, color = onMedia,
                     maxLines = 3, overflow = TextOverflow.Ellipsis)
+                val shared = album.shared
+                shared?.let { sharedAlbumExpiry(it) }?.let {
+                    Text(it, color = onMedia.copy(alpha = .85f), style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(top = 4.dp).testTag("shared-album-expiry"))
+                }
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(itemCount(summary?.count ?: 0), color = onMedia, style = MaterialTheme.typography.bodyLarge)
-                        if (info != null && album.shared != null) TextButton(onClick = info,
+                        // "35 items · Created by You", as iCloud Photos heads a shared album.
+                        val count = itemCount(summary?.count ?: 0)
+                        val subtitle = shared?.let { sharedAlbumCreator(it) }?.let { stringResource(R.string.shared_album_subtitle, count, it) } ?: count
+                        if (info != null && shared != null) TextButton(onClick = info,
                             contentPadding = PaddingValues(0.dp), modifier = Modifier.testTag("shared-version-badge"),
-                            colors = ButtonDefaults.textButtonColors(contentColor = onMedia.copy(alpha = .85f))) {
-                            Text(stringResource(if (album.shared?.generation == SharedAlbumGeneration.MODERN) R.string.shared_new else R.string.shared_legacy), style = MaterialTheme.typography.labelMedium)
-                        }
-                        album.shared?.ownerName?.let { Text(stringResource(R.string.shared_owner, it), color = onMedia.copy(alpha = .8f), style = MaterialTheme.typography.bodySmall) }
+                            colors = ButtonDefaults.textButtonColors(contentColor = onMedia)) {
+                            Text(subtitle, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false))
+                            Icon(Icons.Outlined.Info, stringResource(R.string.shared_album_info),
+                                Modifier.padding(start = 6.dp).size(AlbaIconSize.inline))
+                        } else Text(subtitle, color = onMedia, style = MaterialTheme.typography.bodyLarge)
                     }
                     if (activity != null) FilledIconButton(onClick = activity, modifier = Modifier.size(48.dp), colors = mediaButton) {
                         Icon(painterResource(R.drawable.ic_album_activity), stringResource(R.string.shared_activity))

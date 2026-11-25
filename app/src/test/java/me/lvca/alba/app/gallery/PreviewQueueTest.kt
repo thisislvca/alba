@@ -7,6 +7,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -63,6 +64,53 @@ class PreviewQueueTest {
             assertEquals(52, gallery.started.value.size)
         } finally {
             gallery.release.complete(Unit)
+            scope.cancel()
+        }
+    }
+
+    @Test fun aFailedDownloadIsTriedAgainBeforeTheTileIsLeftBlank() = runBlocking {
+        val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext.job))
+        val loads = MutableStateFlow(0)
+        val failures = mutableListOf<Throwable>()
+        val loaded = CompletableDeferred<Unit>()
+        val queue = PreviewQueue(
+            scope = scope,
+            selectedMediaId = { "fixture:queue:flaky" },
+            needsPreview = { !loaded.isCompleted },
+            // Fails twice, as when Apple refuses expired links while the album is read again, then succeeds.
+            load = { if (loads.updateAndGet { it + 1 } < 3) throw java.io.IOException("refused") else loaded.complete(Unit) },
+            diagnostics = AlbaDiagnostics.None,
+            onFailure = { failures += it },
+            retryDelaysMillis = listOf(10L, 10L),
+        )
+        try {
+            queue.request("fixture:queue:flaky")
+            withTimeout(5_000) { loaded.await() }
+            assertEquals(3, loads.value)
+            assertTrue(failures.isEmpty())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test fun aDownloadThatKeepsFailingIsReportedOnceAfterItsRetries() = runBlocking {
+        val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext.job))
+        val loads = MutableStateFlow(0)
+        val failed = CompletableDeferred<Throwable>()
+        val queue = PreviewQueue(
+            scope = scope,
+            selectedMediaId = { "fixture:queue:gone" },
+            needsPreview = { true },
+            load = { loads.update { it + 1 }; throw java.io.IOException("gone") },
+            diagnostics = AlbaDiagnostics.None,
+            onFailure = { failed.complete(it) },
+            retryDelaysMillis = listOf(10L, 10L),
+        )
+        try {
+            queue.request("fixture:queue:gone")
+            withTimeout(5_000) { failed.await() }
+            assertEquals(3, loads.value)
+        } finally {
             scope.cancel()
         }
     }

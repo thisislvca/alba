@@ -7,11 +7,20 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import me.lvca.alba.engine.model.SharedAlbumRole
+import me.lvca.alba.protocol.array
+import me.lvca.alba.protocol.fieldInt
+import me.lvca.alba.protocol.fieldLong
 import me.lvca.alba.protocol.obj
 import me.lvca.alba.protocol.text
 
 /** Reads and writes the participant entries of CloudKit shares and legacy sharing rows. */
 internal object SharedParticipants {
+    /** Shown for a person CloudKit names in no way. */
+    const val UNKNOWN = "—"
+
+    /** `sharedCollectionState` of an album that expires. */
+    private const val TEMPORARY_STATE = 1
+
     fun role(participant: JsonObject): SharedAlbumRole = when {
         participant.text("type") == "OWNER" -> SharedAlbumRole.OWNER
         participant.text("type") == "ADMINISTRATOR" -> SharedAlbumRole.MANAGER
@@ -29,9 +38,24 @@ internal object SharedParticipants {
         val identity = participant.obj("userIdentity")
         val names = identity?.obj("nameComponents")
         return listOfNotNull(names?.text("givenName"), names?.text("familyName")).joinToString(" ").ifBlank {
-            identity?.obj("lookupInfo")?.text("emailAddress") ?: participant.text("fullname") ?: participant.text("email") ?: "—"
+            identity?.obj("lookupInfo")?.text("emailAddress") ?: participant.text("fullname") ?: participant.text("email") ?: UNKNOWN
         }
     }
+
+    /** The owner of [share] by name, or null when CloudKit gives neither a name nor an email for them. */
+    fun ownerName(share: JsonObject): String? {
+        val owner = share.obj("owner") ?: share.array("participants").map { it.jsonObject }.firstOrNull { it.text("type") == "OWNER" }
+        return owner?.let(::name)?.takeIf { it != UNKNOWN }
+    }
+
+    /** The people other than the owner who accepted, by name, as Apple lists them under "Shared with". */
+    fun joined(participants: List<JsonObject>): List<String> = participants
+        .filter { it.text("type") !in setOf("OWNER", "PUBLIC_USER") && it.text("acceptanceStatus") == "ACCEPTED" }
+        .map(::name).filter { it != UNKNOWN }
+
+    /** When a temporary album is removed, in epoch milliseconds; null for an album that does not expire. */
+    fun expiry(share: JsonObject): Long? =
+        share.fieldLong("expiryDate")?.takeIf { share.fieldInt("sharedCollectionState") == TEMPORARY_STATE }
 
     fun nameOfIdentity(identity: JsonObject): String = name(buildJsonObject { put("userIdentity", identity) })
 

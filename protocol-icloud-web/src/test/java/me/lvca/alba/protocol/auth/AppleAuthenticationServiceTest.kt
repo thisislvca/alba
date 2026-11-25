@@ -56,6 +56,18 @@ class AppleAuthenticationServiceTest {
         assertEquals("https://p02-setup.icloud.com", restored.webservices["account"])
     }
 
+    @Test fun `the shared streams service is kept so legacy and subscribed shared albums load`() = runBlocking {
+        // As validate lists it: without it, shared albums others shared through shared streams silently disappeared.
+        val transport = ScriptedTransport(validateBody = """{
+            "dsInfo":{"dsid":"123456789","hsaVersion":2},
+            "hsaTrustedBrowser":true,
+            "webservices":{"ckdatabasews":{"url":"https://p02-ckdatabasews.icloud.com:443","pcsRequired":true,"status":"active"},
+                "sharedstreams":{"url":"https://p130-sharedstreams.icloud.com:443","status":"active"}}
+        }""")
+        val restored = requireNotNull(AppleAuthenticationService(transport).restore(savedSession()))
+        assertEquals("https://p130-sharedstreams.icloud.com:443", restored.webservices["sharedstreams"])
+    }
+
     @Test
     fun `expired validation renews with saved token and trust without password flow`() = runBlocking {
         val saved = savedSession()
@@ -172,6 +184,8 @@ class AppleAuthenticationServiceTest {
                 "POST /appleauth/auth/signin/init",
                 "POST /appleauth/auth/signin/complete",
                 "GET /appleauth/auth",
+                // The page offered no trusted number, so the same endpoint is asked for JSON.
+                "GET /appleauth/auth",
                 "GET /appleauth/auth/verify/trusteddevice",
                 "GET /appleauth/auth/verify/trusteddevice",
                 "POST /appleauth/auth/verify/trusteddevice/securitycode",
@@ -187,9 +201,9 @@ class AppleAuthenticationServiceTest {
         assertTrue(transport.requests[1].body.orEmpty().contains("\"a\""))
         assertTrue(transport.requests[1].headers.containsKey("X-Apple-FD-Client-Info"))
         assertTrue(transport.requests[2].body.orEmpty().contains("\"m1\""))
-        assertTrue(transport.requests[6].body.orEmpty().contains("123456"))
-        assertEquals("scnt-value", transport.requests[6].headers["scnt"])
-        assertEquals("session-id", transport.requests[6].headers["X-Apple-ID-Session-Id"])
+        assertTrue(transport.requests[7].body.orEmpty().contains("123456"))
+        assertEquals("scnt-value", transport.requests[7].headers["scnt"])
+        assertEquals("session-id", transport.requests[7].headers["X-Apple-ID-Session-Id"])
     }
 
     @Test
@@ -222,6 +236,7 @@ class AppleAuthenticationServiceTest {
                 "GET /appleauth/auth/authorize/signin",
                 "POST /appleauth/auth/signin/init",
                 "POST /appleauth/auth/signin/complete",
+                "GET /appleauth/auth",
                 "GET /appleauth/auth",
                 "GET /appleauth/auth/2sv/trust",
                 "POST /setup/ws/1/accountLogin",
@@ -260,6 +275,102 @@ class AppleAuthenticationServiceTest {
         val error = runCatching { service.signIn(APPLE_ID, PASSWORD) }.exceptionOrNull() as AppleProtocolException
 
         assertEquals(AppleProtocolError.UNSUPPORTED_TWO_FACTOR, error.error)
+    }
+
+    @Test
+    fun `a 409 bootstrap page still opens the trusted device bridge and offers its number`() = runBlocking {
+        val bridge = FakeBridge()
+        val transport = ScriptedTransport(
+            bootHtml = BRIDGE_BOOT_HTML.replace("\"sourceAppId\": 1159,", "\"sourceAppId\": 1159, $PHONE_VERIFICATION,"),
+            bootCode = 409,
+            bootHeaders = mapOf("content-type" to "text/html; charset=UTF-8"),
+        )
+        val service = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID }, trustedDeviceBridge = { bridge })
+
+        val signIn = service.signIn(APPLE_ID, PASSWORD) as AppleSignInResult.RequiresTwoFactor
+
+        assertEquals(TwoFactorDelivery.TRUSTED_DEVICE, signIn.delivery)
+        assertTrue(signIn.smsAvailable)
+        assertEquals(1, bridge.startCount)
+        assertFalse(transport.requests.any { pathWithoutQuery(it.url) == "/appleauth/auth/verify/trusteddevice" })
+    }
+
+    @Test
+    fun `a 409 page that is not html is not read as the bootstrap`() = runBlocking {
+        val bridge = FakeBridge()
+        val transport = ScriptedTransport(
+            bootHtml = BRIDGE_BOOT_HTML,
+            bootCode = 409,
+            bootHeaders = mapOf("content-type" to "application/json"),
+        )
+        val service = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID }, trustedDeviceBridge = { bridge })
+
+        val signIn = service.signIn(APPLE_ID, PASSWORD)
+
+        assertEquals(AppleSignInResult.RequiresTwoFactor(APPLE_ID, TwoFactorDelivery.TRUSTED_DEVICE), signIn)
+        assertEquals(0, bridge.startCount)
+        assertTrue(transport.requests.any { pathWithoutQuery(it.url) == "/appleauth/auth/verify/trusteddevice" })
+    }
+
+    @Test
+    fun `an account with only trusted numbers gets its number from the json auth options`() = runBlocking {
+        val transport = ScriptedTransport(
+            trustedDeviceCode = 404,
+            authJson = """{"mode":"sms","trustedPhoneNumbers":[{"id":7,"numberWithDialCode":"+39 ••• ••• ••34"}]}""",
+        )
+        val service = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID })
+
+        val signIn = service.signIn(APPLE_ID, PASSWORD)
+
+        assertEquals(AppleSignInResult.RequiresTwoFactor(APPLE_ID, TwoFactorDelivery.SMS, "+39 ••• ••• ••34"), signIn)
+        val optionRequests = transport.requests.filter { pathWithoutQuery(it.url) == "/appleauth/auth" }
+        assertEquals(listOf("text/html", "application/json"), optionRequests.map { it.headers["Accept"] })
+        val sms = transport.requests.last()
+        assertEquals("PUT /appleauth/auth/verify/phone", "${sms.method} ${pathWithoutQuery(sms.url)}")
+        assertTrue(sms.body.orEmpty().contains("\"id\":\"7\""))
+        assertEquals("123456789", service.submitTwoFactor("123456").dsid)
+    }
+
+    @Test
+    fun `a number on the bootstrap page is kept and the json options are not asked for`() = runBlocking {
+        val transport = ScriptedTransport(
+            bootHtml = PHONE_BOOT_HTML,
+            authJson = """{"trustedPhoneNumbers":[{"id":7,"numberWithDialCode":"+39 ••• ••• ••34"}]}""",
+        )
+        val service = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID })
+
+        service.signIn(APPLE_ID, PASSWORD)
+        val sms = service.sendCodeBySms()
+
+        assertEquals("+39 ••• ••• ••12", sms.destinationHint)
+        assertEquals(1, transport.requests.count { pathWithoutQuery(it.url) == "/appleauth/auth" })
+    }
+
+    @Test
+    fun `security keys in the json auth options explain a sign in with no code route`() = runBlocking {
+        val transport = ScriptedTransport(
+            trustedDeviceCode = 404,
+            authJson = """{"keyNames":["YubiKey"]}""",
+        )
+        val service = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID })
+
+        val error = runCatching { service.signIn(APPLE_ID, PASSWORD) }.exceptionOrNull() as AppleProtocolException
+
+        assertEquals(AppleProtocolError.SECURITY_KEY_REQUIRED, error.error)
+    }
+
+    @Test
+    fun `a trusted number is found in every shape Apple lists it`() = runBlocking {
+        for (options in listOf(
+            """{"trustedPhoneNumber":{"id":7,"obfuscatedNumber":"••34"}}""",
+            """{"phoneNumberVerification":{"trustedPhoneNumber":{"id":7,"obfuscatedNumber":"••34"}}}""",
+            """{"phoneNumberVerification":{"trustedPhoneNumbers":[{},{"id":7,"obfuscatedNumber":"••34"}]}}""",
+            """{"trustedPhoneNumbers":[{"obfuscatedNumber":"no id"},{"id":7,"obfuscatedNumber":"••34"}]}""",
+        )) {
+            val transport = ScriptedTransport(trustedDeviceCode = 404, authJson = options)
+            val signIn = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID }).signIn(APPLE_ID, PASSWORD)
+            assertEquals(options, AppleSignInResult.RequiresTwoFactor(APPLE_ID, TwoFactorDelivery.SMS, "••34"), signIn)
+        }
     }
 
     @Test
@@ -323,6 +434,29 @@ class AppleAuthenticationServiceTest {
     }
 
     @Test
+    fun `a 421 from validation renews by token login and a second 421 reports null without retrying`() = runBlocking {
+        val renewing = ScriptedTransport(validateCode = 421, validateBody = MISSING_WEBAUTH_TOKEN)
+        val renewed = AppleAuthenticationService(renewing, clientIdProvider = { CLIENT_ID }).restore(savedSession())
+        assertEquals("123456789", renewed?.dsid)
+        assertEquals(
+            listOf("POST /setup/ws/1/validate", "POST /setup/ws/1/accountLogin"),
+            renewing.requests.map { "${it.method} ${pathWithoutQuery(it.url)}" },
+        )
+
+        val rejected = ScriptedTransport(
+            validateCode = 421,
+            validateBody = MISSING_WEBAUTH_TOKEN,
+            accountLoginCode = 421,
+            accountLoginBody = MISSING_WEBAUTH_TOKEN,
+        )
+        assertEquals(null, AppleAuthenticationService(rejected, clientIdProvider = { CLIENT_ID }).restore(savedSession()))
+        assertEquals(
+            listOf("POST /setup/ws/1/validate", "POST /setup/ws/1/accountLogin"),
+            rejected.requests.map { "${it.method} ${pathWithoutQuery(it.url)}" },
+        )
+    }
+
+    @Test
     fun `account services must be https with a host or the session is refused`() = runBlocking {
         for (url in listOf("http://p01-ckdatabasews.icloud.com", "https://", "//p01-ckdatabasews.icloud.com", "ftp://p01.icloud.com")) {
             val transport = ScriptedTransport(
@@ -352,11 +486,13 @@ class AppleAuthenticationServiceTest {
         sms: Boolean,
         code: Int,
         body: String,
+        headers: Map<String, String> = emptyMap(),
     ): Result<AppleSessionSnapshot> {
         val transport = ScriptedTransport(
             bootHtml = if (sms) PHONE_BOOT_HTML else LEGACY_BOOT_HTML,
             securityCodeCode = code,
             securityCodeBody = body,
+            securityCodeHeaders = headers,
         )
         val service = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID })
         service.signIn(APPLE_ID, PASSWORD)
@@ -416,6 +552,46 @@ class AppleAuthenticationServiceTest {
         assertCodeOutcome(429, "{}", accepted = false, error = AppleProtocolError.TOO_MANY_ATTEMPTS)
     }
 
+    @Test
+    fun `412 with a repair session accepts a text message code and goes on to trust the session`() = runBlocking {
+        val transport = ScriptedTransport(
+            bootHtml = PHONE_BOOT_HTML,
+            securityCodeCode = 412,
+            securityCodeBody = "",
+            securityCodeHeaders = mapOf("x-apple-repair-session-token" to "repair-token"),
+        )
+        val service = AppleAuthenticationService(transport, clientIdProvider = { CLIENT_ID })
+        service.signIn(APPLE_ID, PASSWORD)
+        service.sendCodeBySms()
+
+        val snapshot = service.submitTwoFactor("123456")
+
+        assertEquals("123456789", snapshot.dsid)
+        assertEquals(
+            listOf(
+                "POST /appleauth/auth/verify/phone/securitycode",
+                "GET /appleauth/auth/2sv/trust",
+                "POST /setup/ws/1/accountLogin",
+            ),
+            transport.requests.takeLast(3).map { "${it.method} ${pathWithoutQuery(it.url)}" },
+        )
+    }
+
+    @Test
+    fun `412 is a wrong code without a repair session or off the text message route`() = runBlocking {
+        val wrong = AppleProtocolError.INVALID_TWO_FACTOR_CODE
+        val repair = mapOf("x-apple-repair-session-token" to "repair-token")
+        // The trusted-device route never takes a repair session as an accepted code.
+        val trustedDevice = submitCode(sms = false, code = 412, body = "", headers = repair).exceptionOrNull()
+        assertEquals(wrong, (trustedDevice as AppleProtocolException).error)
+        for (headers in listOf(emptyMap(), mapOf("x-apple-repair-session-token" to " "))) {
+            for (sms in listOf(false, true)) {
+                val failure = submitCode(sms, 412, "{}", headers).exceptionOrNull() as AppleProtocolException
+                assertEquals("sms=$sms headers=$headers", wrong, failure.error)
+            }
+        }
+    }
+
     private class FakeBridge : TrustedDeviceBridgeClient {
         var startCount = 0
         var closeCount = 0
@@ -465,6 +641,9 @@ class AppleAuthenticationServiceTest {
 
     private class ScriptedTransport(
         private val bootHtml: String = LEGACY_BOOT_HTML,
+        private val bootCode: Int = 200,
+        private val bootHeaders: Map<String, String> = emptyMap(),
+        private val authJson: String = "{}",
         private val authTypeKey: String = "authType",
         private val validateBody: String = "{}",
         private val validateCode: Int = 200,
@@ -474,6 +653,7 @@ class AppleAuthenticationServiceTest {
         private val trustedDeviceCode: Int = 200,
         private val securityCodeCode: Int = 200,
         private val securityCodeBody: String = "{}",
+        private val securityCodeHeaders: Map<String, String> = emptyMap(),
         private val accountLoginBody: String? = null,
     ) : AppleHttpTransport {
         val requests = mutableListOf<AppleHttpRequest>()
@@ -511,13 +691,18 @@ class AppleAuthenticationServiceTest {
                     ),
                 )
 
-                "/appleauth/auth" -> response(200, bootHtml)
+                "/appleauth/auth" -> if (request.headers["Accept"] == "application/json") {
+                    response(200, authJson)
+                } else {
+                    response(bootCode, bootHtml, bootHeaders)
+                }
                 "/setup/ws/1/validate" -> response(validateCode, validateBody)
 
                 "/appleauth/auth/verify/trusteddevice" -> response(trustedDeviceCode, "{}")
-                "/appleauth/auth/verify/trusteddevice/securitycode" -> response(securityCodeCode, securityCodeBody)
+                "/appleauth/auth/verify/trusteddevice/securitycode" ->
+                    response(securityCodeCode, securityCodeBody, securityCodeHeaders)
                 "/appleauth/auth/verify/phone" -> response(200, "{}")
-                "/appleauth/auth/verify/phone/securitycode" -> response(securityCodeCode, securityCodeBody)
+                "/appleauth/auth/verify/phone/securitycode" -> response(securityCodeCode, securityCodeBody, securityCodeHeaders)
                 "/appleauth/auth/2sv/trust" -> response(200, "{}")
                 "/setup/ws/1/accountLogin" -> response(
                     accountLoginCode,
@@ -588,6 +773,9 @@ class AppleAuthenticationServiceTest {
               </script>
             </html>
         """.trimIndent()
+        const val MISSING_WEBAUTH_TOKEN = """{"success":false,"error":"Missing X-APPLE-WEBAUTH-TOKEN cookie"}"""
+        const val PHONE_VERIFICATION =
+            "\"phoneNumberVerification\":{\"trustedPhoneNumber\":{\"id\":1,\"numberWithDialCode\":\"+39 ••• ••• ••12\"}}"
         val BRIDGE_BOOT_HTML = """
             <html>
               <script type="application/json" class="boot_args">

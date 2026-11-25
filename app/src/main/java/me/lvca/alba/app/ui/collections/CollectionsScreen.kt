@@ -56,8 +56,11 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
     openPage: (CollectionsPage) -> Unit, openFolder: (String) -> Unit, openCollection: (String) -> Unit, openOffline: () -> Unit,
     openSharedInvitations: () -> Unit = {}, createSharedAlbum: () -> Unit = {}, openTrash: () -> Unit = {}, openCloudTrash: () -> Unit = {},
     createAlbum: () -> Unit, requestPhotos: () -> Unit, bottomSpace: Dp = 16.dp, openHidden: () -> Unit = {}) {
-    var sort by rememberSaveable { mutableStateOf(AlbumSort.RECENT) }
+    var chosenSort by rememberSaveable { mutableStateOf(AlbumSort.CUSTOM) }
     val sortable = page != CollectionsPage.DEVICE
+    // Only personal albums have an iCloud position; shared albums keep Most recent photo as their first choice.
+    val sorts = if (page == CollectionsPage.SHARED) AlbumSort.entries - AlbumSort.CUSTOM else AlbumSort.entries
+    val sort = chosenSort.takeIf { it in sorts } ?: AlbumSort.RECENT
     val albums = remember(gallery.collections, folder, page, sort, summaries) {
         pageCollections(gallery.collections, folder, page, sort.takeIf { sortable }, summaries)
     }
@@ -114,7 +117,7 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(pluralStringResource(R.plurals.album_count, albums.size, albums.size),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                    if (sortable && albums.size > 1) AlbumSortMenu(sort) { sort = it }
+                    if (sortable && albums.size > 1) AlbumSortMenu(sort, sorts) { chosenSort = it }
                     if (page == CollectionsPage.SHARED) {
                         InvitationsButton(activity.unreadInvitations, canEdit, openSharedInvitations)
                         IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_create)) }
@@ -204,14 +207,14 @@ private fun InvitationsButton(unread: Int, enabled: Boolean, open: () -> Unit) {
 }
 
 @Composable
-private fun AlbumSortMenu(sort: AlbumSort, change: (AlbumSort) -> Unit) {
+private fun AlbumSortMenu(sort: AlbumSort, options: List<AlbumSort>, change: (AlbumSort) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { open = true }, modifier = Modifier.testTag("album-sort")) {
             Icon(AlbaIcons.SwapVert, null, Modifier.size(AlbaIconSize.inline)); Spacer(Modifier.width(AlbaSpacing.xs)); Text(stringResource(sort.label))
         }
         AlbaMenu(open, onDismissRequest = { open = false }) {
-            AlbumSort.entries.forEach { option ->
+            options.forEach { option ->
                 AlbaMenuItem(stringResource(option.label), onClick = { open = false; change(option) },
                     trailingIcon = if (option == sort) ({ Icon(Icons.Outlined.Check, null) }) else null,
                     modifier = Modifier.testTag("album-sort-${option.name}"))

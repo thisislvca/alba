@@ -227,6 +227,19 @@ class LibraryEditingTest {
         assertFalse(bodies.any { it.contains("HIDDEN") || it.contains("shared") })
     }
 
+    /** iCloud.com's Portrait and Animated albums, by the `smartAlbum` names CloudKit accepts ("PORTRAIT" is a BAD_REQUEST). */
+    @Test fun portraitAndAnimatedReadApplesDepthAndAnimatedSmartAlbums() = runBlocking {
+        assertEquals("DEPTH", SmartCollection.PORTRAIT.appleFilter)
+        assertEquals("ANIMATED", SmartCollection.ANIMATED.appleFilter)
+        val transport = EditingTransport()
+        val result = LiveICloudCatalogSource(transport, { session }, isAuthorized = { true }).collections()
+        assertTrue(result.collections.any { it.id == "smart:portrait" && it.name == "Portrait" })
+        assertTrue(result.collections.any { it.id == "smart:animated" && it.name == "Animated" })
+        val bodies = transport.requests.mapNotNull { it.body }
+        assertTrue(bodies.any { it.contains("\"value\":\"DEPTH\"") })
+        assertTrue(bodies.any { it.contains("\"value\":\"ANIMATED\"") })
+    }
+
     @Test fun livePhotoKeepsStillAndMotionResourcesSeparateAndInvalidatesChangedMotion() {
         fun page(fingerprint: String) = """{"records":[
             {"recordName":"photo","recordType":"CPLAsset","recordChangeTag":"a1","fields":{"masterRef":{"value":{"recordName":"master"}},"assetDate":{"value":1777777777000},"addedDate":{"value":1778888888000}}},
