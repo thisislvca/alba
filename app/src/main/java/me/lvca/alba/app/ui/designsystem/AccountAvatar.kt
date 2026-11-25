@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -57,7 +57,7 @@ internal fun InitialAvatar(
 ) {
     AlbaAvatar(size, color, contentColor, modifier, shadowElevation) {
         val initial = name?.trim()?.firstOrNull()?.uppercaseChar()?.toString()
-        if (initial == null) Icon(Icons.Outlined.AccountCircle, null, Modifier.size(size * .77f))
+        if (initial == null) Icon(Icons.Rounded.AccountCircle, null, Modifier.size(size * .77f))
         else Text(initial, style = textStyle)
     }
 }
@@ -83,7 +83,7 @@ internal fun AccountAvatar(photo: ByteArray?, avatarSize: Dp = 56.dp) {
     val ink = LocalContentColor.current
     AlbaAvatar(avatarSize, color = ink.copy(alpha = .12f), contentColor = ink) {
         bitmap?.let { Image(it, null, Modifier.size(avatarSize).testTag("account-photo"), contentScale = ContentScale.Crop) }
-            ?: Icon(Icons.Outlined.Person, null, Modifier.size(avatarSize * .55f))
+            ?: Icon(Icons.Rounded.Person, null, Modifier.size(avatarSize * .55f))
     }
 }
 

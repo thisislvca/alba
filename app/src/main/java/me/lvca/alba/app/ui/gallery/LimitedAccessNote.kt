@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,7 +34,7 @@ internal fun LimitedAccessNote(count: Int, change: () -> Unit, dismiss: () -> Un
             TextButton(onClick = change, modifier = Modifier.testTag("limited-access-change")) {
                 Text(stringResource(R.string.limited_access_change))
             }
-            IconButton(onClick = dismiss) { Icon(Icons.Outlined.Close, stringResource(R.string.limited_access_dismiss)) }
+            IconButton(onClick = dismiss) { Icon(Icons.Rounded.Close, stringResource(R.string.limited_access_dismiss)) }
         }
     }
 }

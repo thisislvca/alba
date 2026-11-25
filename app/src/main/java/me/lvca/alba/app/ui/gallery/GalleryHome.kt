@@ -21,8 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -408,7 +408,7 @@ internal fun GalleryHome(
                         .then(if (collapseHeader && headerHidden) Modifier.clearAndSetSemantics {} else Modifier)) {
                         Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp).heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null)) {
-                                IconButton(onClick = ::backInCollections) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back_action)) }
+                                IconButton(onClick = ::backInCollections) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back_action)) }
                                 if (!hero) Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 else Spacer(Modifier.weight(1f))
                             } else {
@@ -423,28 +423,28 @@ internal fun GalleryHome(
                             }
                             if (hero) {
                                 if (collection?.shared != null) IconButton(onClick = { sheet = GallerySheet.SharedManage }, enabled = canEdit) {
-                                    Icon(Icons.Outlined.AccountCircle, stringResource(R.string.shared_manage))
+                                    Icon(Icons.Rounded.AccountCircle, stringResource(R.string.shared_manage))
                                 }
                                 IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                                 Box {
                                     IconButton(onClick = { albumMenu = true }, modifier = Modifier.testTag("album-options")) {
-                                        Icon(Icons.Outlined.MoreVert, stringResource(R.string.album_options))
+                                        Icon(Icons.Rounded.MoreVert, stringResource(R.string.album_options))
                                     }
                                     AlbaMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
                                         AlbaMenuItem(stringResource(R.string.browse_by_date), onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate },
-                                            enabled = sections.isNotEmpty(), leadingIcon = { Icon(Icons.Outlined.DateRange, null) })
+                                            enabled = sections.isNotEmpty(), leadingIcon = { Icon(Icons.Rounded.DateRange, null) })
                                         AlbaMenuDivider()
                                         if (collection?.shared != null) {
                                             AlbaMenuItem(stringResource(R.string.shared_details),
                                                 onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo },
-                                                leadingIcon = { Icon(Icons.Outlined.Info, null) })
+                                                leadingIcon = { Icon(Icons.Rounded.Info, null) })
                                             if (collection.shared?.canContribute == true) AlbaMenuItem(stringResource(R.string.shared_add_photos),
                                                 onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit,
-                                                leadingIcon = { Icon(Icons.Outlined.Add, null) })
+                                                leadingIcon = { Icon(Icons.Rounded.Add, null) })
                                         } else {
                                             AlbaMenuItem(stringResource(R.string.rename_album),
                                                 onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit,
-                                                leadingIcon = { Icon(Icons.Outlined.Edit, null) }, modifier = Modifier.testTag("album-rename"))
+                                                leadingIcon = { Icon(Icons.Rounded.Edit, null) }, modifier = Modifier.testTag("album-rename"))
                                             AlbaMenuItem(stringResource(R.string.delete_album),
                                                 onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit,
                                                 leadingIcon = { Icon(AlbaIcons.DeleteOutline, null) })
@@ -460,7 +460,7 @@ internal fun GalleryHome(
                                     Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort))
                                 }
                                 IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount, modifier = Modifier.testTag("gallery-upload")) {
-                                    Icon(Icons.Outlined.Add, stringResource(R.string.upload_photos))
+                                    Icon(Icons.Rounded.Add, stringResource(R.string.upload_photos))
                                 }
                                 IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
                                     BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
@@ -504,10 +504,10 @@ internal fun GalleryHome(
                                     modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
 
                                 if (inCollection && collection != null && collection.isPersonal) {
-                                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) { Icon(Icons.Outlined.Edit, stringResource(R.string.rename_album)) }
+                                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.rename_album)) }
                                     IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                                 }
-                                IconButton(enabled = sections.isNotEmpty(), onClick = { sheet = GallerySheet.JumpToDate }) { Icon(Icons.Outlined.DateRange, stringResource(R.string.browse_by_date)) }
+                                IconButton(enabled = sections.isNotEmpty(), onClick = { sheet = GallerySheet.JumpToDate }) { Icon(Icons.Rounded.DateRange, stringResource(R.string.browse_by_date)) }
                                 IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
                             }
                         }
@@ -925,7 +925,7 @@ private fun PhotoGrid(
             Surface(onClick = onAddMedia, modifier = posed("add-media").aspectRatio(1f).testTag("album-add-media"),
                 shape = MaterialTheme.shapes.tile, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.Add, stringResource(R.string.shared_add_photos), Modifier.size(AlbaIconSize.large),
+                    Icon(Icons.Rounded.Add, stringResource(R.string.shared_add_photos), Modifier.size(AlbaIconSize.large),
                         tint = MaterialTheme.colorScheme.primary)
                 }
             }
@@ -1016,7 +1016,7 @@ private fun SearchLanding(summaries: Map<String, me.lvca.alba.app.ui.collections
         SmartCollectionChips(summaries, choose)
         Spacer(Modifier.height(16.dp))
         Column(Modifier.padding(horizontal = 20.dp)) {
-            CollectionRow(stringResource(R.string.capture_date), stringResource(R.string.choose_a_date_range), icon = { Icon(Icons.Outlined.DateRange, null) }, onClick = onDates)
+            CollectionRow(stringResource(R.string.capture_date), stringResource(R.string.choose_a_date_range), icon = { Icon(Icons.Rounded.DateRange, null) }, onClick = onDates)
             CollectionRow(stringResource(R.string.favorites), stringResource(R.string.photos_you_ve_marked_with_a_heart), icon = { ICloudIcon(R.drawable.icloud_favorites) }, onClick = { choose(GalleryQuery.FAVORITES) })
         }
     }

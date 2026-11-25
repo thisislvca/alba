@@ -5,439 +5,230 @@ package me.lvca.alba.app.ui.designsystem
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.addPathNodes
-import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 
+/**
+ * Alba's one icon family is Material's Rounded set. These are the Rounded glyphs material-icons-core leaves out, from
+ * Material Icons' path data. Core glyphs come from `Icons.Rounded` and `Icons.AutoMirrored.Rounded`, and the collection
+ * glyphs in `res/drawable` are Rounded too. Don't mix in Outlined, Filled or another family.
+ */
 internal object AlbaIcons {
     val Pause: ImageVector by lazy {
-        icon("Pause") {
-            moveTo(6f, 4f); horizontalLineTo(10f); verticalLineTo(20f); horizontalLineTo(6f); close()
-            moveTo(14f, 4f); horizontalLineTo(18f); verticalLineTo(20f); horizontalLineTo(14f); close()
-        }
+        pathIcon(
+            "Pause",
+            "M8 19c1.1 0 2 -0.9 2 -2L10 7c0 -1.1 -0.9 -2 -2 -2s-2 0.9 -2 2v10c0 1.1 0.9 2 2 2ZM14 7v10c0 1.1 0.9 2 2 2s2 " +
+            "-0.9 2 -2L18 7c0 -1.1 -0.9 -2 -2 -2s-2 0.9 -2 2Z",
+        )
     }
 
     val VolumeUp: ImageVector by lazy {
-        icon("VolumeUp") {
-            moveTo(3f, 9f); horizontalLineTo(7f); lineTo(12f, 5f); verticalLineTo(19f); lineTo(7f, 15f); horizontalLineTo(3f); close()
-            moveTo(14f, 8f); lineTo(15.4f, 6.6f); curveTo(18.4f, 9.3f, 18.4f, 14.7f, 15.4f, 17.4f); lineTo(14f, 16f)
-            curveTo(16.2f, 13.9f, 16.2f, 10.1f, 14f, 8f); close()
-            moveTo(17.3f, 4.7f); lineTo(18.7f, 3.3f); curveTo(23.1f, 7.7f, 23.1f, 16.3f, 18.7f, 20.7f)
-            lineTo(17.3f, 19.3f); curveTo(20.9f, 15.7f, 20.9f, 8.3f, 17.3f, 4.7f); close()
-        }
+        pathIcon(
+            "VolumeUp",
+            "M3 10v4c0 0.55 0.45 1 1 1h3l3.29 3.29c0.63 0.63 1.71 0.18 1.71 -0.71L12 6.41c0 -0.89 -1.08 -1.34 -1.71 " +
+            "-0.71L7 9L4 9c-0.55 0 -1 0.45 -1 1ZM16.5 12c0 -1.77 -1.02 -3.29 -2.5 -4.03v8.05c1.48 -0.73 2.5 -2.25 2.5 " +
+            "-4.02ZM14 4.45v0.2c0 0.38 0.25 0.71 0.6 0.85C17.18 6.53 19 9.06 19 12s-1.82 5.47 -4.4 6.5c-0.36 0.14 -0.6 " +
+            "0.47 -0.6 0.85v0.2c0 0.63 0.63 1.07 1.21 0.85C18.6 19.11 21 15.84 21 12s-2.4 -7.11 -5.79 -8.4c-0.58 -0.23 " +
+            "-1.21 0.22 -1.21 0.85Z",
+        )
     }
 
     val VolumeOff: ImageVector by lazy {
-        icon("VolumeOff") {
-            moveTo(3f, 9f); horizontalLineTo(7f); lineTo(12f, 5f); verticalLineTo(19f); lineTo(7f, 15f); horizontalLineTo(3f); close()
-            moveTo(15.4f, 9f); lineTo(17f, 10.6f); lineTo(18.6f, 9f); lineTo(20f, 10.4f)
-            lineTo(18.4f, 12f); lineTo(20f, 13.6f); lineTo(18.6f, 15f)
-            lineTo(17f, 13.4f); lineTo(15.4f, 15f); lineTo(14f, 13.6f)
-            lineTo(15.6f, 12f); lineTo(14f, 10.4f); close()
-        }
+        pathIcon(
+            "VolumeOff",
+            "M3.63 3.63c-0.39 0.39 -0.39 1.02 0 1.41L7.29 8.7L7 9L4 9c-0.55 0 -1 0.45 -1 1v4c0 0.55 0.45 1 1 1h3l3.29 " +
+            "3.29c0.63 0.63 1.71 0.18 1.71 -0.71v-4.17l4.18 4.18c-0.49 0.37 -1.02 0.68 -1.6 0.91c-0.36 0.15 -0.58 0.53 " +
+            "-0.58 0.92c0 0.72 0.73 1.18 1.39 0.91c0.8 -0.33 1.55 -0.77 2.22 -1.31l1.34 1.34c0.39 0.39 1.02 0.39 1.41 " +
+            "0c0.39 -0.39 0.39 -1.02 0 -1.41L5.05 3.63c-0.39 -0.39 -1.02 -0.39 -1.42 0ZM19 12c0 0.82 -0.15 1.61 -0.41 " +
+            "2.34l1.53 1.53c0.56 -1.17 0.88 -2.48 0.88 -3.87c0 -3.83 -2.4 -7.11 -5.78 -8.4c-0.59 -0.23 -1.22 0.23 -1.22 " +
+            "0.86v0.19c0 0.38 0.25 0.71 0.61 0.85C17.18 6.54 19 9.06 19 12ZM10.29 5.71l-0.17 0.17L12 7.76L12 6.41c0 -0.89 " +
+            "-1.08 -1.33 -1.71 -0.7ZM16.5 12c0 -1.77 -1.02 -3.29 -2.5 -4.03v1.79l2.48 2.48c0.01 -0.08 0.02 -0.16 0.02 " +
+            "-0.24Z",
+        )
     }
 
     val CloudDone: ImageVector by lazy {
-        icon("CloudDone") {
-            moveTo(19.35f, 10.04f)
-            curveTo(18.67f, 6.59f, 15.64f, 4.0f, 12.0f, 4.0f)
-            curveTo(9.11f, 4.0f, 6.6f, 5.64f, 5.35f, 8.04f)
-            curveTo(2.34f, 8.36f, 0.0f, 10.91f, 0.0f, 14.0f)
-            curveToRelative(0.0f, 3.31f, 2.69f, 6.0f, 6.0f, 6.0f)
-            horizontalLineToRelative(13.0f)
-            curveToRelative(2.76f, 0.0f, 5.0f, -2.24f, 5.0f, -5.0f)
-            curveToRelative(0.0f, -2.64f, -2.05f, -4.78f, -4.65f, -4.96f)
-            close()
-            moveTo(19.0f, 18.0f)
-            lineTo(6.0f, 18.0f)
-            curveToRelative(-2.21f, 0.0f, -4.0f, -1.79f, -4.0f, -4.0f)
-            curveToRelative(0.0f, -2.05f, 1.53f, -3.76f, 3.56f, -3.97f)
-            lineToRelative(1.07f, -0.11f)
-            lineToRelative(0.5f, -0.95f)
-            curveTo(8.08f, 7.14f, 9.94f, 6.0f, 12.0f, 6.0f)
-            curveToRelative(2.62f, 0.0f, 4.88f, 1.86f, 5.39f, 4.43f)
-            lineToRelative(0.3f, 1.5f)
-            lineToRelative(1.53f, 0.11f)
-            curveToRelative(1.56f, 0.1f, 2.78f, 1.41f, 2.78f, 2.96f)
-            curveToRelative(0.0f, 1.65f, -1.35f, 3.0f, -3.0f, 3.0f)
-            close()
-            moveTo(10.0f, 14.18f)
-            lineToRelative(-2.09f, -2.09f)
-            lineTo(6.5f, 13.5f)
-            lineTo(10.0f, 17.0f)
-            lineToRelative(6.01f, -6.01f)
-            lineToRelative(-1.41f, -1.41f)
-            close()
-        }
+        pathIcon(
+            "CloudDone",
+            "M19.35 10.04C18.67 6.59 15.64 4 12 4C9.11 4 6.6 5.64 5.35 8.04C2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 " +
+            "6h13c2.76 0 5 -2.24 5 -5c0 -2.64 -2.05 -4.78 -4.65 -4.96ZM10.71 16.29c-0.39 0.39 -1.02 0.39 -1.41 0L7.2 " +
+            "14.2c-0.39 -0.39 -0.39 -1.02 0 -1.41c0.39 -0.39 1.02 -0.39 1.41 0L10 14.18l4.48 -4.48c0.39 -0.39 1.02 -0.39 " +
+            "1.41 0c0.39 0.39 0.39 1.02 0 1.41l-5.18 5.18Z",
+        )
     }
 
     val CloudQueue: ImageVector by lazy {
-        icon("CloudQueue") {
-            moveTo(19.35f, 10.04f)
-            curveTo(18.67f, 6.59f, 15.64f, 4.0f, 12.0f, 4.0f)
-            curveTo(9.11f, 4.0f, 6.6f, 5.64f, 5.35f, 8.04f)
-            curveTo(2.34f, 8.36f, 0.0f, 10.91f, 0.0f, 14.0f)
-            curveToRelative(0.0f, 3.31f, 2.69f, 6.0f, 6.0f, 6.0f)
-            horizontalLineToRelative(13.0f)
-            curveToRelative(2.76f, 0.0f, 5.0f, -2.24f, 5.0f, -5.0f)
-            curveToRelative(0.0f, -2.64f, -2.05f, -4.78f, -4.65f, -4.96f)
-            close()
-            moveTo(19.0f, 18.0f)
-            horizontalLineTo(6.0f)
-            curveToRelative(-2.21f, 0.0f, -4.0f, -1.79f, -4.0f, -4.0f)
-            reflectiveCurveToRelative(1.79f, -4.0f, 4.0f, -4.0f)
-            horizontalLineToRelative(0.71f)
-            curveTo(7.37f, 7.69f, 9.48f, 6.0f, 12.0f, 6.0f)
-            curveToRelative(3.04f, 0.0f, 5.5f, 2.46f, 5.5f, 5.5f)
-            verticalLineToRelative(0.5f)
-            horizontalLineTo(19.0f)
-            curveToRelative(1.66f, 0.0f, 3.0f, 1.34f, 3.0f, 3.0f)
-            reflectiveCurveToRelative(-1.34f, 3.0f, -3.0f, 3.0f)
-            close()
-        }
+        pathIcon(
+            "CloudQueue",
+            "M19.35 10.04C18.67 6.59 15.64 4 12 4C9.11 4 6.6 5.64 5.35 8.04C2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 " +
+            "6h13c2.76 0 5 -2.24 5 -5c0 -2.64 -2.05 -4.78 -4.65 -4.96ZM19 18H6c-2.21 0 -4 -1.79 -4 -4s1.79 -4 4 " +
+            "-4h0.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v0.5H19c1.66 0 3 1.34 3 3s-1.34 3 -3 3Z",
+        )
     }
 
     val CloudUpload: ImageVector by lazy {
-        icon("CloudUpload") {
-            moveTo(19.35f, 10.04f)
-            curveTo(18.67f, 6.59f, 15.64f, 4.0f, 12.0f, 4.0f)
-            curveTo(9.11f, 4.0f, 6.6f, 5.64f, 5.35f, 8.04f)
-            curveTo(2.34f, 8.36f, 0.0f, 10.91f, 0.0f, 14.0f)
-            curveToRelative(0.0f, 3.31f, 2.69f, 6.0f, 6.0f, 6.0f)
-            horizontalLineToRelative(13.0f)
-            curveToRelative(2.76f, 0.0f, 5.0f, -2.24f, 5.0f, -5.0f)
-            curveToRelative(0.0f, -2.64f, -2.05f, -4.78f, -4.65f, -4.96f)
-            close()
-            moveTo(19.0f, 18.0f)
-            horizontalLineTo(6.0f)
-            curveToRelative(-2.21f, 0.0f, -4.0f, -1.79f, -4.0f, -4.0f)
-            curveToRelative(0.0f, -2.05f, 1.53f, -3.76f, 3.56f, -3.97f)
-            lineToRelative(1.07f, -0.11f)
-            lineToRelative(0.5f, -0.95f)
-            curveTo(8.08f, 7.14f, 9.94f, 6.0f, 12.0f, 6.0f)
-            curveToRelative(2.62f, 0.0f, 4.88f, 1.86f, 5.39f, 4.43f)
-            lineToRelative(0.3f, 1.5f)
-            lineToRelative(1.53f, 0.11f)
-            curveToRelative(1.56f, 0.1f, 2.78f, 1.41f, 2.78f, 2.96f)
-            curveToRelative(0.0f, 1.65f, -1.35f, 3.0f, -3.0f, 3.0f)
-            close()
-            moveTo(8.0f, 13.0f)
-            horizontalLineToRelative(2.55f)
-            verticalLineToRelative(3.0f)
-            horizontalLineToRelative(2.9f)
-            verticalLineToRelative(-3.0f)
-            horizontalLineTo(16.0f)
-            lineToRelative(-4.0f, -4.0f)
-            close()
-        }
+        pathIcon(
+            "CloudUpload",
+            "M19.35 10.04C18.67 6.59 15.64 4 12 4C9.11 4 6.6 5.64 5.35 8.04C2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 " +
+            "6h13c2.76 0 5 -2.24 5 -5c0 -2.64 -2.05 -4.78 -4.65 -4.96ZM14 13v4h-4v-4H7l4.65 -4.65c0.2 -0.2 0.51 -0.2 0.71 " +
+            "0L17 13h-3Z",
+        )
     }
 
     val DeleteOutline: ImageVector by lazy {
-        icon("DeleteOutline") {
-            moveTo(6.0f, 19.0f)
-            curveToRelative(0.0f, 1.1f, 0.9f, 2.0f, 2.0f, 2.0f)
-            horizontalLineToRelative(8.0f)
-            curveToRelative(1.1f, 0.0f, 2.0f, -0.9f, 2.0f, -2.0f)
-            lineTo(18.0f, 7.0f)
-            lineTo(6.0f, 7.0f)
-            verticalLineToRelative(12.0f)
-            close()
-            moveTo(8.0f, 9.0f)
-            horizontalLineToRelative(8.0f)
-            verticalLineToRelative(10.0f)
-            lineTo(8.0f, 19.0f)
-            lineTo(8.0f, 9.0f)
-            close()
-            moveTo(15.5f, 4.0f)
-            lineToRelative(-1.0f, -1.0f)
-            horizontalLineToRelative(-5.0f)
-            lineToRelative(-1.0f, 1.0f)
-            lineTo(5.0f, 4.0f)
-            verticalLineToRelative(2.0f)
-            horizontalLineToRelative(14.0f)
-            lineTo(19.0f, 4.0f)
-            horizontalLineToRelative(-3.5f)
-            close()
-        }
+        pathIcon(
+            "DeleteOutline",
+            "M6 19c0 1.1 0.9 2 2 2h8c1.1 0 2 -0.9 2 -2L18 9c0 -1.1 -0.9 -2 -2 -2L8 7c-1.1 0 -2 0.9 -2 2v10ZM9 9h6c0.55 0 1 " +
+            "0.45 1 1v8c0 0.55 -0.45 1 -1 1L9 19c-0.55 0 -1 -0.45 -1 -1v-8c0 -0.55 0.45 -1 1 -1ZM15.5 4l-0.71 -0.71c-0.18 " +
+            "-0.18 -0.44 -0.29 -0.7 -0.29L9.91 3c-0.26 0 -0.52 0.11 -0.7 0.29L8.5 4L6 4c-0.55 0 -1 0.45 -1 1s0.45 1 1 " +
+            "1h12c0.55 0 1 -0.45 1 -1s-0.45 -1 -1 -1h-2.5Z",
+        )
     }
 
     val DeleteSweep: ImageVector by lazy {
-        icon("DeleteSweep") {
-            moveTo(15.0f, 16.0f)
-            horizontalLineToRelative(4.0f)
-            verticalLineToRelative(2.0f)
-            horizontalLineToRelative(-4.0f)
-            close()
-            moveTo(15.0f, 8.0f)
-            horizontalLineToRelative(7.0f)
-            verticalLineToRelative(2.0f)
-            horizontalLineToRelative(-7.0f)
-            close()
-            moveTo(15.0f, 12.0f)
-            horizontalLineToRelative(6.0f)
-            verticalLineToRelative(2.0f)
-            horizontalLineToRelative(-6.0f)
-            close()
-            moveTo(3.0f, 18.0f)
-            curveToRelative(0.0f, 1.1f, 0.9f, 2.0f, 2.0f, 2.0f)
-            horizontalLineToRelative(6.0f)
-            curveToRelative(1.1f, 0.0f, 2.0f, -0.9f, 2.0f, -2.0f)
-            lineTo(13.0f, 8.0f)
-            lineTo(3.0f, 8.0f)
-            verticalLineToRelative(10.0f)
-            close()
-            moveTo(5.0f, 10.0f)
-            horizontalLineToRelative(6.0f)
-            verticalLineToRelative(8.0f)
-            lineTo(5.0f, 18.0f)
-            verticalLineToRelative(-8.0f)
-            close()
-            moveTo(10.0f, 4.0f)
-            lineTo(6.0f, 4.0f)
-            lineTo(5.0f, 5.0f)
-            lineTo(2.0f, 5.0f)
-            verticalLineToRelative(2.0f)
-            horizontalLineToRelative(12.0f)
-            lineTo(14.0f, 5.0f)
-            horizontalLineToRelative(-3.0f)
-            close()
-        }
+        pathIcon(
+            "DeleteSweep",
+            "M16 16h2c0.55 0 1 0.45 1 1s-0.45 1 -1 1h-2c-0.55 0 -1 -0.45 -1 -1s0.45 -1 1 -1ZM16 8h5c0.55 0 1 0.45 1 " +
+            "1s-0.45 1 -1 1h-5c-0.55 0 -1 -0.45 -1 -1s0.45 -1 1 -1ZM16 12h4c0.55 0 1 0.45 1 1s-0.45 1 -1 1h-4c-0.55 0 -1 " +
+            "-0.45 -1 -1s0.45 -1 1 -1ZM3 18c0 1.1 0.9 2 2 2h6c1.1 0 2 -0.9 2 -2L13 8L3 8v10ZM13 5h-2l-0.71 -0.71c-0.18 " +
+            "-0.18 -0.44 -0.29 -0.7 -0.29L6.41 4c-0.26 0 -0.52 0.11 -0.7 0.29L5 5L3 5c-0.55 0 -1 0.45 -1 1s0.45 1 1 " +
+            "1h10c0.55 0 1 -0.45 1 -1s-0.45 -1 -1 -1Z",
+        )
     }
 
     val DownloadForOffline: ImageVector by lazy {
-        icon("DownloadForOffline") {
-            moveTo(12.0f, 2.0f)
-            curveTo(6.49f, 2.0f, 2.0f, 6.49f, 2.0f, 12.0f)
-            reflectiveCurveToRelative(4.49f, 10.0f, 10.0f, 10.0f)
-            reflectiveCurveToRelative(10.0f, -4.49f, 10.0f, -10.0f)
-            reflectiveCurveTo(17.51f, 2.0f, 12.0f, 2.0f)
-            close()
-            moveTo(12.0f, 20.0f)
-            curveToRelative(-4.41f, 0.0f, -8.0f, -3.59f, -8.0f, -8.0f)
-            reflectiveCurveToRelative(3.59f, -8.0f, 8.0f, -8.0f)
-            reflectiveCurveToRelative(8.0f, 3.59f, 8.0f, 8.0f)
-            reflectiveCurveTo(16.41f, 20.0f, 12.0f, 20.0f)
-            close()
-            moveTo(14.59f, 8.59f)
-            lineTo(16.0f, 10.0f)
-            lineToRelative(-4.0f, 4.0f)
-            lineToRelative(-4.0f, -4.0f)
-            lineToRelative(1.41f, -1.41f)
-            lineTo(11.0f, 10.17f)
-            verticalLineTo(6.0f)
-            horizontalLineToRelative(2.0f)
-            verticalLineToRelative(4.17f)
-            lineTo(14.59f, 8.59f)
-            close()
-            moveTo(17.0f, 17.0f)
-            horizontalLineTo(7.0f)
-            verticalLineToRelative(-2.0f)
-            horizontalLineToRelative(10.0f)
-            verticalLineTo(17.0f)
-            close()
-        }
+        pathIcon(
+            "DownloadForOffline",
+            "M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10s10 -4.49 10 -10S17.51 2 12 2ZM11 10V7c0 -0.55 0.45 -1 1 -1h0c0.55 0 1 " +
+            "0.45 1 1v3h1.79c0.45 0 0.67 0.54 0.35 0.85l-2.79 2.79c-0.2 0.2 -0.51 0.2 -0.71 0l-2.79 -2.79C8.54 10.54 8.76 " +
+            "10 9.21 10H11ZM16 17H8c-0.55 0 -1 -0.45 -1 -1v0c0 -0.55 0.45 -1 1 -1h8c0.55 0 1 0.45 1 1v0C17 16.55 16.55 17 " +
+            "16 17Z",
+        )
     }
 
-    /** Material "cloud_off": an item that cannot be backed up. */
     val CloudOff: ImageVector by lazy {
-        icon("CloudOff") {
-            moveTo(19.35f, 10.04f)
-            curveTo(18.67f, 6.59f, 15.64f, 4.0f, 12.0f, 4.0f)
-            curveToRelative(-1.48f, 0.0f, -2.85f, 0.43f, -4.01f, 1.17f)
-            lineToRelative(1.46f, 1.46f)
-            curveTo(10.21f, 6.23f, 11.08f, 6.0f, 12.0f, 6.0f)
-            curveToRelative(3.04f, 0.0f, 5.5f, 2.46f, 5.5f, 5.5f)
-            verticalLineToRelative(0.5f)
-            horizontalLineTo(19.0f)
-            curveToRelative(1.66f, 0.0f, 3.0f, 1.34f, 3.0f, 3.0f)
-            curveToRelative(0.0f, 1.13f, -0.64f, 2.11f, -1.56f, 2.62f)
-            lineToRelative(1.45f, 1.45f)
-            curveTo(23.16f, 18.16f, 24.0f, 16.68f, 24.0f, 15.0f)
-            curveToRelative(0.0f, -2.64f, -2.05f, -4.78f, -4.65f, -4.96f)
-            close()
-            moveTo(3.0f, 5.27f)
-            lineToRelative(2.75f, 2.74f)
-            curveTo(2.56f, 8.15f, 0.0f, 10.77f, 0.0f, 14.0f)
-            curveToRelative(0.0f, 3.31f, 2.69f, 6.0f, 6.0f, 6.0f)
-            horizontalLineToRelative(11.73f)
-            lineToRelative(2.0f, 2.0f)
-            lineTo(21.0f, 20.73f)
-            lineTo(4.27f, 4.0f)
-            lineTo(3.0f, 5.27f)
-            close()
-            moveTo(7.73f, 10.0f)
-            lineToRelative(8.0f, 8.0f)
-            horizontalLineTo(6.0f)
-            curveToRelative(-2.21f, 0.0f, -4.0f, -1.79f, -4.0f, -4.0f)
-            reflectiveCurveToRelative(1.79f, -4.0f, 4.0f, -4.0f)
-            horizontalLineToRelative(1.73f)
-            close()
-        }
+        pathIcon(
+            "CloudOff",
+            "M24 15c0 -2.64 -2.05 -4.78 -4.65 -4.96C18.67 6.59 15.64 4 12 4c-1.33 0 -2.57 0.36 -3.65 0.97l1.49 1.49C10.51 " +
+            "6.17 11.23 6 12 6c3.04 0 5.5 2.46 5.5 5.5v0.5H19c1.66 0 3 1.34 3 3c0 0.99 -0.48 1.85 -1.21 2.4l1.41 1.41c1.09 " +
+            "-0.92 1.8 -2.27 1.8 -3.81ZM3.71 4.56c-0.39 0.39 -0.39 1.02 0 1.41l2.06 2.06h-0.42c-3.28 0.35 -5.76 3.34 -5.29 " +
+            "6.79C0.46 17.84 3.19 20 6.22 20h11.51l1.29 1.29c0.39 0.39 1.02 0.39 1.41 0c0.39 -0.39 0.39 -1.02 0 -1.41L5.12 " +
+            "4.56c-0.39 -0.39 -1.02 -0.39 -1.41 0ZM6 18c-2.21 0 -4 -1.79 -4 -4s1.79 -4 4 -4h1.73l8 8H6Z",
+        )
     }
 
     val ErrorOutline: ImageVector by lazy {
-        icon("ErrorOutline") {
-            moveTo(11.0f, 15.0f)
-            horizontalLineToRelative(2.0f)
-            verticalLineToRelative(2.0f)
-            horizontalLineToRelative(-2.0f)
-            verticalLineToRelative(-2.0f)
-            close()
-            moveTo(11.0f, 7.0f)
-            horizontalLineToRelative(2.0f)
-            verticalLineToRelative(6.0f)
-            horizontalLineToRelative(-2.0f)
-            lineTo(11.0f, 7.0f)
-            close()
-            moveTo(11.99f, 2.0f)
-            curveTo(6.47f, 2.0f, 2.0f, 6.48f, 2.0f, 12.0f)
-            reflectiveCurveToRelative(4.47f, 10.0f, 9.99f, 10.0f)
-            curveTo(17.52f, 22.0f, 22.0f, 17.52f, 22.0f, 12.0f)
-            reflectiveCurveTo(17.52f, 2.0f, 11.99f, 2.0f)
-            close()
-            moveTo(12.0f, 20.0f)
-            curveToRelative(-4.42f, 0.0f, -8.0f, -3.58f, -8.0f, -8.0f)
-            reflectiveCurveToRelative(3.58f, -8.0f, 8.0f, -8.0f)
-            reflectiveCurveToRelative(8.0f, 3.58f, 8.0f, 8.0f)
-            reflectiveCurveToRelative(-3.58f, 8.0f, -8.0f, 8.0f)
-            close()
-        }
+        pathIcon(
+            "ErrorOutline",
+            "M12 7c0.55 0 1 0.45 1 1v4c0 0.55 -0.45 1 -1 1s-1 -0.45 -1 -1L11 8c0 -0.55 0.45 -1 1 -1ZM11.99 2C6.47 2 2 6.48 " +
+            "2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2ZM12 20c-4.42 0 -8 -3.58 -8 -8s3.58 -8 8 -8s8 " +
+            "3.58 8 8s-3.58 8 -8 8ZM13 17h-2v-2h2v2Z",
+        )
     }
 
     val PhoneAndroid: ImageVector by lazy {
-        icon("PhoneAndroid") {
-            moveTo(16.0f, 1.0f)
-            lineTo(8.0f, 1.0f)
-            curveTo(6.34f, 1.0f, 5.0f, 2.34f, 5.0f, 4.0f)
-            verticalLineToRelative(16.0f)
-            curveToRelative(0.0f, 1.66f, 1.34f, 3.0f, 3.0f, 3.0f)
-            horizontalLineToRelative(8.0f)
-            curveToRelative(1.66f, 0.0f, 3.0f, -1.34f, 3.0f, -3.0f)
-            lineTo(19.0f, 4.0f)
-            curveToRelative(0.0f, -1.66f, -1.34f, -3.0f, -3.0f, -3.0f)
-            close()
-            moveTo(17.0f, 18.0f)
-            lineTo(7.0f, 18.0f)
-            lineTo(7.0f, 4.0f)
-            horizontalLineToRelative(10.0f)
-            verticalLineToRelative(14.0f)
-            close()
-            moveTo(14.0f, 21.0f)
-            horizontalLineToRelative(-4.0f)
-            verticalLineToRelative(-1.0f)
-            horizontalLineToRelative(4.0f)
-            verticalLineToRelative(1.0f)
-            close()
-        }
+        pathIcon(
+            "PhoneAndroid",
+            "M16 1L8 1C6.34 1 5 2.34 5 4v16c0 1.66 1.34 3 3 3h8c1.66 0 3 -1.34 3 -3L19 4c0 -1.66 -1.34 -3 -3 -3ZM13.5 " +
+            "21h-3c-0.28 0 -0.5 -0.22 -0.5 -0.5s0.22 -0.5 0.5 -0.5h3c0.28 0 0.5 0.22 0.5 0.5s-0.22 0.5 -0.5 0.5ZM17 18L7 " +
+            "18L7 4h10v14Z",
+        )
     }
 
-    /** Arrows up and down: a sort order. */
     val SwapVert: ImageVector by lazy {
-        icon("SwapVert") {
-            moveTo(16f, 17.01f); verticalLineTo(10f); horizontalLineToRelative(-2f); verticalLineToRelative(7.01f); horizontalLineToRelative(-3f)
-            lineTo(15f, 21f); lineToRelative(4f, -3.99f); horizontalLineToRelative(-3f); close()
-            moveTo(9f, 3f); lineTo(5f, 6.99f); horizontalLineToRelative(3f); verticalLineTo(14f); horizontalLineToRelative(2f)
-            verticalLineTo(6.99f); horizontalLineToRelative(3f); lineTo(9f, 3f); close()
-        }
+        pathIcon(
+            "SwapVert",
+            "M16 17.01V11c0 -0.55 -0.45 -1 -1 -1s-1 0.45 -1 1v6.01h-1.79c-0.45 0 -0.67 0.54 -0.35 0.85l2.79 2.78c0.2 0.19 " +
+            "0.51 0.19 0.71 0l2.79 -2.78c0.32 -0.31 0.09 -0.85 -0.35 -0.85H16ZM8.65 3.35L5.86 6.14c-0.32 0.31 -0.1 0.85 " +
+            "0.35 0.85H8V13c0 0.55 0.45 1 1 1s1 -0.45 1 -1V6.99h1.79c0.45 0 0.67 -0.54 0.35 -0.85L9.35 3.35c-0.19 -0.19 " +
+            "-0.51 -0.19 -0.7 0Z",
+        )
     }
 
-    /** Material's cloud_sync: a cloud with circling arrows, for uploads and other iCloud activity. */
     val CloudSync: ImageVector by lazy {
-        pathIcon("CloudSync", "M21.5 14.98c-.02 0-.03 0-.05.01C21.2 13.3 19.76 12 18 12c-1.4 0-2.6.83-3.16 2.02" +
-            "C13.26 14.1 12 15.4 12 17c0 1.66 1.34 3 3 3l6.5-.02c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5z" +
-            "m.01 3.02H15c-.55 0-1-.45-1-1s.45-1 1-1h1.25v-.25c0-.97.78-1.75 1.75-1.75s1.75.78 1.75 1.75V17" +
-            "s1.25 0 1.26.01c.27 0 .49.22.49.49 0 .27-.22.5-.49.5z" +
-            "M10 4.26v2.09C7.67 7.18 6 9.39 6 12c0 1.77.78 3.34 2 4.44V14h2v6H4v-2h2.73C5.06 16.54 4 14.4 4 12" +
-            "c0-3.73 2.55-6.85 6-7.74zM20 6h-2.73c1.43 1.26 2.41 3.01 2.66 5l-2.02.01C17.68 9.64 16.98 8.45 16 7.56V10h-2V4h6v2z")
+        pathIcon(
+            "CloudSync",
+            "M24 17.48c0 1.38 -1.12 2.5 -2.5 2.5L15 20c-1.66 0 -3 -1.34 -3 -3c0 -1.6 1.26 -2.9 2.84 -2.98C15.4 12.83 16.6 " +
+            "12 18 12c1.76 0 3.2 1.3 3.45 2.99c0.02 0 0.03 -0.01 0.05 -0.01C22.88 14.98 24 16.1 24 17.48ZM10 15c0 -0.55 " +
+            "-0.45 -1 -1 -1s-1 0.45 -1 1v1.44c-1.22 -1.1 -2 -2.67 -2 -4.44c0 -2.38 1.39 -4.43 3.4 -5.4C9.77 6.42 10 6.04 " +
+            "10 5.63c0 -0.71 -0.73 -1.18 -1.37 -0.88C5.89 6.03 4 8.79 4 12c0 2.4 1.06 4.54 2.73 6H5c-0.55 0 -1 0.45 -1 " +
+            "1s0.45 1 1 1h4c0.55 0 1 -0.45 1 -1V15ZM19 6c0.55 0 1 -0.45 1 -1s-0.45 -1 -1 -1h-4c-0.55 0 -1 0.45 -1 1v4c0 " +
+            "0.55 0.45 1 1 1s1 -0.45 1 -1V7.56c0.98 0.89 1.68 2.08 1.92 3.44l2.02 0c-0.25 -1.99 -1.23 -3.74 -2.66 -5H19Z",
+        )
     }
 
-    /** A tray with an arrow into it: saving a copy onto this phone. */
     val SaveAlt: ImageVector by lazy {
-        icon("SaveAlt") {
-            moveTo(19f, 12f); verticalLineToRelative(7f); horizontalLineTo(5f); verticalLineToRelative(-7f); horizontalLineTo(3f)
-            verticalLineToRelative(7f); curveToRelative(0f, 1.1f, 0.9f, 2f, 2f, 2f); horizontalLineToRelative(14f)
-            curveToRelative(1.1f, 0f, 2f, -0.9f, 2f, -2f); verticalLineToRelative(-7f); horizontalLineToRelative(-2f); close()
-            moveTo(13f, 12.67f); lineToRelative(2.59f, -2.58f); lineTo(17f, 11.5f); lineToRelative(-5f, 5f); lineToRelative(-5f, -5f)
-            lineToRelative(1.41f, -1.41f); lineTo(11f, 12.67f); verticalLineTo(3f); horizontalLineToRelative(2f); close()
-        }
+        pathIcon(
+            "SaveAlt",
+            "M19 13v5c0 0.55 -0.45 1 -1 1L6 19c-0.55 0 -1 -0.45 -1 -1v-5c0 -0.55 -0.45 -1 -1 -1s-1 0.45 -1 1v6c0 1.1 0.9 2 " +
+            "2 2h14c1.1 0 2 -0.9 2 -2v-6c0 -0.55 -0.45 -1 -1 -1s-1 0.45 -1 1ZM13 12.67l1.88 -1.88c0.39 -0.39 1.02 -0.39 " +
+            "1.41 0c0.39 0.39 0.39 1.02 0 1.41l-3.59 3.59c-0.39 0.39 -1.02 0.39 -1.41 0L7.7 12.2c-0.39 -0.39 -0.39 -1.02 0 " +
+            "-1.41c0.39 -0.39 1.02 -0.39 1.41 0L11 12.67L11 4c0 -0.55 0.45 -1 1 -1s1 0.45 1 1v8.67Z",
+        )
     }
 
     val PhotoLibrary: ImageVector by lazy {
-        icon("PhotoLibrary") {
-            moveTo(20.0f, 4.0f)
-            verticalLineToRelative(12.0f)
-            lineTo(8.0f, 16.0f)
-            lineTo(8.0f, 4.0f)
-            horizontalLineToRelative(12.0f)
-            moveToRelative(0.0f, -2.0f)
-            lineTo(8.0f, 2.0f)
-            curveToRelative(-1.1f, 0.0f, -2.0f, 0.9f, -2.0f, 2.0f)
-            verticalLineToRelative(12.0f)
-            curveToRelative(0.0f, 1.1f, 0.9f, 2.0f, 2.0f, 2.0f)
-            horizontalLineToRelative(12.0f)
-            curveToRelative(1.1f, 0.0f, 2.0f, -0.9f, 2.0f, -2.0f)
-            lineTo(22.0f, 4.0f)
-            curveToRelative(0.0f, -1.1f, -0.9f, -2.0f, -2.0f, -2.0f)
-            close()
-            moveTo(11.5f, 11.67f)
-            lineToRelative(1.69f, 2.26f)
-            lineToRelative(2.48f, -3.1f)
-            lineTo(19.0f, 15.0f)
-            lineTo(9.0f, 15.0f)
-            close()
-            moveTo(2.0f, 6.0f)
-            verticalLineToRelative(14.0f)
-            curveToRelative(0.0f, 1.1f, 0.9f, 2.0f, 2.0f, 2.0f)
-            horizontalLineToRelative(14.0f)
-            verticalLineToRelative(-2.0f)
-            lineTo(4.0f, 20.0f)
-            lineTo(4.0f, 6.0f)
-            lineTo(2.0f, 6.0f)
-            close()
-        }
+        pathIcon(
+            "PhotoLibrary",
+            "M22 16L22 4c0 -1.1 -0.9 -2 -2 -2L8 2c-1.1 0 -2 0.9 -2 2v12c0 1.1 0.9 2 2 2h12c1.1 0 2 -0.9 2 -2ZM11.4 " +
+            "12.53l1.63 2.18l2.58 -3.22c0.2 -0.25 0.58 -0.25 0.78 0l2.96 3.7c0.26 0.33 0.03 0.81 -0.39 0.81L9 16c-0.41 0 " +
+            "-0.65 -0.47 -0.4 -0.8l2 -2.67c0.2 -0.26 0.6 -0.26 0.8 0ZM2 7v13c0 1.1 0.9 2 2 2h13c0.55 0 1 -0.45 1 -1s-0.45 " +
+            "-1 -1 -1L5 20c-0.55 0 -1 -0.45 -1 -1L4 7c0 -0.55 -0.45 -1 -1 -1s-1 0.45 -1 1Z",
+        )
     }
 
     val Print: ImageVector by lazy {
-        pathIcon("Print", "M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1" +
-            " 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z")
+        pathIcon(
+            "Print",
+            "M19 8L5 8c-1.66 0 -3 1.34 -3 3v4c0 1.1 0.9 2 2 2h2v2c0 1.1 0.9 2 2 2h8c1.1 0 2 -0.9 2 -2v-2h2c1.1 0 2 -0.9 2 " +
+            "-2v-4c0 -1.66 -1.34 -3 -3 -3ZM15 19L9 19c-0.55 0 -1 -0.45 -1 -1v-4h8v4c0 0.55 -0.45 1 -1 1ZM19 12c-0.55 0 -1 " +
+            "-0.45 -1 -1s0.45 -1 1 -1s1 0.45 1 1s-0.45 1 -1 1ZM17 3L7 3c-0.55 0 -1 0.45 -1 1v2c0 0.55 0.45 1 1 1h10c0.55 0 " +
+            "1 -0.45 1 -1L18 4c0 -0.55 -0.45 -1 -1 -1Z",
+        )
     }
 
     val Visibility: ImageVector by lazy {
-        pathIcon("Visibility", "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5z" +
-            "M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z")
+        pathIcon(
+            "Visibility",
+            "M12 4C7 4 2.73 7.11 1 11.5C2.73 15.89 7 19 12 19s9.27 -3.11 11 -7.5C21.27 7.11 17 4 12 4ZM12 16.5c-2.76 0 -5 " +
+            "-2.24 -5 -5s2.24 -5 5 -5s5 2.24 5 5s-2.24 5 -5 5ZM12 8.5c-1.66 0 -3 1.34 -3 3s1.34 3 3 3s3 -1.34 3 -3s-1.34 " +
+            "-3 -3 -3Z",
+        )
     }
 
     val VisibilityOff: ImageVector by lazy {
-        pathIcon("VisibilityOff", "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75" +
-            "-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46" +
-            "C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27z" +
-            "M7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53" +
-            "-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z")
+        pathIcon(
+            "VisibilityOff",
+            "M12 6.5c2.76 0 5 2.24 5 5c0 0.51 -0.1 1 -0.24 1.46l3.06 3.06c1.39 -1.23 2.49 -2.77 3.18 -4.53C21.27 7.11 17 4 " +
+            "12 4c-1.27 0 -2.49 0.2 -3.64 0.57l2.17 2.17c0.47 -0.14 0.96 -0.24 1.47 -0.24ZM2.71 3.16c-0.39 0.39 -0.39 1.02 " +
+            "0 1.41l1.97 1.97C3.06 7.83 1.77 9.53 1 11.5C2.73 15.89 7 19 12 19c1.52 0 2.97 -0.3 4.31 -0.82l2.72 2.72c0.39 " +
+            "0.39 1.02 0.39 1.41 0c0.39 -0.39 0.39 -1.02 0 -1.41L4.13 3.16c-0.39 -0.39 -1.03 -0.39 -1.42 0ZM12 16.5c-2.76 " +
+            "0 -5 -2.24 -5 -5c0 -0.77 0.18 -1.5 0.49 -2.14l1.57 1.57c-0.03 0.18 -0.06 0.37 -0.06 0.57c0 1.66 1.34 3 3 " +
+            "3c0.2 0 0.38 -0.03 0.57 -0.07L14.14 16c-0.65 0.32 -1.37 0.5 -2.14 0.5ZM14.97 11.17c-0.15 -1.4 -1.25 -2.49 " +
+            "-2.64 -2.64l2.64 2.64Z",
+        )
     }
 
-    /** Material's outlined VpnKey: a key, for password fields. */
     val Key: ImageVector by lazy {
-        pathIcon("Key", "M22 19h-6v-4h-2.68c-1.14 2.42-3.6 4-6.32 4-3.86 0-7-3.14-7-7s3.14-7 7-7c2.72 0 5.17 1.58 6.32 4H24v6h-2v4z" +
-            "m-4-2h2v-4h2v-2H11.94l-.23-.67C11.01 8.34 9.11 7 7 7c-2.76 0-5 2.24-5 5s2.24 5 5 5c2.11 0 4.01-1.34 4.71-3.33" +
-            "l.23-.67H18v4zM7 15c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3zm0-4c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1" +
-            "-.45-1-1-1z")
+        pathIcon(
+            "Key",
+            "M12.65 10C11.7 7.31 8.9 5.5 5.77 6.12c-2.29 0.46 -4.15 2.29 -4.63 4.58C0.32 14.57 3.26 18 7 18c2.61 0 4.83 " +
+            "-1.67 5.65 -4H17v2c0 1.1 0.9 2 2 2s2 -0.9 2 -2v-2c1.1 0 2 -0.9 2 -2s-0.9 -2 -2 -2h-8.35ZM7 14c-1.1 0 -2 -0.9 " +
+            "-2 -2s0.9 -2 2 -2s2 0.9 2 2s-0.9 2 -2 2Z",
+        )
     }
 }
 
@@ -446,30 +237,11 @@ private fun pathIcon(name: String, pathData: String): ImageVector = ImageVector.
     name = "Alba.$name", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f,
 ).addPath(pathData = addPathNodes(pathData), fill = SolidColor(Color.Black)).build()
 
-private fun icon(name: String, pathBuilder: PathBuilder.() -> Unit): ImageVector = ImageVector.Builder(
-    name = "Alba.$name",
-    defaultWidth = 24.dp,
-    defaultHeight = 24.dp,
-    viewportWidth = 24f,
-    viewportHeight = 24f,
-).apply {
-    path(
-        fill = SolidColor(Color.Black),
-        stroke = null,
-        strokeLineWidth = 0f,
-        strokeLineCap = StrokeCap.Butt,
-        strokeLineJoin = StrokeJoin.Bevel,
-        strokeLineMiter = 4f,
-        pathFillType = PathFillType.NonZero,
-        pathBuilder = pathBuilder,
-    )
-}.build()
-
 /** Favourites are a heart everywhere: filled in the favourite red when set, outlined in the content colour when not. */
 @Composable
 internal fun FavoriteIcon(favorite: Boolean, contentDescription: String?, modifier: Modifier = Modifier,
     tint: Color = if (favorite) AlbaTheme.colors.favorite else LocalContentColor.current) {
-    Icon(if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, contentDescription, modifier, tint)
+    Icon(if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, contentDescription, modifier, tint)
 }
 
 /** An iCloud collection or media-type glyph, in the primary colour (at least 3:1 on every surface). */

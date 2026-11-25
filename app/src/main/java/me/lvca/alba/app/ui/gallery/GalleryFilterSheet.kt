@@ -7,7 +7,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -155,7 +155,7 @@ private fun FilterMenuRow(label: String, selected: Boolean, onClick: () -> Unit,
         leading = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
                 Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
-                    if (selected) Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary)
+                    if (selected) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                 }
                 if (icon != null) CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) { icon() }
             }

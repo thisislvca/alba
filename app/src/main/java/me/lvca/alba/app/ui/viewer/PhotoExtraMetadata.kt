@@ -5,7 +5,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -122,7 +122,7 @@ private fun PhotoLocation(details: MediaDetails, modifier: Modifier) {
             try { context.startActivity(Intent(Intent.ACTION_VIEW, geoUri(latitude, longitude).toUri())) }
             catch (_: ActivityNotFoundException) { Toast.makeText(context, noMaps, Toast.LENGTH_SHORT).show() }
         }, modifier = Modifier.padding(top = 4.dp).testTag("open-in-maps")) {
-            Icon(Icons.Outlined.Place, null, Modifier.size(AlbaIconSize.inline))
+            Icon(Icons.Rounded.Place, null, Modifier.size(AlbaIconSize.inline))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.open_in_maps))
         }

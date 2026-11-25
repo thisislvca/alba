@@ -10,8 +10,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -231,7 +231,7 @@ internal fun AlbumHero(album: GalleryCollection, summary: CollectionPreview?, re
                             colors = ButtonDefaults.textButtonColors(contentColor = onMedia)) {
                             Text(subtitle, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false))
-                            Icon(Icons.Outlined.Info, stringResource(R.string.shared_album_info),
+                            Icon(Icons.Rounded.Info, stringResource(R.string.shared_album_info),
                                 Modifier.padding(start = 6.dp).size(AlbaIconSize.inline))
                         } else Text(subtitle, color = onMedia, style = MaterialTheme.typography.bodyLarge)
                     }
@@ -241,7 +241,7 @@ internal fun AlbumHero(album: GalleryCollection, summary: CollectionPreview?, re
                     if (view != null) {
                         Spacer(Modifier.width(8.dp))
                         FilledIconButton(onClick = view, modifier = Modifier.size(48.dp), colors = mediaButton) {
-                            Icon(Icons.Filled.PlayArrow, stringResource(R.string.view_album))
+                            Icon(Icons.Rounded.PlayArrow, stringResource(R.string.view_album))
                         }
                     }
                 }

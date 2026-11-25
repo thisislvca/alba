@@ -7,10 +7,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +48,7 @@ import me.lvca.alba.engine.model.*
 @Composable
 internal fun SharedAlbumBadge(info: SharedAlbumInfo, click: () -> Unit) {
     AssistChip(onClick = click, label = { Text(stringResource(if (info.generation == SharedAlbumGeneration.MODERN) R.string.shared_new else R.string.shared_legacy)) },
-        leadingIcon = { Icon(Icons.Outlined.Info, null, Modifier.size(AlbaIconSize.inline)) }, modifier = Modifier.testTag("shared-version-badge"))
+        leadingIcon = { Icon(Icons.Rounded.Info, null, Modifier.size(AlbaIconSize.inline)) }, modifier = Modifier.testTag("shared-version-badge"))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,7 +128,7 @@ internal fun SharedContributionPicker(items: List<GalleryMedia>, preview: (Strin
                                 Modifier.fillMaxSize(), sourceRevision = media.sourceRevision)
                             Checkbox(checked = media.id in selected, onCheckedChange = null, modifier = Modifier.align(Alignment.TopEnd))
                             if (media.kind == MediaKind.VIDEO) MediaPill(Modifier.align(Alignment.BottomStart).padding(AlbaSpacing.xs)) {
-                                Icon(Icons.Filled.PlayArrow, null, Modifier.size(AlbaIconSize.badge))
+                                Icon(Icons.Rounded.PlayArrow, null, Modifier.size(AlbaIconSize.badge))
                                 mediaDuration(media.durationMillis)?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
                             }
                         }
@@ -225,12 +225,12 @@ internal fun SharedAlbumEmptyState(addPhotos: (() -> Unit)?, invite: (() -> Unit
             color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         addPhotos?.let {
             Button(onClick = it, modifier = Modifier.semantics { contentDescription = addLabel }.testTag("shared-empty-add")) {
-                Icon(Icons.Outlined.Add, null, Modifier.size(AlbaIconSize.inline)); Spacer(Modifier.width(AlbaSpacing.sm)); Text(addLabel)
+                Icon(Icons.Rounded.Add, null, Modifier.size(AlbaIconSize.inline)); Spacer(Modifier.width(AlbaSpacing.sm)); Text(addLabel)
             }
         }
         invite?.let {
             OutlinedButton(onClick = it, modifier = Modifier.testTag("shared-empty-invite")) {
-                Icon(Icons.Outlined.Person, null, Modifier.size(AlbaIconSize.inline))
+                Icon(Icons.Rounded.Person, null, Modifier.size(AlbaIconSize.inline))
                 Spacer(Modifier.width(AlbaSpacing.sm))
                 Text(stringResource(R.string.shared_invite_people))
             }

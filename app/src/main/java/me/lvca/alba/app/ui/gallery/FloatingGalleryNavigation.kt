@@ -18,7 +18,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -60,7 +60,7 @@ internal enum class GalleryTab(val title: Int) { LIBRARY(R.string.gallery_photos
 internal fun GalleryTab.icon(): Painter = when (this) {
     GalleryTab.LIBRARY -> painterResource(R.drawable.icloud_library)
     GalleryTab.COLLECTIONS -> painterResource(R.drawable.icloud_albums)
-    GalleryTab.SEARCH -> rememberVectorPainter(Icons.Outlined.Search)
+    GalleryTab.SEARCH -> rememberVectorPainter(Icons.Rounded.Search)
 }
 
 private enum class TabDisplayMode { EXPANDED, COMPACT, ICON_ONLY }

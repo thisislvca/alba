@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -69,7 +69,7 @@ internal fun DeviceUploadControls(
                 onClick = onOpenAccount,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Icon(Icons.Outlined.Lock, contentDescription = null)
+                Icon(Icons.Rounded.Lock, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.sign_in_to_upload))
             }
@@ -111,7 +111,7 @@ internal fun DeviceUploadControls(
                             onClick = onOpenAccount,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Icon(Icons.Outlined.Lock, contentDescription = null)
+                            Icon(Icons.Rounded.Lock, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.open_icloud_account))
                         }

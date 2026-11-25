@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -70,7 +70,7 @@ internal fun AlbumChooser(collections: List<GalleryCollection>, dismiss: () -> U
                 else albumChooserEntries(collections, folder)
             }
             if (folder != null) AlbaListRow(stringResource(R.string.back_action), { folder = collections.firstOrNull { it.id == folder }?.parentId },
-                leading = { Icon(Icons.AutoMirrored.Outlined.ArrowBack, null) }, shape = MaterialTheme.shapes.small,
+                leading = { Icon(Icons.AutoMirrored.Rounded.ArrowBack, null) }, shape = MaterialTheme.shapes.small,
                 contentPadding = PaddingValues(horizontal = AlbaSpacing.md, vertical = AlbaSpacing.sm), modifier = Modifier.testTag("album-chooser-up"))
             else if (canCreate && !shared) TextButton(onClick = { creating = true }, modifier = Modifier.fillMaxWidth().testTag("album-chooser-new")) {
                 Text(stringResource(R.string.new_album))

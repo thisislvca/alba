@@ -19,18 +19,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.ExitToApp
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.AccountBox
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.AccountBox
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -392,7 +392,7 @@ internal fun MediaDetailScreen(
                     Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text(timestampLabel(media.capturedAtEpochMillis), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                            IconButton(onClick = { showDetails(false) }) { Icon(Icons.Outlined.Close, stringResource(R.string.close_details)) }
+                            IconButton(onClick = { showDetails(false) }) { Icon(Icons.Rounded.Close, stringResource(R.string.close_details)) }
                         }
                         Spacer(Modifier.height(20.dp))
                         Text(detailsLabel, style = MaterialTheme.typography.titleLarge)
@@ -430,12 +430,12 @@ internal fun MediaDetailScreen(
                                     if (!media.isShared && !media.isTrashed) HideAction(media, canEdit, actions)
                                     BurstAction(media, actions) { showDetails(false) }
                                     if (media.isShared) {
-                                        DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true }, { Icon(Icons.Outlined.Info, null) })
+                                        DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true }, { Icon(Icons.Rounded.Info, null) })
                                         Text(stringResource(R.string.shared_copy_notice), Modifier.padding(18.dp))
                                     }
                                     DetailAction(stringResource(if (media.kind == MediaKind.LIVE_PHOTO) R.string.save_photo_and_video_to_gallery else R.string.save_to_phone_gallery),
                                         !isWorking, { actions.saveToGallery(media) }, { Icon(AlbaIcons.PhoneAndroid, null) })
-                                    DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) }, { Icon(Icons.Outlined.Share, null) })
+                                    DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) }, { Icon(Icons.Rounded.Share, null) })
                                     if (media.kind == MediaKind.LIVE_PHOTO) {
                                         LiveVideoActions(media, !isWorking, actions)
                                         DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,
@@ -502,7 +502,7 @@ private fun ViewerDetailsBackButton(label: String, click: () -> Unit) {
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).padding(start = 12.dp, top = 12.dp)) {
         Surface(shape = CircleShape, color = colors.canvas, contentColor = colors.foreground, shadowElevation = 4.dp) {
             IconButton(onClick = click, modifier = Modifier.size(48.dp).testTag("details-back")) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, label)
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, label)
             }
         }
     }
@@ -530,7 +530,7 @@ private fun ViewerTopBar(
     Box(Modifier.fillMaxWidth().background(colors.canvas).windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).height(64.dp)) {
         IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp).size(48.dp)
             .testTag("floating-viewer-back")) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, backLabel, tint = ink)
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, backLabel, tint = ink)
         }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(dayMonthLabel(media.capturedAtEpochMillis), color = colors.foreground,
@@ -548,18 +548,18 @@ private fun ViewerTopBar(
             }
             Box {
                 IconButton(onClick = onMore, modifier = Modifier.size(48.dp).testTag("viewer-more")) {
-                    Icon(Icons.Outlined.MoreVert, stringResource(R.string.more), tint = ink)
+                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.more), tint = ink)
                 }
                 AlbaMenu(expanded = videoOptionsOpen, onDismissRequest = onDismissVideoOptions,
                     modifier = Modifier.testTag("viewer-more-menu")) {
                     val video = media.kind == MediaKind.VIDEO
                     if (video) {
                         AlbaMenuItem(stringResource(if (videoLoop) R.string.loop_video_on else R.string.loop_video_off),
-                            onClick = onToggleLoop, leadingIcon = { Icon(Icons.Outlined.Refresh, null) })
+                            onClick = onToggleLoop, leadingIcon = { Icon(Icons.Rounded.Refresh, null) })
                         AlbaMenuItem(stringResource(R.string.playback_speed), onClick = onPlaybackSpeed,
-                            leadingIcon = { Icon(Icons.Outlined.PlayArrow, null) })
+                            leadingIcon = { Icon(Icons.Rounded.PlayArrow, null) })
                     } else AlbaMenuItem(stringResource(R.string.details), onClick = onDetails,
-                        leadingIcon = { Icon(Icons.Outlined.Info, null) }, modifier = Modifier.testTag("viewer-menu-details"))
+                        leadingIcon = { Icon(Icons.Rounded.Info, null) }, modifier = Modifier.testTag("viewer-menu-details"))
                     AlbaMenuDivider()
                     // Copies of the original for other apps; an iCloud original downloads first, with progress.
                     val uses = if (video) listOf(ExternalUse.OPEN_WITH, ExternalUse.EDIT_IN) else ExternalUse.entries
@@ -581,9 +581,9 @@ private val ExternalUse.label: Int get() = when (this) {
 }
 
 private val ExternalUse.icon: ImageVector get() = when (this) {
-    ExternalUse.USE_AS -> Icons.Outlined.AccountBox
-    ExternalUse.OPEN_WITH -> Icons.AutoMirrored.Outlined.ExitToApp
-    ExternalUse.EDIT_IN -> Icons.Outlined.Edit
+    ExternalUse.USE_AS -> Icons.Rounded.AccountBox
+    ExternalUse.OPEN_WITH -> Icons.AutoMirrored.Rounded.ExitToApp
+    ExternalUse.EDIT_IN -> Icons.Rounded.Edit
     ExternalUse.PRINT -> AlbaIcons.Print
 }
 
@@ -610,17 +610,17 @@ private fun ViewerActionBar(
         horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
         CompositionLocalProvider(LocalContentColor provides ink) {
         ViewerAction(stringResource(R.string.share), enabled, onShare, Modifier.weight(1f).testTag("viewer-share")) {
-            Icon(Icons.Outlined.Share, null)
+            Icon(Icons.Rounded.Share, null)
         }
         if (media.kind != MediaKind.VIDEO && !media.isTrashed) ViewerAction(stringResource(R.string.viewer_edit), enabled, onEdit, Modifier.weight(1f).testTag("viewer-edit")) {
-            Icon(Icons.Outlined.Edit, null)
+            Icon(Icons.Rounded.Edit, null)
         } else ViewerAction(stringResource(R.string.details), true, onDetails, Modifier.weight(1f)) {
-            Icon(Icons.Outlined.Info, null)
+            Icon(Icons.Rounded.Info, null)
         }
         // Photos' "Add to": the same album chooser as the details panel, for iCloud photos that can join an album.
         if (onAddToAlbum != null) ViewerAction(stringResource(R.string.viewer_add_to_album), enabled && canEdit, onAddToAlbum,
             Modifier.weight(1f).testTag("viewer-add-to-album"), description = stringResource(R.string.add_to_album)) {
-            Icon(Icons.Outlined.Add, null)
+            Icon(Icons.Rounded.Add, null)
         }
         if (!media.isShared && !(media.isHidden && !media.isTrashed)) {
             ViewerAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.viewer_trash),
@@ -628,11 +628,11 @@ private fun ViewerActionBar(
                 Icon(AlbaIcons.DeleteOutline, null)
             }
         } else ViewerAction(stringResource(R.string.details), true, onDetails, Modifier.weight(1f)) {
-            Icon(Icons.Outlined.Info, null)
+            Icon(Icons.Rounded.Info, null)
         }
         if (media.kind == MediaKind.LIVE_PHOTO) ViewerAction(stringResource(if (playingLive) R.string.show_still_photo else R.string.play_live_photo), true, onLive,
             Modifier.weight(1f).testTag("viewer-live")) {
-            Icon(Icons.Filled.PlayArrow, null)
+            Icon(Icons.Rounded.PlayArrow, null)
         }
         }
     }

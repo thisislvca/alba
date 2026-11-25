@@ -10,8 +10,8 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -188,7 +188,7 @@ internal fun ProfileOverview(
     Spacer(Modifier.height(AlbaSpacing.xxl))
     AlbaCard {
         ProfileRow(stringResource(R.string.about_title), stringResource(R.string.profile_about_detail),
-            Icons.Outlined.Info, profileColors.aboutTile, "profile-about", onClick = { onNavigate(ProfilePage.ABOUT) })
+            Icons.Rounded.Info, profileColors.aboutTile, "profile-about", onClick = { onNavigate(ProfilePage.ABOUT) })
     }
     if (signedIn != null) {
         Spacer(Modifier.height(AlbaSpacing.xxl))
@@ -235,7 +235,7 @@ private fun PlanLink(hero: Boolean = false) {
         }
     }, contentPadding = PaddingValues(0.dp), modifier = Modifier.heightIn(min = 48.dp).testTag("profile-manage-plan")) {
         Text(stringResource(R.string.profile_manage_plan), color = ink)
-        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(AlbaIconSize.inline), tint = ink)
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(AlbaIconSize.inline), tint = ink)
     }
 }
 

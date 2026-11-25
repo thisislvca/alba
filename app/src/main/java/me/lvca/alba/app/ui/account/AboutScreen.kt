@@ -5,11 +5,11 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.List
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.List
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -66,7 +66,7 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
             Text(stringResource(R.string.about_intro))
             AboutFeatureSection(R.string.about_features, listOf(
                 AboutFeature(R.string.about_feature_library_title, R.string.about_feature_library_detail, AlbaIcons.PhotoLibrary),
-                AboutFeature(R.string.about_feature_shared_title, R.string.about_feature_shared_detail, Icons.Outlined.Share),
+                AboutFeature(R.string.about_feature_shared_title, R.string.about_feature_shared_detail, Icons.Rounded.Share),
                 AboutFeature(R.string.about_feature_upload_title, R.string.about_feature_upload_detail, AlbaIcons.CloudUpload),
                 AboutFeature(R.string.about_feature_offline_title, R.string.about_feature_offline_detail, AlbaIcons.DownloadForOffline),
                 AboutFeature(R.string.about_feature_backup_title, R.string.about_feature_backup_detail, AlbaIcons.CloudDone),
@@ -93,15 +93,15 @@ internal fun AboutScreen(diagnostics: DiagnosticsConsent, onDiagnosticsEnabledCh
             Text(stringResource(R.string.about_privacy))
             AlbaCard {
                 AlbaListRow(stringResource(R.string.about_privacy_policy), { open(PRIVACY_POLICY_URL) },
-                    Modifier.testTag("about-privacy-policy"), leading = { Icon(Icons.Outlined.Lock, null) })
+                    Modifier.testTag("about-privacy-policy"), leading = { Icon(Icons.Rounded.Lock, null) })
                 AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
                 AlbaListRow(stringResource(R.string.about_feedback), { open(FEEDBACK_URL) },
                     Modifier.testTag("about-feedback"), subtitle = stringResource(R.string.about_feedback_detail),
-                    leading = { Icon(Icons.Outlined.Email, null) })
+                    leading = { Icon(Icons.Rounded.Email, null) })
                 AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
                 AlbaListRow(stringResource(R.string.about_source), { open(SOURCE_URL) },
                     Modifier.testTag("about-source"), subtitle = stringResource(R.string.about_source_detail),
-                    leading = { Icon(Icons.Outlined.Info, null) })
+                    leading = { Icon(Icons.Rounded.Info, null) })
             }
             AlbaCard {
                 ListItem(

@@ -2,8 +2,8 @@ package me.lvca.alba.app.ui.gallery
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,10 +35,10 @@ internal fun GallerySearchBar(text: String, onTextChange: (String) -> Unit, modi
             expanded = false,
             onExpandedChange = {},
             placeholder = { Text(stringResource(R.string.search_your_photos)) },
-            leadingIcon = { Icon(Icons.Outlined.Search, null) },
+            leadingIcon = { Icon(Icons.Rounded.Search, null) },
             trailingIcon = {
                 if (text.isNotEmpty()) IconButton(onClick = { onTextChange("") }) {
-                    Icon(Icons.Outlined.Close, stringResource(R.string.clear_search))
+                    Icon(Icons.Rounded.Close, stringResource(R.string.clear_search))
                 }
             },
             colors = colors.inputFieldColors,

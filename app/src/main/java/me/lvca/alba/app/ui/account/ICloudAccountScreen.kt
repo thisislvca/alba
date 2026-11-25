@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -237,7 +237,7 @@ private fun PhotosNotEnabledAccount(
 ) {
     AlbaCard(color = MaterialTheme.colorScheme.tertiaryContainer) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(AlbaIconSize.large))
+            Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(AlbaIconSize.large))
             Text(stringResource(R.string.icloud_photos_is_not_active), style = MaterialTheme.typography.titleLarge)
             Text(appleId, style = MaterialTheme.typography.bodyMedium)
             Text(
