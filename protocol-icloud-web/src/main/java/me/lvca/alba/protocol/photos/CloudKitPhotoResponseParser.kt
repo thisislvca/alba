@@ -130,22 +130,29 @@ internal class CloudKitPhotoResponseParser {
         val hidden = asset.fieldText("isHidden") in setOf("1", "true")
         if (asset.fieldText("isExpunged") in setOf("1", "true") || (trashed && !includeTrashed)) return null
         val movie = master.isMovie()
+        // A photo edited in Photos keeps its original on the master and puts the edited renditions on the asset, as
+        // iCloud.com shows it. Alba shows the edit too; the original stays the master's, as Apple's "Download original".
+        val rendered = if (!movie && asset.assetUrl("resJPEGFullRes") != null) asset else master
         val originalUrl = master.assetUrl("resOriginalRes") ?: return null
         val motionUrl = if (movie) null else master.assetUrl("resOriginalVidComplRes")
         motionUrl?.let(AppleEndpointPolicy::requireAllowed)
-        val previewUrl = PREVIEW_RESOURCE_KEYS.firstNotNullOfOrNull { key -> master.assetUrl(key) }
+        val previewUrl = PREVIEW_RESOURCE_KEYS.firstNotNullOfOrNull { key -> rendered.assetUrl(key) }
+            ?: PREVIEW_RESOURCE_KEYS.firstNotNullOfOrNull { key -> master.assetUrl(key) }
             ?: ""
         // Opening a photo upgrades to full resolution. Scrolling never fetches an
         // original merely because Apple did not supply a smaller JPEG derivative.
-        val displayUrl = if (movie) previewUrl else master.assetUrl("resJPEGFullRes") ?: originalUrl
+        val displayUrl = if (movie) previewUrl else rendered.assetUrl("resJPEGFullRes") ?: originalUrl
         if (displayUrl.isNotEmpty()) AppleEndpointPolicy.requireAllowed(displayUrl)
         if (previewUrl.isNotEmpty()) AppleEndpointPolicy.requireAllowed(previewUrl)
         AppleEndpointPolicy.requireAllowed(originalUrl)
 
-        val width = master.fieldInt("resOriginalWidth")
+        val edited = rendered !== master
+        val width = (if (edited) asset.fieldInt("resJPEGFullWidth") else null)
+            ?: master.fieldInt("resOriginalWidth")
             ?: PREVIEW_WIDTH_KEYS.firstNotNullOfOrNull { key -> master.fieldInt(key) }
             ?: 1
-        val height = master.fieldInt("resOriginalHeight")
+        val height = (if (edited) asset.fieldInt("resJPEGFullHeight") else null)
+            ?: master.fieldInt("resOriginalHeight")
             ?: PREVIEW_HEIGHT_KEYS.firstNotNullOfOrNull { key -> master.fieldInt(key) }
             ?: 1
         val masterRevision = master.text("recordChangeTag").orEmpty()
@@ -182,7 +189,8 @@ internal class CloudKitPhotoResponseParser {
                 val fingerprint = master.fieldText("${prefix}Fingerprint")
                     ?: (master.field("${prefix}Res") as? JsonObject)?.text("fileChecksum")
                 fingerprint?.let { "$prefix:$it" }
-            }.joinToString("|").ifEmpty { masterRevision },
+            }.plus(if (edited) EDITED_PREFIXES.mapNotNull { prefix -> asset.fieldText("${prefix}Fingerprint")?.let { "edit:$prefix:$it" } } else emptyList())
+                .joinToString("|").ifEmpty { masterRevision },
             playbackUrl = if (movie || motionUrl != null) master.assetUrl("resVidMedRes") ?: master.assetUrl("resVidFullRes") ?: motionUrl ?: originalUrl else originalUrl,
         )
     }
@@ -236,6 +244,10 @@ internal class CloudKitPhotoResponseParser {
         const val ASSET_RECORD_TYPE = "CPLAsset"
         const val MASTER_RECORD_TYPE = "CPLMaster"
         const val SECONDS_TO_MILLIS_CUTOFF = 100_000_000_000.0
+
+        /** The renditions an edit replaces, read from the asset so a new edit refreshes cached previews. */
+        val EDITED_PREFIXES = listOf("resJPEGFull", "resJPEGMed", "resJPEGThumb")
+
         val RESOURCE_PREFIXES = listOf("resOriginal", "resJPEGMed", "resJPEGLarge", "resJPEGFull", "resJPEGThumb", "resVidMed", "resVidFull", "resOriginalVidCompl")
         val PREVIEW_RESOURCE_KEYS = listOf(
             "resJPEGThumbRes",

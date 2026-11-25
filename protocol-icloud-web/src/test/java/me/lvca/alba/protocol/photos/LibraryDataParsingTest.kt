@@ -105,4 +105,35 @@ class LibraryDataParsingTest {
             assertEquals(MediaKind.PHOTO, photo.kind)
         }
     }
+
+    /**
+     * Shaped like a photo edited (rotated) in Photos: the master keeps the 4032x3024 original and its unedited
+     * renditions, the asset carries `adjustmentType` and the edited 3024x4032 renditions that iCloud.com shows.
+     */
+    @Test fun anEditedPhotoShowsTheEditFromTheAssetAndKeepsTheMastersOriginal() {
+        val master = """{"recordName":"master","recordType":"CPLMaster","recordChangeTag":"m1","fields":{
+            "itemType":{"value":"public.heic"},"filenameEnc":{"value":"SU1HXzEuSEVJQw=="},
+            "resOriginalWidth":{"value":4032},"resOriginalHeight":{"value":3024},"resOriginalFingerprint":{"value":"orig"},
+            "resOriginalRes":{"value":{"downloadURL":"https://cws.icloud-content.com/original","size":1555429}},
+            "resJPEGThumbRes":{"value":{"downloadURL":"https://cws.icloud-content.com/unedited-thumb"}},
+            "resJPEGMedRes":{"value":{"downloadURL":"https://cws.icloud-content.com/unedited-med"}}}}"""
+        fun page(edit: String) = """{"records":[{"recordName":"photo","recordType":"CPLAsset","recordChangeTag":"a1","fields":{
+            "masterRef":{"value":{"recordName":"master"}},"assetDate":{"value":1777777777000}$edit}},$master]}"""
+        val edited = CloudKitPhotoResponseParser().parse(page(""","adjustmentType":{"value":"com.apple.photo"},
+            "resJPEGFullWidth":{"value":3024},"resJPEGFullHeight":{"value":4032},"resJPEGFullFingerprint":{"value":"edit-1"},
+            "resJPEGFullRes":{"value":{"downloadURL":"https://cws.icloud-content.com/edited-full"}},
+            "resJPEGThumbRes":{"value":{"downloadURL":"https://cws.icloud-content.com/edited-thumb"}}""")).photos.single()
+        assertEquals("https://cws.icloud-content.com/edited-thumb", edited.previewDownloadUrl)
+        assertEquals("https://cws.icloud-content.com/edited-full", edited.displayDownloadUrl)
+        assertEquals("https://cws.icloud-content.com/original", edited.originalDownloadUrl)
+        assertEquals(3024 to 4032, edited.width to edited.height)
+        assertEquals(1555429L, edited.byteCount)
+        assertTrue(edited.resourceFingerprint.contains("edit-1"))
+
+        val unedited = CloudKitPhotoResponseParser().parse(page("")).photos.single()
+        assertEquals("https://cws.icloud-content.com/unedited-thumb", unedited.previewDownloadUrl)
+        assertEquals("https://cws.icloud-content.com/original", unedited.displayDownloadUrl)
+        assertEquals(4032 to 3024, unedited.width to unedited.height)
+        assertEquals("resOriginal:orig", unedited.resourceFingerprint)
+    }
 }
