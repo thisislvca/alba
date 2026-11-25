@@ -9,10 +9,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -80,7 +76,7 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
             Text(stringResource(R.string.selection_action_limit), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodySmall)
         }
-        val share = SelectionTool(Icons.Outlined.Share, stringResource(R.string.share), stringResource(R.string.share),
+        val share = SelectionTool(AlbaIcons.Share, stringResource(R.string.share), stringResource(R.string.share),
             enabled = !mediaBusy && withinLimit) { actions.share(selectedItems) }
         val offline = SelectionTool(AlbaIcons.DownloadForOffline, stringResource(R.string.selection_offline_short),
             stringResource(R.string.keep_offline)) { actions.runBatch(BatchAction.KEEP_OFFLINE) }
@@ -90,7 +86,7 @@ internal fun SelectionActions(gallery: GalleryState, session: SessionState, medi
             stringResource(if (session.accountState == ICloudAccountState.Demo) R.string.demo_upload_title else R.string.upload_phone_jpegs),
             enabled = session.accountState == ICloudAccountState.Demo ||
                 (session.accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED) { actions.runBatch(BatchAction.UPLOAD) }
-        val moreTool = SelectionTool(Icons.Outlined.MoreVert, stringResource(R.string.more), stringResource(R.string.more),
+        val moreTool = SelectionTool(AlbaIcons.MoreVert, stringResource(R.string.more), stringResource(R.string.more),
             tag = "selection-more") { more = true }
         val uploadable = hasPhone && !query.trashOnly &&
             selectedItems.any { it.origin == MediaOrigin.DEVICE && UploadMediaFormat.isCandidate(it.mimeType) }
@@ -175,7 +171,7 @@ private fun AlbumItems(facts: SelectionFacts, actions: GalleryScreenActions, clo
         onClick = { close(); addToAlbum() })
     facts.album?.let { album ->
         AlbaMenuItem(stringResource(R.string.remove_from_album), enabled = allowed && facts.cloudOnly,
-            leadingIcon = { Icon(Icons.Outlined.Close, null) },
+            leadingIcon = { Icon(AlbaIcons.Close, null) },
             onClick = { close(); actions.confirmRemoveFromAlbum(album.id, facts.ids) })
     }
     if (facts.hiding) AlbaMenuItem(stringResource(if (facts.inHidden) R.string.unhide else R.string.hide),
@@ -223,7 +219,7 @@ internal fun SelectionTopBar(count: Int, minHeight: Dp, reducedMotion: Boolean, 
         Surface(Modifier.fillMaxWidth().heightIn(min = minHeight).testTag("selection-top-bar"), color = AlbaTheme.floating.toolbar) {
             Row(Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).padding(start = 4.dp, end = 8.dp)
                 .heightIn(min = AlbaFloatingDefaults.ToolbarHeight), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = clear) { Icon(Icons.Outlined.Close, stringResource(R.string.cancel_selection)) }
+                IconButton(onClick = clear) { Icon(AlbaIcons.Close, stringResource(R.string.cancel_selection)) }
                 Text(pluralStringResource(R.plurals.selected_count, shown, shown), style = MaterialTheme.typography.titleLarge,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
                 TextButton(onClick = selectAll) { Text(stringResource(R.string.select_all_shown)) }

@@ -43,8 +43,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -485,7 +483,7 @@ private fun ButtonBar(secondary: (@Composable () -> Unit)?, primary: @Composable
 private fun CompatibilityDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Outlined.Info, null) },
+        icon = { Icon(AlbaIcons.Info, null) },
         title = { Text(stringResource(R.string.sign_in_compatibility_title), textAlign = TextAlign.Center) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {

@@ -1,7 +1,5 @@
 package me.lvca.alba.app.ui.viewer
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -46,6 +44,6 @@ internal fun BurstAction(media: GalleryMedia, actions: MediaScreenActions, opene
 /** A Live Photo's motion clip on its own, as a video: shared, or saved to the phone gallery. */
 @Composable
 internal fun LiveVideoActions(media: GalleryMedia, enabled: Boolean, actions: MediaScreenActions) {
-    DetailAction(stringResource(R.string.share_as_video), enabled, { actions.shareLiveVideo(media) }, { Icon(Icons.Outlined.Share, null) })
+    DetailAction(stringResource(R.string.share_as_video), enabled, { actions.shareLiveVideo(media) }, { Icon(AlbaIcons.Share, null) })
     DetailAction(stringResource(R.string.save_as_video), enabled, { actions.saveLiveVideo(media) }, { Icon(AlbaIcons.PhoneAndroid, null) })
 }

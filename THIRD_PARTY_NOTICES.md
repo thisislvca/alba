@@ -21,43 +21,19 @@ in assets/store/demo-media.json. The assets are used as example gallery content;
 they do not imply that Pexels or its contributors endorse Alba. Other test media
 remain synthetic.
 
-## Material Icons
+## Material Symbols
 
-The vector path data in `AlbaIcons.kt` is derived from AndroidX Compose Material Icons 1.7.8.
+Alba's icons are Material Symbols Rounded (weight 400, grade 0, optical size 24, outlined and
+filled), from Google's material-design-icons repository. Their SVG path data is used in `AlbaIcons.kt` and
+in the icon vectors in `app/src/main/res/drawable` (`icloud_*.xml`, `ic_filter.xml`,
+`ic_album_activity.xml` and `ic_notification_shared.xml`).
 
-Copyright 2020 The Android Open Source Project
+Project: <https://github.com/google/material-design-icons>
 
-Licensed under the Apache License, Version 2.0. A copy of the license is available at
-<https://www.apache.org/licenses/LICENSE-2.0>.
+Copyright 2022 Google LLC
 
-## Hugeicons Free Icons
-
-The gallery navigation vectors in `app/src/main/res/drawable/icloud_*.xml`
-include adapted path data from Hugeicons Free Icons 4.3.5.
-
-Project: <https://github.com/hugeicons/hugeicons>
-
-MIT License
-
-Copyright (c) 2025 Hugeicons
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Licensed under the Apache License, Version 2.0. A copy of the license is in `LICENSES/Apache-2.0.txt`
+and at <https://www.apache.org/licenses/LICENSE-2.0>.
 
 ## iCloud Photos Downloader
 

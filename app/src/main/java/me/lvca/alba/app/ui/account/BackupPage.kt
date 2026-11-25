@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -34,7 +33,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
@@ -44,11 +42,11 @@ import me.lvca.alba.app.platform.FREE_UP_SPACE_ENABLED
 import me.lvca.alba.app.platform.PHONE_TRASH_LIMIT
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.AccountScreenActions
-import me.lvca.alba.app.ui.designsystem.AlbaCard
-import me.lvca.alba.app.ui.designsystem.AlbaChevron
-import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.AlbaListGroup
+import me.lvca.alba.app.ui.designsystem.AlbaListItem
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
+import me.lvca.alba.app.ui.designsystem.AlbaSwitchRow
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.localized
@@ -117,7 +115,7 @@ internal fun BackupPage(
     if (!demo) {
         Spacer(Modifier.height(AlbaSpacing.xl))
         if (FREE_UP_SPACE_ENABLED) {
-            AlbaCard {
+            AlbaListGroup {
                 BackupRow(stringResource(R.string.free_up_space_title), stringResource(R.string.free_up_space_row), AlbaIcons.DeleteSweep,
                     "backup-free-up-space") { onNavigate(ProfilePage.FREE_UP_SPACE) }
             }
@@ -149,34 +147,23 @@ private fun BackupStatusCard(
     val connected = signedIn?.status == SessionStatus.VERIFIED
     val backup = transfers.backup
     val items = backupItems(transfers, demo)
-    AlbaCard(modifier = Modifier.testTag("backup-status")) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                    .toggleable(backup.enabled, enabled = connected || demo || backup.enabled, role = Role.Switch) { on ->
-                        if (on) actions.enableAutomaticBackup() else actions.disableAutomaticBackup()
-                    }
-                    .testTag("backup-switch"),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(if (demo) R.string.demo_backup_title else R.string.backup_title),
-                        style = MaterialTheme.typography.titleMedium)
-                    val offDetail = if (demo) R.string.demo_backup_off else R.string.off_you_can_still_upload_one_photo_at_a_time_from_the_system_photo_picker
-                    Text(
-                        if (backup.enabled) backup.destinationLabel ?: signedIn?.appleId.orEmpty() else stringResource(offDetail),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(backup.enabled, null, enabled = connected || demo || backup.enabled)
-            }
+    AlbaListGroup(Modifier.testTag("backup-status")) {
+        val offDetail = if (demo) R.string.demo_backup_off else R.string.off_you_can_still_upload_one_photo_at_a_time_from_the_system_photo_picker
+        AlbaSwitchRow(
+            stringResource(if (demo) R.string.demo_backup_title else R.string.backup_title),
+            checked = backup.enabled,
+            onCheckedChange = { on -> if (on) actions.enableAutomaticBackup() else actions.disableAutomaticBackup() },
+            modifier = Modifier.testTag("backup-switch"),
+            subtitle = if (backup.enabled) backup.destinationLabel ?: signedIn?.appleId.orEmpty() else stringResource(offDetail),
+            enabled = connected || demo || backup.enabled,
+        )
+        AlbaListItem {
             if (!backup.enabled) {
                 backup.message?.let { Text(localizedStoredMessage(it).localized(), style = MaterialTheme.typography.bodyMedium) }
                 Button(enabled = connected || demo, onClick = actions::enableAutomaticBackup, modifier = Modifier.fillMaxWidth().testTag("backup-start")) {
                     Text(stringResource(if (demo) R.string.demo_backup_start else R.string.set_up_automatic_backup))
                 }
             } else {
-                AlbaDivider()
                 StatusLine(status)
                 transfers.backupProgress?.takeIf { it.eligible > 0 && !demo }?.let { progress ->
                     Text(stringResource(R.string.backup_progress, progress.backedUp, progress.eligible), style = MaterialTheme.typography.bodyMedium,
@@ -260,7 +247,7 @@ private val BackupView.offersExisting: Boolean get() = enabled && scope == Backu
 @Composable
 private fun IncludeExistingCard(destination: String, include: () -> Unit) {
     var confirm by remember { mutableStateOf(false) }
-    AlbaCard {
+    AlbaListGroup {
         BackupRow(stringResource(R.string.backup_existing_row_title), stringResource(R.string.backup_existing_row_detail),
             AlbaIcons.CloudUpload, "backup-include-existing") { confirm = true }
     }
@@ -302,26 +289,19 @@ private fun FailedItems(transfers: TransferState, demo: Boolean, actions: Accoun
 @Composable
 private fun BackupSettingsCard(transfers: TransferState, folders: Boolean, actions: AccountScreenActions, onNavigate: (ProfilePage) -> Unit) {
     val settings = transfers.backupSettings
-    Text(stringResource(R.string.backup_settings_section), Modifier.padding(start = AlbaSpacing.lg, bottom = AlbaSpacing.sm),
-        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    AlbaCard {
+    AlbaListGroup(title = stringResource(R.string.backup_settings_section)) {
         SettingSwitch(stringResource(R.string.backup_photos_mobile_data), stringResource(R.string.backup_mobile_data_detail),
             settings.photosOnMobileData, "backup-photos-mobile") { actions.setBackupSettings(settings.copy(photosOnMobileData = it)) }
-        AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
         SettingSwitch(stringResource(R.string.backup_videos_mobile_data), null,
             settings.videosOnMobileData, "backup-videos-mobile") { actions.setBackupSettings(settings.copy(videosOnMobileData = it)) }
-        AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
         SettingSwitch(stringResource(R.string.backup_while_roaming), stringResource(R.string.backup_while_roaming_detail),
             settings.whileRoaming, "backup-roaming", enabled = settings.usesMobileData) { actions.setBackupSettings(settings.copy(whileRoaming = it)) }
-        AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
         SettingSwitch(stringResource(R.string.backup_only_while_charging), stringResource(R.string.backup_only_while_charging_detail),
             settings.onlyWhileCharging, "backup-only-while-charging") { actions.setBackupSettings(settings.copy(onlyWhileCharging = it)) }
-        AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
         SettingSwitch(stringResource(R.string.backup_pause), stringResource(R.string.backup_pause_detail),
             settings.paused, "backup-pause") { actions.setBackupSettings(settings.copy(paused = it)) }
         if (folders) {
             LaunchedEffect(Unit) { actions.loadDeviceFolders() }
-            AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
             val names = backedUpFolderNames(settings.deviceFolders, transfers.deviceFolders, stringResource(R.string.backup_screenshots_folder))
             val extra = settings.deviceFolders.size
             BackupRow(stringResource(R.string.backup_device_folders),
@@ -346,23 +326,13 @@ internal fun backedUpFolderNames(chosen: Set<String>, folders: List<DeviceFolder
 
 @Composable
 private fun SettingSwitch(title: String, detail: String?, checked: Boolean, tag: String, enabled: Boolean = true, change: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = change)
-            .padding(horizontal = AlbaSpacing.lg, vertical = 10.dp).testTag(tag),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        }
-        Switch(checked, null, enabled = enabled)
-    }
+    AlbaSwitchRow(title, checked, change, Modifier.testTag(tag), subtitle = detail, enabled = enabled)
 }
 
 @Composable
 private fun BackupRow(title: String, subtitle: String, icon: ImageVector, tag: String, onClick: () -> Unit) {
     AlbaListRow(title, onClick, Modifier.testTag(tag), subtitle = subtitle,
-        leading = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) }, trailing = { AlbaChevron(Modifier.size(AlbaIconSize.inline)) })
+        leading = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) })
 }
 
 /** Google Photos' "Back up device folders": the camera always, and any other folder the user turns on. */
@@ -382,9 +352,8 @@ internal fun DeviceFoldersPage(transfers: TransferState, actions: AccountScreenA
         Text(stringResource(R.string.backup_device_folders_empty), style = MaterialTheme.typography.bodyMedium)
         return
     }
-    AlbaCard(modifier = Modifier.testTag("backup-folder-list")) {
-        folders.forEachIndexed { index, folder ->
-            if (index > 0) AlbaDivider(Modifier.padding(horizontal = AlbaSpacing.lg))
+    AlbaListGroup(Modifier.testTag("backup-folder-list")) {
+        folders.forEach { folder ->
             // Screenshots folders are chosen together, by path, so one made later is covered too.
             val screenshots = folder.isScreenshots && DeviceFolder.SCREENSHOTS in settings.deviceFolders
             val chosen = folder.isCamera || folder.id in settings.deviceFolders || screenshots
@@ -417,8 +386,8 @@ internal fun FreeUpSpacePage(transfers: TransferState, actions: AccountScreenAct
     Text(stringResource(R.string.free_up_space_intro), style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
     Spacer(Modifier.height(AlbaSpacing.lg))
-    AlbaCard(modifier = Modifier.testTag("free-up-space")) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    AlbaListGroup(Modifier.testTag("free-up-space")) {
+        AlbaListItem(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             when {
                 candidates == null -> Text(stringResource(R.string.checking), style = MaterialTheme.typography.bodyMedium)
                 candidates.mediaIds.isEmpty() -> Text(stringResource(R.string.free_up_space_nothing), style = MaterialTheme.typography.bodyLarge,

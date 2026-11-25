@@ -3,9 +3,6 @@ package me.lvca.alba.app.ui.designsystem
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -17,15 +14,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.sheet
 
 /**
- * A utility page: a centred top app bar over a scrolling column. The bar takes the surface-container tint once
- * content scrolls under it, as Material settings pages do.
+ * A utility page: a large, start-aligned title over a scrolling column, as Android's settings pages have. The title
+ * collapses into the bar as the page scrolls, and the bar takes the surface-container tint once content passes under it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,14 +31,14 @@ internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Compo
     key(title) {
         val scroll = rememberScrollState()
         val barState = rememberTopAppBarState()
-        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(barState)
+        val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(barState)
         Surface(color = background, modifier = Modifier.fillMaxSize()) {
             // Inset controls, not the scrolling viewport: cards can pass behind the gesture bar.
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).imePadding()) {
-                CenterAlignedTopAppBar(
-                    title = { Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center) },
+                LargeTopAppBar(
+                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back_action)) }
+                        IconButton(onClick = onBack) { Icon(AlbaIcons.ArrowBack, stringResource(R.string.back_action)) }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = background,
@@ -52,7 +49,7 @@ internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Compo
                 )
                 Column(Modifier.weight(1f).fillMaxWidth().nestedScroll(scrollBehavior.nestedScrollConnection)
                     .verticalScroll(scroll).testTag("alba-page-scroll"), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.xl)
+                    Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.lg)
                         .padding(top = AlbaSpacing.md, bottom = AlbaSpacing.xxl).navigationBarsPadding(), content = content)
                 }
             }
@@ -98,7 +95,7 @@ internal fun AlbaSheetHeading(title: String, subtitle: String? = null, dismiss: 
             subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         IconButton(onClick = dismiss, enabled = enabled) {
-            Icon(Icons.Outlined.Close, stringResource(R.string.close_surface), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(AlbaIcons.Close, stringResource(R.string.close_surface), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -26,10 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -136,12 +132,12 @@ internal fun MediaTile(
                     val duration = mediaDuration(media.durationMillis)
                     if (duration != null) BasicText(duration, style = MaterialTheme.typography.labelMedium, color = ink,
                         modifier = Modifier.align(Alignment.BottomEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).testTag("tile-duration-${media.id}"))
-                    else TileGlyph(Icons.Filled.PlayArrow, stringResource(R.string.videos), ink,
+                    else TileGlyph(AlbaIcons.PlayArrow, stringResource(R.string.videos), ink,
                         Modifier.align(Alignment.BottomEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(GalleryFeel.TILE_TYPE_ICON))
                 }
                 // The selection circle takes the top-start corner while choosing, as in Photos.
                 if (!selecting) TileKindBadge(media, Modifier.align(Alignment.TopStart).padding(GalleryFeel.TILE_OVERLAY_INSET))
-                if (media.isFavorite && !selected) TileGlyph(Icons.Filled.Favorite, stringResource(R.string.favorite), ink,
+                if (media.isFavorite && !selected) TileGlyph(AlbaIcons.Favorite, stringResource(R.string.favorite), ink,
                     Modifier.align(Alignment.TopEnd).padding(GalleryFeel.TILE_OVERLAY_INSET).size(16.dp))
                 // Backup state, phone items only; a separate slot so other badges can change independently.
                 if (media.origin == MediaOrigin.DEVICE) BackupBadgeOverlay(media.id)
@@ -295,7 +291,7 @@ private val TileCorner = 2.dp
 @Composable
 internal fun SelectionCircle(selected: Boolean, modifier: Modifier = Modifier, onPhoto: Boolean = true) {
     val colors = AlbaTheme.colors
-    if (selected) Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary,
+    if (selected) Icon(AlbaIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary,
         modifier = modifier.size(24.dp).background(MaterialTheme.colorScheme.primary, CircleShape).padding(4.dp)
             .then(if (onPhoto) Modifier.testTag("tile-selected") else Modifier))
     else if (onPhoto) Box(modifier.size(24.dp).alpha(GalleryFeel.UNCHECKED_RING_ALPHA)

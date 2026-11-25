@@ -4,8 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,6 +19,7 @@ import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.currentLocale
 import me.lvca.alba.app.ui.designsystem.AlbaFact
+import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.gallery.mediaDuration
 import me.lvca.alba.app.ui.timestampLabel
@@ -122,7 +121,7 @@ private fun PhotoLocation(details: MediaDetails, modifier: Modifier) {
             try { context.startActivity(Intent(Intent.ACTION_VIEW, geoUri(latitude, longitude).toUri())) }
             catch (_: ActivityNotFoundException) { Toast.makeText(context, noMaps, Toast.LENGTH_SHORT).show() }
         }, modifier = Modifier.padding(top = 4.dp).testTag("open-in-maps")) {
-            Icon(Icons.Outlined.Place, null, Modifier.size(AlbaIconSize.inline))
+            Icon(AlbaIcons.Place, null, Modifier.size(AlbaIconSize.inline))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.open_in_maps))
         }

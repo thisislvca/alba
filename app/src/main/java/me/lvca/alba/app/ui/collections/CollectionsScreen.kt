@@ -5,11 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -111,7 +106,7 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
             item(span = { GridItemSpan(maxLineSpan) }) {
                 AlbaCard(Modifier.testTag("collection-hidden")) {
                     CollectionRow(stringResource(R.string.hidden), stringResource(R.string.hidden_locked),
-                        icon = { Icon(Icons.Outlined.Lock, null) }, onClick = openHidden)
+                        icon = { Icon(AlbaIcons.Lock, null) }, onClick = openHidden)
                 }
             }
         } else {
@@ -122,10 +117,12 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
                     if (sortable && albums.size > 1) AlbumSortMenu(sort, sorts) { chosenSort = it }
                     if (page == CollectionsPage.SHARED) {
                         InvitationsButton(activity.unreadInvitations, canEdit, openSharedInvitations)
-                        IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) { Icon(Icons.Outlined.Add, stringResource(R.string.shared_create)) }
+                        IconButton(onClick = createSharedAlbum, enabled = canEdit, modifier = Modifier.testTag("create-shared-album")) {
+                            Icon(AlbaIcons.Add, stringResource(R.string.shared_create))
+                        }
                     } else if (page != CollectionsPage.DEVICE) {
                         TextButton(onClick = createAlbum, enabled = canEdit, modifier = Modifier.testTag("new-album")) {
-                            Icon(Icons.Outlined.Add, null, Modifier.size(AlbaIconSize.inline))
+                            Icon(AlbaIcons.Add, null, Modifier.size(AlbaIconSize.inline))
                             Spacer(Modifier.width(AlbaSpacing.xs))
                             Text(stringResource(R.string.new_album))
                         }
@@ -204,7 +201,7 @@ internal fun pageCollections(collections: List<GalleryCollection>, folder: Strin
 private fun InvitationsButton(unread: Int, enabled: Boolean, open: () -> Unit) {
     IconButton(onClick = open, enabled = enabled, modifier = Modifier.testTag("shared-invitations-button")) {
         BadgedBox(badge = { if (unread > 0) Badge(Modifier.testTag("shared-invitations-badge")) { Text(unread.toString()) } }) {
-            Icon(Icons.Outlined.Email, stringResource(R.string.shared_invitations))
+            Icon(AlbaIcons.Email, stringResource(R.string.shared_invitations))
         }
     }
 }
@@ -219,7 +216,7 @@ private fun AlbumSortMenu(sort: AlbumSort, options: List<AlbumSort>, change: (Al
         AlbaMenu(open, onDismissRequest = { open = false }) {
             options.forEach { option ->
                 AlbaMenuItem(stringResource(option.label), onClick = { open = false; change(option) },
-                    trailingIcon = if (option == sort) ({ Icon(Icons.Outlined.Check, null) }) else null,
+                    trailingIcon = if (option == sort) ({ Icon(AlbaIcons.Check, null) }) else null,
                     modifier = Modifier.testTag("album-sort-${option.name}"))
             }
         }

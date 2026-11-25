@@ -1,6 +1,7 @@
 package me.lvca.alba.app.gallery
 
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -23,7 +24,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The first read of a large library says how far it is, in the empty library and in the header. */
+/** The first read of a large library says how far it is, in the empty library, under the large title and on the avatar. */
 @RunWith(AndroidJUnit4::class)
 class CatalogScanProgressTest {
     @get:Rule
@@ -38,9 +39,12 @@ class CatalogScanProgressTest {
 
         compose.onNodeWithTag("catalog-scan-progress").performScrollTo().assertTextEquals("12,400 of 52,000 photos loaded")
         compose.onNodeWithTag("catalog-scan-note").assertTextEquals("This can take a while for large libraries.").assertIsDisplayed()
-        // The header's status line carries the same count, above a bar that fills as pages land.
+        // The line under the large title carries the same count, above a bar that fills as pages land.
         assertEquals(2, compose.onAllNodesWithText("12,400 of 52,000 photos loaded").fetchSemanticsNodes().size)
         compose.onNodeWithTag("catalog-scan-bar").assertExists()
+        // The avatar's ring says it too, for TalkBack.
+        compose.onNodeWithTag("account-status-indicator", useUnmergedTree = true)
+            .assertContentDescriptionEquals("12,400 of 52,000 photos loaded")
         compose.onNodeWithText(context.getString(R.string.updating_library)).assertDoesNotExist()
     }
 
@@ -78,7 +82,9 @@ class CatalogScanProgressTest {
         compose.onNodeWithText("100 of 12,606 photos loaded").assertDoesNotExist()
         compose.onNodeWithText(context.getString(R.string.updating_library)).assertDoesNotExist()
         compose.onNodeWithTag("catalog-scan-bar").assertDoesNotExist()
-        compose.onNodeWithText(context.getString(R.string.icloud_photos)).assertIsDisplayed()
+        // Only the screen's name: no status line, and nothing marked on the avatar.
+        compose.onNodeWithTag("account-status-indicator", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("screen-title-LIBRARY").assertTextEquals(context.getString(R.string.gallery_photos)).assertIsDisplayed()
     }
 
     private companion object {
@@ -121,8 +127,9 @@ class CatalogScanProgressTest {
             accountState = ICloudAccountState.SignedIn("alex@example.com", SessionStatus.EXPIRED),
             isRefreshing = false, catalogScan = CatalogScanProgress(loadedCount = 3_000, totalCount = 60_000)))
 
-        // An expired sign-in shows the existing sign-in-again state; the read continues after signing in.
-        compose.onNodeWithText(context.getString(R.string.sign_in_again_saved_photos_available)).assertIsDisplayed()
+        // An expired sign-in is marked on the avatar as before; the read continues after signing in.
+        compose.onNodeWithTag("account-status-indicator", useUnmergedTree = true).assertIsDisplayed()
+            .assertContentDescriptionEquals(context.getString(R.string.sign_in_again_saved_photos_available))
         compose.onNodeWithTag("catalog-scan-progress").assertDoesNotExist()
         compose.onNodeWithText("3,000 of 60,000 photos loaded").assertDoesNotExist()
     }

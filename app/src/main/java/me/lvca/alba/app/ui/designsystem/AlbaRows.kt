@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,9 +29,9 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 
 /**
- * Alba's tappable list row: an optional [leading] slot, a title with an optional subtitle, and an
- * optional [trailing] slot such as [AlbaChevron]. Pass [selected] for a radio-style row inside a
- * selectableGroup; otherwise the row is a button.
+ * Alba's list row: an optional [leading] slot, a title with an optional subtitle, and an optional [trailing] slot.
+ * Pass [selected] for a radio-style row inside a selectableGroup; otherwise the row is a button, or plain when
+ * [onClick] is null (its trailing slot holding the action). Inside an [AlbaListGroup] it draws itself as a segment.
  *
  * The title and leading icon take LocalContentColor, so a caller can dim a disabled row or recolour it
  * for the viewer by providing a different content colour.
@@ -42,7 +39,7 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 @Composable
 internal fun AlbaListRow(
     title: String,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     enabled: Boolean = true,
@@ -57,12 +54,14 @@ internal fun AlbaListRow(
     gap: Dp = AlbaSpacing.md,
     minHeight: Dp = 56.dp,
 ) {
-    val interaction = if (selected != null) {
-        Modifier.selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
-    } else {
-        Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+    val interaction = when {
+        onClick == null -> Modifier
+        selected != null -> Modifier.selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
+        else -> Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
     }
-    Row(modifier.fillMaxWidth().clip(shape).then(interaction).heightIn(min = minHeight).padding(contentPadding),
+    val grouped = LocalInAlbaListGroup.current
+    Row(modifier.albaListSegment().fillMaxWidth().clip(if (grouped) AlbaListDefaults.segmentShape else shape).then(interaction)
+        .heightIn(min = minHeight).padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) {
         if (leading != null) {
             if (leadingSize == null) leading()
@@ -78,16 +77,16 @@ internal fun AlbaListRow(
     }
 }
 
-/** The trailing "opens another page" affordance of a list row. */
+/** The trailing "opens another page" affordance of a browsing row. Settings rows in an [AlbaListGroup] have none. */
 @Composable
 internal fun AlbaChevron(modifier: Modifier = Modifier) {
-    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, modifier, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    Icon(AlbaIcons.ChevronRight, null, modifier, tint = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** An explanatory row with an accent icon: onboarding and About use these to describe features. */
 @Composable
 internal fun AlbaFeatureRow(icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().padding(AlbaSpacing.lg), horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.lg)) {
+    Row(modifier.albaListSegment().fillMaxWidth().padding(AlbaSpacing.lg), horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.lg)) {
         Icon(icon, null, Modifier.padding(top = AlbaSpacing.xxs).size(AlbaIconSize.standard), tint = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
@@ -95,9 +94,6 @@ internal fun AlbaFeatureRow(icon: ImageVector, title: String, body: String, modi
         }
     }
 }
-
-/** Where an [AlbaFeatureRow]'s text starts, for dividers that align with it. */
-internal val AlbaFeatureRowTextInset = AlbaSpacing.lg + 24.dp + AlbaSpacing.lg
 
 /** A labelled value, such as a connection detail or a photo's camera. */
 @Composable
@@ -113,23 +109,22 @@ internal fun AlbaFact(label: String, value: String, modifier: Modifier = Modifie
 @Composable
 private fun AlbaListRowPreview() = AlbaPreviewSurface {
     AlbaCard {
-        AlbaListRow("Videos", onClick = {}, subtitle = "128 items", leading = { Icon(Icons.Outlined.Info, null) },
+        AlbaListRow("Videos", onClick = {}, subtitle = "128 items", leading = { Icon(AlbaIcons.Info, null) },
             trailing = { AlbaChevron() })
         AlbaDivider(Modifier.padding(start = 68.dp))
-        AlbaListRow("Favorites", onClick = {}, leading = { Icon(Icons.Outlined.Info, null) }, trailing = { AlbaChevron() })
+        AlbaListRow("Favorites", onClick = {}, leading = { Icon(AlbaIcons.Info, null) }, trailing = { AlbaChevron() })
     }
     AlbaCard {
-        AlbaListRow("Selected option", onClick = {}, selected = true, leading = { Icon(Icons.Outlined.Info, null) })
+        AlbaListRow("Selected option", onClick = {}, selected = true, leading = { Icon(AlbaIcons.Info, null) })
     }
 }
 
 @AlbaPreviews
 @Composable
 private fun AlbaFeatureRowPreview() = AlbaPreviewSurface {
-    AlbaCard {
-        AlbaFeatureRow(Icons.Outlined.Info, "Your whole library", "Browse every photo and album without downloading originals.")
-        AlbaDivider(Modifier.padding(start = AlbaFeatureRowTextInset, end = AlbaSpacing.lg))
-        AlbaFeatureRow(Icons.Outlined.Info, "Offline copies", "Keep the originals you choose on this phone.")
+    AlbaListGroup(title = "Features") {
+        AlbaFeatureRow(AlbaIcons.Info, "Your whole library", "Browse every photo and album without downloading originals.")
+        AlbaFeatureRow(AlbaIcons.Info, "Offline copies", "Keep the originals you choose on this phone.")
     }
     AlbaFact("Network", "Unmetered internet")
 }

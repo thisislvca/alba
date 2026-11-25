@@ -726,8 +726,10 @@
     <string name="phone_photo_prompt_action">Choose photos</string>
     <string name="profile_title">My profile</string>
     <string name="profile_demo_description">Explore Alba with a sample library.</string>
-    <string name="profile_library_section">YOUR LIBRARY</string>
-    <string name="profile_appearance_section">APPEARANCE</string>
+    <string name="profile_library_section">Your library</string>
+    <string name="profile_appearance_section">Appearance</string>
+    <string name="phone_storage_used_section">Space used</string>
+    <string name="phone_storage_limits_section">Storage limits</string>
     <string name="wallpaper_colors_title">Match wallpaper colors</string>
     <string name="wallpaper_colors_detail">Use your wallpaper’s colors instead of iCloud blue</string>
     <string name="profile_backup_connect">Connect your account to get started</string>

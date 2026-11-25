@@ -12,9 +12,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.account.SessionState
-import me.lvca.alba.app.ui.designsystem.AlbaCard
-import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaFact
+import me.lvca.alba.app.ui.designsystem.AlbaListGroup
+import me.lvca.alba.app.ui.designsystem.AlbaListItem
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.timestampLabel
@@ -34,15 +34,15 @@ internal fun AccountDiagnostics(state: SessionState, check: () -> Unit) {
         signedIn?.status == SessionStatus.VERIFIED -> R.string.apple_session_verified
         else -> R.string.restoring_your_session
     }
-    AlbaCard(Modifier.testTag("profile-connection")) {
-        Column(Modifier.padding(AlbaSpacing.xl), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    AlbaListGroup(Modifier.testTag("profile-connection"), title = stringResource(R.string.connection)) {
+        AlbaListItem {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(R.string.connection), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 Box(Modifier.size(8.dp).background(if (signedIn?.status == SessionStatus.VERIFIED && state.network?.online == true)
                     AlbaTheme.colors.success else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
+                Text(stringResource(status), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
             }
-            Text(stringResource(status), style = MaterialTheme.typography.bodyMedium)
-            AlbaDivider()
+        }
+        AlbaListItem(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             AlbaFact(stringResource(R.string.profile_network), stringResource(when {
                 state.network == null -> R.string.checking_network
                 !state.network.online -> R.string.no_internet_connection
@@ -56,6 +56,8 @@ internal fun AccountDiagnostics(state: SessionState, check: () -> Unit) {
                 info.photosAvailable == false -> R.string.apple_did_not_provide_a_photos_service_for_this_account
                 else -> R.string.photos_service_has_not_been_checked
             }), Modifier.testTag("profile-photos-service"))
+        }
+        AlbaListItem(contentPadding = PaddingValues(start = AlbaSpacing.lg, end = AlbaSpacing.lg, top = AlbaSpacing.lg, bottom = AlbaSpacing.xs)) {
             Text(state.lastRefreshedAt?.let { stringResource(R.string.library_refreshed_at, timestampLabel(it)) }
                 ?: stringResource(R.string.library_has_not_refreshed_in_this_session),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

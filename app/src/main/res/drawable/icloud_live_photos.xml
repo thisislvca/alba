@@ -1,22 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Adapted from SVG Repo Live Photo (CC0); normalized for Alba. See THIRD_PARTY_NOTICES.md. -->
+<!-- Material Symbols Rounded motion_photos_on (weight 400, grade 0, 24dp optical size), Apache-2.0. See THIRD_PARTY_NOTICES.md. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:pathData="M21.000,11.225 L21.000,12.775 M20.182,15.829 L19.407,17.171 M17.171,19.407 L15.829,20.182 M12.775,21.000 L11.225,21.000 M8.171,20.182 L6.829,19.407 M4.593,17.171 L3.818,15.829 M3.000,12.775 L3.000,11.225 M3.818,8.171 L4.593,6.829 M6.829,4.593 L8.171,3.818 M11.225,3.000 L12.775,3.000 M15.829,3.818 L17.171,4.593 M19.407,6.829 L20.182,8.171"
-        android:fillColor="#00000000"
-        android:strokeColor="#FF000000"
-        android:strokeWidth="1.5"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M17,12 A5,5 0,1 1,7,12 A5,5 0,1 1,17,12"
-        android:fillColor="#00000000"
-        android:strokeColor="#FF000000"
-        android:strokeWidth="1.5" />
-    <path
-        android:pathData="M13.5,12 A1.5,1.5 0,1 1,10.5,12 A1.5,1.5 0,1 1,13.5,12"
-        android:fillColor="#FF000000" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-32 5-64t15-63q5-16 20.5-21.5T150-626q15 8 21.5 23.5T173-570q-6 22-9.5 44.5T160-480q0 134 93 227t227 93q134 0 227-93t93-227q0-134-93-227t-227-93q-24 0-47.5 3.5T386-786q-17 5-32-1t-22-21q-7-15-.5-30.5T354-859q30-11 62-16t64-5q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80ZM220-680q-25 0-42.5-17.5T160-740q0-25 17.5-42.5T220-800q25 0 42.5 17.5T280-740q0 25-17.5 42.5T220-680Zm260 200Z" />
+    </group>
 </vector>

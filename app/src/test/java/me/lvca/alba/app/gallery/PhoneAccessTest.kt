@@ -1,5 +1,6 @@
 package me.lvca.alba.app.gallery
 
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -57,7 +58,8 @@ class PhoneAccessTest {
         compose.setAlbaContent(GalleryState(deviceMediaAccess = true, limitedPhotoAccess = true),
             SessionState(accountState = ICloudAccountState.SignedIn("owner@example.com", me.lvca.alba.protocol.account.SessionStatus.OFFLINE), isRefreshing = false),
             onPhotos = { requests++ })
-        compose.onNodeWithText("Offline · saved photos available").assertIsDisplayed()
+        compose.onNodeWithTag("account-status-indicator", useUnmergedTree = true).assertIsDisplayed()
+            .assertContentDescriptionEquals("Offline · saved photos available")
         compose.onNodeWithTag("gallery-menu-button").performClick()
         compose.onNodeWithText("Change selected phone photos").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, requests) }

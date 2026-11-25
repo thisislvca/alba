@@ -24,6 +24,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.account.OfflinePhotosStatus
 import me.lvca.alba.app.account.OfflinePhotosWait
 import me.lvca.alba.app.account.PhoneStorageState
+import me.lvca.alba.app.ui.designsystem.AlbaListItem
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
 import me.lvca.alba.engine.model.CacheLimit
 import me.lvca.alba.engine.model.ThumbnailBudget
@@ -31,7 +32,8 @@ import java.text.NumberFormat
 
 /**
  * The two stores of media on the phone: "Offline photos", the thumbnail budget that keeps photos browsable without a
- * connection, and the cache for full-size photos and videos. Each row opens a single-choice dialog.
+ * connection, and the cache for full-size photos and videos. Each row opens a single-choice dialog. They are rows of
+ * the [me.lvca.alba.app.ui.designsystem.AlbaListGroup] the caller puts them in.
  */
 @Composable
 internal fun StorageLimitSettings(
@@ -46,7 +48,6 @@ internal fun StorageLimitSettings(
         subtitle = state.thumbnailBudget.label(),
         onClick = { choosing = BUDGET },
         enabled = enabled,
-        contentPadding = PaddingValues(vertical = 12.dp),
         modifier = Modifier.testTag("offline-photos-setting"),
     )
     state.offlinePhotos?.takeIf { it.progress.libraryCount > 0 }?.let { status ->
@@ -57,12 +58,13 @@ internal fun StorageLimitSettings(
         subtitle = state.cacheLimit.label(),
         onClick = { choosing = CACHE },
         enabled = enabled,
-        contentPadding = PaddingValues(vertical = 12.dp),
         modifier = Modifier.testTag("media-cache-setting"),
     )
     state.usage?.let { usage ->
-        Text(stringResource(R.string.media_cache_usage, Formatter.formatShortFileSize(LocalContext.current, usage.cacheBytes)),
-            Modifier.testTag("media-cache-usage"), style = MaterialTheme.typography.bodySmall)
+        AlbaListItem {
+            Text(stringResource(R.string.media_cache_usage, Formatter.formatShortFileSize(LocalContext.current, usage.cacheBytes)),
+                Modifier.testTag("media-cache-usage"), style = MaterialTheme.typography.bodyMedium)
+        }
     }
     when (choosing) {
         BUDGET -> LimitDialog(R.string.offline_photos, R.string.offline_photos_explanation, "offline-photos",
@@ -77,22 +79,24 @@ internal fun StorageLimitSettings(
 private fun OfflinePhotosDetails(status: OfflinePhotosStatus, enabled: Boolean, chooseBudget: (ThumbnailBudget) -> Unit) {
     val context = LocalContext.current
     val numbers = NumberFormat.getIntegerInstance(LocalConfiguration.current.locales[0])
-    Text(stringResource(R.string.offline_photos_progress, numbers.format(status.progress.savedCount),
-        numbers.format(status.progress.libraryCount)),
-        Modifier.testTag("offline-photos-progress"), style = MaterialTheme.typography.bodySmall)
-    status.wait?.let { wait ->
-        Text(stringResource(when (wait) {
-            OfflinePhotosWait.WIFI_AND_CHARGING -> R.string.offline_photos_waiting
-            OfflinePhotosWait.STORAGE_LOW -> R.string.offline_photos_storage_low
-        }), Modifier.testTag("offline-photos-status"), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-    status.suggestedBudget?.let { suggested ->
-        Text(stringResource(R.string.offline_photos_needs, Formatter.formatShortFileSize(context, status.libraryBytes)),
-            Modifier.testTag("offline-photos-suggestion"), style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = { chooseBudget(suggested) }, enabled = enabled, modifier = Modifier.testTag("offline-photos-raise")) {
-            Text(if (suggested == ThumbnailBudget.NO_LIMIT) stringResource(R.string.offline_photos_remove_limit)
-            else stringResource(R.string.offline_photos_raise, suggested.label()))
+    AlbaListItem {
+        Text(stringResource(R.string.offline_photos_progress, numbers.format(status.progress.savedCount),
+            numbers.format(status.progress.libraryCount)),
+            Modifier.testTag("offline-photos-progress"), style = MaterialTheme.typography.bodyMedium)
+        status.wait?.let { wait ->
+            Text(stringResource(when (wait) {
+                OfflinePhotosWait.WIFI_AND_CHARGING -> R.string.offline_photos_waiting
+                OfflinePhotosWait.STORAGE_LOW -> R.string.offline_photos_storage_low
+            }), Modifier.testTag("offline-photos-status"), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        status.suggestedBudget?.let { suggested ->
+            Text(stringResource(R.string.offline_photos_needs, Formatter.formatShortFileSize(context, status.libraryBytes)),
+                Modifier.testTag("offline-photos-suggestion"), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { chooseBudget(suggested) }, enabled = enabled, modifier = Modifier.testTag("offline-photos-raise")) {
+                Text(if (suggested == ThumbnailBudget.NO_LIMIT) stringResource(R.string.offline_photos_remove_limit)
+                else stringResource(R.string.offline_photos_raise, suggested.label()))
+            }
         }
     }
 }

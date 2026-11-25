@@ -9,9 +9,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CornerSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,6 +33,7 @@ import me.lvca.alba.app.intake.incomingForSharedAlbum
 import me.lvca.alba.app.intake.inspectIncoming
 import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.ui.collections.AlbumChooser
+import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
 import me.lvca.alba.app.ui.localized
@@ -103,7 +101,9 @@ private fun IncomingTopBar(title: String, item: IncomingItem?, close: () -> Unit
     val context = LocalContext.current
     val shareLabel = stringResource(R.string.share)
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        FilledTonalIconButton(onClick = close, modifier = Modifier.testTag("incoming-back")) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back_action)) }
+        FilledTonalIconButton(onClick = close, modifier = Modifier.testTag("incoming-back")) {
+            Icon(AlbaIcons.ArrowBack, stringResource(R.string.back_action))
+        }
         Text(title, modifier = Modifier.weight(1f).padding(horizontal = 12.dp), maxLines = 2)
         item?.takeIf { it.failure == null && (it.mime?.startsWith("image/") == true || it.mime?.startsWith("video/") == true) }?.let { shown ->
             IconButton(onClick = {
@@ -113,7 +113,7 @@ private fun IncomingTopBar(title: String, item: IncomingItem?, close: () -> Unit
                     clipData = ClipData.newRawUri(shown.name, shown.uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }, shareLabel)) }.onFailure { shareFailed(true) }
-            }) { Icon(Icons.Outlined.Share, stringResource(R.string.share)) }
+            }) { Icon(AlbaIcons.Share, stringResource(R.string.share)) }
         }
     }
 }
