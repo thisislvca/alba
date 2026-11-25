@@ -6,8 +6,7 @@ import android.graphics.ImageDecoder
 import android.media.MediaMetadataRetriever
 import android.util.LruCache
 import android.util.Size
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,10 +29,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -46,8 +47,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -122,8 +121,6 @@ private val thumbnailMemoryCache = object : LruCache<ThumbnailCacheKey, Bitmap>(
 @Composable
 fun MediaThumbnail(
     reference: String?,
-    accentStartArgb: Long,
-    accentEndArgb: Long,
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
@@ -137,6 +134,7 @@ fun MediaThumbnail(
     sourceSize: IntSize = IntSize.Zero,
     presentationScale: () -> Float = { 1f },
     pinchToClose: PinchToClose? = null,
+    reveal: TileReveal? = null,
 ) {
     val context = LocalContext.current
     var decodeFailure by remember(sharedMediaId ?: reference, sourceRevision) { mutableStateOf<ThumbnailFailure?>(null) }
@@ -188,6 +186,21 @@ fun MediaThumbnail(
     // A tile that had to wait for its decode fades the photo in over the flat placeholder; cached tiles show at once.
     val fadesIn = remember(sharedMediaId ?: reference, sourceRevision) { bitmap == null }
     val placeholder = MaterialTheme.colorScheme.surfaceContainerHigh
+    // The tile's badges and scrims read the same reveal, so they change with the photo and never on their own.
+    val tileReveal = reveal ?: remember { TileReveal() }
+    val shown = bitmap != null
+    val tile = contentScale != ContentScale.Fit
+    val fades = fadesIn && tile && !reduceGalleryMotion()
+    // Applied before this frame is drawn, so a cached photo appears with its scrim and white badges at once.
+    SideEffect {
+        if (!shown) tileReveal.progress = 0f
+        else if (!fades) tileReveal.progress = 1f
+    }
+    LaunchedEffect(tileReveal, shown) {
+        if (shown && fades) {
+            animate(tileReveal.progress, 1f, animationSpec = tween(GalleryFeel.TILE_FADE_IN_MILLIS)) { value, _ -> tileReveal.progress = value }
+        }
+    }
 
     val thumbnailOwner = remember { Any() }
     DisposableEffect(sharedMediaId, sourceRevision, bitmap) {
@@ -232,13 +245,9 @@ fun MediaThumbnail(
                 // still the same photo; do not cancel an in-flight tap.
                 .photoTapGestures(zoomState, reduceMotion, sharedMediaId ?: reference, sourceRevision) { tap() } else Modifier)
             .clipToBounds()
-            .then(when {
-                contentScale == ContentScale.Fit -> Modifier
-                // Loading or loaded tiles sit on a flat neutral placeholder, like Google Photos; the photo's accent
-                // colours are kept for a tile that has no preview to show.
-                bitmap != null || decoding || (decodeFailure == null && reference != null) -> Modifier.background(placeholder)
-                else -> Modifier.background(Brush.linearGradient(colors = listOf(Color(accentStartArgb), Color(accentEndArgb))))
-            }),
+            // Every tile sits on one flat neutral placeholder, as on iCloud.com and in Google Photos: waiting for its
+            // preview, decoding it or failing alike. The photo fades in over it; the viewer keeps its own canvas.
+            .then(if (contentScale == ContentScale.Fit) Modifier else Modifier.background(placeholder)),
         contentAlignment = Alignment.Center,
     ) {
         val loaded = bitmap
@@ -267,13 +276,20 @@ fun MediaThumbnail(
                     } else Modifier)
                     .clipToBounds(),
             )
-            if (fadesIn && contentScale != ContentScale.Fit) TileFadeIn(placeholder)
+            // The placeholder lifting off a newly decoded tile. Drawn, not recomposed, while it fades.
+            if (tile) Spacer(Modifier.fillMaxSize().drawBehind {
+                (1f - tileReveal.progress).takeIf { it > 0f }?.let { drawRect(placeholder, alpha = it) }
+            })
         } else ThumbnailStatus(decodeFailure, decoding, hasReference = reference != null, fit = contentScale == ContentScale.Fit,
             contentDescription, retry = if (reference != null) ({ localRetry += 1 }) else LocalViewerPhotoPage.current?.retry)
     }
 }
 
-/** What a thumbnail without pixels shows: nothing while a tile decodes, a glyph on a tile, or the viewer's status card. */
+/**
+ * What a thumbnail without pixels shows. A tile stays a plain placeholder while its preview is on the way (not yet
+ * requested, downloading or decoding) and shows a glyph only for a real failure or when low storage paused previews;
+ * the viewer shows its status card.
+ */
 @Composable
 private fun ThumbnailStatus(failure: ThumbnailFailure?, decoding: Boolean, hasReference: Boolean, fit: Boolean, contentDescription: String?,
     retry: (() -> Unit)?) {
@@ -288,21 +304,19 @@ private fun ThumbnailStatus(failure: ThumbnailFailure?, decoding: Boolean, hasRe
             else -> R.string.photo_preview_unavailable
         }
     })
-    val onMedia = AlbaTheme.colors.onMedia
     val icon = when {
         failure != null -> Icons.Outlined.Info
         storageLow -> AlbaIcons.PhoneAndroid
         else -> AlbaIcons.CloudQueue
     }
     val description = listOfNotNull(contentDescription, label).joinToString(". ")
-    // A tile waiting for its decode stays a plain placeholder: a field of spinners reads as broken while scrolling.
-    val waitingTile = !fit && failure == null && hasReference
+    // A field of spinners or cloud glyphs reads as broken while a screenful of previews downloads, so a waiting tile
+    // shows nothing. Without a reference the tile cannot tell a slow download from a failed one; refreshing retries it.
+    val tileGlyph = failure != null || (storageLow && !hasReference)
     if (fit) {
         if (LocalViewerPhotoPage.current?.statusVisible != false) ViewerPhotoStatus(decoding, icon, description, label, retry, decodeFailed = hasReference)
-    } else if (!waitingTile) Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
-        if (decoding) CircularProgressIndicator(Modifier.size(AlbaIconSize.standard), color = onMedia, strokeWidth = 2.dp)
-        else Icon(icon, contentDescription = description, tint = onMedia.copy(alpha = .85f), modifier = Modifier.size(AlbaIconSize.large))
-    }
+    } else if (tileGlyph) Icon(icon, contentDescription = description, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(12.dp).size(AlbaIconSize.large).testTag("tile-preview-problem"))
 }
 
 /**
@@ -346,13 +360,14 @@ private fun ViewerPhotoStatus(decoding: Boolean, icon: ImageVector, description:
 /** Below this height the viewer's photo status leaves out its icon. */
 private val StatusShortSlot = 280.dp
 
-/** The placeholder [color] lifting off a newly decoded tile. Drawn, not recomposed, while it fades. */
-@Composable
-private fun TileFadeIn(color: Color) {
-    val reducedMotion = reduceGalleryMotion()
-    val cover = remember { Animatable(1f) }
-    LaunchedEffect(cover) { cover.animateTo(0f, if (reducedMotion) snap() else tween(GalleryFeel.TILE_FADE_IN_MILLIS)) }
-    Spacer(Modifier.fillMaxSize().drawBehind { cover.value.takeIf { it > 0f }?.let { drawRect(color, alpha = it) } })
+/**
+ * How far a grid tile's photo has appeared: 0 while the tile has no pixels, rising to 1 as the photo fades in over the
+ * placeholder (at once under reduced motion or from the memory cache). Badges and scrims drawn over the tile read it
+ * while drawing, so they follow the photo's own fade without recomposing.
+ */
+@Stable
+class TileReveal {
+    var progress by mutableFloatStateOf(0f)
 }
 
 private fun cachedThumbnail(reference: String?, fallback: String?, revision: String): Bitmap? =
