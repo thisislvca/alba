@@ -448,7 +448,7 @@ class DefaultGalleryRepository(
     }
 
     override fun observeCatalogScan(): Flow<CatalogScanProgress?> = sync.observeScans().map { scans ->
-        scans.firstOrNull { it.account == cloudSource.accountLabel }?.let { CatalogScanProgress(it.loadedCount, it.totalCount) }
+        scans.firstOrNull { it.account == cloudSource.accountLabel }?.let { CatalogScanProgress(it.loadedCount, it.totalCount, it.pagesComplete) }
     }.distinctUntilChanged()
 
     override suspend fun resumeCatalogScan(): RefreshSummary? = syncLock.withLock {

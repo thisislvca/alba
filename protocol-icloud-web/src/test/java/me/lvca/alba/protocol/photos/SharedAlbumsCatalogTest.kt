@@ -45,6 +45,16 @@ class SharedAlbumsCatalogTest {
         }
     }
 
+    @Test fun aLegacyAlbumAppleMigratedToCloudKitIsListedOnceFromItsZone() = runBlocking {
+        val t = Transport().apply { legacyMigratedTo = "SharedCollection-private" }
+        val albums = source(t).sharedAlbums().collections.collections
+        assertEquals(2, albums.size)
+        assertTrue(albums.none { it.shared!!.generation == SharedAlbumGeneration.LEGACY })
+        // Migrated to a zone this account cannot see, it stays listed from the legacy service.
+        t.legacyMigratedTo = "SharedCollection-elsewhere"
+        assertEquals(1, source(t).sharedAlbums().collections.collections.count { it.shared!!.generation == SharedAlbumGeneration.LEGACY })
+    }
+
     @Test fun scopesDuplicateNamesAndRecordIdsAcrossLegacyAndBothCloudKitDatabases() = runBlocking {
         val t = Transport(); val s = source(t)
         val snapshot = s.sharedAlbums()
@@ -488,6 +498,7 @@ class SharedAlbumsCatalogTest {
         var customRole = "contributor"; var loseCommentResponse = false; var loseLegacyCommentResponse = false; var loseCopyStatus = false; var commentWrites = 0
         val comments = mutableMapOf<String, JsonObject>()
         var legacyComments = JsonArray(emptyList())
+        var legacyMigratedTo: String? = null
         var legacyCount = 1; var repeatPage = false; var legacyContributes = false; var albumHost = "https://p55-sharedstreams.icloud.com"
         var loseLegacyPut = false; var registeredAsset: String? = null; var createdLegacy: JsonObject? = null; var legacyCreates = 0; var loseLegacyCreate = false
         var expire = false; var streams = 0; var rawUploads = 0; var legacyPuts = 0
@@ -520,6 +531,14 @@ class SharedAlbumsCatalogTest {
             } + (if(reflectShareWrites) createdShare.orEmpty() else emptyMap()))
         }
 
+        /** The legacy album as Apple lists it once migrated: owned, with the CloudKit zone it moved to. */
+        private fun migratedAlbumList(zone: String) = buildJsonObject { putJsonArray("albums") { add(buildJsonObject {
+            put("albumguid", "legacy"); put("ownerdsid", "owner"); put("albumlocation", "$albumHost/owner/sharedstreams/")
+            put("albumctag", "v1"); put("sharingtype", "owned"); put("iswebuploadsupported", "1")
+            put("sharedCollectionMigrationState", "2"); put("sharedCollectionZoneIdentifier", zone)
+            putJsonObject("attributes") { put("name", "Same name"); put("allowcontributions", "1") }
+        }) } }
+
         private fun pair(index: Int, legacy: Boolean): List<JsonObject> {
             val date = if (legacy) "" else "\"assetDate\":{\"value\":1777777777000},"
             val file = if (legacy) "legacy.mp4" else "modern.jpg"
@@ -551,6 +570,7 @@ class SharedAlbumsCatalogTest {
                         put("share", JsonObject(share("shared") + ("currentUserParticipant" to buildJsonObject { put("acceptanceStatus", if(acceptedModern) "ACCEPTED" else "INVITED") })))
                     }) } }
                 }
+                path.endsWith("webgetalbumslist") && legacyMigratedTo != null -> migratedAlbumList(legacyMigratedTo!!)
                 path.endsWith("webgetalbumslist") -> Json.parseToJsonElement("""{"albums":[{"albumguid":"legacy","ownerdsid":"other","albumlocation":"$albumHost/other/sharedstreams/","albumctag":"v1","sharingtype":"subscribed","iswebuploadsupported":"1","attributes":{"name":"Same name","allowcontributions":"${if(legacyContributes) 1 else 0}"}}]}""").jsonObject.let { root -> JsonObject(root + ("albums" to JsonArray((if(legacyJoined) root["albums"]!!.jsonArray else emptyList()) + listOfNotNull(createdLegacy)))) }
                 path.endsWith("createalbum") -> {
                     legacyCreates++

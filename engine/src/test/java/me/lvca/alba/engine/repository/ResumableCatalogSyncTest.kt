@@ -21,6 +21,7 @@ import me.lvca.alba.engine.source.CatalogScanAbandoned
 import me.lvca.alba.engine.source.CloudCatalogPage
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.engine.source.CloudChanges
+import me.lvca.alba.engine.source.CollectionSnapshot
 import me.lvca.alba.engine.source.KnownCloudRecords
 import me.lvca.alba.engine.source.LibraryLookup
 import me.lvca.alba.engine.source.RemoteMediaRecord
@@ -61,6 +62,15 @@ class ResumableCatalogSyncTest {
 
     /** A new repository on the same database, as after the process was killed. */
     private fun repository(source: CloudCatalogSource) = DefaultGalleryRepository(database, source, null, cache, pause = { pauses += it })
+
+    @Test
+    fun aReadWithEveryPageInSaysSoWhileAlbumsLoad() = runBlocking {
+        val source = PagedSource(count = 20).apply { collectionsFailure = IOException("offline") }
+        assertTrue(runCatching { repository(source).refresh(false) }.exceptionOrNull() is IOException)
+
+        // The pages are all in; what is left is albums and the rest, which the header names instead of a full count.
+        assertEquals(CatalogScanProgress(loadedCount = 20, totalCount = 20, pagesComplete = true), repository(source).observeCatalogScan().first())
+    }
 
     @Test
     fun aReadCutShortResumesFromTheSavedCursorAfterTheProcessDies() = runBlocking {
@@ -431,6 +441,8 @@ class ResumableCatalogSyncTest {
         }
         override suspend fun hiddenMedia() = hidden
         override suspend fun recentlyDeleted() = trash
+        var collectionsFailure: Exception? = null
+        override suspend fun collections(): CollectionSnapshot = collectionsFailure?.let { throw it } ?: super.collections()
         override suspend fun writePreview(mediaId: String, output: OutputStream) = output.write(byteArrayOf(1))
         override suspend fun writeOriginal(mediaId: String, output: OutputStream) = output.write(byteArrayOf(1, 2))
     }

@@ -41,7 +41,11 @@ internal class SharedAlbumsCatalog(
     private fun backend(album: SharedAlbumRecord): SharedAlbumBackend = if (album.isLegacy) legacy else modern
 
     private suspend fun discover(): List<SharedAlbumRecord> {
-        val result = legacy.discover() + modern.discover()
+        val older = legacy.discover()
+        val current = modern.discover()
+        // A legacy album Apple migrated is listed by both services; show it once, from its CloudKit zone, as Photos does.
+        val migrated = current.mapTo(mutableSetOf()) { it.zone }
+        val result = older.filterNot { it.migratedZone != null && it.migratedZone in migrated } + current
         check(result.size <= 10000) { "Too many shared albums." }
         return result.distinctBy { it.collection.id }
     }

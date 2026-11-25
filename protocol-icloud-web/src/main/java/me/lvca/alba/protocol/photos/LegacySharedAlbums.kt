@@ -74,7 +74,7 @@ internal class LegacySharedAlbums(
             val id = ids.album(SharedAlbumRecord.LEGACY_SCOPE, owner, guid)
             val info = SharedAlbumInfo(SharedAlbumGeneration.LEGACY, role, webUrl = sharedAlbumWebUrl(current, "sa,", guid))
             SharedAlbumRecord(GalleryCollection(id, attributes.text("name") ?: guid, shared = info),
-                SharedAlbumRecord.LEGACY_SCOPE, owner, guid, location, row.text("albumctag"))
+                SharedAlbumRecord.LEGACY_SCOPE, owner, guid, location, row.text("albumctag"), row.text("sharedCollectionZoneIdentifier"))
         }
     }
 

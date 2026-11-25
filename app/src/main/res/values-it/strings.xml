@@ -1198,6 +1198,7 @@
     </plurals>
     <string name="catalog_scan_large_library">Con le librerie grandi può volerci un po’.</string>
     <string name="catalog_scan_notification">Caricamento della libreria di iCloud</string>
+    <string name="catalog_scan_loading_albums">Foto caricate. Caricamento degli album…</string>
     <plurals name="catalog_scan_progress">
         <item quantity="one">%1$s foto caricata</item>
         <item quantity="other">%1$s foto caricate</item>

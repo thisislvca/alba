@@ -1166,6 +1166,7 @@
     </plurals>
     <string name="catalog_scan_large_library">This can take a while for large libraries.</string>
     <string name="catalog_scan_notification">Loading your iCloud library</string>
+    <string name="catalog_scan_loading_albums">Photos loaded. Loading albums…</string>
     <plurals name="catalog_scan_progress">
         <item quantity="one">%1$s photo loaded</item>
         <item quantity="other">%1$s photos loaded</item>

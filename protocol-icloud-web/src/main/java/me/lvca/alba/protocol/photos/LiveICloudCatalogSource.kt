@@ -188,18 +188,27 @@ class LiveICloudCatalogSource(
         }
         val members = mutableMapOf<String, Set<String>>()
         fun id(name: String) = "icloud:$accountLabel:$name"
-        for (album in albums.filterNot { it.isFolder }) {
-            members[album.id] = database.queryAll("CPLContainerRelationLiveByAssetDate", "parentId", album.id, true)
-                .mapNotNull { it.fieldText("itemId")?.let(::id) }.toSet()
+
+        // Membership reads ask only for the fields they use and keep only record names, a page at a time: the full
+        // asset and master records of a large smart album (thousands of Live Photos) do not fit in the app's heap.
+        suspend fun names(type: String, field: String?, value: String?, keys: List<String>, pick: (JsonObject) -> String?): Set<String> {
+            val found = mutableSetOf<String>()
+            database.queryPages(type, field, value, ranked = true, desiredKeys = keys) { page -> page.mapNotNullTo(found, pick) }
+            return found
         }
-        members[GalleryQuery.FAVORITES] = database.queryAll("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", "FAVORITE", true)
-            .filter { it.recordType() == "CPLAsset" }.mapNotNull { it.recordName()?.let(::id) }.toSet()
+        for (album in albums.filterNot { it.isFolder }) {
+            members[album.id] = names("CPLContainerRelationLiveByAssetDate", "parentId", album.id, RELATION_KEYS) { it.fieldText("itemId")?.let(::id) }
+        }
+        members[GalleryQuery.FAVORITES] = names("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", "FAVORITE", MEMBERSHIP_KEYS) {
+            if (it.recordType() == "CPLAsset") it.recordName()?.let(::id) else null
+        }
         for (smart in SmartCollection.entries) {
             albums += GalleryCollection(smart.id, smart.title, position = smart.ordinal.toLong())
-            val records = if (smart == SmartCollection.BURSTS) database.queryAll("CPLBurstStackAssetAndMasterByAssetDate", ranked = true)
-                else database.queryAll("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", smart.appleFilter, true)
-            members[smart.id] = records.filter { it.recordType() == "CPLAsset" && !it.isRemovedFromLibrary() }
-                .mapNotNull { it.recordName()?.let(::id) }.toSet()
+            val pick: (JsonObject) -> String? = { record ->
+                if (record.recordType() == "CPLAsset" && !record.isRemovedFromLibrary()) record.recordName()?.let(::id) else null
+            }
+            members[smart.id] = if (smart == SmartCollection.BURSTS) names("CPLBurstStackAssetAndMasterByAssetDate", null, null, MEMBERSHIP_KEYS, pick)
+                else names("CPLAssetAndMasterInSmartAlbumByAssetDate", "smartAlbum", smart.appleFilter, MEMBERSHIP_KEYS, pick)
         }
         return CollectionSnapshot(albums, members)
     }
@@ -553,6 +562,12 @@ class LiveICloudCatalogSource(
         const val HIDDEN_LIST_RECORD_TYPE = "CPLAssetAndMasterHiddenByAssetDate"
         const val HIDDEN_INCOMPLETE = "Hidden was incomplete. Refresh to try again."
         const val RECORDS_PER_PHOTO = 2
+
+        /** What a membership read uses of each record: the asset's name and whether it is still in the library. */
+        val MEMBERSHIP_KEYS = listOf("isDeleted", "isExpunged", "isHidden")
+
+        /** What an album's membership read uses: the asset each relation names. */
+        val RELATION_KEYS = listOf("itemId")
         val PHOTO_DESIRED_KEYS = listOf(
             "resOriginalVidComplRes", "resOriginalVidComplFileType", "resOriginalVidComplFingerprint",
             "isHidden", "isDeleted", "isFavorite", "duration", "resOriginalFingerprint", "resVidMedRes", "resVidFullRes",
