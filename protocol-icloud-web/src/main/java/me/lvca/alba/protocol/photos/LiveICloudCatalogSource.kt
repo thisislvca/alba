@@ -44,6 +44,13 @@ class LiveICloudCatalogSource(
     private val sharedJournal: UploadJournal? = null,
     private val onSessionUpdated: suspend (AppleSessionSnapshot) -> Unit = {},
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
+    /**
+     * Apple's indexing state did not hold the read back although it was not FINISHED: it FAILED, or it is still running
+     * for a library that already answers. Only for diagnostics.
+     */
+    private val onIndexingAdvisory: (LibraryIndexing) -> Unit = {},
+    /** Whether Alba already stores library rows whose media ids start with the prefix, from an earlier read. */
+    private val hasStoredLibrary: suspend (prefix: String) -> Boolean = { false },
 ) : CloudCatalogSource {
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected).apply {
         onAccountChanged { downloads.clear(); currentRefreshIds.clear() }
@@ -429,18 +436,55 @@ class LiveICloudCatalogSource(
                 }.toString(),
             ),
         )
-        val state = indexing.jsonObjectOrNull()
-            ?.get("records")
-            ?.let { it as? kotlinx.serialization.json.JsonArray }
-            ?.firstOrNull()
-            ?.let { it as? JsonObject }
-            ?.fieldText("state")
-        if (state != null && state != "FINISHED") {
-            throw AppleProtocolException(
-                AppleProtocolError.LIBRARY_PREPARING,
-                "iCloud Photos is still preparing this library. Try again in a few minutes.",
-            )
+        // Apple's indexing state is advisory. FINISHED, FAILED or no record at all read the library; so does one still
+        // indexing that Alba already stores or that already answers, as Apple can start a new RUNNING job at 0% on a
+        // library iCloud.com reads in full. Only a library with nothing stored and nothing to read yet waits.
+        val state = LibraryIndexing.parse(indexing.jsonObjectOrNull()) ?: return
+        if (state.failed) onIndexingAdvisory(state)
+        if (!state.inProgress) return
+        if (hasStoredLibrary("icloud:${ICloudAccountIdentity.namespace(session)}:") || libraryAnswers(session)) {
+            onIndexingAdvisory(state)
+            return
         }
+        throw LibraryPreparingException(state.progress)
+    }
+
+    /**
+     * Whether the main feed already answers: one record name from its first rank. An index error means it is not built
+     * yet; any other failure is the read's to report.
+     */
+    private suspend fun libraryAnswers(session: AppleSessionSnapshot): Boolean {
+        val response = cloudKit.exchange(session, AppleHttpRequest(
+            method = "POST",
+            url = database.url(session, "records/query"),
+            headers = PersonalLibraryDatabase.HEADERS,
+            body = buildJsonObject {
+                putJsonObject("query") {
+                    put("recordType", PHOTO_LIST_RECORD_TYPE)
+                    putJsonArray("filterBy") {
+                        add(buildJsonObject {
+                            put("fieldName", "direction"); put("comparator", "EQUALS")
+                            putJsonObject("fieldValue") { put("type", "STRING"); put("value", "ASCENDING") }
+                        })
+                        add(buildJsonObject {
+                            put("fieldName", "startRank"); put("comparator", "EQUALS")
+                            putJsonObject("fieldValue") { put("type", "INT64"); put("value", 0) }
+                        })
+                    }
+                }
+                put("zoneID", PrimarySyncZone.zoneId())
+                putJsonArray("desiredKeys") { add(JsonPrimitive("recordName")) }
+                put("resultsLimit", 1)
+            }.toString(),
+        ))
+        val root = response.jsonObjectOrNull()
+        if (response.code in HTTP_SUCCESS && root != null && !CloudKitErrors.rejectedRequest(root)) {
+            return (root["records"] as? kotlinx.serialization.json.JsonArray)?.isNotEmpty() == true
+        }
+        if (root?.toString()?.contains(INDEX_ERROR, ignoreCase = true) == true) return false
+        cloudKit.requireSuccess(session, response)
+        root?.let(CloudKitErrors::requireAccepted)
+        return false
     }
 
     private fun requireSession(): AppleSessionSnapshot = sessionProvider()
@@ -548,6 +592,10 @@ class LiveICloudCatalogSource(
     private companion object {
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         const val PHOTO_LIST_RECORD_TYPE = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted"
+
+        /** CloudKit's words for a query index it has not built yet. */
+        private const val INDEX_ERROR = "No index with requested name"
+        private val HTTP_SUCCESS = 200..299
         const val LIBRARY_COUNT_INDEX = "CPLAssetByAssetDateWithoutHiddenOrDeleted"
         const val NOT_FOUND = "NOT_FOUND"
         const val HIDDEN_LIST_RECORD_TYPE = "CPLAssetAndMasterHiddenByAssetDate"

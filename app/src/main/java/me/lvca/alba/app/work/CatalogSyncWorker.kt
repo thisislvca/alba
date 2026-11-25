@@ -21,7 +21,9 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.diagnostics.DiagnosticAttribute
 import me.lvca.alba.app.diagnostics.DiagnosticOperation
 import me.lvca.alba.app.diagnostics.DiagnosticOutcome
+import me.lvca.alba.app.messages.appleProtocolError
 import me.lvca.alba.engine.source.CatalogScanAbandoned
+import me.lvca.alba.protocol.auth.AppleProtocolError
 import java.util.concurrent.TimeUnit
 
 /** Keeps an unfinished first read of the iCloud library going when Alba is not on screen. */
@@ -37,6 +39,13 @@ interface CatalogSyncScheduler {
      * decides whether a phone item is already in iCloud.
      */
     fun scheduleRefresh(unmeteredOnly: Boolean) = schedule(expedited = false)
+
+    /**
+     * Checks again in a while whether Apple finished indexing the library, as check number [check]. It runs after the
+     * work that asks for it, and counts no retries, so a library that takes hours to index never uses up the retries
+     * real failures get.
+     */
+    fun recheckPreparing(check: Int, refresh: Boolean) = Unit
 
     companion object {
         /** Schedules nothing, for tests and the demo. */
@@ -68,6 +77,17 @@ internal class WorkManagerCatalogSyncScheduler(context: Context) : CatalogSyncSc
             .build()
         // KEEP: a read already queued or running continues from its saved page rather than starting again.
         workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
+    }
+
+    override fun recheckPreparing(check: Int, refresh: Boolean) {
+        val request = OneTimeWorkRequestBuilder<CatalogSyncWorker>()
+            .setInputData(androidx.work.workDataOf(CatalogSyncWorker.KEY_REFRESH to refresh, CatalogSyncWorker.KEY_PREPARING_CHECK to check))
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setInitialDelay(CatalogSyncWorker.PREPARING_RECHECK_MINUTES, TimeUnit.MINUTES)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
+            .build()
+        // Asked for by the running read, so it follows that read under the same name; cancelling the name stops both.
+        workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
     override fun cancel() {
@@ -105,6 +125,12 @@ class CatalogSyncWorker(context: Context, params: WorkerParameters) : CoroutineW
                 span.finish(DiagnosticOutcome.FAILED, error = error)
                 // A read that cannot finish as it is was discarded with its rows kept; trying again would not help.
                 if (error is CatalogScanAbandoned) return Result.success()
+                // Apple is still indexing the library: check again on a steady cadence, as new work with retries of its own.
+                if (error.appleProtocolError() == AppleProtocolError.LIBRARY_PREPARING) {
+                    val check = inputData.getInt(KEY_PREPARING_CHECK, 0) + 1
+                    if (check <= MAX_PREPARING_CHECKS) app.graph.catalogSync.recheckPreparing(check, inputData.getBoolean(KEY_REFRESH, false))
+                    return Result.success()
+                }
                 // A lost connection or throttling tries again later from the saved page; an expired sign-in waits.
                 if (accounts.backgroundSessionDecision() == BackgroundSessionDecision.PAUSE) Result.success() else Result.retry()
             }
@@ -145,6 +171,17 @@ class CatalogSyncWorker(context: Context, params: WorkerParameters) : CoroutineW
     companion object {
         /** Input: refresh the library when there is no first read to continue. */
         const val KEY_REFRESH = "refresh"
+
+        /** Input: how many times this work has checked a library Apple is still indexing. */
+        const val KEY_PREPARING_CHECK = "preparingCheck"
+
+        /** How long to wait before checking again whether Apple finished indexing. */
+        internal const val PREPARING_RECHECK_MINUTES = 15L
+
+        /**
+         * A day of checks. Indexing a large library takes hours; past this, opening Alba checks again and starts over.
+         */
+        private const val MAX_PREPARING_CHECKS = 96
         private const val CATALOG_NOTIFICATION_ID = 1712
 
         /** About a day of exponential backoff from 30 seconds, capped by WorkManager at five hours. */
