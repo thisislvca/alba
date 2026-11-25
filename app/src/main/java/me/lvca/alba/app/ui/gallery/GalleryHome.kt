@@ -454,7 +454,7 @@ internal fun GalleryHome(
                                 }
                                 IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
                                     BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
-                                        Icon(AlbaIcons.SwapVert, stringResource(R.string.uploads_and_activity))
+                                        Icon(AlbaIcons.CloudSync, stringResource(R.string.uploads_and_activity))
                                     }
                                 }
                                 IconButton(onClick = actions::openAccount, modifier = Modifier.testTag("account-button").semantics { contentDescription = contextAccountLabel }) {
@@ -465,7 +465,8 @@ internal fun GalleryHome(
                         }
                         if (!hero && !connectPrompt && session.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = actions::openAccount))
+                                modifier = Modifier.padding(horizontal = 16.dp).testTag("gallery-account-status")
+                                    .overhangingTouchTarget(actions::openAccount))
                         }
                         val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
                         if (libraryHeader && gallery.selection.isEmpty()) BackupStatusChip(session, transfers, actions::openBackup)
@@ -862,7 +863,7 @@ private fun PhotoGrid(
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), monthLabel(month))
                     AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
                         HeaderSelectionCircle(section.items.all { it.id in selection }, selectionLabel,
-                            { actions.selectItems(section.items.map { it.id }.toSet(), it) }, Modifier.padding(end = 12.dp))
+                            { actions.selectItems(section.items.map { it.id }.toSet(), it) })
                     }
                 }
             }
@@ -872,8 +873,9 @@ private fun PhotoGrid(
                     Text(dateLabel(day), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), dateLabel(day))
                     AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
+                        // The target overhangs the row's end padding so the circle stays aligned with the photos' edge.
                         HeaderSelectionCircle(photos.all { it.id in selection }, selectionLabel,
-                            { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) })
+                            { checked -> actions.selectItems(photos.map { it.id }.toSet(), checked) }, Modifier.offset(x = 12.dp))
                     }
                 }
             }
@@ -995,15 +997,37 @@ private fun SearchLanding(summaries: Map<String, me.lvca.alba.app.ui.collections
 }
 
 /**
- * A date header's select-all control: the same check circle as a photo's, as in Google Photos. Compose extends its
- * touch area to the minimum touch target.
+ * A date header's select-all control: the same check circle as a photo's, as in Google Photos, centred in a 48dp
+ * target. The header lays it out without height, so the target never makes the row taller.
  */
 @Composable
 private fun HeaderSelectionCircle(checked: Boolean, label: String, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
     SelectionCircle(checked, onPhoto = false, modifier = modifier
         .toggleable(checked, interactionSource = null, indication = ripple(bounded = false, radius = 20.dp), role = Role.Checkbox,
             onValueChange = onCheckedChange)
-        .semantics { contentDescription = label })
+        .semantics { contentDescription = label }
+        .minimumInteractiveComponentSize())
+}
+
+/**
+ * Makes a line of text a button with Material's 48dp touch target, without making its row taller: the target overhangs
+ * the text evenly above and below, as a small control's target does.
+ */
+@Composable
+private fun Modifier.overhangingTouchTarget(onClick: () -> Unit): Modifier {
+    val contentHeight = remember { IntArray(1) }
+    return layout { measurable, constraints ->
+        val target = measurable.measure(constraints.copy(minHeight = 0))
+        val height = contentHeight[0].coerceAtMost(target.height)
+        layout(target.width, height) { target.place(0, -(target.height - height) / 2) }
+    }
+        .clickable(role = Role.Button, onClick = onClick)
+        .minimumInteractiveComponentSize()
+        .layout { measurable, constraints ->
+            val content = measurable.measure(constraints)
+            contentHeight[0] = content.height
+            layout(content.width, content.height) { content.place(0, 0) }
+        }
 }
 
 /**
