@@ -24,6 +24,12 @@ internal val AlbaShapes = Shapes(
 internal val Shapes.sheet: CornerBasedShape
     get() = extraLarge.copy(bottomStart = CornerSize(0), bottomEnd = CornerSize(0))
 
+/**
+ * Album and collection covers ([Shapes.medium]). The image, the container it sits in and the card's press ripple all
+ * clip to this one shape, so no frame or mismatched corner can show between them. Draw covers with AlbaCover.
+ */
+internal val Shapes.cover: Shape get() = medium
+
 /** Photo grid tiles: nearly square so the grid reads as one surface. */
 internal val Shapes.tile: Shape get() = TileShape
 

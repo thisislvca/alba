@@ -16,7 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -34,12 +33,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.designsystem.AlbaCover
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.InitialAvatar
 import me.lvca.alba.app.ui.designsystem.MediaScrim
 import me.lvca.alba.app.ui.designsystem.MediaScrimStrength
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.cover
 import me.lvca.alba.app.ui.designsystem.theme.heroTitle
 import me.lvca.alba.app.ui.gallery.GalleryFeel
 import me.lvca.alba.app.ui.gallery.MediaThumbnail
@@ -135,11 +136,13 @@ internal fun OwnerAvatar(name: String?, modifier: Modifier = Modifier) {
 @Composable
 internal fun AlbumCard(album: GalleryCollection, summary: CollectionPreview?, retry: Int,
     preview: (String) -> Unit, modifier: Modifier = Modifier, featured: Boolean = false, unread: Boolean = false, open: () -> Unit) {
+    // The card paints nothing of its own: its ripple and the cover clip to the one cover shape, so no block or frame
+    // shows around the image or the title on whatever surface the card sits on.
     Surface(onClick = open, modifier = modifier.testTag("${if (album.shared != null) "shared-" else ""}album-${album.id}"),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.background) {
+        shape = MaterialTheme.shapes.cover, color = Color.Transparent, contentColor = MaterialTheme.colorScheme.onSurface) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).clip(MaterialTheme.shapes.medium)) {
+            AlbaCover(Modifier.fillMaxWidth().aspectRatio(if (featured) .82f else 1f).testTag("album-cover-${album.id}"),
+                contentAlignment = Alignment.TopStart) {
                 AlbumCover(summary?.media.orEmpty(), retry, preview, Modifier.fillMaxSize(), coverMediaId = album.coverMediaId)
                 if (album.shared != null) OwnerAvatar(album.shared?.ownerName, Modifier.align(Alignment.TopStart).padding(10.dp))
                 if (unread) UnreadDot(album.id, Modifier.align(Alignment.TopEnd).padding(10.dp))

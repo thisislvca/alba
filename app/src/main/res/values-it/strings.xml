@@ -332,6 +332,13 @@
     <string name="storage_is_full_uploads_may_be_refused">Lo spazio è esaurito. I caricamenti potrebbero non riuscire.</string>
     <string name="storage_usage_is_not_available_yet">L’utilizzo dello spazio non è ancora disponibile.</string>
     <string name="storage_used">%1$s utilizzati su %2$s</string>
+    <string name="storage_family">Famiglia</string>
+    <string name="icloud_size_bytes">%1$s byte</string>
+    <string name="icloud_size_kb">%1$s KB</string>
+    <string name="icloud_size_mb">%1$s MB</string>
+    <string name="icloud_size_gb">%1$s GB</string>
+    <string name="icloud_size_tb">%1$s TB</string>
+    <string name="icloud_size_pb">%1$s PB</string>
     <string name="supported_in_v1_normal_two_factor_authentication_and_the_personal_library_security_ke">Alba funziona con l’autenticazione a due fattori standard, la libreria personale e gli Album condivisi. Il backup include la fotocamera, le cartelle che scegli e, se vuoi, le foto e i video già presenti sul telefono; puoi anche caricarne altri tu. La Libreria foto condivisa di iCloud e gli account con chiavi di sicurezza o Protezione avanzata dei dati non sono ancora supportati.</string>
     <string name="terms_update_required">Apri iCloud in un browser e accetta le condizioni aggiornate di Apple, poi torna ad Alba.</string>
     <string name="the_saved_account_could_not_be_opened_your_library_has_not_been_replaced">Impossibile aprire l’account salvato. La tua libreria non è stata sostituita.</string>
