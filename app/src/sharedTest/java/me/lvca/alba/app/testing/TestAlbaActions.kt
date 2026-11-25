@@ -9,6 +9,7 @@ import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.BackupSettings
+import me.lvca.alba.engine.model.CacheLimit
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
@@ -19,6 +20,7 @@ import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SharedDiscussion
 import me.lvca.alba.engine.model.SharedInvitation
 import me.lvca.alba.engine.model.SharedPostPreview
+import me.lvca.alba.engine.model.ThumbnailBudget
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.source.MediaRead
 
@@ -47,6 +49,8 @@ internal fun testAlbaActions(
     sharedDiscussion: suspend (String) -> SharedDiscussion = { error("Unavailable") },
     changeSharedAlbum: suspend (String, SharedCommand) -> Unit = { _, _ -> error("Unavailable") },
     clearLocalMedia: (LocalMediaCategory) -> Unit = {},
+    setThumbnailBudget: (ThumbnailBudget) -> Unit = {},
+    setCacheLimit: (CacheLimit) -> Unit = {},
     checkConnection: () -> Unit = {},
     signIn: (String, String) -> Unit = { _, _ -> },
     closeAccount: () -> Unit = {},
@@ -82,6 +86,7 @@ internal fun testAlbaActions(
     val onNotificationsAsked = sharedNotificationsAsked; val onConsumeOpen = consumeSharedOpen
     val onPendingInvitations = pendingSharedInvitations; val onResolveInvitation = resolveSharedInvitation; val onRespondInvitation = respondSharedInvitation
     val onSharedManagement = sharedManagement; val onSharedDiscussion = sharedDiscussion; val onChangeSharedAlbum = changeSharedAlbum
+    val onSetThumbnailBudget = setThumbnailBudget; val onSetCacheLimit = setCacheLimit
     val onClearLocalMedia = clearLocalMedia; val onCheckConnection = checkConnection; val onSubmitTwoFactor = submitTwoFactor
     val onSignIn = signIn; val onCloseAccount = closeAccount
     val onRequestDevicePhotos = requestDevicePhotos; val onPickUpload = pickUpload; val onContinue = continuePastUnresolved
@@ -120,6 +125,8 @@ internal fun testAlbaActions(
         override suspend fun sharedDiscussion(id: String) = onSharedDiscussion(id)
         override suspend fun changeSharedAlbum(albumId: String, command: SharedCommand) = onChangeSharedAlbum(albumId, command)
         override fun clearLocalMedia(category: LocalMediaCategory) = onClearLocalMedia(category)
+        override fun setThumbnailBudget(budget: ThumbnailBudget) = onSetThumbnailBudget(budget)
+        override fun setCacheLimit(limit: CacheLimit) = onSetCacheLimit(limit)
         override fun checkConnection() = onCheckConnection()
         override fun submitTwoFactor(code: String) = onSubmitTwoFactor(code)
         override fun requestDevicePhotos() = onRequestDevicePhotos()

@@ -103,6 +103,7 @@ import me.lvca.alba.app.ui.signInHandsOff
 import me.lvca.alba.app.work.canNotify
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.BackupSettings
+import me.lvca.alba.engine.model.CacheLimit
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
@@ -111,6 +112,7 @@ import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SharedUploadFile
 import me.lvca.alba.engine.model.SystemConsentCallback
+import me.lvca.alba.engine.model.ThumbnailBudget
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
@@ -928,6 +930,8 @@ private class AlbaRootActions(
     override fun setDiagnosticsEnabled(enabled: Boolean) = viewModel.setDiagnosticsEnabled(enabled)
     override fun checkPhoneStorage() = viewModel.phoneStorage.checkPhoneStorage()
     override fun clearLocalMedia(category: LocalMediaCategory) = viewModel.phoneStorage.clearLocalMedia(category)
+    override fun setThumbnailBudget(budget: ThumbnailBudget) = viewModel.phoneStorage.setThumbnailBudget(budget)
+    override fun setCacheLimit(limit: CacheLimit) = viewModel.phoneStorage.setCacheLimit(limit)
 
     override suspend fun sharedActivity(albumId: String, rank: Int) = shared.sharedActivity(albumId, rank)
     override suspend fun sharedPostDiscussion(postId: String) = shared.sharedPostDiscussion(postId)

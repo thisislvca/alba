@@ -90,4 +90,22 @@ interface AppleHttpTransport {
     fun clear()
 }
 
-class AppleMediaHttpException(val status: Int) : java.io.IOException("Apple media returned HTTP $status")
+open class AppleMediaHttpException(val status: Int) : java.io.IOException("Apple media returned HTTP $status") {
+    companion object {
+        /** The failure for a media response with [status]: 429 and 503 ask Alba to slow down, for [retryAfterSeconds]. */
+        fun of(status: Int, retryAfterSeconds: String?): AppleMediaHttpException =
+            if (status == HTTP_TOO_MANY_REQUESTS || status == HTTP_UNAVAILABLE) {
+                AppleMediaThrottledException(status, retryAfterSeconds?.trim()?.toLongOrNull()?.takeIf { it >= 0 }?.times(MILLIS_PER_SECOND))
+            } else {
+                AppleMediaHttpException(status)
+            }
+
+        private const val HTTP_TOO_MANY_REQUESTS = 429
+        private const val HTTP_UNAVAILABLE = 503
+        private const val MILLIS_PER_SECOND = 1_000L
+    }
+}
+
+/** Apple's media servers asked Alba to slow down (HTTP 429 or 503), for [retryAfterMillis] when they said. */
+class AppleMediaThrottledException(status: Int, override val retryAfterMillis: Long?) :
+    AppleMediaHttpException(status), me.lvca.alba.engine.source.ThrottledFailure

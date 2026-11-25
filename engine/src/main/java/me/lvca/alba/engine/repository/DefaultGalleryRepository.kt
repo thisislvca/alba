@@ -13,6 +13,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
+import me.lvca.alba.engine.cache.CachePruneResult
+import me.lvca.alba.engine.cache.InsufficientStorageException
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.CatalogCheckpointEntity
@@ -33,6 +35,7 @@ import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.source.*
 import me.lvca.alba.engine.source.CloudCatalogSource
 import me.lvca.alba.engine.source.DeviceCatalogSource
+import java.io.File
 import java.util.UUID
 
 class DefaultGalleryRepository(
@@ -45,10 +48,15 @@ class DefaultGalleryRepository(
     private val pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
     /** Alba's remote protocol status: it can refuse library or Shared Album edits while an iCloud change is checked. */
     private val protocolStatus: ProtocolStatusGate = ProtocolStatusGate.Open,
+    /** The thumbnail budget, read whenever the offline set is computed. */
+    private val thumbnailBudget: () -> ThumbnailBudget = { ThumbnailBudget.DEFAULT },
+    /** How many of the newest photos a budget keeps; tests use small sets. */
+    private val setSize: (ThumbnailBudget) -> Int = ThumbnailBudget::capacity,
 ) : GalleryRepository {
     private val dao = database.catalogDao()
     private val sync = database.catalogSyncDao()
     private val library = database.libraryDao()
+    private val offlineSet = database.offlineThumbnailDao()
     private val refreshLock = Mutex()
 
     /** One library sync at a time; edits never take it. */
@@ -58,6 +66,7 @@ class DefaultGalleryRepository(
     private val catalogPermits = Semaphore(2)
     private val exclusiveEntry = Mutex()
     private val mediaLocks = Array(MEDIA_LOCK_STRIPES) { Mutex() }
+    private val offlineSetLock = Mutex()
 
     override suspend fun accountProfile() = cloudSource.accountProfile()
     override suspend fun storageUsage() = cloudSource.storageUsage()
@@ -537,10 +546,11 @@ class DefaultGalleryRepository(
                 })
             }
 
-            val pruneResult = cache.pruneTo(sync.cloudCachePaths().toSet())
-            pruneResult.evictedPaths.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { paths ->
-                dao.clearPreviewPaths(paths); dao.clearViewerPaths(paths)
-            }
+            cache.pruneTo(sync.cloudCachePaths().toSet())
+            // New photos may move the offline set. It is named again on the next download or trim that needs it, not
+            // here, so a refresh reads no more of the catalog than before; until then every thumbnail stays.
+            cache.forgetOfflineThumbnails()
+            forgetCached(cache.trimCache())
         }
 
         return RefreshSummary(
@@ -765,32 +775,104 @@ class DefaultGalleryRepository(
             HiddenRead(sync.hiddenCloudItems("icloud:$account:").map(::toRemote), false)
         }
 
-    override suspend fun ensureViewer(mediaId: String) = withMediaLock(mediaId) {
-        val entity = requireCloudItem(mediaId)
-        if (cache.isReadable(entity.viewerCachePath) || cache.isReadable(entity.originalCachePath) || entity.kind == MediaKind.VIDEO.name) return@withMediaLock
-        previewPublicationLock.withLock {
-            val file = cache.writeAtomically(mediaId, "viewer") { output -> cloudSource.writeDisplay(mediaId, output) }
-            database.withTransaction {
-                dao.setViewerPath(mediaId, file.absolutePath)
-                cache.trimViewers().evictedPaths.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { paths ->
-                    dao.clearPreviewPaths(paths); dao.clearViewerPaths(paths)
+    override suspend fun ensureViewer(mediaId: String) {
+        ensureOfflineSet()
+        withMediaLock(mediaId) {
+            val entity = requireCloudItem(mediaId)
+            val viewerSaved = cache.isReadable(entity.viewerCachePath)
+            // Opened again: it counts as just used, for the cache's order.
+            if (viewerSaved) cache.noteUsed(entity.viewerCachePath)
+            if (viewerSaved || cache.isReadable(entity.originalCachePath) || entity.kind == MediaKind.VIDEO.name) return@withMediaLock
+            previewPublicationLock.withLock {
+                val file = cache.writeAtomically(mediaId, "viewer") { output -> cloudSource.writeDisplay(mediaId, output) }
+                database.withTransaction {
+                    dao.setViewerPath(mediaId, file.absolutePath)
+                    forgetCached(cache.trimCache(onlyIfNeeded = true))
                 }
             }
         }
     }
 
-    override suspend fun ensurePreview(mediaId: String) = withMediaLock(mediaId) {
+    override suspend fun ensurePreview(mediaId: String) {
+        ensureOfflineSet()
+        withMediaLock(mediaId) {
+            savePreview(mediaId) { write ->
+                try { write() } catch (full: InsufficientStorageException) {
+                    // The cache, used longest ago first, makes room for the one on screen; with nothing to remove, the
+                    // phone is full. The media lock's permit already keeps refresh pruning and clearing out.
+                    if (forgetCached(cache.trimCache()) == 0) throw full
+                    write()
+                }
+            }
+        }
+        // Batched: a trim goes well under the limit, so most writes only compare two numbers here.
+        if (cache.needsTrim()) catalogPermits.withPermit { forgetCached(cache.trimCache(onlyIfNeeded = true)) }
+    }
+
+    /**
+     * Saves [mediaId]'s thumbnail unless one is on the phone already: an older copy is adopted, otherwise [download]
+     * runs the given write. Returns the new file, or null when nothing was downloaded. Callers hold the media lock.
+     */
+    private suspend fun savePreview(mediaId: String, download: suspend (suspend () -> File) -> File): File? {
         val entity = requireCloudItem(mediaId)
         val retained = cache.retainPreview(mediaId, entity.previewCachePath)
         if (retained != null) {
             if (retained.absolutePath != entity.previewCachePath) dao.setPreviewPath(mediaId, retained.absolutePath)
-            return@withMediaLock
+            return null
         }
         // Only the same item's writes are serialized. A slow thumbnail or full-size
         // viewer must not hold a global lock over every visible tile's network request.
-        val file = cache.writeAtomically(mediaId, "preview") { output -> cloudSource.writePreview(mediaId, output) }
+        val file = download { cache.writeAtomically(mediaId, "preview") { output -> cloudSource.writePreview(mediaId, output) } }
         dao.setPreviewPath(mediaId, file.absolutePath)
+        return file
     }
+
+    override suspend fun notePreviewsShown(mediaIds: List<String>) = cache.notePreviewsShown(mediaIds)
+
+    override suspend fun applyStorageLimits() {
+        refreshOfflineSet()
+        // A permit keeps refresh pruning and clearing, which take both, from deleting the same files.
+        catalogPermits.withPermit { forgetCached(cache.trimCache()) }
+    }
+
+    /** Clears the catalog paths of removed files, so tiles and viewers download them again when they come back. */
+    private suspend fun forgetCached(result: CachePruneResult): Int {
+        result.evictedPaths.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { paths ->
+            dao.clearPreviewPaths(paths); dao.clearViewerPaths(paths)
+        }
+        return result.evictedPaths.size
+    }
+
+    /** Names the offline set to the cache: the newest photos the thumbnail budget holds. */
+    private suspend fun refreshOfflineSet() = offlineSetLock.withLock {
+        cache.setOfflineThumbnails(offlineSet.newestLibraryIds(setSize(thumbnailBudget())))
+    }
+
+    /** Names the offline set once per process, before the first trim needs it. */
+    private suspend fun ensureOfflineSet() {
+        if (!cache.hasOfflineSet) offlineSetLock.withLock {
+            if (!cache.hasOfflineSet) cache.setOfflineThumbnails(offlineSet.newestLibraryIds(setSize(thumbnailBudget())))
+        }
+    }
+
+    override fun observeOfflineThumbnails(budget: ThumbnailBudget): Flow<OfflineThumbnailProgress> =
+        offlineSet.observeOfflineThumbnails(setSize(budget))
+            .map { OfflineThumbnailProgress(it.libraryCount, it.setSize, it.savedCount) }
+            .distinctUntilChanged()
+
+    override suspend fun missingOfflineThumbnails(limit: Int, skip: Collection<String>): List<String> =
+        offlineSet.missingOfflineThumbnails(setSize(thumbnailBudget()), skip.toList(), limit)
+
+    override suspend fun prepareDownloads(mediaIds: List<String>) = cloudSource.prepareDownloads(mediaIds)
+
+    override suspend fun saveOfflineThumbnail(mediaId: String) {
+        withMediaLock(mediaId) {
+            // Nothing is trimmed to make room: the fill stops before the low-storage reserve instead.
+            savePreview(mediaId) { write -> write() }?.let { cache.markUnseen(mediaId, it) }
+        }
+    }
+
+    override suspend fun offlineThumbnailRoom(): Long = cache.roomBeforeReserve()
 
     override suspend fun keepOriginalOffline(mediaId: String) = withMediaLock(mediaId) {
         val entity = requireCloudItem(mediaId)
@@ -815,6 +897,7 @@ class DefaultGalleryRepository(
     override suspend fun clearCloudCatalog() {
         refreshLock.withLock { exclusiveCatalog {
         cache.clearAll()
+        cache.forgetOfflineThumbnails()
         database.withTransaction {
             dao.deleteByOrigin(MediaOrigin.ICLOUD.name)
             dao.deleteCheckpoints("icloud:%")

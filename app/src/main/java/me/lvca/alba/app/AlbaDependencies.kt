@@ -8,9 +8,11 @@ import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.platform.PhotoEditStore
+import me.lvca.alba.app.platform.StorageLimitPreferences
 import me.lvca.alba.app.sharing.SharedActivityStore
 import me.lvca.alba.app.transfers.TransferScheduler
 import me.lvca.alba.app.work.CatalogSyncScheduler
+import me.lvca.alba.app.work.OfflinePhotosScheduler
 import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.model.GalleryRepository
 import me.lvca.alba.engine.model.MaintenanceWakeup
@@ -37,7 +39,11 @@ data class AlbaDependencies(
     val diagnostics: AlbaDiagnostics,
     val sharedActivity: SharedActivityStore,
     val backupPreferences: BackupPreferences,
+    val storageLimits: StorageLimitPreferences,
     val catalogSync: CatalogSyncScheduler,
+    val offlinePhotos: OfflinePhotosScheduler,
+    /** Stops a background fill of the offline set in progress and waits for it to end. */
+    val stopOfflineFill: suspend () -> Unit,
 ) {
     companion object {
         fun from(graph: AlbaGraph) = AlbaDependencies(
@@ -55,7 +61,10 @@ data class AlbaDependencies(
             diagnostics = graph.diagnostics,
             sharedActivity = graph.sharedActivity,
             backupPreferences = graph.backupPreferences,
+            storageLimits = graph.storageLimits,
             catalogSync = graph.catalogSync,
+            offlinePhotos = graph.offlinePhotos,
+            stopOfflineFill = graph.offlineFill::stopAndJoin,
         )
     }
 }

@@ -230,7 +230,7 @@ class DefaultGalleryRepositoryTest {
     @Test
     fun viewerCacheEvictsOldestBytesWithoutRemovingThumbnailsOrOfflineOriginals() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val cache = MediaFileCache(context, maxViewerBytes = 5).also { it.clearAll() }
+        val cache = MediaFileCache(context, cacheLimitBytes = { 5 }).also { it.clearAll() }
         val oldPreview = cache.writeAtomically("old", "viewer") { it.write(byteArrayOf(1, 2, 3, 4)) }
         val newPreview = cache.writeAtomically("new", "viewer") { it.write(byteArrayOf(5, 6, 7, 8)) }
         val thumbnail = cache.writeAtomically("browsed", "preview") { it.write(ByteArray(20)) }
@@ -238,9 +238,8 @@ class DefaultGalleryRepositoryTest {
         oldPreview.setLastModified(1L)
         newPreview.setLastModified(2L)
 
-        val result = cache.pruneTo(
-            setOf(oldPreview.path, newPreview.path, thumbnail.path, original.path),
-        )
+        cache.pruneTo(setOf(oldPreview.path, newPreview.path, thumbnail.path, original.path))
+        val result = cache.trimCache()
 
         assertFalse(oldPreview.exists())
         assertTrue(newPreview.exists())
@@ -269,7 +268,7 @@ class DefaultGalleryRepositoryTest {
     @Test
     fun viewerBudgetDoesNotEvictBrowsedThumbnails() = runBlocking<Unit> {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val cache = MediaFileCache(context, maxViewerBytes = 2).also { it.clearAll() }
+        val cache = MediaFileCache(context, cacheLimitBytes = { 2 }).also { it.clearAll() }
         val repository = DefaultGalleryRepository(database, OneItemCloudSource, null, cache)
         repository.refresh(false)
         repository.ensurePreview(ITEM_ID)

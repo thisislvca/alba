@@ -50,6 +50,7 @@ abstract class AlbaDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao
     abstract fun catalogDao(): CatalogDao
     abstract fun catalogSyncDao(): CatalogSyncDao
+    abstract fun offlineThumbnailDao(): OfflineThumbnailDao
 
     abstract fun uploadTransferDao(): UploadTransferDao
 

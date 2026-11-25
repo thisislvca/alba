@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -25,8 +27,10 @@ import kotlinx.coroutines.launch
 import me.lvca.alba.app.account.AccountController
 import me.lvca.alba.app.account.AccountSources
 import me.lvca.alba.app.account.AccountSwitchHooks
+import me.lvca.alba.app.account.OfflinePhotos
 import me.lvca.alba.app.account.PhoneConditions
 import me.lvca.alba.app.account.PhoneStorageController
+import me.lvca.alba.app.account.offlinePhotosStatus
 import me.lvca.alba.app.actions.MediaAction
 import me.lvca.alba.app.actions.MediaActionRunner
 import me.lvca.alba.app.actions.MediaWork
@@ -44,6 +48,8 @@ import me.lvca.alba.app.transfers.ExportController
 import me.lvca.alba.app.transfers.LiveTransferMode
 import me.lvca.alba.app.transfers.TransferController
 import me.lvca.alba.engine.model.MediaOrigin
+import me.lvca.alba.protocol.account.ICloudAccountState
+import me.lvca.alba.protocol.account.SessionStatus
 
 /**
  * Owns the scope and saved state for Alba's state holders, wires them together, and exposes each one with its own
@@ -128,7 +134,32 @@ class AlbaViewModel(
     internal val sharedAlbums: SharedAlbumsController = SharedAlbumsController(viewModelScope, savedState, dependencies.repository,
         dependencies.accountManager, dependencies.diagnostics, runner, messages, gallery, dependencies.sharedActivity)
 
-    internal val phoneStorage: PhoneStorageController = PhoneStorageController(viewModelScope, dependencies.repository, transfers, previews, runner, messages)
+    private val accountReady = dependencies.accountManager.state
+        .map { it is ICloudAccountState.SignedIn && it.status == SessionStatus.VERIFIED }
+
+    private val offlinePhotos = OfflinePhotos(
+        budget = dependencies.storageLimits.thumbnailBudget,
+        cacheLimit = dependencies.storageLimits.cacheLimit,
+        saveBudget = dependencies.storageLimits::setThumbnailBudget,
+        saveCacheLimit = dependencies.storageLimits::setCacheLimit,
+        scheduler = dependencies.offlinePhotos,
+        stopFill = dependencies.stopOfflineFill,
+        applyLimits = dependencies.repository::applyStorageLimits,
+        accountReady = {
+            (dependencies.accountManager.state.value as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED
+        },
+    )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val offlineProgress = dependencies.storageLimits.thumbnailBudget
+        .flatMapLatest { budget -> dependencies.repository.observeOfflineThumbnails(budget).map { budget to it } }
+
+    internal val phoneStorage: PhoneStorageController = PhoneStorageController(viewModelScope, dependencies.repository, transfers,
+        previews, runner, messages, offlinePhotos,
+        offlineStatus = combine(offlineProgress, dependencies.storageLimits.storageLow, network, dependencies.charging) {
+                (budget, progress), storageLow, phoneNetwork, charging ->
+            offlinePhotosStatus(budget, progress, storageLow, phoneNetwork, charging)
+        }.distinctUntilChanged())
 
     internal val account: AccountController = AccountController(
         scope = viewModelScope,
@@ -182,6 +213,8 @@ class AlbaViewModel(
                 if (running) catalogSync.schedule(expedited = true)
             }
         }
+        // The offline set fills in the background whenever a signed-in library has thumbnails left to save.
+        offlinePhotos.keepFilling(viewModelScope, accountReady, dependencies.repository::observeOfflineThumbnails)
         // Each finished refresh also rechecks invitations, for the badge on the invitations inbox.
         sync.state.map { it.lastRefreshedAt }.distinctUntilChanged().drop(1).onEach { sharedAlbums.checkInvitations() }.launchIn(viewModelScope)
     }
@@ -279,6 +312,7 @@ class AlbaViewModel(
     private suspend fun cancelCloudWork() {
         transfers.cancelActiveBatches()
         catalogSync.cancel()
+        offlinePhotos.cancel()
         val jobs = buildList<Job> {
             sync.cancel()?.let(::add)
             addAll(previews.cancel())

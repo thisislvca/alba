@@ -15,18 +15,22 @@ import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.LiveProtocolStatus
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PhotoEditStore
+import me.lvca.alba.app.platform.StorageLimitPreferences
 import me.lvca.alba.app.platform.chargingStatus
 import me.lvca.alba.app.platform.networkStatus
 import me.lvca.alba.app.sharing.SharedActivityStore
 import me.lvca.alba.app.transfers.TransferScheduler
 import me.lvca.alba.app.work.BackupNotifications
 import me.lvca.alba.app.work.CatalogSyncScheduler
+import me.lvca.alba.app.work.OfflinePhotosScheduler
 import me.lvca.alba.app.work.SharedActivitySchedule
 import me.lvca.alba.app.work.UserTransferScheduler
 import me.lvca.alba.app.work.WorkManagerCatalogSyncScheduler
+import me.lvca.alba.app.work.WorkManagerOfflinePhotosScheduler
 import me.lvca.alba.app.work.WorkManagerWakeupScheduler
 import me.lvca.alba.app.work.cancelSharedActivityNotifications
 import me.lvca.alba.app.work.cancelUserTransfers
+import me.lvca.alba.app.work.offlinePhotosFailure
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.companion.CatalogLibraryIndex
@@ -38,6 +42,7 @@ import me.lvca.alba.engine.model.MaintenanceWakeup
 import me.lvca.alba.engine.model.ProtocolStatusGate
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.repository.DefaultGalleryRepository
+import me.lvca.alba.engine.repository.OfflineThumbnailFill
 import me.lvca.alba.engine.source.AndroidMediaStoreSource
 import me.lvca.alba.protocol.account.AndroidEncryptedSessionStore
 import me.lvca.alba.protocol.account.ICloudAccountManager
@@ -82,6 +87,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         isDemo = { accountManager.state.value == ICloudAccountState.Demo },
     )
     val backupPreferences = BackupPreferences(appContext)
+    val storageLimits = StorageLimitPreferences(appContext)
     internal val appearance = AppearancePreferences(appContext)
     internal val backupNotifications = BackupNotifications(appContext, backupPreferences)
     private val liveCatalog = LiveICloudCatalogSource(
@@ -105,14 +111,22 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         database = database,
         cloudSource = cloudCatalog,
         deviceSource = mediaStore,
-        cache = MediaFileCache(appContext),
+        cache = MediaFileCache(appContext, cacheLimitBytes = { storageLimits.cacheLimit.value.bytes }),
         protocolStatus = protocolStatus,
+        thumbnailBudget = { storageLimits.thumbnailBudget.value },
     )
+
+    /** Saves the offline set's thumbnails; the worker runs it, and changing the budget stops it first. */
+    val offlineFill = OfflineThumbnailFill(galleryRepository, classify = ::offlinePhotosFailure)
+    val offlinePhotos: OfflinePhotosScheduler = WorkManagerOfflinePhotosScheduler(appContext)
     val exporter = GalleryExporter(appContext, galleryRepository)
     val sharedActivity = SharedActivityStore(appContext) { enabled -> SharedActivitySchedule.apply(appContext, enabled) }
     private suspend fun clearSignedOutData() {
         sharedActivity.clear()
         cancelSharedActivityNotifications(appContext)
+        offlinePhotos.cancel()
+        offlineFill.stopAndJoin()
+        storageLimits.setStorageLow(false)
         batches.cancelActive()
         galleryRepository.clearCloudCatalog()
         exporter.clearShares()

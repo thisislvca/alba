@@ -44,6 +44,9 @@ internal fun PhoneStorageDetails(state: PhoneStorageState, busy: Boolean, action
                 }
                 Text(stringResource(R.string.thumbnails_retained_by_default), style = MaterialTheme.typography.bodySmall)
             }
+            HorizontalDivider()
+            StorageLimitSettings(state, enabled = !busy, chooseBudget = actions::setThumbnailBudget,
+                chooseCacheLimit = actions::setCacheLimit)
             state.error?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
             OutlinedButton(onClick = actions::checkPhoneStorage, enabled = !state.checking && !busy,
                 modifier = Modifier.fillMaxWidth()) {
