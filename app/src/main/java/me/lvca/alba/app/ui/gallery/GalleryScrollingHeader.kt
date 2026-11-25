@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
@@ -21,6 +22,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -28,6 +31,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import me.lvca.alba.app.ui.designsystem.theme.galleryOverlay
 import me.lvca.alba.app.ui.monthLabel
 import me.lvca.alba.app.ui.monthNameLabel
@@ -146,17 +151,68 @@ internal fun GalleryStatusBarScrim(color: () -> Color, modifier: Modifier = Modi
 }
 
 /**
+ * Whether [state] is scrolling or [scrubbing] (the fast scroller's thumb is held), or either stopped less than
+ * [holdMillis] ago. Like Google Photos, the floating date shows only then: it appears with a drag, fling or scrub and
+ * hides about a second after the grid comes to rest. A jump made by code (restoring a position, returning from the
+ * viewer) is no scroll here, so it never shows the date by itself.
+ */
+@Composable
+internal fun rememberRecentlyScrolled(state: ScrollableState, holdMillis: Long = GalleryFeel.DATE_PILL_HOLD_MILLIS,
+    scrubbing: () -> Boolean = { false }): State<Boolean> {
+    val recent = remember(state) { mutableStateOf(false) }
+    val scrubbingNow by rememberUpdatedState(scrubbing)
+    LaunchedEffect(state, holdMillis) {
+        snapshotFlow { state.isScrollInProgress || scrubbingNow() }.collectLatest { scrolling ->
+            if (scrolling) recent.value = true
+            else if (recent.value) {
+                delay(holdMillis)
+                recent.value = false
+            }
+        }
+    }
+    return recent
+}
+
+/**
+ * Fades a date header out as it slides under the status bar. The status-bar scrim is only mostly opaque, so photos
+ * stay faintly visible under the clock as in Google Photos, but a date's text there would ghost over the clock.
+ * Placement updates the fade without recomposing, so it costs nothing while scrolling.
+ */
+@Composable
+internal fun Modifier.fadeUnderStatusBar(): Modifier {
+    val statusBar = WindowInsets.statusBarsIgnoringVisibility.getTop(LocalDensity.current)
+    if (statusBar == 0) return this
+    var top by remember { mutableFloatStateOf(Float.NaN) }
+    var height by remember { mutableFloatStateOf(0f) }
+    return onPlaced { coordinates ->
+        top = coordinates.positionInRoot().y
+        height = coordinates.size.height.toFloat()
+    }.graphicsLayer { alpha = statusBarFade(top, height, statusBar.toFloat()) }
+}
+
+/** How visible a header from [top] to [top] + [height] is with the status bar's bottom edge at [statusBarBottom]. */
+internal fun statusBarFade(top: Float, height: Float, statusBarBottom: Float): Float =
+    if (top.isNaN() || height <= 0f) 1f else ((top + height - statusBarBottom) / height).coerceIn(0f, 1f)
+
+/**
  * Whether a real month header is on screen within [clearancePx] of the grid's top, given each visible month header's
  * top and bottom in viewport pixels. The floating date would then repeat or cover it.
  */
 internal fun monthHeaderNearTop(headers: List<Pair<Int, Int>>, clearancePx: Float): Boolean =
     headers.any { (top, bottom) -> bottom > 0 && top < clearancePx }
 
-/** The date floats above the photo timeline, independent of the header's visibility. */
+/**
+ * The date ([monthAtTop]) floats above the photo timeline, independent of the header's visibility, while the grid scrolls and a
+ * moment after ([recentlyScrolled], see [rememberRecentlyScrolled]), and never while [switching] tabs.
+ */
 @Composable
-internal fun FloatingGridDate(month: YearMonth?, dates: () -> Unit,
-    modifier: Modifier = Modifier) {
+internal fun FloatingGridDate(monthAtTop: YearMonth?, dates: () -> Unit,
+    modifier: Modifier = Modifier, recentlyScrolled: () -> Boolean = { true }, switching: () -> Boolean = { false }) {
+    // Never over the blank frames of a tab switch: it goes at once rather than fading with the page.
+    if (switching()) return
     val reducedMotion = reduceGalleryMotion()
+    // Read here, so scrolling starting and stopping recomposes only the date. It then fades out, or snaps with reduced motion.
+    val month = monthAtTop.takeIf { recentlyScrolled() }
     val reveal by animateFloatAsState(if (month != null) 1f else 0f,
         animationSpec = if (reducedMotion) snap() else tween(160, easing = galleryEaseOut), label = "scroll-date-reveal")
     var lastMonth by remember { mutableStateOf(month) }

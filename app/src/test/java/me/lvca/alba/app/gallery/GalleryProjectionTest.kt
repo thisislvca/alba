@@ -109,19 +109,22 @@ class GalleryProjectionTest {
         assertEquals(listOf(newest, older, picker), projected.queue)
     }
 
-    /** Photos lists Recently Deleted by deletion, most recent first, in one flat grid with no month sections. */
-    @Test fun recentlyDeletedIsOneFlatGridMostRecentlyDeletedFirst() {
+    /**
+     * iCloud.com lists Recently Deleted soonest-to-expire first (the fewest days left at the top), in one flat grid with
+     * no month sections.
+     */
+    @Test fun recentlyDeletedIsOneFlatGridSoonestToExpireFirst() {
         val day = 86_400_000L
         val deleted = { id: String, captured: String, expires: Long? ->
             media(id, MediaOrigin.ICLOUD, captured).copy(isTrashed = true, expiresAtEpochMillis = expires)
         }
-        // Expiry is deletion + 30 days, so "recent" (expiring last) was deleted most recently, whatever its capture date.
+        // Expiry is deletion + 30 days, so "old-capture" (expiring first) was deleted longest ago, whatever its capture date.
         val items = listOf(deleted("old-capture", "2019-05-01T00:00:00Z", 30 * day), deleted("recent", "2024-01-01T00:00:00Z", 40 * day),
             deleted("unknown", "2026-01-01T00:00:00Z", null), deleted("middle", "2026-03-01T00:00:00Z", 35 * day),
             media("library", MediaOrigin.ICLOUD, "2026-04-01T00:00:00Z"))
         val projected = GalleryProjection().apply(items, GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true), true,
             ICloudAccountState.SignedIn("person@example.com"), utc)
-        assertEquals(listOf("recent", "middle", "old-capture", "unknown"), projected.items.map { it.id })
+        assertEquals(listOf("old-capture", "middle", "recent", "unknown"), projected.items.map { it.id })
         assertEquals(1, projected.sections.size)
         assertEquals(projected.items, projected.sections.single().items)
         // The library keeps its month sections.

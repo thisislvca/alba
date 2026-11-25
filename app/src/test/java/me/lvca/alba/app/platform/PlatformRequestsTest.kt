@@ -93,6 +93,20 @@ class PlatformRequestsTest {
         assertNull(trashDaysLeft(trashed.copy(isTrashed = false, expiresAtEpochMillis = now + day), now))
     }
 
+    @Test fun recentlyDeletedCountsWholeDaysLeftLikeICloudCom() {
+        val now = 1_800_000_000_000L
+        val day = 86_400_000L
+        val deleted = media("icloud:1", MediaOrigin.ICLOUD).copy(isTrashed = true)
+        // Deleted a moment ago: expiry is 30 days on, and iCloud.com already reads "29 days".
+        assertEquals(29, trashDaysLeft(deleted.copy(expiresAtEpochMillis = now + 30 * day - 1_000), now))
+        assertEquals(30, trashDaysLeft(deleted.copy(expiresAtEpochMillis = now + 30 * day), now))
+        assertEquals(2, trashDaysLeft(deleted.copy(expiresAtEpochMillis = now + 2 * day + 1), now))
+        // The last day, and an expiry already passed, read "1 day" until the item is gone.
+        assertEquals(1, trashDaysLeft(deleted.copy(expiresAtEpochMillis = now + day + 1), now))
+        assertEquals(1, trashDaysLeft(deleted.copy(expiresAtEpochMillis = now + 60_000), now))
+        assertEquals(1, trashDaysLeft(deleted.copy(expiresAtEpochMillis = now - day), now))
+    }
+
     private fun media(id: String, origin: MediaOrigin, original: String? = null, linked: String? = null) = GalleryMedia(
         id, "$id.jpg", 0, 1, 1, origin,
         if (origin == MediaOrigin.DEVICE) MediaAvailability.DEVICE_ORIGINAL else MediaAvailability.CLOUD_ONLY,

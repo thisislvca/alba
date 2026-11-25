@@ -525,8 +525,8 @@
     <string name="refresh_phone_storage">Aggiorna spazio sul telefono</string>
     <string name="thumbnails_retained_by_default">Le miniature delle foto più recenti restano su questo telefono, così puoi sfogliarle senza connessione.</string>
     <string name="offline_photos">Foto offline</string>
-    <string name="offline_photos_explanation">Conserva le miniature su questo telefono per sfogliare la libreria senza connessione. Se la libreria richiede più spazio, vengono conservate le foto più recenti.</string>
-    <string name="offline_photos_progress">%1$s di %2$s foto disponibili offline</string>
+    <string name="offline_photos_explanation">Tieni le foto disponibili offline per sfogliare la libreria senza connessione. Se la libreria richiede più spazio, vengono conservate le foto più recenti.</string>
+    <string name="offline_photos_progress">%1$s di %2$s disponibili offline</string>
     <string name="offline_photos_waiting">In attesa di Wi‑Fi e ricarica</string>
     <string name="offline_photos_storage_low">In pausa: spazio quasi esaurito</string>
     <string name="offline_photos_needs">La libreria richiede circa %1$s per tenere offline ogni foto.</string>

@@ -22,7 +22,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.testing.AlbaAppRule
 import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.runBlockingWithMainLooper
-import me.lvca.alba.app.testing.showFloatingDate
+import me.lvca.alba.app.testing.tapFloatingDate
 import me.lvca.alba.app.testing.waitUntilExists
 import me.lvca.alba.app.testing.waitUntilGone
 import org.junit.Assert.assertEquals
@@ -104,7 +104,7 @@ class AppSurfacesTest {
         compose.onNodeWithText(app.string(R.string.uploads_downloads_and_backup)).assertIsDisplayed()
         compose.onNodeWithContentDescription(app.string(R.string.close_surface)).performClick()
         compose.onNodeWithText(app.string(R.string.uploads_downloads_and_backup)).assertDoesNotExist()
-        compose.showFloatingDate().performClick()
+        compose.tapFloatingDate()
         compose.waitUntilExists("date-months")
         compose.onNodeWithContentDescription(app.string(R.string.close_surface)).performClick()
         compose.waitUntilGone("date-months")
@@ -115,7 +115,7 @@ class AppSurfacesTest {
         }
         val label = Instant.ofEpochMilli(oldest.capturedAtEpochMillis).atZone(ZoneId.systemDefault())
             .format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-        compose.showFloatingDate().performClick()
+        compose.tapFloatingDate()
         compose.onNodeWithTag("date-months").performScrollToNode(hasText(label))
         compose.onAllNodesWithText(label).onLast().performClick()
         compose.waitUntilExists("media-${oldest.id}")

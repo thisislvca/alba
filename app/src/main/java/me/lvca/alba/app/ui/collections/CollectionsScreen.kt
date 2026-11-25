@@ -24,11 +24,11 @@ import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.gallery.GalleryState
 import me.lvca.alba.app.ui.designsystem.AlbaCard
-import me.lvca.alba.app.ui.designsystem.AlbaChevron
 import me.lvca.alba.app.ui.designsystem.AlbaCover
-import me.lvca.alba.app.ui.designsystem.AlbaDivider
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.AlbaListGroup
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
+import me.lvca.alba.app.ui.designsystem.AlbaListValue
 import me.lvca.alba.app.ui.designsystem.AlbaMenu
 import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
@@ -104,7 +104,7 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
             mediaTypeItems(summaries, previewRetryVersion, preview, openCollection)
             // Like iOS, Hidden sits apart and shows no count or covers until it is unlocked.
             item(span = { GridItemSpan(maxLineSpan) }) {
-                AlbaCard(Modifier.testTag("collection-hidden")) {
+                AlbaListGroup(Modifier.testTag("collection-hidden")) {
                     CollectionRow(stringResource(R.string.hidden), stringResource(R.string.hidden_locked),
                         icon = { Icon(AlbaIcons.Lock, null) }, onClick = openHidden)
                 }
@@ -147,8 +147,10 @@ internal fun CollectionsScreen(gallery: GalleryState, canEdit: Boolean, previewR
             }
         }
         if (page == null || page == CollectionsPage.DEVICE) item(span = { GridItemSpan(maxLineSpan) }) {
-            CollectionRow(stringResource(R.string.this_phone), if (gallery.limitedPhotoAccess) stringResource(R.string.change_selected_phone_photos) else if (gallery.deviceMediaAccess) stringResource(R.string.manage_photo_access) else stringResource(R.string.choose_photos_to_include),
-                icon = { Icon(AlbaIcons.PhoneAndroid, null) }, onClick = requestPhotos)
+            AlbaListGroup(Modifier.testTag("collection-this-phone")) {
+                CollectionRow(stringResource(R.string.this_phone), if (gallery.limitedPhotoAccess) stringResource(R.string.change_selected_phone_photos) else if (gallery.deviceMediaAccess) stringResource(R.string.manage_photo_access) else stringResource(R.string.choose_photos_to_include),
+                    icon = { Icon(AlbaIcons.PhoneAndroid, null) }, onClick = requestPhotos)
+            }
         }
     }
 }
@@ -162,16 +164,10 @@ private fun LazyGridScope.mediaTypeItems(summaries: Map<String, CollectionPrevie
             "collection-videos", painterResource(R.drawable.icloud_videos)) { openCollection(SmartCollection.VIDEOS.id) }
     }
     val mediaTypes = SmartCollection.entries.filter { it != SmartCollection.VIDEOS && (summaries[it.id]?.count ?: 0) > 0 }
+    // A grouped list like settings: the section header, then one segment per type, with no dividers or chevrons.
     if (mediaTypes.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-        Row(Modifier.padding(top = AlbaSpacing.sm), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ICloudIcon(R.drawable.icloud_media_types)
-            Text(stringResource(R.string.media_types), style = MaterialTheme.typography.titleLarge)
-        }
-    }
-    if (mediaTypes.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-        AlbaCard(Modifier.testTag("collection-media-types")) {
-            mediaTypes.forEachIndexed { index, smart ->
-                if (index > 0) AlbaDivider(Modifier.padding(start = 60.dp))
+        AlbaListGroup(Modifier.padding(top = AlbaSpacing.sm).testTag("collection-media-types"), title = stringResource(R.string.media_types)) {
+            mediaTypes.forEach { smart ->
                 CollectionRow(smart.localizedTitle(), null, summaries[smart.id]?.count ?: 0, { ICloudIcon(smart.icon()) },
                     Modifier.testTag("collection-${smart.name.lowercase()}")) { openCollection(smart.id) }
             }
@@ -264,21 +260,22 @@ private fun MosaicCard(title: String, subtitle: String, covers: List<GalleryMedi
 private fun ShortcutCard(title: String, modifier: Modifier, icon: @Composable () -> Unit, click: () -> Unit) {
     AlbaCard(modifier.fillMaxHeight(), onClick = click, shape = MaterialTheme.shapes.cover, verticalArrangement = Arrangement.Center) {
         Row(Modifier.heightIn(min = 58.dp).padding(horizontal = 14.dp, vertical = AlbaSpacing.md), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
-            Box(Modifier.size(AlbaIconSize.standard), contentAlignment = Alignment.Center) { icon() }
+            Box(Modifier.size(AlbaIconSize.standard), contentAlignment = Alignment.Center) {
+                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant, content = icon)
+            }
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
         }
     }
 }
 
+/**
+ * A row of the Collections hub or the Search landing, inside an [AlbaListGroup]: the icon in onSurfaceVariant, like
+ * every list icon, and an optional count at the end. Like settings rows, it has no chevron.
+ */
 @Composable
 internal fun CollectionRow(title: String, subtitle: String?, count: Int? = null, icon: @Composable () -> Unit,
     modifier: Modifier = Modifier, onClick: () -> Unit) {
-    AlbaListRow(title, onClick, modifier, subtitle = subtitle, leading = icon, shape = MaterialTheme.shapes.small,
-        contentPadding = PaddingValues(horizontal = AlbaSpacing.xs, vertical = AlbaSpacing.sm),
-        trailing = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                count?.let { Text(it.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                AlbaChevron()
-            }
-        })
+    AlbaListRow(title, onClick, modifier, subtitle = subtitle,
+        leading = { CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant, content = icon) },
+        trailing = count?.let { { AlbaListValue(it.toString()) } })
 }

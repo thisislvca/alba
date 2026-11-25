@@ -105,5 +105,5 @@ private fun MediaOverlaysPreview() = AlbaPreviewSurface {
         }
     }
     DemoBadge()
-    DemoBadge(color = AlbaTheme.colors.profile.badge, contentColor = AlbaTheme.colors.profile.onCard, large = true)
+    DemoBadge(large = true)
 }

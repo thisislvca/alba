@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -48,14 +47,27 @@ internal fun ComposeTestRule.scrollToGalleryMedia(id: String) {
 private const val FIRST_JULY_PHOTO = "fixture:icloud:0005"
 
 /**
- * Shows the floating date pill. Like Google Photos, the pill steps aside while a real month header is near the top of
- * the grid (GalleryFeel.STICKY_DATE_HEADER_CLEARANCE). Scrolling the first photo of a month to the top puts that month's
- * header just above the viewport and the next one at least a row of tiles below it.
+ * Scrolls so the floating date pill shows and taps it. Like Google Photos, the pill steps aside while a real month
+ * header is near the top of the grid (GalleryFeel.STICKY_DATE_HEADER_CLEARANCE). Scrolling the first photo of a month
+ * to the top puts that month's header just above the viewport and the next one at least a row of tiles below it.
+ * The pill hides about a second after scrolling stops, so the clock is held from the scroll until the tap.
  */
-internal fun ComposeTestRule.showFloatingDate(): SemanticsNodeInteraction {
+internal fun ComposeTestRule.tapFloatingDate() {
     waitForGalleryMedia(FIRST_JULY_PHOTO)
-    onNodeWithTag("gallery-grid").performScrollToKey(FIRST_JULY_PHOTO)
-    return onNodeWithTag("floating-date-button").assertIsDisplayed()
+    mainClock.autoAdvance = false
+    try {
+        onNodeWithTag("gallery-grid").performScrollToKey(FIRST_JULY_PHOTO)
+        // A jump by code shows no date; a short drag on the grid does, as a finger would.
+        onNodeWithTag("gallery-grid").performTouchInput {
+            down(center)
+            repeat(6) { moveBy(Offset(0f, -12f)) }
+            up()
+        }
+        repeat(3) { mainClock.advanceTimeByFrame() }
+        onNodeWithTag("floating-date-button").assertIsDisplayed().performClick()
+    } finally {
+        mainClock.autoAdvance = true
+    }
 }
 
 /** Opens [id] in the viewer from the gallery grid. */

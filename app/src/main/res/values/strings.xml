@@ -522,8 +522,8 @@
     <string name="refresh_phone_storage">Refresh phone storage</string>
     <string name="thumbnails_retained_by_default">Thumbnails of your newest photos stay on this phone, so you can browse without a connection.</string>
     <string name="offline_photos">Offline photos</string>
-    <string name="offline_photos_explanation">Keep thumbnails on this phone so you can browse your library without a connection. If your library needs more room, your newest photos are kept.</string>
-    <string name="offline_photos_progress">%1$s of %2$s photos available offline</string>
+    <string name="offline_photos_explanation">Keep photos available offline so you can browse your library without a connection. If your library needs more room, your newest photos are kept.</string>
+    <string name="offline_photos_progress">%1$s of %2$s available offline</string>
     <string name="offline_photos_waiting">Waiting for Wi‑Fi and charging</string>
     <string name="offline_photos_storage_low">Paused: storage low</string>
     <string name="offline_photos_needs">Your library needs about %1$s to keep every photo offline.</string>
