@@ -45,7 +45,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -120,8 +119,6 @@ private val thumbnailMemoryCache = object : LruCache<ThumbnailCacheKey, Bitmap>(
 @Composable
 fun MediaThumbnail(
     reference: String?,
-    accentStartArgb: Long,
-    accentEndArgb: Long,
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
@@ -230,13 +227,9 @@ fun MediaThumbnail(
                 // still the same photo; do not cancel an in-flight tap.
                 .photoTapGestures(zoomState, reduceMotion, sharedMediaId ?: reference, sourceRevision) { tap() } else Modifier)
             .clipToBounds()
-            .then(when {
-                contentScale == ContentScale.Fit -> Modifier
-                // Loading or loaded tiles sit on a flat neutral placeholder, like Google Photos; the photo's accent
-                // colours are kept for a tile that has no preview to show.
-                bitmap != null || decoding || (decodeFailure == null && reference != null) -> Modifier.background(placeholder)
-                else -> Modifier.background(Brush.linearGradient(colors = listOf(Color(accentStartArgb), Color(accentEndArgb))))
-            }),
+            // Every tile sits on one flat neutral placeholder, as on iCloud.com and in Google Photos: waiting for its
+            // preview, decoding it or failing alike. The photo fades in over it; the viewer keeps its own canvas.
+            .then(if (contentScale == ContentScale.Fit) Modifier else Modifier.background(placeholder)),
         contentAlignment = Alignment.Center,
     ) {
         val loaded = bitmap
@@ -271,7 +264,11 @@ fun MediaThumbnail(
     }
 }
 
-/** What a thumbnail without pixels shows: nothing while a tile decodes, a glyph on a tile, or the viewer's status card. */
+/**
+ * What a thumbnail without pixels shows. A tile stays a plain placeholder while its preview is on the way (not yet
+ * requested, downloading or decoding) and shows a glyph only for a real failure or when low storage paused previews;
+ * the viewer shows its status card.
+ */
 @Composable
 private fun ThumbnailStatus(failure: ThumbnailFailure?, decoding: Boolean, hasReference: Boolean, fit: Boolean, contentDescription: String?,
     retry: (() -> Unit)?) {
@@ -286,21 +283,19 @@ private fun ThumbnailStatus(failure: ThumbnailFailure?, decoding: Boolean, hasRe
             else -> R.string.photo_preview_unavailable
         }
     })
-    val onMedia = AlbaTheme.colors.onMedia
     val icon = when {
         failure != null -> Icons.Outlined.Info
         storageLow -> AlbaIcons.PhoneAndroid
         else -> AlbaIcons.CloudQueue
     }
     val description = listOfNotNull(contentDescription, label).joinToString(". ")
-    // A tile waiting for its decode stays a plain placeholder: a field of spinners reads as broken while scrolling.
-    val waitingTile = !fit && failure == null && hasReference
+    // A field of spinners or cloud glyphs reads as broken while a screenful of previews downloads, so a waiting tile
+    // shows nothing. Without a reference the tile cannot tell a slow download from a failed one; refreshing retries it.
+    val tileGlyph = failure != null || (storageLow && !hasReference)
     if (fit) {
         if (LocalViewerPhotoPage.current?.statusVisible != false) ViewerPhotoStatus(decoding, icon, description, label, retry, decodeFailed = hasReference)
-    } else if (!waitingTile) Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
-        if (decoding) CircularProgressIndicator(Modifier.size(AlbaIconSize.standard), color = onMedia, strokeWidth = 2.dp)
-        else Icon(icon, contentDescription = description, tint = onMedia.copy(alpha = .85f), modifier = Modifier.size(AlbaIconSize.large))
-    }
+    } else if (tileGlyph) Icon(icon, contentDescription = description, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(12.dp).size(AlbaIconSize.large).testTag("tile-preview-problem"))
 }
 
 /**
