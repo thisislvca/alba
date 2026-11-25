@@ -29,6 +29,7 @@ import me.lvca.alba.engine.model.GallerySort
 import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.engine.source.MediaRead
 import me.lvca.alba.protocol.account.ICloudAccountManager
+import me.lvca.alba.protocol.account.ICloudAccountState
 import java.time.LocalDate
 
 /** What the gallery shows: the query, its results, the selection and the photo open in the viewer. */
@@ -63,6 +64,13 @@ internal fun GalleryState.withBurstFrames(ids: Collection<String>): List<String>
         stacked[id]?.details?.burstId?.takeIf { it !in expandedBursts }?.let { bursts.members[it] } ?: listOf(id)
     }.distinct()
 }
+
+/**
+ * Whose library the gallery shows. While a saved account is being restored, which waits for Apple to answer, its stored
+ * library shows already: Apple confirms the session after the grid is up, never before it.
+ */
+private fun libraryOwner(state: ICloudAccountState, savedAccount: String?): ICloudAccountState =
+    if (state == ICloudAccountState.Restoring && savedAccount != null) ICloudAccountState.SignedIn(savedAccount) else state
 
 private data class DeviceAccess(val granted: Boolean = false, val limited: Boolean = false)
 
@@ -114,7 +122,7 @@ internal class GalleryBrowser(
         repository.observeGallery(),
         projectedQuery,
         deviceAccess.map { it.granted }.distinctUntilChanged(),
-        accountManager.state,
+        combine(accountManager.state, accountManager.session.map { it?.accountName }, ::libraryOwner).distinctUntilChanged(),
         combine(removing, expandedBursts, ::Pair),
     ) { items, query, granted, account, (removing, expanded) ->
         projection.apply(if (removing.isEmpty()) items else items.filterNot { it.id in removing }, query, granted, account,
