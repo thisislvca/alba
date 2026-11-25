@@ -298,8 +298,8 @@ class FixtureICloudCatalogSource(
         mediaIds.forEach(::record)
         if (hidden) this.hidden.addAll(mediaIds) else this.hidden.removeAll(mediaIds.toSet())
     }
-    override suspend fun storageUsage() = me.lvca.alba.engine.model.CloudStorageUsage(3_200_000_000, 5_000_000_000, listOf(me.lvca.alba.engine.model.StorageCategory("Photos", 2_800_000_000),
-            me.lvca.alba.engine.model.StorageCategory("Other", 400_000_000)), System.currentTimeMillis(), isDemo = true)
+    override suspend fun storageUsage() = me.lvca.alba.engine.model.CloudStorageUsage(3_277L shl 20, 5L shl 30, listOf(me.lvca.alba.engine.model.StorageCategory("Photos", 2_867L shl 20),
+            me.lvca.alba.engine.model.StorageCategory("Other", 410L shl 20)), System.currentTimeMillis(), isDemo = true)
     override suspend fun writeMotion(mediaId: String, output: OutputStream) {
         require(requireFixture(mediaId).index == 20)
         requireNotNull(openVideo).invoke().use { it.copyTo(output) }

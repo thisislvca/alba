@@ -1,0 +1,29 @@
+{
+  "storageUsageByMedia": [
+    {"mediaKey": "photos", "displayLabel": "Photos and Videos", "displayColor": "ffcc00", "usageInBytes": 380000000000},
+    {"mediaKey": "backup", "displayLabel": "Backup", "displayColor": "5856d6", "usageInBytes": 60000000000},
+    {"mediaKey": "docs", "displayLabel": "Documents", "displayColor": "ff9500", "usageInBytes": 21000000000},
+    {"mediaKey": "messages", "displayLabel": "Messages", "displayColor": "34c759", "usageInBytes": 9000000000},
+    {"mediaKey": "mail", "displayLabel": "Mail", "displayColor": "007aff", "usageInBytes": 2000000000}
+  ],
+  "storageUsageInfo": {
+    "compStorageInBytes": 0,
+    "usedStorageInBytes": 1948000000000,
+    "totalStorageInBytes": 2199023255552,
+    "commerceStorageInBytes": 2199023255552
+  },
+  "quotaStatus": {"overQuota": false, "haveMaxQuotaTier": true, "almost-full": false, "paidQuota": true},
+  "familyStorageUsageInfo": {
+    "mediaKey": "family",
+    "displayLabel": "Family",
+    "displayColor": "30b0c7",
+    "usageInBytes": 1470000000000,
+    "familyMembers": [
+      {"fullName": "Alex Example", "usageInBytes": 600000000000},
+      {"fullName": "Sam Example", "usageInBytes": 450000000000},
+      {"fullName": "Kim Example", "usageInBytes": 250000000000},
+      {"fullName": "Jo Example", "usageInBytes": 150000000000},
+      {"fullName": "Max Example", "usageInBytes": 20000000000}
+    ]
+  }
+}

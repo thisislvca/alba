@@ -45,8 +45,9 @@ class ProfileScreenTest {
     }
     private var checks = 0
     private val account = ICloudAccountState.SignedIn("alex@example.com")
-    private val usage = CloudStorageUsage(72_000_000_000, 200_000_000_000,
-        listOf(StorageCategory("Photos", 64_000_000_000), StorageCategory("Documents", 4_000_000_000), StorageCategory("Backup", 2_000_000_000), StorageCategory("Other", 2_000_000_000)), 1_790_000_000_000)
+    private val usage = CloudStorageUsage(72L shl 30, 200L shl 30,
+        listOf(StorageCategory("Photos", 64L shl 30), StorageCategory("Documents", 4L shl 30),
+            StorageCategory("Backup", 2L shl 30), StorageCategory("Other", 2L shl 30)), 1_790_000_000_000)
 
     @Test fun signedInProfileShowsAllowanceAndRoutesSettings() {
         val opened = mutableListOf<String>()
@@ -74,6 +75,15 @@ class ProfileScreenTest {
         assertEquals(1, checks)
     }
 
+    @Test fun twoTerabytePlanReadsTwoTerabytesAsApplesDoes() {
+        // Apple's 2 TB plan is exactly 2 TiB; decimal units would call it "2.2 TB".
+        render({ false }, storage = CloudStorageUsage(1_948_000_000_000, 2L shl 40, listOf(StorageCategory("Photos", 380_000_000_000)),
+            1_790_000_000_000, familyBytes = 1_470_000_000_000))
+        compose.onNodeWithTag("profile-plan-size").assertTextEquals("2 TB")
+        compose.onNodeWithText("1.8 TB of 2 TB used").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("2.2 TB").assertDoesNotExist()
+    }
+
     @Test fun italianLargeTextProfileKeepsActionsReachable() {
         render({ true }, locale = "it", scale = 1.5f)
         compose.onNodeWithText("200 GB").assertIsDisplayed()
@@ -91,7 +101,8 @@ class ProfileScreenTest {
     }
 
     private fun render(dark: () -> Boolean, locale: String = "en", scale: Float = 1f,
-        state: ICloudAccountState = account, demoStorage: Boolean = false, uriHandler: UriHandler? = null) {
+        state: ICloudAccountState = account, demoStorage: Boolean = false, uriHandler: UriHandler? = null,
+        storage: CloudStorageUsage = usage) {
         val base = InstrumentationRegistry.getInstrumentation().targetContext
         val config = Configuration(base.resources.configuration).apply { setLocales(LocaleList.forLanguageTags(locale)); fontScale = scale }
         val context = base.createConfigurationContext(config)
@@ -113,7 +124,7 @@ class ProfileScreenTest {
                     ICloudAccountScreen(
                         session = SessionState(accountState = state, network = NetworkStatus(true, false),
                             lastRefreshedAt = java.time.Instant.ofEpochMilli(1_790_000_000_000),
-                            accountInfo = AccountInfo(storage = usage.copy(isDemo = demoStorage), photosAvailable = true,
+                            accountInfo = AccountInfo(storage = storage.copy(isDemo = demoStorage), photosAvailable = true,
                                 profile = if (demoStorage) null else CloudAccountProfile("Alex Example", avatar,
                                     CloudStoragePlan(setOf(CloudPlanSource.ICLOUD_PLUS), 200L shl 30)))),
                         transfers = TransferState(backup = BackupView(false)),

@@ -79,9 +79,9 @@ internal object ScreenshotFixtures {
         lastRefreshedAt = Instant.ofEpochMilli(NEWEST),
         accountInfo = AccountInfo(
             profile = CloudAccountProfile("Alex Example", null, CloudStoragePlan(setOf(CloudPlanSource.ICLOUD_PLUS), 200L shl 30)),
-            storage = CloudStorageUsage(72_000_000_000, 200_000_000_000, listOf(
-                StorageCategory("Photos", 64_000_000_000), StorageCategory("Documents", 4_000_000_000),
-                StorageCategory("Backup", 2_000_000_000), StorageCategory("Other", 2_000_000_000),
+            storage = CloudStorageUsage(72L shl 30, 200L shl 30, listOf(
+                StorageCategory("Photos", 64L shl 30), StorageCategory("Documents", 4L shl 30),
+                StorageCategory("Backup", 2L shl 30), StorageCategory("Other", 2L shl 30),
             ), NEWEST),
             photosAvailable = true,
         ),

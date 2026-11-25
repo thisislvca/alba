@@ -132,9 +132,13 @@ enum class SmartCollection(val id: String, val title: String, val appleFilter: S
     ANIMATED("smart:animated", "Animated", "ANIMATED"),
 }
 
+/**
+ * iCloud storage as Apple reports it, in bytes. [categories] are this account's own usage; [familyBytes] is what the
+ * rest of its Family Sharing group uses of a shared plan. Both count toward [usedBytes].
+ */
 data class CloudStorageUsage(val usedBytes: Long, val totalBytes: Long,
     val categories: List<StorageCategory>, val checkedAtEpochMillis: Long,
-    val isDemo: Boolean = false) {
+    val isDemo: Boolean = false, val familyBytes: Long = 0) {
     val fraction: Float get() = (usedBytes.toDouble() / totalBytes.coerceAtLeast(1)).coerceIn(0.0, 1.0).toFloat()
 }
 data class StorageCategory(val name: String, val bytes: Long)
