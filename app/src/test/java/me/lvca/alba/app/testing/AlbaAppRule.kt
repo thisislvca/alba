@@ -17,8 +17,8 @@ import org.junit.runners.model.Statement
  * Robolectric gives every test a fresh application, so its database, files and preferences start empty and nothing
  * one test changes reaches another.
  *
- * [onboarded] starts past the introduction with the demo selected, and its catalog in the repository and on screen
- * before the test's first Compose call ([DemoCatalogRule]). `false` starts at the introduction as a fresh install does.
+ * [onboarded] starts past sign-in with the demo selected, and its catalog in the repository and on screen
+ * before the test's first Compose call ([DemoCatalogRule]). `false` starts at sign-in as a fresh install does.
  */
 class AlbaAppRule(private val onboarded: Boolean = true) : TestRule {
     private val onboarding = OnboardingRule(onboarded)

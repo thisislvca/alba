@@ -31,7 +31,9 @@ class DemoBackupFlowTest {
         assertNull(graph.accountManager.session.value)
         val permissions = listOf(Manifest.permission.READ_EXTERNAL_STORAGE, "android.permission.READ_MEDIA_IMAGES")
         val before = permissions.map(compose.activity::checkSelfPermission)
-        compose.onNodeWithTag("welcome-demo").performClick()
+        // Debug builds offer the demo from sign-in, where a fresh install starts.
+        compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("sign-in-demo").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("sign-in-demo").performClick()
         compose.waitUntil(LONG_WAIT) { compose.onAllNodesWithTag("account-button").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("account-button").performClick()
         compose.waitUntil(UI_WAIT) { compose.onAllNodesWithTag("profile-backup").fetchSemanticsNodes().isNotEmpty() }

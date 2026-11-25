@@ -23351,7 +23351,7 @@ PLme/lvca/alba/app/ui/AlbaAppKt;->AlbaApp$lambda$8(Landroidx/compose/runtime/Mut
 SPLme/lvca/alba/app/ui/AlbaAppKt;->AlbaApp(Lme/lvca/alba/app/gallery/GalleryState;Lme/lvca/alba/app/account/SessionState;Lme/lvca/alba/app/transfers/TransferState;Lme/lvca/alba/app/account/PhoneStorageState;Lme/lvca/alba/app/actions/MediaWork;ILme/lvca/alba/app/messages/UiMessage;Lme/lvca/alba/app/DiagnosticsConsent;Lme/lvca/alba/app/ui/AlbaActions;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
 SPLme/lvca/alba/app/ui/AlbaAppKt;->access$AlbaApp$lambda$7(Landroidx/compose/runtime/MutableState;)Z
 PLme/lvca/alba/app/ui/AlbaAppKt;->access$AlbaApp$lambda$8(Landroidx/compose/runtime/MutableState;Z)V
-SPLme/lvca/alba/app/ui/AlbaAppKt;->rootBack(Lme/lvca/alba/app/ui/Destination;Z)Lme/lvca/alba/app/ui/RootBack;
+SPLme/lvca/alba/app/ui/AlbaAppKt;->rootBack(Lme/lvca/alba/app/ui/Destination;ZZ)Lme/lvca/alba/app/ui/RootBack;
 Lme/lvca/alba/app/ui/AlbaAppKt$$ExternalSyntheticLambda0;
 SPLme/lvca/alba/app/ui/AlbaAppKt$$ExternalSyntheticLambda0;-><init>(Landroidx/compose/ui/graphics/drawscope/ContentDrawScope;)V
 SPLme/lvca/alba/app/ui/AlbaAppKt$$ExternalSyntheticLambda0;->invoke(Ljava/lang/Object;)Ljava/lang/Object;

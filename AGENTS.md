@@ -63,7 +63,7 @@ Claude Code cloud sessions (claude.ai/code) build Alba and run the JVM layers: u
 
 ## UI
 
-- Google Photos is the reference for gestures, motion and small details. Keep Alba's layout and Apple's names for iCloud data. Polish; don't redesign.
+- Follow [docs/design.md](docs/design.md): native Material 3 components and Android behaviour, with iCloud's look through the theme (colour, type, shape, motion). Google Photos stays the reference for gestures, motion and small details; use Apple's names for iCloud data.
 - Every user-visible string goes in `res/values/strings.xml` and `res/values-it/strings.xml`. `TranslationResourcesTest` checks they match.
 - Keep `testTag`s stable. Tests and screenshots rely on them.
 - Respect reduced motion wherever you add animation.
