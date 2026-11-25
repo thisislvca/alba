@@ -369,7 +369,6 @@
     <string name="welcome_connect">Collega iCloud</string>
     <string name="welcome_continue">Continua</string>
     <string name="welcome_demo">Prova la demo</string>
-    <string name="welcome_title">Le tue foto di iCloud.\nSu Android.</string>
     <string name="your_personal_albums_will_appear_here">I tuoi album personali appariranno qui.</string>
     <string name="your_saved_library_is_available_sign_in_again_to_reconnect">La libreria salvata è disponibile. Accedi di nuovo per riconnetterti.</string>
     <plurals name="added_to_album_count">

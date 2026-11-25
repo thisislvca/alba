@@ -68,7 +68,6 @@ class LocalizationTest {
             language("it")
             ActivityScenario.launch(MainActivity::class.java).use {
                 // A fresh install starts at sign-in.
-                waitFor("Le tue foto di iCloud.\nSu Android.")
                 waitFor("Accedi a iCloud")
                 language("en")
                 waitFor("Sign in to iCloud")

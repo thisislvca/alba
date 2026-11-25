@@ -380,7 +380,6 @@
     <string name="welcome_connect">Connect iCloud</string>
     <string name="welcome_continue">Continue</string>
     <string name="welcome_demo">Try the demo</string>
-    <string name="welcome_title">Your iCloud photos.\nOn Android.</string>
     <string name="your_personal_albums_will_appear_here">Your personal albums will appear here.</string>
     <string name="your_saved_library_is_available_sign_in_again_to_reconnect">Your saved library is available. Sign in again to reconnect.</string>
     <plurals name="added_to_album_count">
