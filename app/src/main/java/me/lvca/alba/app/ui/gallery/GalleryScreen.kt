@@ -122,10 +122,13 @@ internal fun GalleryScreenHost(
 ) {
     val reduceMotion = reduceGalleryMotion()
     val backState = remember { PredictiveBackState() }
-    val (state, transition) = rememberNavigationTransition(screen, backState, reduceMotion, label = "gallery-screens")
+    val (state, transition) = rememberNavigationTransition(screen, backState, reduceMotion, label = "gallery-screens",
+        // A switch the caller fades itself lands at once, so the screen that left is gone before the fade in.
+        snap = { faded() && backState.phase == BackPhase.IDLE })
     PredictiveBackNavigation(state, backState, previous = screen.parent(parentOf), key = { it }, reduceMotion = reduceMotion,
         enabled = backEnabled, onBack = onBack)
     val latestParentOf by rememberUpdatedState(parentOf)
+    val latestScreen by rememberUpdatedState(screen)
     val screens = rememberSaveableStateHolder()
     val visited = remember { mutableSetOf<GalleryScreen>() }
     LaunchedEffect(transition.currentState, transition.targetState) {
@@ -158,6 +161,9 @@ internal fun GalleryScreenHost(
         // Photos waits for the settle to compose: its query is restored only once it is the current destination.
         val live = !hasFrame || (target && (settled || !isLibrary))
         Box(Modifier.fillMaxSize().predictiveBackPose(backState, shown).drawWithContent {
+            // A switch the caller fades has already faded this screen out: it must not come back with the new one
+            // for the frame or two the transition takes to let it go.
+            if (shown != latestScreen && faded()) return@drawWithContent
             if (live) {
                 // Shared photos must draw directly while the viewer opens or closes, as AlbaApp's gallery frame does.
                 // Record the frame once and draw that, rather than recording the whole screen twice every frame.

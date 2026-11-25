@@ -348,6 +348,20 @@ class LiveICloudCatalogSource(
         stream(mediaId, output, DownloadReferences::previewUrl)
     }
 
+    /**
+     * Renews the download links of these library items with one lookup, as [freshReferences] does for one. An answer
+     * that does not cover every item renews nothing; each download then renews its own links if they expired.
+     */
+    override suspend fun prepareDownloads(mediaIds: List<String>) {
+        val prefix = "icloud:$accountLabel:"
+        val names = mediaIds.filter { it.startsWith(prefix) }.map { it.substringAfterLast(':') }
+        if (names.isEmpty()) return
+        cloudKit.bind(requireSession())
+        names.chunked(PREPARE_LOOKUP_LIMIT).forEach { chunk ->
+            try { hydrate(chunk).forEach { mapped(it) } } catch (_: CatalogResetRequired) { }
+        }
+    }
+
     override suspend fun writeMotion(mediaId: String, output: OutputStream) {
         if (SharedMediaIdentity.isShared(mediaId)) return shared.write(mediaId, output, "motion")
         stream(mediaId, output) { requireNotNull(it.motionUrl) { "Live Photo motion is unavailable" } }
@@ -613,6 +627,9 @@ class LiveICloudCatalogSource(
         const val HIDDEN_LIST_RECORD_TYPE = "CPLAssetAndMasterHiddenByAssetDate"
         const val HIDDEN_INCOMPLETE = "Hidden was incomplete. Refresh to try again."
         const val RECORDS_PER_PHOTO = 2
+
+        /** Assets renewed per lookup ahead of downloads; their masters take a second lookup of the same size. */
+        const val PREPARE_LOOKUP_LIMIT = 100
 
         /** What a membership read uses of each record: the asset's name and whether it is still in the library. */
         val MEMBERSHIP_KEYS = listOf("isDeleted", "isExpunged", "isHidden")

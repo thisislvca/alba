@@ -3,8 +3,8 @@ package me.lvca.alba.app.ui.gallery
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
@@ -13,8 +13,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.indication
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -29,6 +27,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.boundsInParent
@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
@@ -104,31 +105,31 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = CircleShape, color = floating.container, contentColor = floating.content,
                     shadowElevation = AlbaFloatingDefaults.ToolbarShadow, modifier = Modifier.testTag("gallery-destination-capsule")) {
-                    // Each destination reports where its pill belongs; one indicator follows the selected one.
+                    // Each destination reports where its pill belongs, and one indicator travels to the selected one.
+                    // The destinations resize while it travels, so it follows one spring from where it was toward
+                    // wherever the destination is in that frame, rather than restarting at every new size.
                     val pills = remember { mutableStateMapOf<GalleryTab, Rect>() }
-                    val target = pills[tab]
-                    val indicator = remember { Animatable(Rect.Zero, Rect.VectorConverter) }
-                    LaunchedEffect(target) {
+                    val indicator = remember { PillIndicator() }
+                    val reduce = motion.reduce
+                    LaunchedEffect(tab) {
                         // Search lives outside the capsule: with it selected, no destination here has a pill.
-                        if (target == null) indicator.snapTo(Rect.Zero)
-                        else if (indicator.value == Rect.Zero) indicator.snapTo(target)
-                        else indicator.animateTo(target, motion.rect)
+                        val from = indicator.drawn
+                        if (from == null || tab !in destinations || reduce) indicator.land()
+                        else indicator.travel(from, motion.travel)
                     }
                     val pillColor = floating.active
                     Row(Modifier.padding(4.dp).selectableGroup().drawBehind {
-                        val pill = indicator.value
-                        if (pill != Rect.Zero) drawRoundRect(pillColor, pill.topLeft, pill.size, CornerRadius(pill.height / 2f))
+                        val pill = indicator.at(pills[tab])
+                        if (pill != null) drawRoundRect(pillColor, pill.topLeft, pill.size, CornerRadius(pill.height / 2f))
                     }) {
                         destinations.forEachIndexed { index, destination ->
                             val selected = tab == destination
                             val showLabel = mode != TabDisplayMode.ICON_ONLY && (selected || mode == TabDisplayMode.EXPANDED)
                             val showIcon = selected || mode != TabDisplayMode.EXPANDED
-                            val interactions = remember { MutableInteractionSource() }
-                            val foreground by animateColorAsState(if (selected) floating.onActive else floating.content,
-                                motion.color, label = "destination-foreground")
-                            val margin by animateDpAsState(if (showLabel) 4.dp else 0.dp, motion.dp, label = "destination-margin")
-                            val start by animateDpAsState(if (showLabel) 8.dp else 12.dp, motion.dp, label = "destination-start")
-                            val end by animateDpAsState(if (!showLabel || selected) 12.dp else 8.dp, motion.dp, label = "destination-end")
+                            val foreground = motion.color(if (selected) floating.onActive else floating.content, "destination-foreground")
+                            val margin = motion.dp(if (showLabel) 4.dp else 0.dp, "destination-margin")
+                            val start = motion.dp(if (showLabel) 8.dp else 12.dp, "destination-start")
+                            val end = motion.dp(if (!showLabel || selected) 12.dp else 8.dp, "destination-end")
                             Box(Modifier.padding(horizontal = margin)
                                 .widthIn(min = 48.dp).heightIn(min = 48.dp)
                                 .onPlaced { coordinates ->
@@ -138,18 +139,18 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
                                     val pill = Rect(box.left, box.top + inset, box.right, box.bottom - inset)
                                     if (pills[destination] != pill) pills[destination] = pill
                                 }
-                                .selectable(selected, role = Role.Tab, interactionSource = interactions, indication = null,
+                                // No press ripple: the pill itself answers the tap, and a second pill-shaped highlight
+                                // under the finger would read as another selection while the pill travels to it.
+                                .selectable(selected, role = Role.Tab, interactionSource = null, indication = null,
                                     onClick = { navigate(destination) })
                                 .semantics { if (!showLabel) contentDescription = titles[index] }
                                 .testTag("tab-${destination.name}"), contentAlignment = Alignment.Center) {
-                                Box(Modifier.matchParentSize().padding(vertical = 4.dp).clip(CircleShape)
-                                    .indication(interactions, ripple()))
                                 Row(Modifier.padding(start = start, end = end, top = 4.dp, bottom = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically) {
-                                    AnimatedVisibility(showIcon, enter = motion.appear, exit = motion.disappear) {
+                                    motion.Shown(showIcon) {
                                         Icon(destination.icon(), null, Modifier.padding(end = if (showLabel) 4.dp else 0.dp).size(20.dp), tint = foreground)
                                     }
-                                    AnimatedVisibility(showLabel, enter = motion.appear, exit = motion.disappear) {
+                                    motion.Shown(showLabel) {
                                         Text(titles[index], color = foreground, style = labelStyle, maxLines = 1, softWrap = false)
                                     }
                                 }
@@ -158,8 +159,7 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
                     }
                 }
                 val searchSelected = tab == GalleryTab.SEARCH
-                val searchColor by animateColorAsState(if (searchSelected) floating.active else floating.container,
-                    motion.color, label = "search-container")
+                val searchColor = motion.color(if (searchSelected) floating.active else floating.container, "search-container")
                 // Photos' search glyph keeps the strong ink whether or not Search is the destination.
                 Surface(shape = CircleShape, color = searchColor, contentColor = floating.onActive, shadowElevation = AlbaFloatingDefaults.ToolbarShadow) {
                     Box(Modifier.size(56.dp).clip(CircleShape)
@@ -177,15 +177,71 @@ internal fun FloatingGalleryNavigation(tab: GalleryTab, navigate: (GalleryTab) -
 @Composable
 private fun keyboardOpen(): Boolean = WindowInsets.isImeVisible
 
-/** Material's fast spatial and effects springs for the capsule, or snaps when animations are off. */
-private class DestinationMotion(reduce: Boolean) {
-    val rect: FiniteAnimationSpec<Rect> = if (reduce) snap() else NavigationMotion.fastSpatial()
-    val dp: FiniteAnimationSpec<androidx.compose.ui.unit.Dp> = if (reduce) snap() else NavigationMotion.fastSpatial()
-    val color: FiniteAnimationSpec<androidx.compose.ui.graphics.Color> = if (reduce) snap() else NavigationMotion.fastEffects()
-    private val size: FiniteAnimationSpec<IntSize> = if (reduce) snap() else NavigationMotion.fastSpatial()
-    private val fade: FiniteAnimationSpec<Float> = if (reduce) snap() else NavigationMotion.fastEffects()
-    val appear = fadeIn(fade) + expandHorizontally(size)
-    val disappear = fadeOut(fade) + shrinkHorizontally(size)
+/**
+ * The selection pill: where it was drawn last, and how far it has travelled from where it set off toward the selected
+ * destination. Not state: drawing records [drawn], and only [travelled] invalidates the drawing.
+ */
+private class PillIndicator {
+    private val travelled = Animatable(1f, visibilityThreshold = TRAVEL_THRESHOLD)
+    private var from: Rect? = null
+
+    /** The pill as last drawn, where the next journey sets off from; null before the first or with Search selected. */
+    var drawn: Rect? = null
+        private set
+
+    /** Where to draw the pill for a destination at [target] in this frame, or nowhere without one. */
+    fun at(target: Rect?): Rect? {
+        val start = from
+        val pill = if (target == null || start == null) target else lerp(start, target, travelled.value)
+        drawn = pill
+        return pill
+    }
+
+    /** Sets off from [start], wherever the last journey had reached, so a second tap turns it round mid-flight. */
+    suspend fun travel(start: Rect, spec: AnimationSpec<Float>) {
+        from = start
+        travelled.snapTo(0f)
+        travelled.animateTo(1f, spec)
+        from = null
+    }
+
+    /** Puts the pill on its destination at once. */
+    suspend fun land() {
+        from = null
+        travelled.snapTo(1f)
+    }
+
+    private companion object {
+        /** A thousandth of the journey: under a pixel for any pill, so the spring never ends in a visible step. */
+        const val TRAVEL_THRESHOLD = .001f
+    }
+}
+
+/** Material's fast spatial and effects springs for the capsule, or plain changes when animations are off. */
+private class DestinationMotion(val reduce: Boolean) {
+    val travel: AnimationSpec<Float> = NavigationMotion.fastSpatial()
+    private val dpSpec: FiniteAnimationSpec<Dp> = NavigationMotion.fastSpatial()
+    private val colorSpec: FiniteAnimationSpec<Color> = NavigationMotion.fastEffects()
+    private val size: FiniteAnimationSpec<IntSize> = NavigationMotion.fastSpatial()
+    private val fade: FiniteAnimationSpec<Float> = NavigationMotion.fastEffects()
+    private val appear = fadeIn(fade) + expandHorizontally(size)
+    private val disappear = fadeOut(fade) + shrinkHorizontally(size)
+
+    /** A destination's spacing, which springs with the pill, or simply changes when animations are off. */
+    @Composable
+    fun dp(target: Dp, label: String): Dp = if (reduce) target else animateDpAsState(target, dpSpec, label = label).value
+
+    /** A destination's colour, which follows the pill, or simply changes when animations are off. */
+    @Composable
+    fun color(target: Color, label: String): Color = if (reduce) target else animateColorAsState(target, colorSpec, label = label).value
+
+    /** A destination's icon or label, which grows in and out with the pill, or simply shows when animations are off. */
+    @Composable
+    fun Shown(visible: Boolean, content: @Composable () -> Unit) {
+        if (reduce) {
+            if (visible) content()
+        } else AnimatedVisibility(visible, enter = appear, exit = disappear) { content() }
+    }
     val reveal = if (reduce) fadeIn(snap()) else fadeIn(tween(NavigationMotion.SHORT4, delayMillis = NavigationMotion.SHORT2)) +
         slideInVertically(tween(NavigationMotion.MEDIUM1, easing = NavigationMotion.EmphasizedDecelerate)) { it / 2 }
     val hide = fadeOut(if (reduce) snap() else tween(NavigationMotion.SHORT2))

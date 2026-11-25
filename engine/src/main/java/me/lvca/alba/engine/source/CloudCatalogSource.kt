@@ -103,7 +103,16 @@ class CatalogCursorRejected(message: String) : Exception(message)
 /** A full read that cannot finish as it is, such as one whose cursors repeat. It is discarded; its rows stay. */
 class CatalogScanAbandoned(message: String) : IllegalStateException(message)
 
-interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations, HiddenAlbumSource, LibraryScanSource {
+/** Getting ready for a run of downloads, such as the background fill of offline thumbnails. */
+interface DownloadPreparation {
+    /**
+     * Renews the download links of these items in one request, so each download does not look its own links up.
+     * Links that expire later are still renewed per item by the write.
+     */
+    suspend fun prepareDownloads(mediaIds: List<String>) = Unit
+}
+
+interface CloudCatalogSource : me.lvca.alba.engine.model.SharedAlbumOperations, HiddenAlbumSource, LibraryScanSource, DownloadPreparation {
     suspend fun saveLegacySharedPhoto(mediaId: String, fileName: String, source: me.lvca.alba.engine.model.OneShotUploadSource): Unit = error("Shared save is unavailable")
 
     /**

@@ -56,6 +56,15 @@ interface GalleryMediaAccess : OriginalExporter, OfflineMediaStore {
     suspend fun openPlayback(mediaId: String, position: Long, length: Long): me.lvca.alba.engine.source.MediaRead
     suspend fun ensureViewer(mediaId: String)
     suspend fun ensurePreview(mediaId: String)
+
+    /** The previews now on screen or in the prefetch window: they count as just used, and trims leave them. */
+    suspend fun notePreviewsShown(mediaIds: List<String>) {}
+
+    /**
+     * Applies the current thumbnail budget and cache limit: recomputes the offline set, then trims the cache to its
+     * limit, or makes room on a phone low on space.
+     */
+    suspend fun applyStorageLimits() {}
 }
 
 interface GalleryEdits {
@@ -75,7 +84,7 @@ interface GalleryEdits {
 class SharedUploadFile(val name: String, val write: (java.io.OutputStream) -> Unit)
 
 /** All gallery capabilities are required here; partial consumers use the smaller interfaces above. */
-interface GalleryRepository : GalleryReader, GalleryMediaAccess, GalleryEdits, SharedAlbumOperations {
+interface GalleryRepository : GalleryReader, GalleryMediaAccess, GalleryEdits, SharedAlbumOperations, OfflineThumbnails {
     /**
      * Adds library or phone items to a shared album as one post, with [caption] where the album supports one. Returns
      * false when the post was made without the caption.

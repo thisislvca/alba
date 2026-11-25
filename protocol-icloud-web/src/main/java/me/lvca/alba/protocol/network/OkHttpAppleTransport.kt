@@ -32,7 +32,7 @@ class OkHttpAppleTransport(
         // The caller reads and closes the open response; it is released here only on failure or cancellation.
         return downloadFollowingRedirects(url, mapOf("Range" to range), discard = { it.close() }) { response ->
             try {
-                if (!response.isSuccessful) throw AppleMediaHttpException(response.code)
+                if (!response.isSuccessful) throw AppleMediaHttpException.of(response.code, response.header("Retry-After"))
                 if (position > 0 && response.code != 206) throw IOException("Apple did not honor the requested byte range")
                 if (response.code == 206 && response.header("Content-Range")?.substringAfter("bytes ")?.substringBefore('-')?.toLongOrNull() != position) {
                     throw IOException("Apple returned a mismatched byte range")
@@ -115,7 +115,7 @@ class OkHttpAppleTransport(
     override suspend fun stream(url: String, output: OutputStream) {
         downloadFollowingRedirects(url) { response ->
             response.use {
-                if (!response.isSuccessful) throw AppleMediaHttpException(response.code)
+                if (!response.isSuccessful) throw AppleMediaHttpException.of(response.code, response.header("Retry-After"))
                 response.body.byteStream().use { input -> input.copyTo(output, DEFAULT_STREAM_BUFFER_BYTES) }
             }
         }

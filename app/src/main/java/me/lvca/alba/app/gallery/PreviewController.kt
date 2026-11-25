@@ -20,12 +20,12 @@ import me.lvca.alba.engine.model.GalleryRepository
 
 /** Thumbnail downloads for visible tiles, and the signal that tells tiles to retry after a failure may have cleared. */
 internal class PreviewController(
-    scope: CoroutineScope,
-    repository: GalleryRepository,
+    private val scope: CoroutineScope,
+    private val repository: GalleryRepository,
     diagnostics: AlbaDiagnostics,
     messages: UserMessages,
     network: StateFlow<NetworkStatus?>,
-    selectedMediaId: () -> String?,
+    private val selectedMediaId: () -> String?,
     needsPreview: (String) -> Boolean,
 ) {
     private val retries = MutableStateFlow(0)
@@ -68,7 +68,12 @@ internal class PreviewController(
     }
 
     fun request(mediaId: String) = queue.request(mediaId)
-    fun prefetch(mediaIds: List<String>) = queue.prefetch(mediaIds)
+    fun prefetch(mediaIds: List<String>) {
+        // The window and the open photo are in use: saved previews keep them over ones not seen in a while.
+        val shown = listOfNotNull(selectedMediaId()) + mediaIds
+        scope.launch { repository.notePreviewsShown(shown) }
+        queue.prefetch(mediaIds)
+    }
     fun cancel(): List<Job> = queue.cancel()
     suspend fun cancelAndJoin() = queue.cancelAndJoin()
     fun retry() = retries.update { it + 1 }

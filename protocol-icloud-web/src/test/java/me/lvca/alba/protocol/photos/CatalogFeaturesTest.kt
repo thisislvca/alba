@@ -28,6 +28,18 @@ class CatalogFeaturesTest {
         assertTrue(t.lookups >= 4)
         assertEquals("https://cws.icloud-content.com/play", t.lastUrl)
     }
+    @Test fun preparingDownloadsRenewsABatchOfLinksWithOneLookupAfterRestart() = runBlocking {
+        val t = Transport()
+        val item = source(t).fetchPage(null, 100).records.single()
+        val restarted = source(t)
+        t.lookups = 0
+
+        restarted.prepareDownloads(listOf(item.id, "shared:elsewhere:x"))
+        // The assets, then their masters: one lookup each for the whole batch.
+        assertEquals(2, t.lookups)
+        restarted.writePreview(item.id, ByteArrayOutputStream())
+        assertEquals(2, t.lookups)
+    }
     @Test fun nestedAlbumsAndFavoritesUseDistinctQueries() = runBlocking {
         val result = source(Transport()).collections()
         assertEquals(listOf("folder", "album"), result.collections.filterNot { it.id.startsWith("smart:") }.map { it.id })
