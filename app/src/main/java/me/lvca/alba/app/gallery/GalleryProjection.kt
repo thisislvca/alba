@@ -69,7 +69,8 @@ internal fun projectGalleryCatalog(
         if (!media.isVisibleFor(accountState)) return@forEach
         if (!hasDeviceAccess && media.origin == MediaOrigin.DEVICE) return@forEach
 
-        when (media.origin) {
+        // The library's totals: what Recently Deleted and Hidden hold is not in the library.
+        if (!media.isTrashed) when (media.origin) {
             MediaOrigin.ICLOUD -> if (!media.isShared && !media.isHidden) cloudCount += 1
             MediaOrigin.DEVICE -> deviceCount += 1
         }

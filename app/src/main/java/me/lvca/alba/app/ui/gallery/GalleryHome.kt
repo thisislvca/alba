@@ -940,7 +940,8 @@ private fun PhotoGrid(
             Column(posed("summary").fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
                 // While Apple is indexing, "0 iCloud photos" would read as an empty library: count only the phone's.
-                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(if (counts.libraryPreparing != null) stringResource(R.string.phone_photo_count, counts.device)
+                // A trash counts only itself: the library's totals beneath its own count read as what it holds.
+                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true && !query.trashOnly) Text(if (counts.libraryPreparing != null) stringResource(R.string.phone_photo_count, counts.device)
                     else stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
