@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
@@ -36,7 +37,8 @@ internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Compo
             // Inset controls, not the scrolling viewport: cards can pass behind the gesture bar.
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).imePadding()) {
                 LargeTopAppBar(
-                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    // Bold, as the top-level tabs set their large titles, so every page reads as one family.
+                    title = { Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = {
                         IconButton(onClick = onBack) { Icon(AlbaIcons.ArrowBack, stringResource(R.string.back_action)) }
                     },
