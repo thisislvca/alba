@@ -13,11 +13,13 @@ internal val GalleryCollection.isUserAlbum: Boolean get() = isPersonal && !isFol
 internal fun SmartCollection.icon(): Int = when (this) {
     SmartCollection.VIDEOS -> R.drawable.icloud_videos
     SmartCollection.LIVE_PHOTOS -> R.drawable.icloud_live_photos
+    SmartCollection.PORTRAIT -> R.drawable.icloud_portrait
     SmartCollection.SCREENSHOTS -> R.drawable.icloud_screenshots
     SmartCollection.PANORAMAS -> R.drawable.icloud_panoramas
     SmartCollection.BURSTS -> R.drawable.icloud_bursts
     SmartCollection.SLO_MO -> R.drawable.icloud_slo_mo
     SmartCollection.TIME_LAPSE -> R.drawable.icloud_time_lapse
+    SmartCollection.ANIMATED -> R.drawable.icloud_animated
 }
 
 /** How the Albums page orders albums. Folders always come first, in the same order. */
