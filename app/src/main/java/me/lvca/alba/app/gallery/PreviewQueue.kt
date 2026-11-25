@@ -19,6 +19,8 @@ internal class PreviewQueue(
     private val load: suspend (String) -> Unit,
     private val diagnostics: AlbaDiagnostics,
     private val onFailure: (Throwable) -> Unit,
+    /** How long to wait before each new attempt after a failed download, so a passing failure never leaves a blank tile. */
+    private val retryDelaysMillis: List<Long> = listOf(FIRST_RETRY_MILLIS, SECOND_RETRY_MILLIS),
 ) {
     private val previewJobs = linkedMapOf<String, Job>()
     private val runningPreviews = mutableSetOf<String>()
@@ -76,12 +78,7 @@ internal class PreviewQueue(
         job = scope.launch(start = CoroutineStart.LAZY) {
             val span = diagnostics.start(DiagnosticOperation.PREVIEW_DOWNLOAD)
             try {
-                previewPermits.withPermit {
-                    if (storageBlocked) return@withPermit
-                    runningPreviews += mediaId
-                    try { load(mediaId) }
-                    finally { runningPreviews -= mediaId }
-                }
+                loadWithRetries(mediaId)
                 span.finish(DiagnosticOutcome.SUCCESS)
             } catch (error: Throwable) {
                 if (error is CancellationException) {
@@ -101,5 +98,29 @@ internal class PreviewQueue(
         job.start()
     }
 
-    private companion object { const val MAX_PENDING_PREVIEWS = 48 }
+    /**
+     * A tile asks for its preview only when it comes into view, so a passing failure is tried again here, outside the
+     * permit, before the tile is left blank. Running out of space is not passing: it pauses every preview at once.
+     */
+    private suspend fun loadWithRetries(mediaId: String) {
+        for (wait in retryDelaysMillis + null) {
+            val failure = runCatching { loadOnce(mediaId) }.exceptionOrNull() ?: return
+            if (failure is CancellationException || failure is InsufficientStorageException || wait == null) throw failure
+            delay(wait)
+            if (!needsPreview(mediaId)) return
+        }
+    }
+
+    private suspend fun loadOnce(mediaId: String) = previewPermits.withPermit {
+        if (storageBlocked) return@withPermit
+        runningPreviews += mediaId
+        try { load(mediaId) }
+        finally { runningPreviews -= mediaId }
+    }
+
+    private companion object {
+        const val MAX_PENDING_PREVIEWS = 48
+        const val FIRST_RETRY_MILLIS = 1_000L
+        const val SECOND_RETRY_MILLIS = 4_000L
+    }
 }
