@@ -138,11 +138,11 @@ class LiveICloudCatalogSource(
             if (record.isRemovedFromLibrary() && !record.isHiddenAsset()) { deleted += name; continue }
             when (type) {
                 "CPLAsset" -> changedAssets += name
-                "CPLMaster" -> {
-                    val related = known.assetRecordNames(name)
-                    if (related.isEmpty()) throw CatalogResetRequired()
-                    changedAssets += related
-                }
+                // A master change updates the library assets made from it. A master Alba has no asset for changes
+                // nothing it shows: a new photo's master comes with its asset (here or on a later page), and a photo
+                // in Recently Deleted or Hidden is read whole each refresh. It used to force a full read of the
+                // library, so adding one photo read every photo again.
+                "CPLMaster" -> changedAssets += known.assetRecordNames(name)
                 null -> throw CatalogResetRequired()
             }
         }
