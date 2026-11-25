@@ -35,7 +35,7 @@ internal sealed interface CandidateSelection {
  * [CAPTURE_TOLERANCE_MILLIS]. Those that agree on both are preferred; if more than [MAX_BYTE_CHECKS] remain, the item is
  * ambiguous and uploads as before.
  */
-internal object ExistingCopyMatcher {
+object ExistingCopyMatcher {
     /** Originals downloaded at most to decide one phone item. */
     const val MAX_BYTE_CHECKS = 2
 
@@ -45,12 +45,14 @@ internal object ExistingCopyMatcher {
     /** EXIF capture times have whole seconds; iCloud and MediaStore may round them differently. */
     const val CAPTURE_TOLERANCE_MILLIS = 2_000L
 
-    fun select(phone: PhoneOriginal, library: List<LibraryCandidate>): CandidateSelection {
+    internal fun select(phone: PhoneOriginal, library: List<LibraryCandidate>): CandidateSelection {
         if (phone.byteCount <= 0 || phone.sha256Hex.isBlank()) return CandidateSelection.None
         val sameSize = library.filter { it.byteCount == phone.byteCount }.distinctBy { it.masterRecordName to it.assetRecordName }
         if (sameSize.size >= MAX_SAME_SIZE) return CandidateSelection.TooMany(sameSize.size)
-        val both = sameSize.filter { sameName(phone, it) && sameCapture(phone, it) }
-        val either = sameSize.filter { sameName(phone, it) || sameCapture(phone, it) }
+        val both = sameSize.filter { sameName(phone.fileName, it.fileName) && sameCapture(phone.capturedAtEpochMillis, it.capturedAtEpochMillis) }
+        val either = sameSize.filter {
+            looksLikeSameOriginal(phone.fileName, phone.byteCount, phone.capturedAtEpochMillis, it.fileName, it.byteCount, it.capturedAtEpochMillis)
+        }
         val chosen = both.ifEmpty { either }
         return when {
             chosen.isEmpty() -> CandidateSelection.None
@@ -59,11 +61,24 @@ internal object ExistingCopyMatcher {
         }
     }
 
-    private fun sameName(phone: PhoneOriginal, item: LibraryCandidate) =
-        phone.fileName.isNotBlank() && phone.fileName.trim().equals(item.fileName.trim(), ignoreCase = true)
+    /**
+     * The candidate rule on its own: a phone file and an iCloud original of exactly the same, known size that also agree
+     * on file name (ignoring case) or capture time within [CAPTURE_TOLERANCE_MILLIS]. Backup confirms a candidate by its
+     * bytes before skipping an upload; the grid, which cannot download originals, takes it as the item being in iCloud.
+     */
+    fun looksLikeSameOriginal(
+        phoneName: String,
+        phoneBytes: Long,
+        phoneCaptured: Long?,
+        cloudName: String,
+        cloudBytes: Long,
+        cloudCaptured: Long,
+    ): Boolean = phoneBytes > 0 && phoneBytes == cloudBytes && (sameName(phoneName, cloudName) || sameCapture(phoneCaptured, cloudCaptured))
 
-    private fun sameCapture(phone: PhoneOriginal, item: LibraryCandidate): Boolean {
-        val captured = phone.capturedAtEpochMillis ?: return false
-        return kotlin.math.abs(captured - item.capturedAtEpochMillis) <= CAPTURE_TOLERANCE_MILLIS
+    private fun sameName(phone: String, cloud: String) = phone.isNotBlank() && phone.trim().equals(cloud.trim(), ignoreCase = true)
+
+    private fun sameCapture(phone: Long?, cloud: Long): Boolean {
+        val captured = phone ?: return false
+        return kotlin.math.abs(captured - cloud) <= CAPTURE_TOLERANCE_MILLIS
     }
 }

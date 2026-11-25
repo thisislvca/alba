@@ -1,5 +1,6 @@
 package me.lvca.alba.app.gallery
 
+import me.lvca.alba.engine.companion.ExistingCopyMatcher
 import me.lvca.alba.engine.model.BurstIndex
 import me.lvca.alba.engine.model.BurstStacks
 import me.lvca.alba.engine.model.GalleryCollection
@@ -35,10 +36,7 @@ internal data class GalleryCatalog(
     val bursts: BurstIndex = BurstIndex.EMPTY,
     /** Phone photos whose iCloud copy is hidden. */
     val hiddenDeviceCopies: Set<String> = emptySet(),
-    /**
-     * Phone items, outside the phone's trash, that no iCloud item in the library or Hidden is a copy of: only on this
-     * phone. Empty without an iCloud library to compare with.
-     */
+    /** Phone items not in the iCloud library, as [PhoneOnlyIndex] decides. Empty without an iCloud library to compare with. */
     val phoneOnly: Set<String> = emptySet(),
 )
 
@@ -59,6 +57,7 @@ internal fun projectGalleryCatalog(
     allItems: List<GalleryMedia>,
     hasDeviceAccess: Boolean,
     accountState: ICloudAccountState,
+    phoneOnly: PhoneOnlyIndex = PhoneOnlyIndex(),
 ): GalleryCatalog {
     val catalogItems = ArrayList<GalleryMedia>(allItems.size)
     val byId = HashMap<String, GalleryMedia>(allItems.size)
@@ -85,21 +84,54 @@ internal fun projectGalleryCatalog(
 
     return GalleryCatalog(catalogItems, byId, cloudCount, deviceCount, deviceFolders.values.toList(), BurstIndex.of(catalogItems),
         catalogItems.mapNotNullTo(HashSet()) { item -> item.linkedDeviceId?.takeIf { item.isHidden } },
-        phoneOnlyItems(catalogItems, accountState))
+        phoneOnly.apply(catalogItems, accountState))
 }
 
-/** The phone items among [items] that are not in iCloud, as [GalleryCatalog.phoneOnly] describes. */
-internal fun phoneOnlyItems(items: List<GalleryMedia>, accountState: ICloudAccountState): Set<String> {
-    if (accountState !is ICloudAccountState.SignedIn && accountState != ICloudAccountState.Demo) return emptySet()
-    val inCloud = items.mapNotNullTo(HashSet()) { item ->
-        item.linkedDeviceId?.takeIf { item.origin == MediaOrigin.ICLOUD && !item.isTrashed && !item.isShared }
+/**
+ * Which phone items are not in the iCloud library. A phone item is in it when an iCloud item in the library or Hidden
+ * is its verified backup copy, or looks like the same original by backup's own existing-copy rule
+ * ([ExistingCopyMatcher.looksLikeSameOriginal]: the same byte count plus the same file name or capture time), which
+ * finds photos that reached iCloud from another device. A phone item of unknown size can't be matched, so it is never
+ * called phone-only. Incremental: keep one instance per observer and call it from one thread, off the main thread.
+ */
+internal class PhoneOnlyIndex {
+    private data class CloudKey(val fileName: String, val byteCount: Long, val capturedAt: Long)
+    private data class PhoneKey(val id: String, val fileName: String, val byteCount: Long, val capturedAt: Long)
+
+    private var cloud: List<CloudKey> = emptyList()
+    private var bySize: Map<Long, List<CloudKey>> = emptyMap()
+
+    /** Each phone item's answer, valid while the iCloud library's keys stay the same. */
+    private val inCloud = HashMap<PhoneKey, Boolean>()
+
+    fun apply(items: List<GalleryMedia>, accountState: ICloudAccountState): Set<String> {
+        if (accountState !is ICloudAccountState.SignedIn && accountState != ICloudAccountState.Demo) return emptySet()
+        val library = items.filter { it.origin == MediaOrigin.ICLOUD && !it.isTrashed && !it.isShared }
+        val keys = library.mapNotNull { item -> item.byteCount?.takeIf { it > 0 }?.let { CloudKey(item.fileName, it, item.capturedAtEpochMillis) } }
+        if (keys != cloud) {
+            cloud = keys
+            bySize = keys.groupBy { it.byteCount }
+            inCloud.clear()
+        }
+        val linked = library.mapNotNullTo(HashSet()) { it.linkedDeviceId }
+        return items.mapNotNullTo(HashSet()) { item ->
+            if (item.origin != MediaOrigin.DEVICE || item.isTrashed || item.id in linked) return@mapNotNullTo null
+            val size = item.byteCount?.takeIf { it > 0 } ?: return@mapNotNullTo null
+            val key = PhoneKey(item.id, item.fileName, size, item.capturedAtEpochMillis)
+            val matched = inCloud.getOrPut(key) {
+                bySize[size].orEmpty().any { cloud ->
+                    ExistingCopyMatcher.looksLikeSameOriginal(key.fileName, size, key.capturedAt, cloud.fileName, cloud.byteCount, cloud.capturedAt)
+                }
+            }
+            item.id.takeUnless { matched }
+        }
     }
-    return items.mapNotNullTo(HashSet()) { item -> item.id.takeIf { item.origin == MediaOrigin.DEVICE && !item.isTrashed && it !in inCloud } }
 }
 
 /** Projects the library for a query. Incremental, so keep one instance per observer and call it from one thread. */
 internal class GalleryProjection {
     private val queryProjection = GalleryQueryProjection()
+    private val phoneOnly = PhoneOnlyIndex()
     private val sectionProjection = GallerySectionProjection()
 
     fun apply(
@@ -110,7 +142,7 @@ internal class GalleryProjection {
         zone: ZoneId = ZoneId.systemDefault(),
         expandedBursts: Set<String> = emptySet(),
     ): ProjectedGallery {
-        val catalog = projectGalleryCatalog(allItems, hasDeviceAccess, accountState)
+        val catalog = projectGalleryCatalog(allItems, hasDeviceAccess, accountState, phoneOnly)
         val matching = queryProjection.apply(catalog.items, query)
         // The unfiltered library shows a backed-up phone photo once, as its iCloud copy.
         val linked = if (query.origin == null && query.collectionId == null && hasDeviceAccess)
