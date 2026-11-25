@@ -81,6 +81,7 @@ import me.lvca.alba.app.ui.viewer.photoTapGestures
 import me.lvca.alba.app.ui.viewer.photoZoomGestures
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.app.ui.viewer.sharedPhoto
+import java.io.DataInputStream
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -160,10 +161,11 @@ fun MediaThumbnail(
         if (key == null) return@produceState
         decodeFailure = null; decoding = true
         val decoded = try { thumbnailMemoryCache.get(key) ?: withContext(Dispatchers.IO) {
-            decodeThumbnail(context, key.reference, key.targetSidePx, key.fullImage)
+            decodeWithFallback(context, key, fallbackReference)
         } } catch (e: CancellationException) { throw e }
         catch (_: SecurityException) { decodeFailure = ThumbnailFailure.ACCESS; null }
         catch (_: FileNotFoundException) { decodeFailure = ThumbnailFailure.MISSING; null }
+        catch (e: ImageDecoder.DecodeException) { decodeFailure = withContext(Dispatchers.IO) { decodeFailureOf(context, key.reference, e) }; null }
         catch (_: Exception) { decodeFailure = ThumbnailFailure.DECODE; null }
         finally { decoding = false }
         decoded?.also { loaded ->
@@ -278,8 +280,18 @@ fun MediaThumbnail(
             if (tile) Spacer(Modifier.fillMaxSize().drawBehind {
                 (1f - tileReveal.progress).takeIf { it > 0f }?.let { drawRect(placeholder, alpha = it) }
             })
-        } else ThumbnailStatus(decodeFailure, decoding, hasReference = reference != null, fit = contentScale == ContentScale.Fit,
-            contentDescription, retry = if (reference != null) ({ localRetry += 1 }) else LocalViewerPhotoPage.current?.retry)
+        } else {
+            val pageRetry = LocalViewerPhotoPage.current?.retry
+            // Decoding the same unsupported or malformed bytes again can't succeed, so those failures offer no retry.
+            // Any other failure decodes again and asks the viewer to fetch the photo again.
+            val retry: (() -> Unit)? = when {
+                decodeFailure?.retryable == false -> null
+                reference != null -> { { localRetry += 1; pageRetry?.invoke() } }
+                else -> pageRetry
+            }
+            ThumbnailStatus(decodeFailure, decoding, hasReference = reference != null, fit = contentScale == ContentScale.Fit,
+                contentDescription, retry = retry)
+        }
     }
 }
 
@@ -295,7 +307,8 @@ private fun ThumbnailStatus(failure: ThumbnailFailure?, decoding: Boolean, hasRe
     val label = stringResource(when (failure) {
         ThumbnailFailure.ACCESS -> R.string.photo_access_lost
         ThumbnailFailure.MISSING -> R.string.photo_file_missing
-        ThumbnailFailure.DECODE -> R.string.photo_decode_failed
+        ThumbnailFailure.DECODE, ThumbnailFailure.MALFORMED -> R.string.photo_decode_failed
+        ThumbnailFailure.UNSUPPORTED -> R.string.photo_format_unsupported
         null -> when {
             decoding -> R.string.loading
             storageLow -> R.string.photo_preview_storage_low
@@ -373,7 +386,60 @@ private fun cachedThumbnail(reference: String?, fallback: String?, revision: Str
         .filter { (key, _) -> key.sourceRevision == revision && (key.reference == reference || key.reference == fallback) }
         .maxByOrNull { (_, bitmap) -> bitmap.width.toLong() * bitmap.height }?.value
 
-private enum class ThumbnailFailure { ACCESS, MISSING, DECODE }
+/** Why a thumbnail has no pixels. Only a [retryable] failure can turn out differently on another try. */
+private enum class ThumbnailFailure(val retryable: Boolean) {
+    ACCESS(true),
+    MISSING(true),
+
+    /** Reading or decoding failed in a way that may not happen again, such as a file that was still incomplete. */
+    DECODE(true),
+
+    /** The decoder rejected the bytes themselves. */
+    MALFORMED(false),
+
+    /** A format this phone has no working decoder for, such as a HEIC its HEVC decoder can't read. */
+    UNSUPPORTED(false),
+}
+
+/**
+ * Decodes [key]'s reference. When that fails, a file this phone can't decode (a HEIC its HEVC decoder rejects, say)
+ * still has iCloud's JPEG preview in [fallback]: that is shown rather than an error. Without one, the original failure
+ * is thrown, to explain what happened.
+ */
+private fun decodeWithFallback(context: Context, key: ThumbnailCacheKey, fallback: String?): Bitmap = try {
+    decodeThumbnail(context, key.reference, key.targetSidePx, key.fullImage)
+} catch (e: IOException) {
+    fallback?.takeIf { it != key.reference }
+        ?.let { runCatching { decodeThumbnail(context, it, key.targetSidePx, key.fullImage) }.getOrNull() }
+        ?: throw e
+}
+
+/** Classifies a failed decode of [reference]: an ISO-BMFF image (HEIC, AVIF, CR3) the decoder rejects is unsupported here. */
+private fun decodeFailureOf(context: Context, reference: String, error: ImageDecoder.DecodeException): ThumbnailFailure {
+    if (error.error == ImageDecoder.DecodeException.SOURCE_INCOMPLETE) return ThumbnailFailure.DECODE
+    val header = runCatching {
+        val stream = if (reference.startsWith("content://")) context.contentResolver.openInputStream(reference.toUri()) else File(reference).inputStream()
+        stream?.use { input -> ByteArray(ISO_BMFF_HEADER_BYTES).also { DataInputStream(input).readFully(it) } }
+    }.getOrNull()
+    return if (header != null && isCodecImageContainer(header)) ThumbnailFailure.UNSUPPORTED else ThumbnailFailure.MALFORMED
+}
+
+/** An ISO-BMFF file opens with a box: its size, its type ("ftyp") and the major brand, four bytes each. */
+private const val ISO_BMFF_HEADER_BYTES = 12
+private const val BOX_TYPE_OFFSET = 4
+private const val BRAND_OFFSET = 8
+private const val FOUR_CC = 4
+
+/** ISO-BMFF image brands, whose decoding depends on the phone's video decoders rather than on Android itself. */
+private val codecImageBrands = setOf("heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs", "mif1", "msf1", "avif", "avis", "crx ")
+
+/** Whether [header], a file's first bytes, opens an ISO-BMFF image (HEIC, HEIF, AVIF, CR3) that needs a video decoder. */
+internal fun isCodecImageContainer(header: ByteArray): Boolean {
+    if (header.size < ISO_BMFF_HEADER_BYTES) return false
+    val box = String(header, BOX_TYPE_OFFSET, FOUR_CC, Charsets.US_ASCII)
+    val brand = String(header, BRAND_OFFSET, FOUR_CC, Charsets.US_ASCII)
+    return box == "ftyp" && brand in codecImageBrands
+}
 
 internal fun loadThumbnail(context: Context, reference: String, targetSidePx: Int, fullImage: Boolean): Bitmap? = runCatching {
     decodeThumbnail(context, reference, targetSidePx, fullImage)

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.ui.countLabel
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaChevron
 import me.lvca.alba.app.ui.designsystem.AlbaCover
@@ -277,7 +278,7 @@ internal fun CollectionRow(title: String, subtitle: String?, count: Int? = null,
         contentPadding = PaddingValues(horizontal = AlbaSpacing.xs, vertical = AlbaSpacing.sm),
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                count?.let { Text(it.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                count?.let { Text(countLabel(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 AlbaChevron()
             }
         })
