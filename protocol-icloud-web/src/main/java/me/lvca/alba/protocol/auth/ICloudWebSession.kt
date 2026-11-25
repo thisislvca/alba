@@ -274,7 +274,8 @@ internal class ICloudWebSession(
     private fun malformed(message: String) = AppleProtocolException(AppleProtocolError.MALFORMED_RESPONSE, message)
 
     private companion object {
-        val DISCOVERED_SERVICES = listOf("ckdatabasews", "photosupload", "account", "contacts")
+        /** The account's services Alba calls. `sharedstreams` serves legacy shared albums, including ones others share. */
+        val DISCOVERED_SERVICES = listOf("ckdatabasews", "photosupload", "account", "contacts", "sharedstreams")
         const val SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
         val JSON_HEADERS = mapOf("Content-Type" to "application/json")
     }

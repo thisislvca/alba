@@ -56,6 +56,18 @@ class AppleAuthenticationServiceTest {
         assertEquals("https://p02-setup.icloud.com", restored.webservices["account"])
     }
 
+    @Test fun `the shared streams service is kept so legacy and subscribed shared albums load`() = runBlocking {
+        // As validate lists it: without it, shared albums others shared through shared streams silently disappeared.
+        val transport = ScriptedTransport(validateBody = """{
+            "dsInfo":{"dsid":"123456789","hsaVersion":2},
+            "hsaTrustedBrowser":true,
+            "webservices":{"ckdatabasews":{"url":"https://p02-ckdatabasews.icloud.com:443","pcsRequired":true,"status":"active"},
+                "sharedstreams":{"url":"https://p130-sharedstreams.icloud.com:443","status":"active"}}
+        }""")
+        val restored = requireNotNull(AppleAuthenticationService(transport).restore(savedSession()))
+        assertEquals("https://p130-sharedstreams.icloud.com:443", restored.webservices["sharedstreams"])
+    }
+
     @Test
     fun `expired validation renews with saved token and trust without password flow`() = runBlocking {
         val saved = savedSession()
