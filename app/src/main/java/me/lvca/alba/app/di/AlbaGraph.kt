@@ -6,6 +6,7 @@ import me.lvca.alba.app.BuildConfig
 import me.lvca.alba.app.demo.DemoMediaImporter
 import me.lvca.alba.app.diagnostics.SentryAlbaDiagnostics
 import me.lvca.alba.app.platform.AndroidAutomaticBackupPolicy
+import me.lvca.alba.app.platform.AppearancePreferences
 import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.LiveProtocolStatus
@@ -77,6 +78,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         isDemo = { accountManager.state.value == ICloudAccountState.Demo },
     )
     val backupPreferences = BackupPreferences(appContext)
+    internal val appearance = AppearancePreferences(appContext)
     internal val backupNotifications = BackupNotifications(appContext, backupPreferences)
     private val liveCatalog = LiveICloudCatalogSource(
         transport = transport,
