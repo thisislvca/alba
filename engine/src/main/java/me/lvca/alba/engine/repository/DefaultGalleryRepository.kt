@@ -448,7 +448,9 @@ class DefaultGalleryRepository(
     }
 
     override fun observeCatalogScan(): Flow<CatalogScanProgress?> = sync.observeScans().map { scans ->
-        scans.firstOrNull { it.account == cloudSource.accountLabel }?.let { CatalogScanProgress(it.loadedCount, it.totalCount, it.pagesComplete) }
+        scans.firstOrNull { it.account == cloudSource.accountLabel }?.let {
+            CatalogScanProgress(it.loadedCount, it.totalCount, it.pagesComplete, it.initialLoad)
+        }
     }.distinctUntilChanged()
 
     override suspend fun resumeCatalogScan(): RefreshSummary? = syncLock.withLock {
@@ -586,9 +588,10 @@ class DefaultGalleryRepository(
         }
         return try { readLibrary(account) }
         catch (_: CatalogResetRequired) {
-            // The token captured before the read expired while it ran: read once more from the first page.
-            writeLocked(account) { sync.deleteScan(account) }
-            try { readLibrary(account) }
+            // The token captured before the read expired while it ran: read once more from the first page. A first
+            // load stays one, although its first pass stored rows.
+            val initialLoad = writeLocked(account) { sync.scan(account)?.initialLoad.also { sync.deleteScan(account) } }
+            try { readLibrary(account, initialLoad) }
             catch (_: CatalogResetRequired) { abandonScan(account, "The library's change token expired twice during one read") }
         }
     }
@@ -599,8 +602,8 @@ class DefaultGalleryRepository(
      * continues from the last page written. Rows already in the catalog stay browsable throughout, and new ones show
      * up as their pages land. Rows it did not see are looked up by name before publishing removes any.
      */
-    private suspend fun readLibrary(account: String): LibraryRead {
-        var scan = sync.scan(account) ?: startScan(account)
+    private suspend fun readLibrary(account: String, initialLoad: Boolean? = null): LibraryRead {
+        var scan = sync.scan(account) ?: startScan(account, initialLoad)
         var resumed = scan.cursor != null
         val visitedCursors = mutableSetOf<String?>()
         while (!scan.pagesComplete) {
@@ -661,7 +664,11 @@ class DefaultGalleryRepository(
         } while (rows.size == LOOKUP_CHUNK)
     }
 
-    private suspend fun startScan(account: String): CatalogScanEntity {
+    /**
+     * Starts a full read. It is the library's [initialLoad] when Alba stores none of the account's library yet, unless
+     * the caller says otherwise; a read of a library Alba already shows is a quiet refresh.
+     */
+    private suspend fun startScan(account: String, initialLoad: Boolean? = null): CatalogScanEntity {
         // Capture the token first: catching up from it after the last page covers every change made during the read.
         val token = throttled { cloudSource.captureSyncToken() }
         val total = try { cloudSource.libraryItemCount() }
@@ -671,8 +678,9 @@ class DefaultGalleryRepository(
         val scan = CatalogScanEntity(account = account, scanId = UUID.randomUUID().toString(), cursor = null,
             pagesComplete = false, catchUpToken = token, loadedCount = 0, totalCount = total,
             startedAtEpochMillis = startedAt, updatedAtEpochMillis = startedAt)
-        writeLocked(account) { sync.upsertScan(scan) }
-        return scan
+        return writeLocked(account) {
+            scan.copy(initialLoad = initialLoad ?: !sync.hasCloudItemsWithPrefix("icloud:$account:")).also { sync.upsertScan(it) }
+        }
     }
 
     /** Discards the account's unfinished read, keeping every row, so the next refresh starts a fresh one. */
