@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.R
+import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.screenshots.ScreenshotFixtures
 import me.lvca.alba.app.testing.setAlbaContent
 import org.junit.Assert.assertTrue
@@ -36,8 +37,10 @@ class HeaderTouchTargetsTest {
             .assertTarget("a date header's select circle")
     }
 
-    @Test fun theAccountStatusLineIsAFullTarget() {
-        compose.setAlbaContent(ScreenshotFixtures.gallery(), ScreenshotFixtures.signedIn)
-        compose.onNodeWithTag("gallery-account-status").assertTarget("the account status line")
+    @Test fun theAccountButtonCarryingTheStatusIsAFullTarget() {
+        // Offline, the account's state is marked on the avatar, and the avatar is the button to the account.
+        compose.setAlbaContent(ScreenshotFixtures.gallery(), ScreenshotFixtures.signedIn.copy(network = NetworkStatus(online = false, metered = false)))
+        compose.onNodeWithTag("account-status-indicator", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("account-button").assertTarget("the account button")
     }
 }

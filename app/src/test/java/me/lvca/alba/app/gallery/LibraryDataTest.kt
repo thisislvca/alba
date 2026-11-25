@@ -3,6 +3,7 @@ package me.lvca.alba.app.gallery
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import me.lvca.alba.app.R
@@ -61,7 +63,8 @@ class LibraryDataTest {
         compose.onNodeWithTag("tab-COLLECTIONS").performClick()
         compose.onNodeWithTag("collections-grid").performScrollToNode(hasTestTag("collection-hidden"))
         compose.onNodeWithTag("collection-hidden").assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.hidden)).performClick()
+        // Scrolled only into view, the row can sit behind the floating navigation; tap it by its click action.
+        compose.onNodeWithText(text(R.string.hidden)).performSemanticsAction(SemanticsActions.OnClick)
         assertEquals(1, unlocks)
     }
 

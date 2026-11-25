@@ -13,7 +13,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
@@ -31,8 +30,8 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -52,6 +51,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -90,7 +90,6 @@ import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.AlbaSheetBody
 import me.lvca.alba.app.ui.designsystem.DemoBadge
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
-import me.lvca.alba.app.ui.designsystem.InitialAvatar
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.galleryOverlay
 import me.lvca.alba.app.ui.designsystem.theme.tile
@@ -277,23 +276,11 @@ internal fun GalleryHome(
     val contextAccountLabel = stringResource(R.string.open_icloud_account)
     val signedIn = session.accountState as? ICloudAccountState.SignedIn
     val libraryLoad = session.libraryLoad(storedLibrary = gallery.cloudCount > 0)
-    // The header's loading bar, under the status line; Apple's indexing has its own card instead.
+    // The first load's line under the large title; Apple's indexing has its own card instead. A refresh shows nothing.
     val headerBar = libraryLoad == LibraryLoad.INITIAL_LOAD && session.libraryPreparing == null
-    val status = when {
-        session.accountState == ICloudAccountState.Demo -> stringResource(R.string.library)
-        session.accountState == ICloudAccountState.Restoring -> stringResource(R.string.restoring_icloud)
-        signedIn?.status == SessionStatus.EXPIRED -> stringResource(R.string.sign_in_again_saved_photos_available)
-        signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED -> stringResource(R.string.icloud_photos_is_not_active)
-        session.network?.online == false || signedIn?.status == SessionStatus.OFFLINE -> stringResource(R.string.offline_saved_photos_available)
-        // Apple is still indexing: say so for as long as it lasts, through the quiet checks Alba makes meanwhile.
-        session.libraryPreparing != null -> libraryPreparingLabel(session.libraryPreparing)
-        // The first read of a large library takes a while: say how far it is rather than only that it is updating.
-        // A refresh of a library Alba already shows says nothing, as iCloud.com does; errors still surface as messages.
-        libraryLoad == LibraryLoad.INITIAL_LOAD && session.catalogScan != null -> catalogScanLabel(session.catalogScan)
-        libraryLoad == LibraryLoad.INITIAL_LOAD -> stringResource(R.string.updating_library)
-        signedIn?.status == SessionStatus.VERIFIED -> stringResource(R.string.icloud_photos)
-        else -> stringResource(R.string.connect_to_icloud)
-    }
+    // The first read of a large library takes a while: the line says how far it is rather than only that it is updating.
+    val loadLabel = if (headerBar) session.catalogScan?.let { catalogScanLabel(it) } ?: stringResource(R.string.updating_library) else null
+    val accountStatus = accountStatus(session, transfers, libraryLoad)
     val canUpload = signedIn?.status == SessionStatus.VERIFIED || session.accountState == ICloudAccountState.Demo
     // Clearing filters keeps the place being browsed: an open collection, offline copies or a trash.
     val unfiltered = if (inCollection) GalleryQuery(origin = query.origin.takeIf { query.trashOnly }, collectionId = query.collectionId,
@@ -383,6 +370,12 @@ internal fun GalleryHome(
         LaunchedEffect(collapseHeader) {
             if (!collapseHeader) { headerState.heightOffset = 0f; headerState.contentOffset = 0f }
         }
+        // Elsewhere the large title collapses into its bar as the content scrolls, and opens again on each new screen.
+        // Photos on a phone keeps Google Photos' header instead, which scrolls away whole.
+        val collapseTitle = !phonePhotos && !hero
+        val titleState = rememberTopAppBarState()
+        val titleScroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(titleState)
+        LaunchedEffect(screen) { titleState.heightOffset = 0f; titleState.contentOffset = 0f }
         var floatingBarHeight by remember { mutableStateOf(80.dp) }
         var headerHeight by remember { mutableStateOf(0.dp) }
         // The floating bar sits up to 16dp above the navigation bar; keep the grid's last row a clear 24dp above it.
@@ -395,7 +388,8 @@ internal fun GalleryHome(
                     onClick = { navigate(destination) }, icon = { Icon(destination.icon(), null, Modifier.size(AlbaIconSize.standard)) }, label = { Text(stringResource(destination.title)) },
                     modifier = Modifier.testTag("tab-${destination.name}")) }
             }
-            Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll), contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll)
+                .then(if (collapseTitle) Modifier.nestedScroll(titleScroll.nestedScrollConnection) else Modifier), contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 containerColor = if (phonePhotos) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
                 topBar = {
                     // The header belongs to its destination, so it fades through with the screen below it.
@@ -406,87 +400,90 @@ internal fun GalleryHome(
                         .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
                         .drawBehind { drawRect(headerColor.value) }.testTag("gallery-header")
                         .then(if (collapseHeader && headerHidden) Modifier.clearAndSetSemantics {} else Modifier)) {
-                        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp).heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null)) {
-                                IconButton(onClick = ::backInCollections) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back_action)) }
-                                if (!hero) Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                else Spacer(Modifier.weight(1f))
-                            } else {
-                                Box(Modifier.size(44.dp).clip(MaterialTheme.shapes.small), contentAlignment = Alignment.Center) {
-                                    Image(painterResource(R.drawable.alba_logo_mark), stringResource(R.string.brand_name), Modifier.size(44.dp))
+                        val subScreen = tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null)
+                        // The header draws its own surface behind the bar, so the bar itself stays clear.
+                        val barColors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent)
+                        val back: @Composable () -> Unit = {
+                            IconButton(onClick = ::backInCollections) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back_action)) }
+                        }
+                        // An album with a hero carries its title over the cover, so its bar has none.
+                        if (hero) TopAppBar(title = {}, navigationIcon = back, colors = barColors, windowInsets = WindowInsets(0, 0, 0, 0), actions = {
+                            if (collection?.shared != null) IconButton(onClick = { sheet = GallerySheet.SharedManage }, enabled = canEdit) {
+                                Icon(Icons.Rounded.AccountCircle, stringResource(R.string.shared_manage))
+                            }
+                            IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+                            Box {
+                                IconButton(onClick = { albumMenu = true }, modifier = Modifier.testTag("album-options")) {
+                                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.album_options))
                                 }
-                                if (!wide && tab == GalleryTab.LIBRARY) Spacer(Modifier.weight(1f))
-                                else Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text(stringResource(R.string.brand_name), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                    if (session.accountState == ICloudAccountState.Demo) DemoBadge()
+                                AlbaMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
+                                    AlbaMenuItem(stringResource(R.string.browse_by_date), onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate },
+                                        enabled = sections.isNotEmpty(), leadingIcon = { Icon(Icons.Rounded.DateRange, null) })
+                                    AlbaMenuDivider()
+                                    if (collection?.shared != null) {
+                                        AlbaMenuItem(stringResource(R.string.shared_details),
+                                            onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo },
+                                            leadingIcon = { Icon(Icons.Rounded.Info, null) })
+                                        if (collection.shared?.canContribute == true) AlbaMenuItem(stringResource(R.string.shared_add_photos),
+                                            onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit,
+                                            leadingIcon = { Icon(Icons.Rounded.Add, null) })
+                                    } else {
+                                        AlbaMenuItem(stringResource(R.string.rename_album),
+                                            onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit,
+                                            leadingIcon = { Icon(Icons.Rounded.Edit, null) }, modifier = Modifier.testTag("album-rename"))
+                                        AlbaMenuItem(stringResource(R.string.delete_album),
+                                            onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit,
+                                            leadingIcon = { Icon(AlbaIcons.DeleteOutline, null) })
+                                    }
                                 }
                             }
-                            if (hero) {
-                                if (collection?.shared != null) IconButton(onClick = { sheet = GallerySheet.SharedManage }, enabled = canEdit) {
-                                    Icon(Icons.Rounded.AccountCircle, stringResource(R.string.shared_manage))
+                            TextButton(onClick = { if (gallery.selection.isEmpty()) gallery.items.firstOrNull()?.let { actions.toggleSelection(it.id) } else actions.clearSelection() }, enabled = gallery.items.isNotEmpty()) {
+                                Text(stringResource(if (gallery.selection.isEmpty()) R.string.select_items else R.string.cancel))
+                            }
+                        })
+                        // Every other screen opens with its name as a large title, Apple's large titles on Material's bar.
+                        else LargeTopAppBar(
+                            title = {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false).testTag("screen-title-${tab.name}"))
+                                    if (!subScreen && session.accountState == ICloudAccountState.Demo) DemoBadge()
                                 }
-                                IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
-                                Box {
-                                    IconButton(onClick = { albumMenu = true }, modifier = Modifier.testTag("album-options")) {
-                                        Icon(Icons.Rounded.MoreVert, stringResource(R.string.album_options))
+                            },
+                            navigationIcon = { if (subScreen) back() },
+                            actions = {
+                                if (!subScreen) {
+                                    if (phonePhotos && gallery.selection.isEmpty()) IconButton(onClick = { sheet = GallerySheet.Filters },
+                                        modifier = Modifier.testTag("gallery-menu-button")) {
+                                        Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort))
                                     }
-                                    AlbaMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
-                                        AlbaMenuItem(stringResource(R.string.browse_by_date), onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate },
-                                            enabled = sections.isNotEmpty(), leadingIcon = { Icon(Icons.Rounded.DateRange, null) })
-                                        AlbaMenuDivider()
-                                        if (collection?.shared != null) {
-                                            AlbaMenuItem(stringResource(R.string.shared_details),
-                                                onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo },
-                                                leadingIcon = { Icon(Icons.Rounded.Info, null) })
-                                            if (collection.shared?.canContribute == true) AlbaMenuItem(stringResource(R.string.shared_add_photos),
-                                                onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit,
-                                                leadingIcon = { Icon(Icons.Rounded.Add, null) })
-                                        } else {
-                                            AlbaMenuItem(stringResource(R.string.rename_album),
-                                                onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit,
-                                                leadingIcon = { Icon(Icons.Rounded.Edit, null) }, modifier = Modifier.testTag("album-rename"))
-                                            AlbaMenuItem(stringResource(R.string.delete_album),
-                                                onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit,
-                                                leadingIcon = { Icon(AlbaIcons.DeleteOutline, null) })
+                                    IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount, modifier = Modifier.testTag("gallery-upload")) {
+                                        Icon(Icons.Rounded.Add, stringResource(R.string.upload_photos))
+                                    }
+                                    IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
+                                        BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
+                                            Icon(AlbaIcons.CloudSync, stringResource(R.string.uploads_and_activity))
                                         }
                                     }
+                                    AccountButton(signedIn?.appleId, accountStatus, contextAccountLabel, actions::openAccount, Modifier.testTag("account-button"))
                                 }
-                                TextButton(onClick = { if (gallery.selection.isEmpty()) gallery.items.firstOrNull()?.let { actions.toggleSelection(it.id) } else actions.clearSelection() }, enabled = gallery.items.isNotEmpty()) {
-                                    Text(stringResource(if (gallery.selection.isEmpty()) R.string.select_items else R.string.cancel))
-                                }
-                            } else if (!(tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null))) {
-                                if (phonePhotos && gallery.selection.isEmpty()) IconButton(onClick = { sheet = GallerySheet.Filters },
-                                    modifier = Modifier.testTag("gallery-menu-button")) {
-                                    Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort))
-                                }
-                                IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount, modifier = Modifier.testTag("gallery-upload")) {
-                                    Icon(Icons.Rounded.Add, stringResource(R.string.upload_photos))
-                                }
-                                IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
-                                    BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
-                                        Icon(AlbaIcons.CloudSync, stringResource(R.string.uploads_and_activity))
-                                    }
-                                }
-                                IconButton(onClick = actions::openAccount, modifier = Modifier.testTag("account-button").semantics { contentDescription = contextAccountLabel }) {
-                                    InitialAvatar(signedIn?.appleId, 36.dp, color = MaterialTheme.colorScheme.primaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer, textStyle = MaterialTheme.typography.titleMedium)
-                                }
-                            }
-                        }
-                        if (!hero && !connectPrompt && session.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
-                            Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                // Above a loading bar, the line keeps clear of it and stays centred in its row.
-                                modifier = Modifier.padding(horizontal = 16.dp).padding(vertical = if (headerBar) 4.dp else 0.dp)
-                                    .testTag("gallery-account-status").overhangingTouchTarget(actions::openAccount))
-                        }
+                            },
+                            colors = barColors,
+                            windowInsets = WindowInsets(0, 0, 0, 0),
+                            scrollBehavior = if (collapseTitle) titleScroll else null,
+                        )
                         val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
                         if (libraryHeader && gallery.selection.isEmpty()) BackupStatusChip(session, transfers, actions::openBackup)
-                        val scanFraction = session.catalogScan?.fraction()
-                        // 4dp above and below the bar, so 8dp separate it from the status line.
-                        val barModifier = Modifier.padding(vertical = 4.dp).fillMaxWidth()
-                        if (headerBar && scanFraction != null) {
-                            LinearProgressIndicator(progress = { scanFraction }, modifier = barModifier.testTag("catalog-scan-bar"))
-                        } else if (headerBar) LinearProgressIndicator(barModifier)
+                        // The first load's progress, calmly under the title: how far it is, over a bar that fills as pages land.
+                        if (loadLabel != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                            Text(loadLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 4.dp))
+                            val scanFraction = session.catalogScan?.fraction()
+                            // 4dp above the bar, so 8dp separate it from the line.
+                            val barModifier = Modifier.padding(top = 4.dp).fillMaxWidth()
+                            if (scanFraction != null) LinearProgressIndicator(progress = { scanFraction }, modifier = barModifier.testTag("catalog-scan-bar"))
+                            else LinearProgressIndicator(barModifier)
+                        }
                         if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions, Modifier.padding(vertical = 8.dp))
                         else if (filterRow) {
                             if (tab == GalleryTab.SEARCH) GallerySearchBar(query.filename, { actions.changeQuery(query.copy(filename = it)) },
@@ -1033,27 +1030,6 @@ private fun HeaderSelectionCircle(checked: Boolean, label: String, onCheckedChan
             onValueChange = onCheckedChange)
         .semantics { contentDescription = label }
         .minimumInteractiveComponentSize())
-}
-
-/**
- * Makes a line of text a button with Material's 48dp touch target, without making its row taller: the target overhangs
- * the text evenly above and below, as a small control's target does.
- */
-@Composable
-private fun Modifier.overhangingTouchTarget(onClick: () -> Unit): Modifier {
-    val contentHeight = remember { IntArray(1) }
-    return layout { measurable, constraints ->
-        val target = measurable.measure(constraints.copy(minHeight = 0))
-        val height = contentHeight[0].coerceAtMost(target.height)
-        layout(target.width, height) { target.place(0, -(target.height - height) / 2) }
-    }
-        .clickable(role = Role.Button, onClick = onClick)
-        .minimumInteractiveComponentSize()
-        .layout { measurable, constraints ->
-            val content = measurable.measure(constraints)
-            contentHeight[0] = content.height
-            layout(content.width, content.height) { content.place(0, 0) }
-        }
 }
 
 /**

@@ -1,6 +1,7 @@
 package me.lvca.alba.app.gallery
 
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -50,8 +51,9 @@ class LibraryPreparingTest {
         compose.onNodeWithText(context.getString(R.string.library_preparing_title)).assertIsDisplayed()
         compose.onNodeWithTag("library-preparing-progress").assertTextEquals("42% ready")
         compose.onNodeWithTag("library-preparing-bar").assertExists()
-        // The header says the same, not "iCloud Photos" over an empty-looking library.
-        compose.onNodeWithText("Getting iCloud Photos ready… 42%").assertIsDisplayed()
+        // The avatar's mark says the same, rather than nothing over an empty-looking library.
+        compose.onNodeWithTag("account-status-indicator", useUnmergedTree = true).assertIsDisplayed()
+            .assertContentDescriptionEquals("Getting iCloud Photos ready… 42%")
         compose.onNodeWithTag("media-${phone.first().id}").assertExists()
         compose.onNodeWithText(context.getString(R.string.loading_photos)).assertDoesNotExist()
         // The summary counts the phone's photos only, rather than "0 iCloud photos".
@@ -64,7 +66,8 @@ class LibraryPreparingTest {
 
         compose.onNodeWithTag("library-preparing").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("library-preparing-bar").assertDoesNotExist()
-        compose.onNodeWithText(context.getString(R.string.library_preparing_status)).assertIsDisplayed()
+        compose.onNodeWithTag("account-status-indicator", useUnmergedTree = true).assertIsDisplayed()
+            .assertContentDescriptionEquals(context.getString(R.string.library_preparing_status))
         compose.onNodeWithText(context.getString(R.string.no_photos_in_this_view)).assertDoesNotExist()
     }
 
@@ -99,7 +102,8 @@ class LibraryPreparingTest {
         actions.refresh()
         compose.onNodeWithTag("library-preparing").assertDoesNotExist()
         compose.onNodeWithText(context.getString(R.string.library_preparing_status)).assertDoesNotExist()
-        compose.onNodeWithText(context.getString(R.string.icloud_photos)).assertIsDisplayed()
+        compose.onNodeWithTag("account-status-indicator", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("screen-title-LIBRARY").assertIsDisplayed()
     }
 
     @Test

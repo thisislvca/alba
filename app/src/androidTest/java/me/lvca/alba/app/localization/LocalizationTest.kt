@@ -74,7 +74,7 @@ class LocalizationTest {
                 language("it")
                 waitFor("Accedi a iCloud")
                 click("Prova la demo")
-                waitFor("Alba")
+                // The Photos tab opens with its name as the large title.
                 waitFor("Foto")
                 click("Filtra e ordina")
                 waitFor("Dimensione foto")
