@@ -70,6 +70,8 @@ class AccountAwareICloudCatalogSource(
         sourceForMedia(mediaId).writeOriginal(mediaId, output)
     }
 
+    override suspend fun prepareDownloads(mediaIds: List<String>) = currentSource().prepareDownloads(mediaIds)
+
     private val signedOutSource = object : CloudCatalogSource {
         override val accountLabel = "signed-out"
         override suspend fun fetchPage(cursor: String?, limit: Int) = CloudCatalogPage(emptyList(), null, "signed-out")

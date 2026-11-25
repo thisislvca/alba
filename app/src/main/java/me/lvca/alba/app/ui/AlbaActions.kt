@@ -4,10 +4,10 @@ import me.lvca.alba.app.account.SignInDraft
 import me.lvca.alba.app.messages.UndoAction
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.BackupSettings
+import me.lvca.alba.engine.model.CacheLimit
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
-import me.lvca.alba.engine.model.OfflinePreviewLimit
 import me.lvca.alba.engine.model.SHARED_POST_PREVIEW_PHOTOS
 import me.lvca.alba.engine.model.SharedActivityPage
 import me.lvca.alba.engine.model.SharedAlbumGeneration
@@ -16,6 +16,7 @@ import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SharedDiscussion
 import me.lvca.alba.engine.model.SharedInvitation
 import me.lvca.alba.engine.model.SharedPostPreview
+import me.lvca.alba.engine.model.ThumbnailBudget
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.source.MediaRead
 
@@ -56,7 +57,8 @@ interface SharedActions {
 interface StorageActions {
     fun checkPhoneStorage()
     fun clearLocalMedia(category: LocalMediaCategory)
-    fun setOfflinePreviewLimit(limit: OfflinePreviewLimit)
+    fun setThumbnailBudget(budget: ThumbnailBudget)
+    fun setCacheLimit(limit: CacheLimit)
 }
 
 /** Browsing the library: the query, the selection, previews and opening photos. */

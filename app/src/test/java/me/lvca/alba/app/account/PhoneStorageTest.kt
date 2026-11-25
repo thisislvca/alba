@@ -45,58 +45,82 @@ class PhoneStorageTest {
         compose.onNodeWithText(text(R.string.saved_thumbnails)).assertExists()
     }
 
-    @Test fun offlinePreviewsOffersEachLimitAndEstimatesTheWholeLibrary() {
-        val chosen = mutableListOf<OfflinePreviewLimit>()
-        // 400 previews in 25,000,000 bytes measure 62,500 bytes each: 12,000 items need 750 MB.
-        val state = PhoneStorageState(usage = LocalMediaStorage(25_000_000, 0, 0, 8_000_000_000, previewCount = 400),
-            libraryItemCount = 12_000)
+    private fun show(state: PhoneStorageState, budgets: MutableList<ThumbnailBudget> = mutableListOf(),
+        limits: MutableList<CacheLimit> = mutableListOf()) {
         compose.setContent { AlbaTheme(darkTheme = false) {
             AlbaPageScaffold(text(R.string.phone_storage_title), onBack = {}) {
-                PhoneStorageDetails(state, busy = false, testAlbaActions(setOfflinePreviewLimit = { chosen += it }))
+                PhoneStorageDetails(state, busy = false,
+                    testAlbaActions(setThumbnailBudget = { budgets += it }, setCacheLimit = { limits += it }))
             }
         } }
-        fun size(bytes: Long) = Formatter.formatShortFileSize(app, bytes)
-
-        compose.onNodeWithTag("offline-previews-usage").performScrollTo()
-            .assertTextEquals(app.getString(R.string.offline_previews_usage_estimate, size(25_000_000), size(750_000_000)))
-        // The default is 500 MB.
-        compose.onNodeWithTag("offline-previews-setting").performScrollTo()
-            .assert(hasText(text(R.string.offline_previews_500_mb)))
-            .performClick()
-
-        compose.onNodeWithTag("offline-previews-MB_500").assertIsSelected()
-        listOf("MB_250", "GB_1", "GB_2", "WHOLE_LIBRARY").forEach { compose.onNodeWithTag("offline-previews-$it").assertIsNotSelected() }
-        compose.onNodeWithTag("offline-previews-WHOLE_LIBRARY")
-            .assert(hasText(app.getString(R.string.offline_previews_whole_library_estimate, size(750_000_000))))
-
-        // Cancel changes nothing.
-        compose.onNodeWithText(text(R.string.cancel)).performClick()
-        compose.onNodeWithTag("offline-previews-options").assertDoesNotExist()
-        assertTrue(chosen.isEmpty())
-
-        // Choosing the current limit again changes nothing either; another one is applied and closes the dialog.
-        compose.onNodeWithTag("offline-previews-setting").performClick()
-        compose.onNodeWithTag("offline-previews-MB_500").performClick()
-        compose.runOnIdle { assertTrue(chosen.isEmpty()) }
-        compose.onNodeWithTag("offline-previews-setting").performClick()
-        compose.onNodeWithTag("offline-previews-WHOLE_LIBRARY").performClick()
-        compose.onNodeWithTag("offline-previews-options").assertDoesNotExist()
-        compose.runOnIdle { assertEquals(listOf(OfflinePreviewLimit.WHOLE_LIBRARY), chosen) }
     }
 
-    @Test fun offlinePreviewsShowsTheSavedChoice() {
-        val state = PhoneStorageState(usage = LocalMediaStorage(0, 0, 0, 8_000_000_000), previewLimit = OfflinePreviewLimit.GB_2)
-        compose.setContent { AlbaTheme(darkTheme = false) {
-            AlbaPageScaffold(text(R.string.phone_storage_title), onBack = {}) {
-                PhoneStorageDetails(state, busy = false, testAlbaActions())
-            }
-        } }
-        compose.onNodeWithTag("offline-previews-setting").performScrollTo()
-            .assert(hasText(text(R.string.offline_previews_2_gb)))
+    @Test fun offlinePhotosSaysHowManyAreAvailableAndWhyItWaits() {
+        show(PhoneStorageState(usage = LocalMediaStorage(0, 0, 0, 8_000_000_000),
+            offlinePhotos = OfflinePhotosStatus(OfflineThumbnailProgress(libraryCount = 12_606, setSize = 12_606, savedCount = 8_400),
+                wait = OfflinePhotosWait.WIFI_AND_CHARGING)))
+
+        compose.onNodeWithTag("offline-photos-setting").performScrollTo().assert(hasText(text(R.string.storage_limit_1_gb)))
+        compose.onNodeWithTag("offline-photos-progress").performScrollTo()
+            .assertTextEquals(app.getString(R.string.offline_photos_progress, "8,400", "12,606"))
+        compose.onNodeWithTag("offline-photos-status").assertTextEquals(text(R.string.offline_photos_waiting))
+        // 1 GB holds the whole library: no suggestion.
+        compose.onNodeWithTag("offline-photos-suggestion").assertDoesNotExist()
+    }
+
+    @Test fun offlinePhotosSaysWhenStorageIsLow() {
+        val progress = OfflineThumbnailProgress(libraryCount = 500, setSize = 500, savedCount = 120)
+        show(PhoneStorageState(offlinePhotos = OfflinePhotosStatus(progress, wait = OfflinePhotosWait.STORAGE_LOW)))
+        compose.onNodeWithTag("offline-photos-status").performScrollTo().assertTextEquals(text(R.string.offline_photos_storage_low))
+    }
+
+    @Test fun aCompleteSetSaysNothingMore() {
+        show(PhoneStorageState(offlinePhotos = OfflinePhotosStatus(OfflineThumbnailProgress(libraryCount = 500, setSize = 500, savedCount = 500))))
+        compose.onNodeWithTag("offline-photos-progress").performScrollTo()
+            .assertTextEquals(app.getString(R.string.offline_photos_progress, "500", "500"))
+        compose.onNodeWithTag("offline-photos-status").assertDoesNotExist()
+    }
+
+    @Test fun aBudgetTooSmallSuggestsRaisingIt() {
+        val budgets = mutableListOf<ThumbnailBudget>()
+        val status = OfflinePhotosStatus(OfflineThumbnailProgress(libraryCount = 22_000, setSize = 15_873, savedCount = 15_873),
+            suggestedBudget = ThumbnailBudget.GB_2)
+        show(PhoneStorageState(offlinePhotos = status), budgets)
+
+        compose.onNodeWithTag("offline-photos-suggestion").performScrollTo()
+            .assertTextEquals(app.getString(R.string.offline_photos_needs, Formatter.formatShortFileSize(app, status.libraryBytes)))
+        compose.onNodeWithTag("offline-photos-raise").assert(hasText(app.getString(R.string.offline_photos_raise, text(R.string.storage_limit_2_gb))))
             .performClick()
-        compose.onNodeWithTag("offline-previews-GB_2").assertIsSelected()
-        // No library yet to estimate: the option is plain.
-        compose.onNodeWithTag("offline-previews-WHOLE_LIBRARY")
-            .assert(hasText(text(R.string.offline_previews_whole_library)))
+        compose.runOnIdle { assertEquals(listOf(ThumbnailBudget.GB_2), budgets) }
+    }
+
+    @Test fun theBudgetAndTheCacheLimitAreChosenInTheirOwnDialogs() {
+        val budgets = mutableListOf<ThumbnailBudget>()
+        val limits = mutableListOf<CacheLimit>()
+        show(PhoneStorageState(usage = LocalMediaStorage(0, 0, 0, 8_000_000_000, cacheBytes = 120_000_000)), budgets, limits)
+
+        compose.onNodeWithTag("media-cache-usage").performScrollTo()
+            .assertTextEquals(app.getString(R.string.media_cache_usage, Formatter.formatShortFileSize(app, 120_000_000)))
+        compose.onNodeWithTag("offline-photos-setting").performScrollTo().performClick()
+        compose.onNodeWithTag("offline-photos-GB_1").assertIsSelected()
+        listOf("GB_2", "GB_4", "NO_LIMIT").forEach { compose.onNodeWithTag("offline-photos-$it").assertIsNotSelected() }
+        // Choosing the current one changes nothing.
+        compose.onNodeWithTag("offline-photos-GB_1").performClick()
+        compose.onNodeWithTag("offline-photos-options").assertDoesNotExist()
+        compose.onNodeWithTag("offline-photos-setting").performClick()
+        compose.onNodeWithTag("offline-photos-NO_LIMIT").assert(hasText(text(R.string.storage_limit_none))).performClick()
+        compose.runOnIdle { assertEquals(listOf(ThumbnailBudget.NO_LIMIT), budgets) }
+
+        compose.onNodeWithTag("media-cache-setting").performScrollTo()
+            .assert(hasText(text(R.string.storage_limit_500_mb))).performClick()
+        compose.onNodeWithTag("media-cache-MB_500").assertIsSelected()
+        compose.onNodeWithText(text(R.string.cancel)).performClick()
+        compose.onNodeWithTag("media-cache-options").assertDoesNotExist()
+        compose.onNodeWithTag("media-cache-setting").performClick()
+        compose.onNodeWithTag("media-cache-GB_2").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(CacheLimit.GB_2), limits)
+            assertEquals(listOf(ThumbnailBudget.NO_LIMIT), budgets)
+        }
     }
 }

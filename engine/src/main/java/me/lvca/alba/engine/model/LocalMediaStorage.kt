@@ -9,6 +9,10 @@ data class LocalMediaStorage(
     val availableBytes: Long,
     /** How many previews [previewBytes] holds, to estimate what the whole library would take. */
     val previewCount: Int = 0,
+    /** Thumbnails of the offline set, within [previewBytes]. */
+    val offlineThumbnailBytes: Long = 0,
+    /** The cache under its limit: full-size images and thumbnails of photos outside the offline set. */
+    val cacheBytes: Long = 0,
 ) {
     val totalBytes: Long get() = previewBytes + viewerBytes + originalBytes
 
