@@ -128,7 +128,8 @@ class AlbaViewModel(
     internal val sharedAlbums: SharedAlbumsController = SharedAlbumsController(viewModelScope, savedState, dependencies.repository,
         dependencies.accountManager, dependencies.diagnostics, runner, messages, gallery, dependencies.sharedActivity)
 
-    internal val phoneStorage: PhoneStorageController = PhoneStorageController(viewModelScope, dependencies.repository, transfers, previews, runner, messages)
+    internal val phoneStorage: PhoneStorageController = PhoneStorageController(viewModelScope, dependencies.repository, transfers, previews, runner, messages,
+        dependencies.offlinePreviews) { gallery.current.catalogItems.count { it.origin == MediaOrigin.ICLOUD } }
 
     internal val account: AccountController = AccountController(
         scope = viewModelScope,

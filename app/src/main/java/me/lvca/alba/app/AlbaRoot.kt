@@ -99,6 +99,7 @@ import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
 import me.lvca.alba.engine.model.MediaOrigin
+import me.lvca.alba.engine.model.OfflinePreviewLimit
 import me.lvca.alba.engine.model.SharedAlbumGeneration
 import me.lvca.alba.engine.model.SharedCommand
 import me.lvca.alba.engine.model.SharedUploadFile
@@ -913,6 +914,7 @@ private class AlbaRootActions(
     override fun setDiagnosticsEnabled(enabled: Boolean) = viewModel.setDiagnosticsEnabled(enabled)
     override fun checkPhoneStorage() = viewModel.phoneStorage.checkPhoneStorage()
     override fun clearLocalMedia(category: LocalMediaCategory) = viewModel.phoneStorage.clearLocalMedia(category)
+    override fun setOfflinePreviewLimit(limit: OfflinePreviewLimit) = viewModel.phoneStorage.setOfflinePreviewLimit(limit)
 
     override suspend fun sharedActivity(albumId: String, rank: Int) = shared.sharedActivity(albumId, rank)
     override suspend fun sharedPostDiscussion(postId: String) = shared.sharedPostDiscussion(postId)

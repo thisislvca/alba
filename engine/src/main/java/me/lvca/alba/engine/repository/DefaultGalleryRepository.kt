@@ -13,6 +13,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
+import me.lvca.alba.engine.cache.CachePruneResult
+import me.lvca.alba.engine.cache.InsufficientStorageException
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.CatalogCheckpointEntity
@@ -771,17 +773,40 @@ class DefaultGalleryRepository(
         }
     }
 
-    override suspend fun ensurePreview(mediaId: String) = withMediaLock(mediaId) {
-        val entity = requireCloudItem(mediaId)
-        val retained = cache.retainPreview(mediaId, entity.previewCachePath)
-        if (retained != null) {
-            if (retained.absolutePath != entity.previewCachePath) dao.setPreviewPath(mediaId, retained.absolutePath)
-            return@withMediaLock
+    override suspend fun ensurePreview(mediaId: String) {
+        withMediaLock(mediaId) {
+            val entity = requireCloudItem(mediaId)
+            val retained = cache.retainPreview(mediaId, entity.previewCachePath)
+            if (retained != null) {
+                if (retained.absolutePath != entity.previewCachePath) dao.setPreviewPath(mediaId, retained.absolutePath)
+                return@withMediaLock
+            }
+            // Only the same item's writes are serialized. A slow thumbnail or full-size
+            // viewer must not hold a global lock over every visible tile's network request.
+            val write = suspend { cache.writeAtomically(mediaId, "preview") { output -> cloudSource.writePreview(mediaId, output) } }
+            val file = try { write() } catch (full: InsufficientStorageException) {
+                // Previews seen longest ago make room for the one on screen; with none to remove, the phone is full.
+                // The media lock's permit already keeps refresh pruning and clearing out, so no second permit is taken.
+                if (forgetPreviews(cache.trimPreviews()) == 0) throw full
+                write()
+            }
+            dao.setPreviewPath(mediaId, file.absolutePath)
         }
-        // Only the same item's writes are serialized. A slow thumbnail or full-size
-        // viewer must not hold a global lock over every visible tile's network request.
-        val file = cache.writeAtomically(mediaId, "preview") { output -> cloudSource.writePreview(mediaId, output) }
-        dao.setPreviewPath(mediaId, file.absolutePath)
+        // Batched: a trim goes well under the limit, so most writes only compare two numbers here.
+        if (cache.previewsNeedTrim()) catalogPermits.withPermit { forgetPreviews(cache.trimPreviews(onlyIfNeeded = true)) }
+    }
+
+    override suspend fun notePreviewsShown(mediaIds: List<String>) = cache.notePreviewsShown(mediaIds)
+
+    override suspend fun trimPreviews() {
+        // A permit keeps refresh pruning and clearing, which take both, from deleting the same files.
+        catalogPermits.withPermit { forgetPreviews(cache.trimPreviews()) }
+    }
+
+    /** Clears the catalog paths of removed previews, so their tiles download them again when they come back. */
+    private suspend fun forgetPreviews(result: CachePruneResult): Int {
+        result.evictedPaths.chunked(SQLITE_BIND_CHUNK_SIZE).forEach { paths -> dao.clearPreviewPaths(paths) }
+        return result.evictedPaths.size
     }
 
     override suspend fun keepOriginalOffline(mediaId: String) = withMediaLock(mediaId) {

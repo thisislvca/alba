@@ -7,6 +7,7 @@ import me.lvca.alba.app.diagnostics.AlbaDiagnostics
 import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.NetworkStatus
+import me.lvca.alba.app.platform.OfflinePreviewPreferences
 import me.lvca.alba.app.platform.PhotoEditStore
 import me.lvca.alba.app.sharing.SharedActivityStore
 import me.lvca.alba.app.transfers.TransferScheduler
@@ -37,6 +38,7 @@ data class AlbaDependencies(
     val diagnostics: AlbaDiagnostics,
     val sharedActivity: SharedActivityStore,
     val backupPreferences: BackupPreferences,
+    val offlinePreviews: OfflinePreviewPreferences,
     val catalogSync: CatalogSyncScheduler,
 ) {
     companion object {
@@ -55,6 +57,7 @@ data class AlbaDependencies(
             diagnostics = graph.diagnostics,
             sharedActivity = graph.sharedActivity,
             backupPreferences = graph.backupPreferences,
+            offlinePreviews = graph.offlinePreviews,
             catalogSync = graph.catalogSync,
         )
     }

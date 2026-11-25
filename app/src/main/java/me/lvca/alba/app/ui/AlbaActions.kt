@@ -7,6 +7,7 @@ import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.GalleryQuery
 import me.lvca.alba.engine.model.LocalMediaCategory
+import me.lvca.alba.engine.model.OfflinePreviewLimit
 import me.lvca.alba.engine.model.SHARED_POST_PREVIEW_PHOTOS
 import me.lvca.alba.engine.model.SharedActivityPage
 import me.lvca.alba.engine.model.SharedAlbumGeneration
@@ -55,6 +56,7 @@ interface SharedActions {
 interface StorageActions {
     fun checkPhoneStorage()
     fun clearLocalMedia(category: LocalMediaCategory)
+    fun setOfflinePreviewLimit(limit: OfflinePreviewLimit)
 }
 
 /** Browsing the library: the query, the selection, previews and opening photos. */

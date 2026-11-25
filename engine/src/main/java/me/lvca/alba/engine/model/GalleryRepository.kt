@@ -50,6 +50,12 @@ interface GalleryMediaAccess : OriginalExporter, OfflineMediaStore {
     suspend fun openPlayback(mediaId: String, position: Long, length: Long): me.lvca.alba.engine.source.MediaRead
     suspend fun ensureViewer(mediaId: String)
     suspend fun ensurePreview(mediaId: String)
+
+    /** The previews now on screen or in the prefetch window: they count as just used, and trims leave them. */
+    suspend fun notePreviewsShown(mediaIds: List<String>) {}
+
+    /** Brings the saved previews within the current limit, or makes room on a phone low on space. */
+    suspend fun trimPreviews() {}
 }
 
 interface GalleryEdits {

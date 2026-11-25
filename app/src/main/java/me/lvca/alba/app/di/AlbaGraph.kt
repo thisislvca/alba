@@ -12,6 +12,7 @@ import me.lvca.alba.app.platform.AndroidAutomaticBackupPolicy
 import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.app.platform.GalleryExporter
 import me.lvca.alba.app.platform.LiveProtocolStatus
+import me.lvca.alba.app.platform.OfflinePreviewPreferences
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PhotoEditStore
 import me.lvca.alba.app.platform.chargingStatus
@@ -81,6 +82,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         isDemo = { accountManager.state.value == ICloudAccountState.Demo },
     )
     val backupPreferences = BackupPreferences(appContext)
+    val offlinePreviews = OfflinePreviewPreferences(appContext)
     internal val backupNotifications = BackupNotifications(appContext, backupPreferences)
     private val liveCatalog = LiveICloudCatalogSource(
         transport = transport,
@@ -103,7 +105,7 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
         database = database,
         cloudSource = cloudCatalog,
         deviceSource = mediaStore,
-        cache = MediaFileCache(appContext),
+        cache = MediaFileCache(appContext, previewLimitBytes = { offlinePreviews.limit.value.bytes }),
         protocolStatus = protocolStatus,
     )
     val exporter = GalleryExporter(appContext, galleryRepository)
