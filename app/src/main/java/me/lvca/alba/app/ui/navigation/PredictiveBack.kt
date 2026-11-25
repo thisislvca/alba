@@ -143,7 +143,8 @@ private const val COMMIT_TIMEOUT_MILLIS = 600L
 
 /**
  * A navigation transition whose pops can follow the system back gesture. It animates to [target] whenever it
- * changes; [PredictiveBackNavigation] seeks it toward the screen back leads to while a gesture is in progress.
+ * changes, or jumps there when [snap] says the change is animated elsewhere; [PredictiveBackNavigation] seeks it
+ * toward the screen back leads to while a gesture is in progress.
  */
 @Composable
 internal fun <S> rememberNavigationTransition(
@@ -151,6 +152,7 @@ internal fun <S> rememberNavigationTransition(
     backState: PredictiveBackState,
     reduceMotion: Boolean,
     label: String,
+    snap: () -> Boolean = { false },
 ): Pair<SeekableTransitionState<S>, Transition<S>> {
     val state = remember { SeekableTransitionState(target) }
     LaunchedEffect(target, backState.phase) {
@@ -159,7 +161,7 @@ internal fun <S> rememberNavigationTransition(
         if (backState.phase == BackPhase.COMMITTED && state.currentState == target) delay(COMMIT_TIMEOUT_MILLIS)
         when {
             state.currentState == target && state.targetState == target -> Unit
-            reduceMotion -> state.snapTo(target)
+            reduceMotion || snap() -> state.snapTo(target)
             state.currentState == target -> {
                 // A cancelled gesture: seek back to the start, then settle where we were.
                 backState.release()

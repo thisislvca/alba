@@ -88,8 +88,11 @@ private const val OUTGOING_FADE = NavigationMotion.FADE_THROUGH_OUT
 
 /**
  * Fade through between destinations, run ahead of the switch itself: the current screen fades out, then the switch
- * happens while nothing shows, then the new screen fades in. The destination [pending] shows as selected at once, so
- * the first frame after a tap already answers it even when the new screen is costly to compose.
+ * happens while nothing shows, then the new screen fades in. The host must neither animate that switch nor show the
+ * screen that left again while the new one fades in (see [switched]). The destination [pending] shows as selected at
+ * once, so the first frame after a tap already answers it even when the new screen is costly to compose.
+ *
+ * A tap during the fade continues from the opacity it has reached, so quick taps never flash back to full or blank.
  */
 @Stable
 internal class FadeThrough<T : Any>(private val scope: CoroutineScope) {
@@ -103,7 +106,7 @@ internal class FadeThrough<T : Any>(private val scope: CoroutineScope) {
     var pending by mutableStateOf<T?>(null)
         private set
 
-    /** True while a switch made here fades in; the screen host must not animate that switch itself. */
+    /** True while a switch made here fades in; the screen host must not animate that switch or show the screen left. */
     var switched by mutableStateOf(false)
         private set
 
