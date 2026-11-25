@@ -275,6 +275,9 @@ internal fun GalleryHome(
         gallery.collections.firstOrNull { it.id == folder }?.name ?: stringResource(R.string.albums) else stringResource(if (tab == GalleryTab.COLLECTIONS) collectionsPage?.title ?: tab.title else tab.title)
     val contextAccountLabel = stringResource(R.string.open_icloud_account)
     val signedIn = session.accountState as? ICloudAccountState.SignedIn
+    val libraryLoad = session.libraryLoad(storedLibrary = gallery.cloudCount > 0)
+    // The header's loading bar, under the status line; Apple's indexing has its own card instead.
+    val headerBar = libraryLoad == LibraryLoad.INITIAL_LOAD && session.libraryPreparing == null
     val status = when {
         session.accountState == ICloudAccountState.Demo -> stringResource(R.string.library)
         session.accountState == ICloudAccountState.Restoring -> stringResource(R.string.restoring_icloud)
@@ -284,8 +287,9 @@ internal fun GalleryHome(
         // Apple is still indexing: say so for as long as it lasts, through the quiet checks Alba makes meanwhile.
         session.libraryPreparing != null -> libraryPreparingLabel(session.libraryPreparing)
         // The first read of a large library takes a while: say how far it is rather than only that it is updating.
-        session.isRefreshing && session.catalogScan != null -> catalogScanLabel(session.catalogScan)
-        session.isRefreshing -> stringResource(R.string.updating_library)
+        // A refresh of a library Alba already shows says nothing, as iCloud.com does; errors still surface as messages.
+        libraryLoad == LibraryLoad.INITIAL_LOAD && session.catalogScan != null -> catalogScanLabel(session.catalogScan)
+        libraryLoad == LibraryLoad.INITIAL_LOAD -> stringResource(R.string.updating_library)
         signedIn?.status == SessionStatus.VERIFIED -> stringResource(R.string.icloud_photos)
         else -> stringResource(R.string.connect_to_icloud)
     }
@@ -468,15 +472,18 @@ internal fun GalleryHome(
                         }
                         if (!hero && !connectPrompt && session.accountState != ICloudAccountState.Demo && (tab == GalleryTab.LIBRARY || session.accountState == ICloudAccountState.Restoring || signedIn?.status == SessionStatus.EXPIRED)) {
                             Text(status, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp).clickable(role = Role.Button, onClick = actions::openAccount))
+                                // Above a loading bar, the line keeps clear of it and stays centred in its row.
+                                modifier = Modifier.padding(horizontal = 16.dp).padding(vertical = if (headerBar) 4.dp else 0.dp)
+                                    .clickable(role = Role.Button, onClick = actions::openAccount))
                         }
                         val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
                         if (libraryHeader && gallery.selection.isEmpty()) BackupStatusChip(session, transfers, actions::openBackup)
                         val scanFraction = session.catalogScan?.fraction()
-                        if (session.libraryPreparing != null) Unit
-                        else if (session.isRefreshing && scanFraction != null) {
-                            LinearProgressIndicator(progress = { scanFraction }, modifier = Modifier.fillMaxWidth().height(2.dp).testTag("catalog-scan-bar"))
-                        } else if (session.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
+                        // 4dp above and below the bar, so 8dp separate it from the status line.
+                        val barModifier = Modifier.padding(vertical = 4.dp).fillMaxWidth()
+                        if (headerBar && scanFraction != null) {
+                            LinearProgressIndicator(progress = { scanFraction }, modifier = barModifier.testTag("catalog-scan-bar"))
+                        } else if (headerBar) LinearProgressIndicator(barModifier)
                         if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions, Modifier.padding(vertical = 8.dp))
                         else if (filterRow) {
                             if (tab == GalleryTab.SEARCH) GallerySearchBar(query.filename, { actions.changeQuery(query.copy(filename = it)) },
@@ -536,7 +543,7 @@ internal fun GalleryHome(
                             connectPrompt = connectPrompt,
                             isRefreshing = session.isRefreshing,
                             counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount, limitedAccess = limitedNote,
-                                catalogScan = session.catalogScan, libraryPreparing = session.libraryPreparing),
+                                catalogScan = session.catalogScan?.takeIf { it.initialLoad }, libraryPreparing = session.libraryPreparing),
                             previewRetryVersion = previewRetryVersion,
                             grid = when (shown.tab) {
                                 GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid

@@ -70,7 +70,10 @@ data class SessionState(
     val signInProblem: SignInProblem? = null,
     /** The last refresh found "Access iCloud Data on the Web" off for this account. */
     val webAccessOff: Boolean = false,
-    /** The first full read of the iCloud library, while it is unfinished: how many photos it has loaded. */
+    /**
+     * The first load of the iCloud library, while it is unfinished: how many photos it has loaded. Null during a
+     * refresh or rescan of a library Alba already stores.
+     */
     val catalogScan: CatalogScanProgress? = null,
     /** Apple is still indexing the iCloud library; Alba keeps checking and loads it once ready. */
     val libraryPreparing: LibraryPreparing? = null,
@@ -158,7 +161,8 @@ internal class AccountController(
             signInProblem = flags.problem,
             webAccessOff = sync.webAccessOff,
             // Only an iCloud library is large enough to read for a while; the demo and signed-out reads are instant.
-            catalogScan = sync.catalogScan.takeIf { account is ICloudAccountState.SignedIn },
+            // A rescan of a library Alba already shows is a quiet refresh, so only a first load carries its progress.
+            catalogScan = sync.catalogScan.takeIf { account is ICloudAccountState.SignedIn && it?.initialLoad == true },
             libraryPreparing = sync.libraryPreparing.takeIf { account is ICloudAccountState.SignedIn },
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), SessionState())

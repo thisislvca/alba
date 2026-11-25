@@ -1,5 +1,6 @@
 package me.lvca.alba.app.gallery
 
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -41,6 +42,47 @@ class CatalogScanProgressTest {
         assertEquals(2, compose.onAllNodesWithText("12,400 of 52,000 photos loaded").fetchSemanticsNodes().size)
         compose.onNodeWithTag("catalog-scan-bar").assertExists()
         compose.onNodeWithText(context.getString(R.string.updating_library)).assertDoesNotExist()
+    }
+
+    @Test
+    fun theFirstLoadsCountKeepsClearOfTheBarUnderIt() {
+        compose.setAlbaContent(GalleryState(), SessionState(accountState = ICloudAccountState.SignedIn("alex@example.com"),
+            isRefreshing = true, catalogScan = CatalogScanProgress(loadedCount = 100, totalCount = 12_606)))
+
+        // Laid-out bounds: the bar's semantics reach beyond it to make it easier to find.
+        val text = compose.onAllNodesWithText("100 of 12,606 photos loaded").fetchSemanticsNodes()
+            .minBy { it.boundsInRoot.top }.layoutInfo.coordinates.boundsInRoot()
+        val bar = compose.onNodeWithTag("catalog-scan-bar").fetchSemanticsNode().layoutInfo.coordinates.boundsInRoot()
+        val density = compose.density.density
+        // 4dp under the line and 4dp above the bar.
+        assertEquals("text $text bar $bar density $density", 8f, (bar.top - text.bottom) / density, 0.5f)
+    }
+
+    @Test
+    fun aRefreshOfAStoredLibraryShowsNothingInTheHeader() {
+        compose.setAlbaContent(GalleryState(cloudCount = 12_606), SessionState(accountState = SIGNED_IN, isRefreshing = true))
+
+        assertQuietHeader()
+    }
+
+    @Test
+    fun aRescanOfAStoredLibraryShowsNothingInTheHeader() {
+        // iCloud refused the change token, so the library is read again; it is not a first load.
+        compose.setAlbaContent(GalleryState(cloudCount = 12_606), SessionState(accountState = SIGNED_IN, isRefreshing = true,
+            catalogScan = CatalogScanProgress(loadedCount = 100, totalCount = 12_606, initialLoad = false)))
+
+        assertQuietHeader()
+    }
+
+    private fun assertQuietHeader() {
+        compose.onNodeWithText("100 of 12,606 photos loaded").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.updating_library)).assertDoesNotExist()
+        compose.onNodeWithTag("catalog-scan-bar").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.icloud_photos)).assertIsDisplayed()
+    }
+
+    private companion object {
+        val SIGNED_IN = ICloudAccountState.SignedIn("alex@example.com", SessionStatus.VERIFIED)
     }
 
     @Test
