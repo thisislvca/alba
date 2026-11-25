@@ -52,6 +52,8 @@ internal fun testAlbaActions(
     setThumbnailBudget: (ThumbnailBudget) -> Unit = {},
     setCacheLimit: (CacheLimit) -> Unit = {},
     checkConnection: () -> Unit = {},
+    signIn: (String, String) -> Unit = { _, _ -> },
+    closeAccount: () -> Unit = {},
     submitTwoFactor: (String) -> Unit = {},
     requestDevicePhotos: () -> Unit = {},
     pickUpload: () -> Unit = {},
@@ -72,6 +74,8 @@ internal fun testAlbaActions(
     includeExistingInBackup: () -> Unit = {},
     signOut: () -> Unit = {},
     sendCodeBySms: () -> Unit = {},
+    resendTwoFactor: () -> Unit = {},
+    cancelTwoFactor: () -> Unit = {},
     confirmMixedTrash: (List<GalleryMedia>) -> Unit = {},
     useElsewhere: (GalleryMedia, ExternalUse) -> Unit = { _, _ -> },
     refresh: () -> Unit = {},
@@ -84,12 +88,14 @@ internal fun testAlbaActions(
     val onSharedManagement = sharedManagement; val onSharedDiscussion = sharedDiscussion; val onChangeSharedAlbum = changeSharedAlbum
     val onSetThumbnailBudget = setThumbnailBudget; val onSetCacheLimit = setCacheLimit
     val onClearLocalMedia = clearLocalMedia; val onCheckConnection = checkConnection; val onSubmitTwoFactor = submitTwoFactor
+    val onSignIn = signIn; val onCloseAccount = closeAccount
     val onRequestDevicePhotos = requestDevicePhotos; val onPickUpload = pickUpload; val onContinue = continuePastUnresolved
     val onMoveVerifiedPhotoToTrash = moveVerifiedPhotoToTrash; val onOpenAccount = openAccount; val onStartDemo = startDemo
     val onOpenHidden = openHidden; val onSetHidden = setHidden; val onExpandBurst = expandBurst
     val onRetry = retryTransfer; val onRetryAll = retryAllTransfers; val onCancelUploads = cancelUploads; val onFreeUp = freeUpSpace
     val onSettings = setBackupSettings; val onOpenBackup = openBackup; val onRetryStorage = retryAfterStorageFull
-    val onSignOut = signOut; val onSendCodeBySms = sendCodeBySms; val onConfirmMixedTrash = confirmMixedTrash
+    val onSignOut = signOut; val onSendCodeBySms = sendCodeBySms; val onResend = resendTwoFactor
+    val onCancelTwoFactor = cancelTwoFactor; val onConfirmMixedTrash = confirmMixedTrash
     val onUseElsewhere = useElsewhere; val onIncludeExisting = includeExistingInBackup; val onRefresh = refresh
     return object : AlbaActions {
         override fun retryTransfer(transferId: TransferId) = onRetry(transferId)
@@ -175,10 +181,11 @@ internal fun testAlbaActions(
         override fun keepOriginalOffline(mediaId: String) = Unit
         override fun removeCachedOriginal(mediaId: String) = Unit
         override fun cancelOfflineDownload() = Unit
-        override fun closeAccount() = Unit
-        override fun signIn(appleId: String, password: String) = Unit
-        override fun resendTwoFactor() = Unit
+        override fun closeAccount() = onCloseAccount()
+        override fun signIn(appleId: String, password: String) = onSignIn(appleId, password)
+        override fun resendTwoFactor() = onResend()
         override fun sendCodeBySms() = onSendCodeBySms()
+        override fun cancelTwoFactor() = onCancelTwoFactor()
         override fun clearSignInProblem() = Unit
         override val signInDraft = SignInDraft()
         override fun confirmMixedTrash(items: List<GalleryMedia>) = onConfirmMixedTrash(items)

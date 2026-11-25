@@ -1,50 +1,53 @@
 package me.lvca.alba.app.ui.designsystem.theme
 
+import android.os.Build
+import androidx.annotation.ChecksSdkIntAtLeast
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
 
 /** Shared gallery chrome; the light palette uses a softer surface without changing dark mode. */
 internal val ColorScheme.galleryOverlay: Color
     get() = if (surface.luminance() > .5f) surfaceContainerLow else surfaceContainer
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF0065D0), onPrimary = Color.White,
-    primaryContainer = Color(0xFFDDEBFF), onPrimaryContainer = Color(0xFF004493),
-    secondary = Color(0xFF53637B), secondaryContainer = Color(0xFFE7EEFA), onSecondaryContainer = Color(0xFF0065D0),
-    background = Color(0xFFF2F2F7), onBackground = Color(0xFF191C20),
-    surface = Color.White, onSurface = Color(0xFF191C20),
-    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF2F2F7), surfaceContainer = Color(0xFFECECF1),
-    surfaceContainerHighest = Color(0xFFE3E3E8),
-    surfaceContainerHigh = Color(0xFFE6EAF0), surfaceVariant = Color(0xFFE6EAF0),
-    onSurfaceVariant = Color(0xFF56606E), outline = Color(0xFF737D8A), outlineVariant = Color(0xFFDCE1E9),
-)
+/** Whether this device can theme Alba from the wallpaper (Android 12 and later). */
+@ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
+internal fun wallpaperColorsAvailable(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFF9DCBFF), onPrimary = Color(0xFF003363),
-    primaryContainer = Color(0xFF173F69), onPrimaryContainer = Color(0xFFDDEBFF),
-    secondary = Color(0xFFBBC8DD), secondaryContainer = Color(0xFF2F3F55), onSecondaryContainer = Color(0xFF9DCBFF),
-    background = Color(0xFF101114), onBackground = Color(0xFFE5E8EF),
-    surface = Color(0xFF101114), onSurface = Color(0xFFE5E8EF),
-    surfaceContainerLowest = Color(0xFF1C1C1E), surfaceContainerLow = Color(0xFF1C1C1E), surfaceContainer = Color(0xFF20232A),
-    surfaceContainerHigh = Color(0xFF292D35), surfaceVariant = Color(0xFF303540),
-    onSurfaceVariant = Color(0xFFB9C2D1), outline = Color(0xFF8590A1), outlineVariant = Color(0xFF373E4B),
-)
-
+/**
+ * Alba's theme: Material 3 with the iCloud blue scheme ([AlbaLightColorScheme], [AlbaDarkColorScheme]), Alba's type
+ * scale and shapes. Material 3 1.4 keeps `MotionScheme` and the `MaterialTheme(motionScheme = …)` overload internal,
+ * so stock components use Material's standard motion until Alba moves to 1.5.
+ *
+ * [wallpaperColors] swaps the iCloud scheme for the system's wallpaper scheme on Android 12 and later; it defaults to
+ * the user's "Match wallpaper colors" setting ([LocalWallpaperColors]), so a screen that forces dark mode keeps it.
+ */
 @Composable
 fun AlbaTheme(
     darkTheme: Boolean,
+    wallpaperColors: Boolean = LocalWallpaperColors.current.enabled,
     content: @Composable () -> Unit,
 ) {
-    CompositionLocalProvider(LocalAlbaColors provides if (darkTheme) DarkAlbaColors else LightAlbaColors) {
+    val context = LocalContext.current
+    val dynamic = wallpaperColors && wallpaperColorsAvailable()
+    val colorScheme = when {
+        dynamic && darkTheme -> dynamicDarkColorScheme(context)
+        dynamic -> dynamicLightColorScheme(context)
+        darkTheme -> AlbaDarkColorScheme
+        else -> AlbaLightColorScheme
+    }
+    val colors = remember(colorScheme, darkTheme) { albaColors(colorScheme, darkTheme) }
+    CompositionLocalProvider(LocalAlbaColors provides colors) {
         MaterialTheme(
-            colorScheme = if (darkTheme) DarkColors else LightColors,
+            colorScheme = colorScheme,
             typography = AlbaTypography,
             shapes = AlbaShapes,
             content = content,
@@ -52,7 +55,7 @@ fun AlbaTheme(
     }
 }
 
-/** Alba's tokens beyond [MaterialTheme]: `AlbaTheme.colors.accent`, alongside `MaterialTheme.shapes`. */
+/** Alba's tokens beyond [MaterialTheme]: `AlbaTheme.colors.favorite`, alongside `MaterialTheme.shapes`. */
 internal object AlbaTheme {
     val colors: AlbaColors
         @Composable @ReadOnlyComposable get() = LocalAlbaColors.current

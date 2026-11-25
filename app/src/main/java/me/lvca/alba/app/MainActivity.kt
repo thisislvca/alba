@@ -48,9 +48,10 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) openBackupFrom(intent)
         enableEdgeToEdge()
         val onboarding = OnboardingPreferences(this)
+        val appearance = (application as AlbaApplication).graph.appearance
         if (BuildConfig.BENCHMARK_MODE) { onboarding.complete(); onboarding.enabled = true }
         setContent {
-            AlbaRoot(viewModel, onboarding, incoming, onIncomingChange = { incoming = it })
+            AlbaRoot(viewModel, onboarding, appearance, incoming, onIncomingChange = { incoming = it })
         }
     }
 }

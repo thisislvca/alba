@@ -15,8 +15,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,6 +58,7 @@ import me.lvca.alba.app.intake.IncomingSession
 import me.lvca.alba.app.intake.MAX_INCOMING_ITEMS
 import me.lvca.alba.app.intake.albaComponents
 import me.lvca.alba.app.messages.UndoAction
+import me.lvca.alba.app.platform.AppearancePreferences
 import me.lvca.alba.app.platform.ExportDocument
 import me.lvca.alba.app.platform.FREE_UP_SPACE_ENABLED
 import me.lvca.alba.app.platform.HiddenLock
@@ -78,20 +83,23 @@ import me.lvca.alba.app.ui.AlbaActions
 import me.lvca.alba.app.ui.AlbaApp
 import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.app.ui.InvitationActions
+import me.lvca.alba.app.ui.LocalSignInFirst
 import me.lvca.alba.app.ui.account.BackupDisclosure
 import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.LocalWallpaperColors
+import me.lvca.alba.app.ui.designsystem.theme.WallpaperColorsSetting
+import me.lvca.alba.app.ui.designsystem.theme.wallpaperColorsAvailable
 import me.lvca.alba.app.ui.editor.PhotoEditorScreen
 import me.lvca.alba.app.ui.gallery.LocalBackupBadges
 import me.lvca.alba.app.ui.gallery.LocalPreviewStorageLow
 import me.lvca.alba.app.ui.gallery.backupBadges
 import me.lvca.alba.app.ui.intake.IncomingMediaScreen
-import me.lvca.alba.app.ui.onboarding.WELCOME_CHOICES_PAGE
-import me.lvca.alba.app.ui.onboarding.WelcomeScreen
 import me.lvca.alba.app.ui.shared.LocalNotificationAccess
 import me.lvca.alba.app.ui.shared.LocalSharedActivity
 import me.lvca.alba.app.ui.shared.NotificationAccess
 import me.lvca.alba.app.ui.shared.SharedInvitations
+import me.lvca.alba.app.ui.signInHandsOff
 import me.lvca.alba.app.work.canNotify
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.model.BackupSettings
@@ -182,42 +190,48 @@ private fun Context.granted(permission: String) =
 internal fun AlbaRoot(
     viewModel: AlbaViewModel,
     onboarding: OnboardingPreferences,
+    appearance: AppearancePreferences,
     incoming: IncomingSession,
     onIncomingChange: (IncomingSession) -> Unit,
 ) {
-    var showWelcome by rememberSaveable { mutableStateOf(!onboarding.completed) }
-    // Sign-in opened from the introduction: leaving it without an account returns there, not to an empty library.
-    var connectingFromWelcome by rememberSaveable { mutableStateOf(false) }
-    // Signing out returns to the introduction's choices rather than dropping silently into an empty library.
+    // Until there is an account (or, in debug builds, the demo), sign-in is where Alba starts, with no way back
+    // behind it: back leaves the app as from any first screen.
+    var signInFirst by rememberSaveable { mutableStateOf(!onboarding.completed) }
+    val session by viewModel.account.state.collectAsStateWithLifecycle()
+    // Signing out starts over at sign-in rather than dropping silently into an empty library.
     val returnToWelcome by viewModel.returnToWelcome.collectAsStateWithLifecycle()
     LaunchedEffect(returnToWelcome) {
         if (returnToWelcome) {
-            connectingFromWelcome = false
-            showWelcome = true
+            signInFirst = true
             viewModel.welcomeShown()
         }
     }
-    // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
-    AlbaTheme(darkTheme = isSystemInDarkTheme()) {
-        if (showWelcome && incoming.request == null) {
-            WelcomeScreen(
-                // Returning from sign-in lands on the page that offers it, next to the demo.
-                initialPage = if (onboarding.completed) WELCOME_CHOICES_PAGE else 0,
-                onConnect = {
-                    onboarding.complete(); viewModel.account.connectAccount()
-                    connectingFromWelcome = true; showWelcome = false
-                },
-                onDemo = { onboarding.complete(); viewModel.account.startDemo(); showWelcome = false },
-            )
-        } else {
-            AlbaMain(viewModel, incoming, onIncomingChange, onAccountClosed = {
-                if (connectingFromWelcome) {
-                    connectingFromWelcome = false
-                    if (viewModel.account.state.value.accountState !is ICloudAccountState.SignedIn) showWelcome = true
-                }
-            })
+    val accountState = session.accountState
+    LaunchedEffect(accountState) {
+        if (accountState is ICloudAccountState.SignedIn || accountState == ICloudAccountState.Demo) {
+            // Signing in at the start ends in the library, as a setup flow ends on the home screen.
+            if (signInHandsOff(accountState, signInFirst)) viewModel.account.closeAccount()
+            onboarding.complete()
+            signInFirst = false
         }
     }
+    val startAtSignIn = signInFirst && incoming.request == null
+    LaunchedEffect(startAtSignIn) { if (startAtSignIn) viewModel.account.beginAtSignIn() }
+    val wallpaperColors by appearance.wallpaperColors.collectAsStateWithLifecycle()
+    val wallpaperSetting = remember(wallpaperColors) {
+        WallpaperColorsSetting(wallpaperColorsAvailable(), wallpaperColors, appearance::setWallpaperColors)
+    }
+    // Every root screen and dialog, including those shown before the app itself, uses Alba's theme.
+    CompositionLocalProvider(LocalWallpaperColors provides wallpaperSetting) { AlbaTheme(darkTheme = isSystemInDarkTheme()) {
+        // Until sign-in opens, the surface it opens on, rather than a frame of the empty library behind it.
+        if (startAtSignIn && !session.isAccountOpen) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface))
+        else CompositionLocalProvider(LocalSignInFirst provides startAtSignIn) {
+            AlbaMain(viewModel, incoming, onIncomingChange, onAccountClosed = {
+                // Leaving a code page at the start returns to sign-in.
+                if (startAtSignIn) viewModel.account.beginAtSignIn()
+            })
+        }
+    } }
 }
 
 @OptIn(FlowPreview::class)
@@ -897,6 +911,7 @@ private class AlbaRootActions(
     override fun submitTwoFactor(code: String) = account.submitTwoFactor(code)
     override fun resendTwoFactor() = account.resendTwoFactor()
     override fun sendCodeBySms() = account.sendCodeBySms()
+    override fun cancelTwoFactor() = account.cancelTwoFactor()
     override fun clearSignInProblem() = account.clearSignInProblem()
     override val signInDraft get() = account.signInDraft
     override fun signOut() = viewModel.signOut()

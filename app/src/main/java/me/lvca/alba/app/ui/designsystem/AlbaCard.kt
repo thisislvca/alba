@@ -18,9 +18,12 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 
-/** Grouped cards keep utility screens quiet while the gallery remains image-led. */
+/**
+ * Grouped cards keep utility screens quiet while the gallery remains image-led: one container step above the page, so
+ * they lift off it in both themes (lighter than the page in dark mode, a quiet grey in light mode).
+ */
 @Composable
-internal fun albaGroupColor() = MaterialTheme.colorScheme.surfaceContainerLowest
+internal fun albaGroupColor() = MaterialTheme.colorScheme.surfaceContainer
 
 /**
  * Alba's grouped card: a full-width rounded surface holding a column of rows or a block of content.
