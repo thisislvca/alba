@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -305,7 +303,7 @@ private fun ThumbnailStatus(failure: ThumbnailFailure?, decoding: Boolean, hasRe
         }
     })
     val icon = when {
-        failure != null -> Icons.Outlined.Info
+        failure != null -> AlbaIcons.Info
         storageLow -> AlbaIcons.PhoneAndroid
         else -> AlbaIcons.CloudQueue
     }
