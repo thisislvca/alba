@@ -9,7 +9,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -79,7 +81,30 @@ data class SessionState(
     val catalogScan: CatalogScanProgress? = null,
     /** Apple is still indexing the iCloud library; Alba keeps checking and loads it once ready. */
     val libraryPreparing: LibraryPreparing? = null,
+    /** The signed-in account's photo as saved on the phone, until a profile read this session replaces it. */
+    val savedAccountPhoto: ByteArray? = null,
+    /** The signed-in account's name as saved on the phone. */
+    val savedAccountName: String? = null,
 ) {
+    /**
+     * The account's photo wherever its avatar shows: the profile's, else the one saved on the phone, which also shows
+     * while the saved account restores.
+     */
+    val accountPhoto: ByteArray?
+        get() = when (accountState) {
+            is ICloudAccountState.SignedIn -> accountInfo.profile?.photo ?: savedAccountPhoto
+            ICloudAccountState.Restoring -> savedAccountPhoto
+            else -> null
+        }
+
+    /** The name the account's avatar draws its initials from: its own name when known, else its Apple Account. */
+    val accountName: String?
+        get() = when (accountState) {
+            is ICloudAccountState.SignedIn -> accountInfo.profile?.displayName ?: savedAccountName ?: accountState.appleId
+            ICloudAccountState.Restoring -> savedAccountName
+            else -> null
+        }
+
     val cloudSourceLabel: String
         get() = if (accountState != ICloudAccountState.Demo) "iCloud Personal Library" else "Demo iCloud library"
 }
@@ -89,6 +114,8 @@ internal data class AccountSources(
     val accountManager: ICloudAccountManager,
     val photos: PhotoCompanion,
     val repository: GalleryRepository,
+    /** The account's photo and name, saved so its avatar shows from the first frame. */
+    val photoStore: AccountPhotoStore,
 )
 
 /** What the rest of the app does when the account changes. */
@@ -129,6 +156,7 @@ internal class AccountController(
     private val accountManager = sources.accountManager
     private val photos = sources.photos
     private val repository = sources.repository
+    private val photoStore = sources.photoStore
 
     private val busy = MutableStateFlow(false)
     private val problem = MutableStateFlow<SignInProblem?>(null)
@@ -143,12 +171,17 @@ internal class AccountController(
     private var accountInfoJob: Job? = null
     private var signInPreviousDsid: String? = null
 
+    /** The account's photo and name for the avatar, from the phone or the latest profile read; tied to its account. */
+    private val picture = MutableStateFlow<AccountPicture?>(null)
+
     val state: StateFlow<SessionState> = combine(
         accountManager.state,
         combine(busy, accountInfo, accountOpen, problem, requestedPage, ::AccountFlags),
         phone,
         sync.state,
-    ) { account, flags, (network, charging), sync ->
+        picture,
+    ) { account, flags, (network, charging), sync, saved ->
+        val shown = saved?.takeIf { it.dsid == accountManager.session.value?.dsid }
         SessionState(
             accountState = account,
             accountBusy = flags.busy,
@@ -167,8 +200,57 @@ internal class AccountController(
             // A rescan of a library Alba already shows is a quiet refresh, so only a first load carries its progress.
             catalogScan = sync.catalogScan.takeIf { account is ICloudAccountState.SignedIn && it?.initialLoad == true },
             libraryPreparing = sync.libraryPreparing.takeIf { account is ICloudAccountState.SignedIn },
+            savedAccountPhoto = shown?.photo,
+            savedAccountName = shown?.name,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), SessionState())
+
+    init {
+        // The saved photo shows as soon as the account's session is known, before any network call. Once the session is
+        // verified, the profile is read again in the background when the saved one is missing or a day old.
+        scope.launch {
+            combine(accountManager.session, accountManager.state) { session, state ->
+                session?.dsid to (state is ICloudAccountState.SignedIn && state.status == SessionStatus.VERIFIED)
+            }.distinctUntilChanged().collectLatest { (dsid, verified) -> if (dsid != null) showSavedPicture(dsid, verified) }
+        }
+    }
+
+    private suspend fun showSavedPicture(dsid: String, verified: Boolean) {
+        val saved = withContext(Dispatchers.IO) { photoStore.load(dsid) }
+        if (accountManager.session.value?.dsid != dsid) return
+        if (saved != null && picture.value?.dsid != dsid) picture.value = AccountPicture(dsid, saved.photo, saved.displayName)
+        if (!verified || !photoStore.isStale(saved)) return
+        val profile = readProfile() ?: return
+        if (accountManager.session.value?.dsid != dsid) return
+        rememberProfile(dsid, profile)
+        accountInfo.update { if (it.profile == null) it.copy(profile = profile) else it }
+    }
+
+    /** The account's profile from Apple, or null when it could not be read: it is optional, so a failure is quiet. */
+    private suspend fun readProfile(): CloudAccountProfile? = withContext(Dispatchers.IO) {
+        try { repository.accountProfile() } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    /**
+     * Shows and saves the photo and name of a profile just read for [dsid]. Apple answers no photo both when there is
+     * none and when reading it failed, so a photo already saved stays until another one replaces it or the account
+     * signs out.
+     */
+    private suspend fun rememberProfile(dsid: String, profile: CloudAccountProfile) {
+        val current = picture.value?.takeIf { it.dsid == dsid }
+        // The same bytes keep the same array, so the avatar has nothing to decode again.
+        val photo = profile.photo?.let { fresh -> current?.photo?.takeIf { it.contentEquals(fresh) } ?: fresh } ?: current?.photo
+        val name = profile.displayName ?: current?.name
+        picture.value = AccountPicture(dsid, photo, name)
+        withContext(Dispatchers.IO) {
+            photoStore.save(dsid, photo, name)
+            // Signed out or switched while saving: what was saved belongs to no one now.
+            if (accountManager.session.value?.dsid != dsid) photoStore.keepOnly(accountManager.session.value?.dsid)
+        }
+    }
 
     /** Opens the account screen, on [page] when one is given. */
     fun openAccount(page: ProfilePage? = null) {
@@ -254,15 +336,10 @@ internal class AccountController(
                 val storage = withContext(Dispatchers.IO) { repository.storageUsage() }
                 if (identity != accountManager.session.value?.dsid) return@launch
                 accountInfo.update { it.copy(storage = storage, photosAvailable = session?.webservices?.containsKey("ckdatabasews")) }
-                val profile = withContext(Dispatchers.IO) {
-                    try { repository.accountProfile() }
-                    catch (error: Exception) {
-                        if (error is CancellationException) throw error
-                        null
-                    }
-                }
+                val profile = readProfile()
                 if (identity != accountManager.session.value?.dsid) return@launch
                 accountInfo.update { it.copy(profile = profile) }
+                if (identity != null && profile != null) rememberProfile(identity, profile)
                 if (previousStatus == SessionStatus.PHOTOS_NOT_ENABLED && currentStatus == SessionStatus.VERIFIED) {
                     sync.launchRefresh(replaceActive = true)
                 }
@@ -432,6 +509,10 @@ internal class AccountController(
         if (accountManager.session.value == null || signInPreviousDsid != accountManager.session.value?.dsid) {
             repository.clearCloudCatalog()
         }
+        // Signed out or another account: the previous account's photo goes, from the screen and from the phone.
+        val dsid = accountManager.session.value?.dsid
+        if (picture.value?.dsid != dsid) picture.value = null
+        withContext(Dispatchers.IO) { photoStore.keepOnly(dsid) }
         hooks.accountChanged(refresh)
     }
 
@@ -440,6 +521,9 @@ internal class AccountController(
         const val REQUESTED_PAGE = "accountRequestedPage"
     }
 }
+
+/** The account's photo and name for its avatar, and the account (its dsid) they belong to. */
+private class AccountPicture(val dsid: String, val photo: ByteArray?, val name: String?)
 
 /**
  * Whether signing out from [state] removes a saved account, so the UI starts over at sign-in. That includes a

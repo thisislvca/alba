@@ -108,9 +108,10 @@ internal fun ProfileOverview(
     AlbaCard(Modifier.testTag("profile-identity"), contentPadding = PaddingValues(horizontal = AlbaSpacing.xl, vertical = AlbaSpacing.xxl)) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
-            AccountAvatar(profile?.photo, signedIn?.appleId, avatarSize = 88.dp, textStyle = MaterialTheme.typography.headlineMedium,
+            AccountAvatar(session.accountPhoto, session.accountName, avatarSize = 88.dp, textStyle = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(bottom = AlbaSpacing.sm).testTag("profile-avatar"))
-            Text(profile?.displayName ?: stringResource(R.string.icloud), style = MaterialTheme.typography.headlineSmall,
+            Text(profile?.displayName ?: session.savedAccountName?.takeIf { signedIn != null } ?: stringResource(R.string.icloud),
+                style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center)
             signedIn?.let { Text(it.appleId, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center) }

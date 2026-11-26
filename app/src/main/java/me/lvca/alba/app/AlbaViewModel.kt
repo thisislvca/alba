@@ -164,7 +164,8 @@ class AlbaViewModel(
     internal val account: AccountController = AccountController(
         scope = viewModelScope,
         savedState = savedState,
-        sources = AccountSources(dependencies.accountManager, dependencies.photos, dependencies.repository),
+        sources = AccountSources(dependencies.accountManager, dependencies.photos, dependencies.repository,
+            dependencies.accountPhotos),
         diagnostics = dependencies.diagnostics,
         messages = messages,
         sync = sync,

@@ -170,10 +170,10 @@ fun AlbaApp(
         confirmButton = { TextButton(onClick = actions::cancelShare) { Text(stringResource(R.string.cancel)) } })
 
     val destination = Destination.of(session, gallery)
-    // "You" on shared album cards: the avatar the header and Profile show.
-    val appleId = (session.accountState as? ICloudAccountState.SignedIn)?.appleId
-    val accountPhoto = session.accountInfo.profile?.photo?.takeIf { appleId != null }
-    val accountIdentity = remember(accountPhoto, appleId) { AccountIdentity(accountPhoto, appleId) }
+    // "You" in the header and on shared album cards: the avatar Profile shows, saved on the phone so it shows at once.
+    val accountPhoto = session.accountPhoto
+    val accountName = session.accountName
+    val accountIdentity = remember(accountPhoto, accountName) { AccountIdentity(accountPhoto, accountName) }
     val back = rootBack(destination, gallery.selection.isNotEmpty(), LocalSignInFirst.current)
     BackHandler(enabled = back == RootBack.CLEAR_SELECTION || back == RootBack.CLOSE_MEDIA) {
         when (back) {

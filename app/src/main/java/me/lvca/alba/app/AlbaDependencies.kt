@@ -1,6 +1,7 @@
 package me.lvca.alba.app
 
 import kotlinx.coroutines.flow.Flow
+import me.lvca.alba.app.account.AccountPhotoStore
 import me.lvca.alba.app.demo.DemoMediaImporter
 import me.lvca.alba.app.di.AlbaGraph
 import me.lvca.alba.app.diagnostics.AlbaDiagnostics
@@ -44,6 +45,8 @@ data class AlbaDependencies(
     val offlinePhotos: OfflinePhotosScheduler,
     /** Stops a background fill of the offline set in progress and waits for it to end. */
     val stopOfflineFill: suspend () -> Unit,
+    /** The account's photo and name, saved so its avatar shows from the first frame. */
+    val accountPhotos: AccountPhotoStore,
 ) {
     companion object {
         fun from(graph: AlbaGraph) = AlbaDependencies(
@@ -65,6 +68,7 @@ data class AlbaDependencies(
             catalogSync = graph.catalogSync,
             offlinePhotos = graph.offlinePhotos,
             stopOfflineFill = graph.offlineFill::stopAndJoin,
+            accountPhotos = graph.accountPhotos,
         )
     }
 }

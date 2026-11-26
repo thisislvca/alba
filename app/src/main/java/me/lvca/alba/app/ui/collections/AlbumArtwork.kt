@@ -36,10 +36,10 @@ import me.lvca.alba.app.ui.designsystem.AlbaCover
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
 import me.lvca.alba.app.ui.designsystem.AlbaListHeader
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
-import me.lvca.alba.app.ui.designsystem.InitialAvatar
 import me.lvca.alba.app.ui.designsystem.LocalAccountIdentity
 import me.lvca.alba.app.ui.designsystem.MediaScrim
 import me.lvca.alba.app.ui.designsystem.MediaScrimStrength
+import me.lvca.alba.app.ui.designsystem.MonogramAvatar
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -130,21 +130,20 @@ internal fun AlbumCover(media: List<GalleryMedia>, retry: Int, preview: (String)
 }
 
 /**
- * Who created a shared album, at the top of its card as in Photos: the account's own avatar (its photo, or its initial)
- * for an album created by You, otherwise the owner's initial on a tinted circle. iCloud gives no photo for other
- * owners, only a name, so nothing is shown when it gives no name either. A thin light edge keeps it clear of the photo.
+ * Who created a shared album, at the top of its card as on iCloud.com: the account's own avatar (its photo, or its
+ * monogram) for an album created by You, otherwise the owner's monogram. iCloud gives no photo for other owners, only a
+ * name; with no name either, a person silhouette on Apple's grey. A thin light ring keeps it clear of the photo.
  */
 @Composable
 internal fun OwnerAvatar(albumId: String, info: SharedAlbumInfo, modifier: Modifier = Modifier) {
-    val description = sharedAlbumCreator(info) ?: return
-    val tagged = modifier.semantics { contentDescription = description }.testTag("shared-owner-avatar-$albumId")
+    val description = sharedAlbumCreator(info)
+    val tagged = modifier.semantics { if (description != null) contentDescription = description }.testTag("shared-owner-avatar-$albumId")
     val edge = BorderStroke(1.dp, AlbaTheme.colors.onMedia.copy(alpha = .7f))
     if (info.role == SharedAlbumRole.OWNER) {
         val account = LocalAccountIdentity.current
         AccountAvatar(account.photo, account.name, OwnerAvatarSize, tagged, shadowElevation = 2.dp, border = edge)
     } else {
-        InitialAvatar(info.ownerName, OwnerAvatarSize, tagged, color = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer, shadowElevation = 2.dp, border = edge)
+        MonogramAvatar(info.ownerName, OwnerAvatarSize, tagged, shadowElevation = 2.dp, border = edge)
     }
 }
 

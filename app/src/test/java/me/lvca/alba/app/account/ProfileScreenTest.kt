@@ -78,9 +78,9 @@ class ProfileScreenTest {
     }
 
     @Test fun profileCardIsACalmCardWithTheHeadersAvatar() {
-        // Without a photo the card shows the account's initial, as the header's account button does.
+        // Without a photo the card shows the monogram of the account's name, as the header's account button does.
         render({ false }, photo = null)
-        compose.onNodeWithTag("profile-avatar").assert(hasAnyDescendant(hasText("A"))).assertIsDisplayed()
+        compose.onNodeWithTag("profile-avatar").assert(hasAnyDescendant(hasText("AE"))).assertIsDisplayed()
         compose.onAllNodesWithTag("account-photo").assertCountEquals(0)
         compose.onNodeWithTag("profile-identity").assert(hasAnyDescendant(hasText("Alex Example")))
             .assert(hasAnyDescendant(hasText("alex@example.com")))
