@@ -12,8 +12,10 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -48,7 +50,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.OutputStream
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The library's refreshing state, from start-up to a pull: it shows a refresh only while one runs, never waits for
@@ -58,10 +59,13 @@ import java.util.concurrent.atomic.AtomicInteger
 class LibraryRefreshStateTest {
     private val app get() = ApplicationProvider.getApplicationContext<AlbaApplication>()
 
-    /** One refresh at a time, each ending when the test says. */
+    /**
+     * One refresh at a time, each ending when the test says. Its counts are flows, so a wait on them together with the
+     * session state checks again when either changes.
+     */
     private class GatedRefreshes(delegate: GalleryRepository) : GalleryRepository by delegate {
-        val started = AtomicInteger()
-        val deviceScans = AtomicInteger()
+        val started = MutableStateFlow(0)
+        val deviceScans = MutableStateFlow(0)
         val gates = ArrayDeque<CompletableDeferred<Unit>>()
         var lastRefresh: Flow<Long?> = flowOf(null)
 
@@ -69,13 +73,22 @@ class LibraryRefreshStateTest {
 
         override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary {
             val gate = synchronized(gates) { gates.removeFirstOrNull() }
-            started.incrementAndGet()
+            started.update { it + 1 }
             gate?.await()
             return RefreshSummary(0, 0, REFRESHED_AT)
         }
 
-        override suspend fun refreshDevice() { deviceScans.incrementAndGet() }
+        override suspend fun refreshDevice() { deviceScans.update { it + 1 } }
         override fun observeLastRefresh(): Flow<Long?> = lastRefresh
+    }
+
+    /**
+     * Waits until the library shows as refreshing with [count] refreshes started. The session state alone does not
+     * change when the repository's refresh begins (it already shows as refreshing from start-up), so a wait on the state
+     * that only peeked at the count missed the refresh beginning after its last check, and timed out.
+     */
+    private suspend fun AlbaViewModel.awaitRefreshing(repository: GatedRefreshes, count: Int) = withTimeout(SHORT_WAIT) {
+        combine(account.state, repository.started) { state, started -> state.isRefreshing && started == count }.first { it }
     }
 
     private fun <T> withViewModel(dependencies: AlbaDependencies, block: suspend CoroutineScope.(AlbaViewModel) -> T): T =
@@ -101,7 +114,7 @@ class LibraryRefreshStateTest {
         }
         withViewModel(testDependencies(app.graph).copy(repository = repository, maintenance = maintenance)) { vm ->
             withTimeout(SHORT_WAIT) { vm.account.state.first { !it.isRefreshing } }
-            assertEquals(1, repository.started.get())
+            assertEquals(1, repository.started.value)
         }
     }
 
@@ -115,12 +128,12 @@ class LibraryRefreshStateTest {
         val startUp = repository.gate()
         withViewModel(testDependencies(app.graph).copy(repository = repository)) { vm ->
             withContext(Dispatchers.Main) { vm.gallery.setDeviceMediaAccess(granted = true, limited = false) }
-            withTimeout(SHORT_WAIT) { vm.account.state.first { it.isRefreshing && repository.started.get() == 1 } }
+            vm.awaitRefreshing(repository, count = 1)
 
             withContext(Dispatchers.Main) { vm.sync.refresh(fromPull = true) }
-            withTimeout(SHORT_WAIT) { while (repository.deviceScans.get() == 0) kotlinx.coroutines.delay(10) }
+            withTimeout(SHORT_WAIT) { repository.deviceScans.first { it > 0 } }
             assertFalse("A joined refresh shows no pull indicator", vm.account.state.value.pullRefreshing)
-            assertEquals(1, repository.started.get())
+            assertEquals(1, repository.started.value)
 
             startUp.complete(Unit)
             withTimeout(SHORT_WAIT) { vm.account.state.first { !it.isRefreshing } }
@@ -139,7 +152,7 @@ class LibraryRefreshStateTest {
         val repository = GatedRefreshes(app.graph.galleryRepository)
         repository.gate()
         withViewModel(testDependencies(app.graph).copy(repository = repository)) { vm ->
-            withTimeout(SHORT_WAIT) { vm.account.state.first { it.isRefreshing && repository.started.get() == 1 } }
+            vm.awaitRefreshing(repository, count = 1)
             withContext(Dispatchers.Main) { vm.sync.cancel() }
             withTimeout(SHORT_WAIT) { vm.account.state.first { !it.isRefreshing } }
         }
