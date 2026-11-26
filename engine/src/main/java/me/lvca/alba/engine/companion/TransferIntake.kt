@@ -13,8 +13,12 @@ import me.lvca.alba.engine.database.StagedSourceEntity
 import me.lvca.alba.engine.database.TransferEntity
 import me.lvca.alba.engine.database.TransferState
 import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.BackupAttribute
+import me.lvca.alba.engine.model.BackupDiagnostics
+import me.lvca.alba.engine.model.BackupPhase
 import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.BackupTelemetry.traced
 import me.lvca.alba.engine.model.PhotoCompanionException
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.TransferId
@@ -27,6 +31,7 @@ import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.ExactOriginalSource
 import me.lvca.alba.engine.source.ExistingMediaCursor
 import me.lvca.alba.engine.source.LocalDiscoveryCheckpoint
+import me.lvca.alba.engine.source.MotionPhotoVideo
 import me.lvca.alba.engine.source.RawJpegPairs
 import me.lvca.alba.engine.source.UnsupportedUploadException
 import me.lvca.alba.engine.source.UploadMediaFormat
@@ -46,12 +51,42 @@ internal class TransferIntake(
     private val accounts: AccountBindingSync,
     private val authority: AutomaticBackupAuthority,
     private val now: () -> Long,
+    private val diagnostics: BackupDiagnostics = BackupDiagnostics.None,
 ) {
     private val inPlace = InPlaceOriginals(originals)
     private val accountDao = database.accountDao()
     private val backupDao = database.backupDao()
     private val localAssetDao = database.localAssetDao()
     private val transferDao = database.transferDao()
+    private val motionDao = database.motionPhotoDao()
+
+    /**
+     * Queues a motion photo's [video], read out of [still]'s file, as its own backup item ("Photo and video separately").
+     * It is staged as a private MP4 and uploads like any video; it has no phone item of its own, so it is never offered
+     * to Free up space. Returns its transfer id.
+     */
+    suspend fun queueMotionVideo(binding: AccountBinding, still: TransferEntity, source: StagedSourceEntity, video: MotionPhotoVideo): String {
+        val enrollment = refuseIfNull(authority.currentEnrollment(binding), StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED)
+        val name = source.displayName.substringBeforeLast('.').ifBlank { "motion" } + ".mp4"
+        val evidence = ExactOriginalEvidence(
+            contentUri = MOTION_VIDEO_PREFIX + still.transferId, displayName = name, mimeType = "video/mp4",
+            lineageKey = "motion:${source.lineageKey}", sourceRevision = source.sourceRevision,
+            acquisitionMethod = "MOTION_PHOTO_VIDEO", originalFormatRequested = source.originalFormatRequested,
+            unredacted = source.unredacted, formatValidated = true, byteCount = video.byteCount, sha256Hex = video.sha256Hex,
+            lastModifiedAtEpochMillis = source.lastModifiedAtEpochMillis, dateTakenEpochMillis = source.capturedAtEpochMillis,
+        )
+        return createTransfer(
+            binding = binding,
+            authorityType = AUTHORITY_AUTOMATIC,
+            authorityId = "enrollment:${enrollment.enrollmentId}:${enrollment.revision}",
+            enrollment = enrollment,
+            mediaId = null,
+            contentUri = evidence.contentUri,
+        ) { output ->
+            output.write(video.bytes)
+            evidence
+        }.id.value
+    }
 
     suspend fun uploadSelected(photo: UserSelectedPhoto): UploadTicket {
         val binding = accounts.requireActive()
@@ -357,14 +392,15 @@ internal class TransferIntake(
     }
 
     /** Ids of everything automatic backup covers on the phone, and how many of them are verified in iCloud. */
-    suspend fun backupProgress(binding: AccountBinding): BackupProgress {
+    suspend fun backupProgress(binding: AccountBinding, notYet: Set<String> = emptySet()): BackupProgress {
         val enrollment = backupDao.findEnabledBackupEnrollment(binding.accountId) ?: return BackupProgress(0, 0)
         val scope = BackupScope.valueOf(enrollment.scope)
         val eligible = originals.eligibleMediaIds(
             scope, BackupFolders.extraFolders(scope, authority.settings.deviceFolders),
             enrollment.consentedAtEpochMillis, enrollment.baseline(), includeExisting = enrollment.includeExisting,
         )
-        val verified = transferDao.findVerifiedMediaIds(binding.accountId).toSet()
+        // A Live Photo whose motion is still being attached is not backed up as the user asked yet.
+        val verified = transferDao.findVerifiedMediaIds(binding.accountId).toSet() - notYet
         val journaled = transferDao.findJournaledMediaIds(binding.accountId).toSet()
         return BackupProgress(
             backedUp = eligible.count { it in verified },
@@ -409,8 +445,12 @@ internal class TransferIntake(
             replaces = row,
             readInPlace = if (fromMediaStore) ({ inPlace.inspect(source.contentUri, "") }) else null,
         ) { output ->
-            if (fromMediaStore) originals.copyMediaStoreItem(source.contentUri, "", output)
-            else originals.copySelected(source.contentUri, source.displayName, output)
+            when {
+                fromMediaStore -> originals.copyMediaStoreItem(source.contentUri, "", output)
+                // A motion photo's video has no phone file of its own: it is staged again from its private copy.
+                source.contentUri.startsWith(MOTION_VIDEO_PREFIX) -> copyStaged(source, output)
+                else -> originals.copySelected(source.contentUri, source.displayName, output)
+            }
         }
     }
 
@@ -420,6 +460,22 @@ internal class TransferIntake(
      * a backup item. Returns false when the read fails; the row then keeps its reason and waits for the user's Retry.
      */
     suspend fun restage(transferId: String): Boolean = runSuspendCatching { retry(transferId) }.isSuccess
+
+    private suspend fun copyStaged(source: StagedSourceEntity, output: OutputStream): ExactOriginalEvidence {
+        val staged = try {
+            staging.openVerified(source.ownedFileToken, source.byteCount, source.sha256Hex)
+        } catch (_: me.lvca.alba.engine.cache.StagedOriginalUnavailableException) {
+            throw PhotoCompanionException.Refused(StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN)
+        }
+        staged.openOnce().use { it.copyTo(output) }
+        return ExactOriginalEvidence(
+            contentUri = source.contentUri, displayName = source.displayName, mimeType = source.mimeType,
+            lineageKey = source.lineageKey, sourceRevision = source.sourceRevision, acquisitionMethod = source.originalAcquisition,
+            originalFormatRequested = source.originalFormatRequested, unredacted = source.unredacted,
+            formatValidated = source.formatValidated, byteCount = source.byteCount, sha256Hex = source.sha256Hex,
+            lastModifiedAtEpochMillis = source.lastModifiedAtEpochMillis, dateTakenEpochMillis = source.capturedAtEpochMillis,
+        )
+    }
 
     /** Retries every item [retry] accepts. One that is refused again keeps its row and reason. */
     suspend fun retryAll(binding: AccountBinding): Int = transferDao.findRetryable(binding.accountId).count { row ->
@@ -551,7 +607,9 @@ internal class TransferIntake(
         readInPlace: (suspend () -> StagedExactOriginal?)? = null,
         copy: suspend (OutputStream) -> ExactOriginalEvidence,
     ): UploadTicket {
-        val staged = readInPlace?.invoke() ?: staging.stageExact(copy)
+        val staged = diagnostics.traced(BackupPhase.STAGE, mapOf(BackupAttribute.OUTCOME to if (readInPlace != null) "in_place" else "copy")) {
+            readInPlace?.invoke() ?: staging.stageExact(copy)
+        }
         val sourceId = UUID.randomUUID().toString()
         val transferId = UUID.randomUUID().toString()
         val createdAt = now()
@@ -563,6 +621,7 @@ internal class TransferIntake(
                 if (replaces != null) {
                     // The old row must still be the one the user retried; a concurrent retry already replaced it.
                     refuseUnless(transferDao.deleteRetried(replaces.transferId) == 1, StoredMessage.THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE)
+                    motionDao.delete(replaces.transferId)
                     if (transferDao.deleteUnattemptedSource(replaces.stagedSourceId) == 0) {
                         // Its attempts keep the row as history, but no transfer uses its staged copy any more: the new
                         // transfer staged its own, so the old copy is released rather than kept forever.
@@ -646,6 +705,13 @@ internal class TransferIntake(
                         message = StoredMessage.WAITING_TO_UPLOAD.code,
                     ),
                 )
+                // A backup photo queued under "Photo and video separately" or "As Live Photo" may be a motion photo: its
+                // video is looked for once the still is backed up.
+                if (enrollment != null) {
+                    MotionPhotoParts.newPart(
+                        transferId, binding.accountId, mediaId, staged.evidence.mimeType, authority.settings.motionPhotos, createdAt,
+                    )?.let { motionDao.insert(it) }
+                }
             }
         } catch (error: Throwable) {
             staging.deleteOwned(staged.ownedFileToken)
@@ -668,6 +734,9 @@ internal class TransferIntake(
         const val SCAN_SWEEPING = 0L
         const val SCAN_COMPLETE = 1L
         const val MEDIA_STORE_PREFIX = "content://media/"
+
+        /** Names a motion photo's video queued as its own item: Alba's private copy, not a phone file. */
+        const val MOTION_VIDEO_PREFIX = "alba-motion-video:"
 
         /** Staging failures after which an item is reported as skipped instead of tried again. */
         const val MAX_ITEM_FAILURES = 3

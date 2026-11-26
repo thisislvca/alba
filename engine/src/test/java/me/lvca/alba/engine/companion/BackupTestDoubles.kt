@@ -13,6 +13,9 @@ import me.lvca.alba.engine.model.ICloudDestination
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.LibraryCandidate
 import me.lvca.alba.engine.model.LibraryIndexState
+import me.lvca.alba.engine.model.LivePhotoAttachRefusedException
+import me.lvca.alba.engine.model.LivePhotoAttachment
+import me.lvca.alba.engine.model.LivePhotoVideo
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.RemoteOriginalObservation
@@ -312,6 +315,63 @@ internal class TestICloud : ICloudPhotoProtocol {
 
     override suspend fun libraryPair(binding: AccountBinding, masterRecordName: String, assetRecordName: String) =
         (registered + extraPairs).firstOrNull { it.master.name == masterRecordName && it.asset.name == assetRecordName }
+
+    /** Each master's Live Photo video, as the attach left it. */
+    val liveVideos = mutableMapOf<String, ByteArray>()
+
+    /** Each Live Photo attach's journal phase, as the real protocol saves it: receipts saved, then modified. */
+    val livePhases = mutableMapOf<String, String>()
+    val attaches = mutableListOf<LivePhotoVideo>()
+    var liveUploads = 0
+    var liveModifies = 0
+
+    /** While set, iCloud refuses each attach with this code, as it does one a retry would not change. */
+    var refuseLive: String? = null
+
+    /** The next attaches die after the video was uploaded and its receipts saved, before the records are modified. */
+    var liveCrashesAfterUpload = 0
+
+    /** Changes what a re-read of a master's video shows, to model a record without the attached video. */
+    var liveRecordAs: (UploadReceipt?) -> UploadReceipt? = { it }
+
+    /** Changes the Live Photo video bytes iCloud serves, to model one that differs from what was attached. */
+    var serveLiveAs: (ByteArray) -> ByteArray = { it }
+    var liveDownloads = 0
+
+    override suspend fun attachLivePhotoVideo(
+        binding: AccountBinding,
+        attachId: String,
+        masterRecordName: String,
+        assetRecordName: String,
+        video: LivePhotoVideo,
+    ): LivePhotoAttachment {
+        refuseLive?.let { throw LivePhotoAttachRefusedException("refused", it) }
+        attaches += video
+        if (livePhases[attachId] == null) {
+            liveUploads += 1
+            livePhases[attachId] = "LIVE_RECEIPTS_SAVED"
+            if (liveCrashesAfterUpload > 0) {
+                liveCrashesAfterUpload -= 1
+                throw IOException("process died after the video was uploaded")
+            }
+        }
+        if (livePhases[attachId] == "LIVE_RECEIPTS_SAVED") {
+            liveModifies += 1
+            liveVideos[masterRecordName] = video.bytes
+            livePhases[attachId] = "LIVE_MODIFIED"
+        }
+        return LivePhotoAttachment(UploadReceipt(video.byteCount, checksum(video.bytes)), mediaGroupIdWritten = true)
+    }
+
+    override suspend fun livePhotoVideoResource(binding: AccountBinding, masterRecordName: String): UploadReceipt? =
+        liveRecordAs(liveVideos[masterRecordName]?.let { UploadReceipt(it.size.toLong(), checksum(it)) })
+
+    override suspend fun streamLivePhotoVideo(binding: AccountBinding, masterRecordName: String, output: OutputStream): Long {
+        liveDownloads += 1
+        val bytes = serveLiveAs(requireNotNull(liveVideos[masterRecordName]))
+        output.write(bytes)
+        return bytes.size.toLong()
+    }
 
     companion object {
         const val ACCOUNT = "account"
