@@ -102,7 +102,7 @@ case "${1:-}" in
     body="$(mktemp)"
     git diff --name-status --no-renames HEAD~1 HEAD -- "$goldens" \
       | COMMIT_URL="https://github.com/$REPO/commit/$COMMIT_SHA" FILES_URL="https://github.com/$REPO/pull/$2/files" \
-        node scripts/screenshot_changes.mjs comment > "$body"
+        SKIPPED="${GOLDEN_REENCODES_SKIPPED:-0}" node scripts/screenshot_changes.mjs comment > "$body"
     upsert_comment "$2" "$body"
     ;;
   comment-failed)

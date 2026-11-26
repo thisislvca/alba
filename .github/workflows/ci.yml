@@ -189,6 +189,9 @@ jobs:
         uses: ./.github/actions/record-goldens
       - name: Move the goldens onto the pull request head
         run: bash scripts/ci_goldens.sh to-head
+      # Re-encoded PNGs with the same pixels are not committed. Fails, like an unchanged recording, when no pixel changed.
+      - name: Drop goldens whose pixels did not change
+        run: bash scripts/ci/drop-identical-goldens.sh --require-change
       - name: Commit and push the goldens
         id: push
         uses: ./.github/actions/push-goldens
@@ -255,8 +258,12 @@ jobs:
       - name: Record goldens
         id: record
         uses: ./.github/actions/record-goldens
-      - name: Commit and push the goldens
+      - name: Drop goldens whose pixels did not change
+        id: drop
         if: steps.record.outputs.changed == 'true'
+        run: bash scripts/ci/drop-identical-goldens.sh
+      - name: Commit and push the goldens
+        if: steps.record.outputs.changed == 'true' && steps.drop.outputs.remaining == 'true'
         uses: ./.github/actions/push-goldens
         with:
           app-id: ${{ secrets.ALBA_BOT_APP_ID }}
