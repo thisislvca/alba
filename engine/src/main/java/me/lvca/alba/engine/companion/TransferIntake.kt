@@ -2,6 +2,7 @@ package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
 import me.lvca.alba.engine.cache.InsufficientStorageException
+import me.lvca.alba.engine.cache.StagedExactOriginal
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.BackupEnrollmentEntity
@@ -33,7 +34,10 @@ import java.io.OutputStream
 import java.security.MessageDigest
 import java.util.UUID
 
-/** Stages exact originals privately and queues them as READY transfers bound to the active account. */
+/**
+ * Queues exact originals as READY transfers bound to the active account. A MediaStore item is read in place when it can
+ * be ([InPlaceOriginals]); anything else, such as a photo the user picked, is staged as a private copy.
+ */
 internal class TransferIntake(
     private val database: AlbaDatabase,
     private val originals: ExactOriginalSource,
@@ -43,6 +47,7 @@ internal class TransferIntake(
     private val authority: AutomaticBackupAuthority,
     private val now: () -> Long,
 ) {
+    private val inPlace = InPlaceOriginals(originals)
     private val accountDao = database.accountDao()
     private val backupDao = database.backupDao()
     private val localAssetDao = database.localAssetDao()
@@ -74,6 +79,7 @@ internal class TransferIntake(
             enrollment = null,
             mediaId = mediaId,
             contentUri = contentUri,
+            readInPlace = { inPlace.inspect(contentUri, item.sourceRevision) },
         ) { output ->
             originals.copyMediaStoreItem(contentUri, item.sourceRevision, output)
         }
@@ -325,6 +331,7 @@ internal class TransferIntake(
         mediaId = item.id,
         contentUri = item.contentUri,
         replaces = replaces,
+        readInPlace = { inPlace.inspect(item.contentUri, item.sourceRevision) },
     ) { output ->
         originals.copyMediaStoreItem(item.contentUri, item.sourceRevision, output)
     }
@@ -400,11 +407,19 @@ internal class TransferIntake(
             mediaId = row.mediaId,
             contentUri = source.contentUri,
             replaces = row,
+            readInPlace = if (fromMediaStore) ({ inPlace.inspect(source.contentUri, "") }) else null,
         ) { output ->
             if (fromMediaStore) originals.copyMediaStoreItem(source.contentUri, "", output)
             else originals.copySelected(source.contentUri, source.displayName, output)
         }
     }
+
+    /**
+     * Queues [transferId] again from a fresh read after its original changed before or while it was sent, which left it
+     * needing attention with nothing of it registered in iCloud. It is read again as the user's Retry reads it, and stays
+     * a backup item. Returns false when the read fails; the row then keeps its reason and waits for the user's Retry.
+     */
+    suspend fun restage(transferId: String): Boolean = runSuspendCatching { retry(transferId) }.isSuccess
 
     /** Retries every item [retry] accepts. One that is refused again keeps its row and reason. */
     suspend fun retryAll(binding: AccountBinding): Int = transferDao.findRetryable(binding.accountId).count { row ->
@@ -532,9 +547,11 @@ internal class TransferIntake(
         mediaId: String?,
         contentUri: String,
         replaces: TransferEntity? = null,
+        /** Reads the original in place instead of copying it; null, or a null result, stages a private copy. */
+        readInPlace: (suspend () -> StagedExactOriginal?)? = null,
         copy: suspend (OutputStream) -> ExactOriginalEvidence,
     ): UploadTicket {
-        val staged = staging.stageExact(copy)
+        val staged = readInPlace?.invoke() ?: staging.stageExact(copy)
         val sourceId = UUID.randomUUID().toString()
         val transferId = UUID.randomUUID().toString()
         val createdAt = now()

@@ -289,6 +289,47 @@ class AndroidMediaStoreSourceTest {
         }
     }
 
+    @Test
+    fun aCameraJpegOpensInPlaceAndReadsTheSameBytesTwice() = runBlocking {
+        assumeTrue(Build.VERSION.SDK_INT >= 30)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        grantImageAccess(context)
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .grantRuntimePermission(context.packageName, Manifest.permission.ACCESS_MEDIA_LOCATION)
+        val resolver = context.contentResolver
+        val bytes = ByteArrayOutputStream().also {
+            Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 90, it)
+        }.toByteArray()
+        val uri = requireNotNull(resolver.insert(
+            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+            ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "alba-in-place.jpg")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/Camera/")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            },
+        ))
+        try {
+            requireNotNull(resolver.openOutputStream(uri)).use { it.write(bytes) }
+            resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+            val source = AndroidMediaStoreSource(context)
+            val item = source.scanImages().single { it.fileName == "alba-in-place.jpg" }
+            val original = requireNotNull(source.openInPlace(item.contentUri, item.sourceRevision)) {
+                "A camera JPEG must be readable in place, without a private copy"
+            }
+            original.use {
+                assertEquals(bytes.size.toLong(), it.byteCount)
+                assertEquals(item.sourceRevision, it.description.sourceRevision)
+                // Read twice from the start, as queueing and the upload do, and through the random-access view.
+                repeat(2) { _ -> assertTrue(bytes.contentEquals(it.openStream().use { input -> input.readBytes() })) }
+                assertTrue(bytes.contentEquals(it.file.readBytes()))
+                assertTrue(it.isUnchanged())
+            }
+        } finally {
+            resolver.delete(uri, null, null)
+        }
+    }
+
     /** Each test grants what it reads: the orchestrator clears the app's data, and with it runtime grants, between tests. */
     private fun grantImageAccess(context: Context) {
         InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(context.packageName,

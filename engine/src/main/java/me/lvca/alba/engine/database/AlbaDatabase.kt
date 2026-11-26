@@ -67,6 +67,7 @@ abstract class AlbaDatabase : RoomDatabase() {
         /**
          * Receipt verification: an acceptance keeps Apple's upload receipt (size and checksum) and the size and SHA-256
          * of the bytes Alba sent, and a proof says how it was made. Every proof before this was a byte comparison.
+         * Parallel uploads: an account holds up to three write slots, one per attempt, so the table is keyed by attempt.
          */
         internal val MIGRATION_23_24 = object : Migration(23, 24) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -77,6 +78,17 @@ abstract class AlbaDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE verification_proofs ADD COLUMN method TEXT NOT NULL DEFAULT 'BYTES'")
                 db.execSQL("ALTER TABLE verification_proofs ADD COLUMN byteCheckedAtEpochMillis INTEGER")
                 db.execSQL("UPDATE verification_proofs SET byteCheckedAtEpochMillis = verifiedAtEpochMillis")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `account_write_slots_new` (`accountId` TEXT NOT NULL, `attemptId` TEXT NOT NULL, " +
+                        "`authEpoch` INTEGER NOT NULL, `acquiredAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`attemptId`))",
+                )
+                db.execSQL(
+                    "INSERT INTO account_write_slots_new (accountId, attemptId, authEpoch, acquiredAtEpochMillis) " +
+                        "SELECT accountId, attemptId, authEpoch, acquiredAtEpochMillis FROM account_write_slots",
+                )
+                db.execSQL("DROP TABLE account_write_slots")
+                db.execSQL("ALTER TABLE account_write_slots_new RENAME TO account_write_slots")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_account_write_slots_accountId` ON `account_write_slots` (`accountId`)")
             }
         }
 

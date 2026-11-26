@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 24,
-    "identityHash": "2bc09945c2b3cdcff5c2492100e56734",
+    "identityHash": "19eb0a408dd4c04f346508d1df021bf0",
     "entities": [
       {
         "tableName": "catalog_items",
@@ -1147,7 +1147,7 @@
       },
       {
         "tableName": "account_write_slots",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `attemptId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `acquiredAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `attemptId` TEXT NOT NULL, `authEpoch` INTEGER NOT NULL, `acquiredAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`attemptId`))",
         "fields": [
           {
             "fieldPath": "accountId",
@@ -1177,9 +1177,20 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "accountId"
+            "attemptId"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_account_write_slots_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_account_write_slots_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          }
+        ]
       },
       {
         "tableName": "remote_asset_pairs",
@@ -2766,7 +2777,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2bc09945c2b3cdcff5c2492100e56734')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '19eb0a408dd4c04f346508d1df021bf0')"
     ]
   }
 }

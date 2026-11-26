@@ -21,9 +21,13 @@ import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.DeviceMediaRecord
 import me.lvca.alba.engine.source.ExactOriginalEvidence
 import me.lvca.alba.engine.source.ExactOriginalSource
+import me.lvca.alba.engine.source.InPlaceDescription
+import me.lvca.alba.engine.source.InPlaceOriginal
 import me.lvca.alba.engine.source.LocalDiscoveryCheckpoint
 import me.lvca.alba.engine.source.LocalDiscoveryPage
 import me.lvca.alba.engine.source.LocalTrashState
+import java.io.ByteArrayInputStream
+import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 import java.security.MessageDigest
@@ -91,6 +95,46 @@ internal open class TestPhone(private val context: Context) : ExactOriginalSourc
     }
 
     override suspend fun currentRevision(contentUri: String): String? = revisions[contentUri]
+
+    /** Whether items can be read in place, as MediaStore files on a phone can; otherwise each is staged as a copy. */
+    var readsInPlace = false
+
+    /** How many times each item was opened in place. */
+    val inPlaceOpens = mutableMapOf<String, Int>()
+
+    /** Runs right after an item is opened in place for the nth time, with the content URI and n. */
+    var onOpenedInPlace: (String, Int) -> Unit = { _, _ -> }
+
+    /** Edits an item as a photo editor would: new bytes, a new MediaStore revision. */
+    fun edit(contentUri: String, content: ByteArray) {
+        bytes[contentUri] = content
+        revisions[contentUri] = "edited:" + sha256(content).take(8)
+    }
+
+    override suspend fun openInPlace(contentUri: String, expectedRevision: String): InPlaceOriginal? {
+        if (!readsInPlace) return null
+        val revision = requireNotNull(revisions[contentUri])
+        require(expectedRevision.isBlank() || expectedRevision == revision) { "changed before staging" }
+        val content = requireNotNull(bytes[contentUri])
+        val view = File.createTempFile("in-place", ".jpg").apply { writeBytes(content) }
+        return InPlaceOriginal(
+            InPlaceDescription(
+                contentUri = contentUri, displayName = items.first { it.contentUri == contentUri }.fileName,
+                lineageKey = "lineage:$contentUri", sourceRevision = revision, acquisitionMethod = "TEST_IN_PLACE",
+                originalFormatRequested = true, unredacted = true, lastModifiedAtEpochMillis = MODIFIED_AT,
+                dateTakenEpochMillis = null,
+            ),
+            byteCount = content.size.toLong(), file = view,
+            stream = {
+                val opens = (inPlaceOpens[contentUri] ?: 0) + 1
+                inPlaceOpens[contentUri] = opens
+                // What the open file holds now; an edit after this point shows in the size and modification time.
+                ByteArrayInputStream(requireNotNull(bytes[contentUri])).also { onOpenedInPlace(contentUri, opens) }
+            },
+            unchanged = { revisions[contentUri] == revision },
+            release = { view.delete() },
+        )
+    }
 
     override fun createTrashRequest(contentUris: List<String>): IntentSender = PendingIntent.getActivity(
         context, 45, Intent("me.lvca.alba.TEST_TRASH").setPackage(context.packageName), PendingIntent.FLAG_IMMUTABLE,

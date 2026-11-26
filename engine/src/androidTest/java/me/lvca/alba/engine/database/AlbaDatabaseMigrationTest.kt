@@ -42,6 +42,39 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
+    fun schemaTwentyThreeKeepsProofsAsByteChecksAndLetsAnAccountHoldSeveralWriteSlots() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 23).use { db ->
+            db.execSQL(
+                "INSERT INTO upload_acceptances (attemptId, requestUuid, masterRecordName, assetRecordName, duplicateHint, " +
+                    "receivedAtEpochMillis, uploadJobId) VALUES ('attempt', NULL, 'master', 'asset', 0, 41, 'job')",
+            )
+            db.execSQL(
+                "INSERT INTO verification_proofs (proofId, accountId, verificationAuthEpoch, invocationAuthEpoch, linkId, " +
+                    "mediaId, stagedSourceId, sourceRevision, remotePairId, masterChangeTag, assetChangeTag, " +
+                    "originalResourceIdentity, byteCount, sha256Hex, verifiedAtEpochMillis) " +
+                    "VALUES ('proof', 'account', 1, 1, 'link', 'device:1', 'source', 'rev', 'pair', 'm', 'a', 'res', 7, 'sha', 42)",
+            )
+            db.execSQL("INSERT INTO account_write_slots VALUES ('account', 'attempt', 1, 40)")
+        }
+        helper.runMigrationsAndValidate(DATABASE_NAME, 24, true, AlbaDatabase.MIGRATION_23_24).use { db ->
+            db.query("SELECT method, byteCheckedAtEpochMillis FROM verification_proofs WHERE proofId = 'proof'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("BYTES", cursor.getString(0))
+                assertEquals(42L, cursor.getLong(1))
+            }
+            db.query("SELECT receiptFileChecksum FROM upload_acceptances WHERE attemptId = 'attempt'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertTrue(cursor.isNull(0))
+            }
+            db.execSQL("INSERT INTO account_write_slots VALUES ('account', 'second', 1, 43)")
+            db.query("SELECT COUNT(*) FROM account_write_slots WHERE accountId = 'account'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(2, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun schemaFifteenAddsBackupTablesKeepingTheCatalog() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 15).use { db ->
             db.execSQL("INSERT INTO catalog_items (mediaId,fileName,capturedAtEpochMillis,width,height,origin,sourceRevision," +

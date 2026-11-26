@@ -229,6 +229,7 @@
     <string name="message_this_backup_setup_was_already_completed">Il backup è già configurato</string>
     <string name="message_this_photo_changed_before_it_could_be_staged">Questa foto è cambiata prima di poter essere preparata per il caricamento.</string>
     <string name="message_this_photo_changed_while_it_was_being_staged">Questa foto è cambiata mentre veniva preparata per il caricamento.</string>
+    <string name="message_this_photo_changed_while_it_was_being_uploaded">Questa foto è cambiata durante il caricamento. Riprova per caricare la nuova versione.</string>
     <string name="message_this_photo_does_not_have_a_current_exact_icloud_proof">Non è confermato che il backup di questa foto su iCloud sia stato eseguito.</string>
     <string name="message_this_photo_has_no_motion_clip">Questa foto non ha il video di una Live Photo.</string>
     <string name="message_this_photo_is_no_longer_available_on_the_phone">Questa foto non è più sul telefono</string>

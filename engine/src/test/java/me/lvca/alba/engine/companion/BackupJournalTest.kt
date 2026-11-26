@@ -520,14 +520,14 @@ class BackupJournalTest {
 
     @Test
     fun progressCountsVerifiedItemsAgainstEverythingBackupCovers() = runBlocking {
-        source.items += item(1, "one.jpg", "image/jpeg")
-        source.items += item(2, "two.jpg", "image/jpeg")
+        // One pass uploads three at once; the fourth is queued behind them.
+        (1L..4L).forEach { source.items += item(it, "$it.jpg", "image/jpeg") }
         val photos = enrolled()
         photos.syncNow()
 
         val progress = photos.backup.backupProgress()
-        assertEquals(1, progress.backedUp)
-        assertEquals(2, progress.eligible)
+        assertEquals(3, progress.backedUp)
+        assertEquals(4, progress.eligible)
     }
 
     @Test
@@ -626,18 +626,17 @@ class BackupJournalTest {
     @Test
     fun pendingWorkLeavesOutItemsBackupCannotDoOnItsOwn() = runBlocking {
         (1L..12L).forEach { source.items += item(it, "$it.avif", "image/avif") }
-        source.items += item(20, "a.jpg", "image/jpeg")
-        source.items += item(21, "b.jpg", "image/jpeg")
+        (20L..23L).forEach { source.items += item(it, "$it.jpg", "image/jpeg") }
         val photos = enrolled()
-        assertEquals("Nothing discovered yet: all of it is to do", 14, photos.backup.backupProgress().pending)
+        assertEquals("Nothing discovered yet: all of it is to do", 16, photos.backup.backupProgress().pending)
 
         val startedAt = clock
         photos.syncNow()
 
         val progress = photos.backup.backupProgress()
-        assertEquals(14, progress.eligible)
-        assertEquals("Twelve unsupported items are skipped, not pending; one photo is left", 1, progress.pending)
-        assertEquals(1, photos.backup.verifiedSince(startedAt))
+        assertEquals(16, progress.eligible)
+        assertEquals("Twelve unsupported items are skipped, not pending; three uploaded at once, one photo is left", 1, progress.pending)
+        assertEquals(3, photos.backup.verifiedSince(startedAt))
     }
 
     @Test
@@ -719,19 +718,21 @@ class BackupJournalTest {
     @Test
     fun anExistingItemRedatedPastTheCursorDuringTheReadIsStillBackedUp() = runBlocking {
         source.existing += item(10, "newest.jpg", "image/jpeg", capturedAt = 300)
-        source.existing += item(11, "middle.jpg", "image/jpeg", capturedAt = 200)
-        source.existing += item(12, "oldest.jpg", "image/jpeg", capturedAt = 100)
+        // A pass uploads three and queues three more, so the read is still going after the first pass.
+        val middles = (1L..5L).map { "middle-$it.jpg" }
+        middles.forEachIndexed { index, name -> source.existing += item(11L + index, name, "image/jpeg", capturedAt = 290L - index * 10) }
+        source.existing += item(19, "oldest.jpg", "image/jpeg", capturedAt = 100)
         val photos = enrolled(includeExisting = true)
         photos.syncNow()
-        assertEquals(listOf("newest.jpg"), protocol.uploadedNames)
+        assertEquals(setOf("newest.jpg", "middle-1.jpg", "middle-2.jpg"), protocol.uploadedNames.toSet())
 
         // Edited to a capture time newer than where the read is: it is now behind the cursor.
         val index = source.existing.indexOfFirst { it.fileName == "oldest.jpg" }
         source.existing[index] = source.existing[index].copy(capturedAtEpochMillis = 400)
-        repeat(4) { photos.syncNow() }
+        repeat(6) { photos.syncNow() }
 
-        assertEquals(setOf("newest.jpg", "middle.jpg", "oldest.jpg"), protocol.uploadedNames.toSet())
-        assertEquals(3, protocol.uploadedNames.size)
+        assertEquals((listOf("newest.jpg", "oldest.jpg") + middles).toSet(), protocol.uploadedNames.toSet())
+        assertEquals(7, protocol.uploadedNames.size)
         val reads = source.existingPagesRead
         repeat(2) { photos.syncNow() }
         assertEquals("A complete scan is not read again", reads, source.existingPagesRead)

@@ -93,6 +93,7 @@ enum class StoredMessage(val code: String, val legacyText: String) {
     UPLOAD_STAGE_FAILED("upload_stage_failed", "Could not stage this file; check file access and the upload queue"),
     ALBA_CURRENTLY_UPLOADS_JPEG_ORIGINALS_ONLY("mela_currently_uploads_jpeg_originals_only", "Mela currently uploads JPEG originals only."),
     THIS_PHOTO_CHANGED_WHILE_IT_WAS_BEING_STAGED("this_photo_changed_while_it_was_being_staged", "This photo changed while it was being staged."),
+    THIS_PHOTO_CHANGED_WHILE_IT_WAS_BEING_UPLOADED("this_photo_changed_while_it_was_being_uploaded", "This photo changed while it was being uploaded."),
     THE_SELECTED_PHOTO_WAS_EMPTY("the_selected_photo_was_empty", "The selected photo was empty."),
     ANDROID_COULD_NOT_OPEN_THIS_PHOTO("android_could_not_open_this_photo", "Android could not open this photo."),
     ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT("account_changed_during_edit_refresh_to_check_the_result", "Account changed during edit. Refresh to check the result."),

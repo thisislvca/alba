@@ -15,9 +15,10 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * Schema 23 to 24 on the JVM: a journal written by the previous version opens with its acceptances and proofs. Every
- * proof it had was a byte comparison, so each becomes a BYTES proof checked when it was made; acceptances have no
- * receipt. The schema-23 database is built from Room's exported 23.json.
+ * Schema 23 to 24 on the JVM: a journal written by the previous version opens with its acceptances, proofs and write
+ * slot. Every proof it had was a byte comparison, so each becomes a BYTES proof checked when it was made; acceptances have
+ * no receipt; the write slot of an upload in flight is kept, and an account can then hold several. The schema-23
+ * database is built from Room's exported 23.json.
  */
 @RunWith(AndroidJUnit4::class)
 class ReceiptMigrationTest {
@@ -35,7 +36,7 @@ class ReceiptMigrationTest {
     }
 
     @Test
-    fun schemaTwentyThreeKeepsProofsAsByteChecksAndAcceptancesWithoutReceipts() = runBlocking {
+    fun schemaTwentyThreeKeepsProofsAsByteChecksAcceptancesWithoutReceiptsAndItsWriteSlot() = runBlocking {
         createSchema23()
 
         val migrated = AlbaDatabase.create(context)
@@ -50,6 +51,11 @@ class ReceiptMigrationTest {
             assertNull(acceptance.receiptFileChecksum)
             assertNull(acceptance.receiptByteCount)
             assertNull(acceptance.sentSha256Hex)
+
+            val slot = requireNotNull(migrated.transferDao().findWriteSlot("account"))
+            assertEquals("An upload in flight at the update keeps its write slot", "attempt", slot.attemptId)
+            migrated.transferDao().acquireWriteSlot(AccountWriteSlotEntity("account", "second", 1, 43))
+            assertEquals("The account can now hold several", 2, migrated.transferDao().countWriteSlots("account"))
         } finally {
             migrated.close()
         }
@@ -81,6 +87,7 @@ class ReceiptMigrationTest {
                     "originalResourceIdentity, byteCount, sha256Hex, verifiedAtEpochMillis) " +
                     "VALUES ('proof', 'account', 1, 1, 'link', 'device:1', 'source', 'rev', 'pair', 'm', 'a', 'res', 7, 'sha', 42)",
             )
+            db.execSQL("INSERT INTO account_write_slots (accountId, attemptId, authEpoch, acquiredAtEpochMillis) VALUES ('account', 'attempt', 1, 40)")
             db.version = 23
         }
     }

@@ -2,9 +2,12 @@ package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import me.lvca.alba.engine.cache.StagedOriginalUnavailableException
-import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AccountWriteSlotEntity
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.AssetLinkEntity
@@ -19,7 +22,6 @@ import me.lvca.alba.engine.database.VerificationProofEntity
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.ICloudStorageFullException
-import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PhotoCompanionException
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.ProtocolArea
@@ -30,13 +32,15 @@ import me.lvca.alba.engine.model.WakeupScheduler
 import java.util.UUID
 
 /**
- * Starts uploads one at a time per account. Arming an attempt takes the account's write slot in the same
- * transaction that moves the transfer to SENDING, so an attempt is sent at most once; anything uncertain after
- * that goes to reconciliation, never to a second upload.
+ * Starts uploads, up to [MAX_UPLOADS_IN_FLIGHT] at once per account. Arming an attempt takes one of the account's write
+ * slots in the same transaction that moves the transfer to SENDING, so an attempt is sent at most once; anything
+ * uncertain after that goes to reconciliation, never to a second upload. Each attempt keeps its own journal row, so a
+ * crash with several in flight recovers each on its own.
  */
 internal class UploadInvoker(
     private val database: AlbaDatabase,
-    private val staging: UploadStagingStore,
+    /** Where uploads read their originals: staged copies, or the phone's files read in place. */
+    private val originals: UploadOriginals,
     private val protocol: ICloudPhotoProtocol,
     private val scheduler: WakeupScheduler,
     private val accounts: AccountBindingSync,
@@ -50,96 +54,208 @@ internal class UploadInvoker(
     private val transferDao = database.transferDao()
     private val verificationDao = database.verificationDao()
 
-    /** Leases, arms and sends the next READY transfer. Returns 1 when it armed an attempt. */
-    suspend fun invokeOne(binding: AccountBinding, allowManual: Boolean, allowAutomatic: Boolean): Int {
+    /** What one [runRound] did. */
+    data class Round(val invoked: Int, val staged: Int)
+
+    /**
+     * Starts as many uploads at once as the account's free write slots allow, up to [MAX_UPLOADS_IN_FLIGHT], and while
+     * they upload calls [stageNext] to queue the items after them, so the next pass can start at once. [stageNext] is
+     * also asked for an item when nothing is queued yet. Each upload is leased here, one after another, so no two take
+     * the same item. A failure of one upload never cancels the others: it is rethrown once all have finished.
+     */
+    suspend fun runRound(
+        binding: AccountBinding,
+        allowManual: Boolean,
+        allowAutomatic: Boolean,
+        stageNext: suspend () -> Int,
+    ): Round = supervisorScope {
         // A remote pause leaves every item queued as it is; nothing is sent, so nothing needs checking afterwards.
-        if (isProtocolPaused()) return 0
-        val (leased, leaseToken) = leaseNext(binding, allowManual, allowAutomatic) ?: return 0
-        val source = requireNotNull(transferDao.findStagedSource(leased.stagedSourceId))
-        val video = source.isVideo
-        lookInLibraryFirst(binding, leased, leaseToken, source)?.let { return it }
-
-        val uploadSource = try {
-            staging.openVerified(source.ownedFileToken, source.byteCount, source.sha256Hex)
-        } catch (error: Throwable) {
-            // A cancelled check says nothing about the staged file; keep it and let the lease expire.
-            if (error is CancellationException) throw error
-            transferDao.markLeasedTransferNeedsAttention(
-                leased.transferId,
-                leaseToken,
-                now(),
-                StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN.code,
-            )
-            staging.deleteOwned(source.ownedFileToken)
-            throw error
+        if (isProtocolPaused()) return@supervisorScope Round(0, 0)
+        var staged = 0
+        val uploads = mutableListOf<Deferred<Int>>()
+        val free = freeSlots(binding)
+        while (uploads.size < free) {
+            val leased = leaseNext(binding, allowManual, allowAutomatic)
+                ?: stageNext().also { staged += it }.takeIf { it > 0 }?.let { leaseNext(binding, allowManual, allowAutomatic) }
+                ?: break
+            uploads += async { upload(binding, leased) }
         }
-        val preUploadToken = try {
-            protocol.captureChangeToken(binding)
-        } catch (error: Throwable) {
-            if (error is CancellationException) throw error
-            transferDao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.COULD_NOT_READ_THE_ICLOUD_CHANGE_CURSOR.code)
-            return 0
+        // While those upload, prepare what comes next, a few items ahead at most.
+        while (uploads.isNotEmpty() && aheadOfUploads(binding) < MAX_UPLOADS_IN_FLIGHT) {
+            val more = stageNext()
+            staged += more
+            if (more == 0) break
         }
-        val sending = SentBytesSource(uploadSource)
-        val prepared = try {
-            protocol.prepareOriginal(binding, source.displayName, sending, source.uploadDate, source.captureOffsetMinutes)
-        } catch (error: Throwable) {
-            if (error is CancellationException) throw error
-            transferDao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.COULD_NOT_PREPARE_THE_ICLOUD_UPLOAD.code)
-            return 0
-        }
-
-        val attempt = accounts.gate(binding.accountId).withLock {
-            if (!canWriteNow(leased.authorityType, video)) {
-                prepared.cancel()
-                transferDao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.WAITING_FOR_UPLOAD_AUTHORIZATION_AND_AN_ELIGIBLE_NETWORK.code)
-                return@withLock null
-            }
-            val armed = arm(binding, leased.transferId, leaseToken, preUploadToken)
-            if (armed == null) {
-                prepared.cancel()
-                return@withLock null
-            }
-            if (!isStillSending(armed.transferId)) {
-                prepared.cancel()
-                return@withLock armed
-            }
-
-            // Neither check below has sent anything for this attempt: startOnce has not run, so no request of it left
-            // the phone. The attempt is let go at once rather than verified for fifteen minutes holding the queue.
-            if (authority.waitsForNetwork(leased.authorityType, video)) {
-                prepared.cancel()
-                releaseUnsent(binding, armed, TransferState.READY, StoredMessage.WAITING_FOR_UPLOAD_AUTHORIZATION_AND_AN_ELIGIBLE_NETWORK)
-                return@withLock armed
-            }
-            if (leased.authorityType == AUTHORITY_AUTOMATIC &&
-                !authority.stillAuthorizes(leased.enrollmentId, leased.enrollmentRevision, binding)
-            ) {
-                prepared.cancel()
-                releaseUnsent(binding, armed, TransferState.NEEDS_ATTENTION, StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED)
-                return@withLock armed
-            }
-
-            try {
-                send(prepared, sending, armed.transferId, armed.attemptId)
-            } catch (full: ICloudStorageFullException) {
-                prepared.cancel()
-                storageRefused(binding, armed, full)
-            } catch (error: Throwable) {
-                prepared.cancel()
-                if (!protocol.canResume(binding, armed.attemptId)) {
-                    recordUnknown(armed, error::class.java.simpleName.ifBlank { "NO_TRUSTED_RESPONSE" })
-                } else if (leased.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
-                if (error is CancellationException) throw error
-            }
-            armed
-        }
-        return if (attempt != null) 1 else 0
+        val results = uploads.map { runCatching { it.await() } }
+        results.firstNotNullOfOrNull { it.exceptionOrNull() }?.let { throw it }
+        Round(results.sumOf { it.getOrDefault(0) }, staged)
     }
 
-    /** Leases the next READY transfer the account may start now, with its lease token; null when there is none. */
-    private suspend fun leaseNext(binding: AccountBinding, allowManual: Boolean, allowAutomatic: Boolean): Pair<TransferEntity, String>? {
-        if (transferDao.findWriteSlot(binding.accountId) != null || isStoragePaused(binding.accountId)) return null
+    /** Write slots the account has free for new uploads now; none while iCloud storage is full. */
+    suspend fun freeSlots(binding: AccountBinding): Int =
+        if (isStoragePaused(binding.accountId)) 0 else (MAX_UPLOADS_IN_FLIGHT - transferDao.countWriteSlots(binding.accountId)).coerceAtLeast(0)
+
+    /** Automatic items queued and not taken by an upload yet: how far discovery is ahead of the uploads. */
+    private suspend fun aheadOfUploads(binding: AccountBinding): Int = transferDao.countQueuedAutomatic(binding.accountId, now())
+
+    /** A READY transfer leased for one upload, with its lease token. */
+    data class Leased(val transfer: TransferEntity, val leaseToken: String)
+
+    /**
+     * Arms and sends [leased], holding one of the account's upload permits while it awaits Apple. Returns 1 when it armed
+     * an attempt or linked a copy already in iCloud.
+     */
+    private suspend fun upload(binding: AccountBinding, leased: Leased): Int = accounts.uploads(binding.accountId).withPermit {
+        val transfer = leased.transfer
+        val source = requireNotNull(transferDao.findStagedSource(transfer.stagedSourceId))
+        lookInLibraryFirst(binding, transfer, leased.leaseToken, source)?.let { return@withPermit it }
+        val opened = openForUpload(binding, leased, source) ?: return@withPermit 0
+        opened.use { send(binding, leased, source, it.sending) }
+    }
+
+    /**
+     * Opens [source] for [leased]'s upload. A staged copy that changed or is missing fails the transfer, as before. An
+     * original read in place that changed or cannot be read again is read and queued afresh; null then.
+     */
+    private suspend fun openForUpload(binding: AccountBinding, leased: Leased, source: StagedSourceEntity): OpenedOriginal? {
+        // A cancelled open says nothing about the original; it is kept and the lease expires.
+        val opened = runSuspendCatching { originals.open(source) }
+        val failure = opened.exceptionOrNull() ?: return opened.getOrThrow()
+        val changed = failure is SourceChangedException
+        transferDao.markLeasedTransferNeedsAttention(
+            leased.transfer.transferId,
+            leased.leaseToken,
+            now(),
+            if (changed) {
+                StoredMessage.THIS_PHOTO_CHANGED_WHILE_IT_WAS_BEING_UPLOADED.code
+            } else {
+                StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN.code
+            },
+        )
+        if (!changed) {
+            originals.discardStaged(source)
+            throw failure
+        }
+        redo(binding, leased.transfer.transferId)
+        return null
+    }
+
+    /** An upload prepared with the protocol, and the change cursor read before it. */
+    private class Prepared(val upload: PreparedICloudUpload, val preUploadToken: String)
+
+    /** What arming under the account gate decided: send [attempt], or stop, reporting [invoked]. */
+    private sealed interface Armed {
+        class Send(val attempt: UploadAttemptEntity) : Armed
+
+        class Done(val invoked: Int) : Armed
+    }
+
+    /** Prepares, arms and sends one attempt for [leased]. Returns 1 when an attempt was armed. */
+    private suspend fun send(binding: AccountBinding, leased: Leased, source: StagedSourceEntity, sending: SentBytesSource): Int {
+        val prepared = prepare(binding, leased, source, sending) ?: return 0
+        val armed = when (val decided = armUnderGate(binding, leased, source.isVideo, prepared)) {
+            is Armed.Send -> decided.attempt
+            is Armed.Done -> return decided.invoked
+        }
+        // The gate is free again, so other uploads arm while this one awaits Apple; the permit bounds how many.
+        sendArmed(binding, leased.transfer, armed, prepared.upload, sending)
+        return 1
+    }
+
+    /** Reads the change cursor and prepares the upload; null, with the lease released, when either fails. */
+    private suspend fun prepare(binding: AccountBinding, leased: Leased, source: StagedSourceEntity, sending: SentBytesSource): Prepared? {
+        val transferId = leased.transfer.transferId
+        val preUploadToken = runSuspendCatching { protocol.captureChangeToken(binding) }.getOrElse {
+            transferDao.releaseReadyLease(transferId, leased.leaseToken, now(), StoredMessage.COULD_NOT_READ_THE_ICLOUD_CHANGE_CURSOR.code)
+            return null
+        }
+        val upload = runSuspendCatching {
+            protocol.prepareOriginal(binding, source.displayName, sending, source.uploadDate, source.captureOffsetMinutes)
+        }.getOrElse {
+            transferDao.releaseReadyLease(transferId, leased.leaseToken, now(), StoredMessage.COULD_NOT_PREPARE_THE_ICLOUD_UPLOAD.code)
+            return null
+        }
+        return Prepared(upload, preUploadToken)
+    }
+
+    /** Arms one attempt under the account gate, or lets the leased transfer go when it may not be sent now. */
+    private suspend fun armUnderGate(binding: AccountBinding, leased: Leased, video: Boolean, prepared: Prepared): Armed {
+        val transfer = leased.transfer
+        return accounts.gate(binding.accountId).withLock {
+            val armed = if (canWriteNow(transfer.authorityType, video)) {
+                arm(binding, transfer.transferId, leased.leaseToken, prepared.preUploadToken)
+            } else {
+                transferDao.releaseReadyLease(
+                    transfer.transferId, leased.leaseToken, now(), StoredMessage.WAITING_FOR_UPLOAD_AUTHORIZATION_AND_AN_ELIGIBLE_NETWORK.code,
+                )
+                null
+            }
+            // Neither release below has sent anything for this attempt: startOnce has not run, so no request of it left
+            // the phone. The attempt is let go at once rather than verified for fifteen minutes holding a write slot.
+            val decided = when {
+                armed == null -> Armed.Done(0)
+                !isStillSending(armed.transferId) -> Armed.Done(1)
+                authority.waitsForNetwork(transfer.authorityType, video) -> {
+                    releaseUnsent(binding, armed, TransferState.READY, StoredMessage.WAITING_FOR_UPLOAD_AUTHORIZATION_AND_AN_ELIGIBLE_NETWORK)
+                    Armed.Done(1)
+                }
+                transfer.authorityType == AUTHORITY_AUTOMATIC &&
+                    !authority.stillAuthorizes(transfer.enrollmentId, transfer.enrollmentRevision, binding) -> {
+                    releaseUnsent(binding, armed, TransferState.NEEDS_ATTENTION, StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED)
+                    Armed.Done(1)
+                }
+                else -> Armed.Send(armed)
+            }
+            if (decided is Armed.Done) prepared.upload.cancel()
+            decided
+        }
+    }
+
+    /** Sends [armed] once. Anything uncertain afterwards goes to verification; an original that changed is redone. */
+    private suspend fun sendArmed(
+        binding: AccountBinding,
+        transfer: TransferEntity,
+        armed: UploadAttemptEntity,
+        prepared: PreparedICloudUpload,
+        sending: SentBytesSource,
+    ) {
+        try {
+            sendOnce(prepared, sending, armed.transferId, armed.attemptId)
+        } catch (full: ICloudStorageFullException) {
+            prepared.cancel()
+            storageRefused(binding, armed, full)
+        } catch (error: Throwable) {
+            prepared.cancel()
+            when {
+                error.isSourceChange() && releaseChanged(binding, armed) -> Unit
+                !protocol.canResume(binding, armed.attemptId) ->
+                    recordUnknown(armed, error::class.java.simpleName.ifBlank { "NO_TRUSTED_RESPONSE" })
+                transfer.authorityType == AUTHORITY_AUTOMATIC -> scheduler.scheduleSoon()
+            }
+            if (error is CancellationException) throw error
+        }
+    }
+
+    /**
+     * [armed]'s original changed while it was sent, so the upload stopped before its last bytes. When the protocol's
+     * journal proves nothing of it was registered, the attempt is let go and the item is read and queued afresh; returns
+     * true. Otherwise it returns false and the attempt goes to verification like any uncertain one.
+     */
+    private suspend fun releaseChanged(binding: AccountBinding, armed: UploadAttemptEntity): Boolean {
+        if (!protocol.registrationNeverSent(binding, armed.attemptId)) return false
+        releaseUnsent(binding, armed, TransferState.NEEDS_ATTENTION, StoredMessage.THIS_PHOTO_CHANGED_WHILE_IT_WAS_BEING_UPLOADED, "SOURCE_CHANGED")
+        redo(binding, armed.transferId)
+        return true
+    }
+
+    /** Reads and queues [transferId] again after its original changed; it keeps its reason when that fails. */
+    private suspend fun redo(binding: AccountBinding, transferId: String) {
+        if (originals.restage(transferId) && accounts.isCurrent(binding)) runSuspendCatching { scheduler.scheduleSoon() }
+    }
+
+    /** Leases the next READY transfer the account may start now; null when there is none. */
+    private suspend fun leaseNext(binding: AccountBinding, allowManual: Boolean, allowAutomatic: Boolean): Leased? {
+        if (isStoragePaused(binding.accountId)) return null
         val candidate = transferDao.findNextReady(
             binding.accountId,
             now(),
@@ -156,12 +272,12 @@ internal class UploadInvoker(
             leaseNow + READY_LEASE_MILLIS,
             leaseNow,
         ) == 1
-        return if (claimed) requireNotNull(transferDao.findTransfer(candidate.transferId)) to leaseToken else null
+        return if (claimed) Leased(requireNotNull(transferDao.findTransfer(candidate.transferId)), leaseToken) else null
     }
 
     /**
      * Looks for an automatic backup item in the iCloud library before its first upload. Returns null when it should be
-     * uploaded now, or what [invokeOne] returns when it was linked to a copy already there (1), must wait, or lost its
+     * uploaded now, or what [upload] returns when it was linked to a copy already there (1), must wait, or lost its
      * lease to another pass (0). The lease is extended before each download, which can outlast [READY_LEASE_MILLIS].
      */
     private suspend fun lookInLibraryFirst(binding: AccountBinding, leased: TransferEntity, leaseToken: String, source: StagedSourceEntity): Int? {
@@ -306,6 +422,8 @@ internal class UploadInvoker(
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             if (!protocol.isWriteAuthorized()) return
+            // An original read in place that changed is read and queued afresh once nothing of it can be registered.
+            if (error.isSourceChange() && releaseChanged(binding, attempt)) return
             if (!error.failsEveryRetry() && protocol.canResume(binding, attemptId)) {
                 if (transfer.authorityType == AUTHORITY_AUTOMATIC) scheduler.scheduleSoon()
                 return
@@ -361,7 +479,7 @@ internal class UploadInvoker(
             ) == 0,
             StoredMessage.THIS_UPLOAD_IS_SUPPRESSED_BECAUSE_AN_EARLIER_OUTCOME_IS_UNRESOLVED,
         )
-        refuseUnless(transferDao.findWriteSlot(binding.accountId) == null, StoredMessage.ANOTHER_UPLOAD_IS_UNRESOLVED)
+        refuseUnless(transferDao.countWriteSlots(binding.accountId) < MAX_UPLOADS_IN_FLIGHT, StoredMessage.ANOTHER_UPLOAD_IS_UNRESOLVED)
 
         val attemptId = UUID.randomUUID().toString()
         val authorizedAt = now()
@@ -401,9 +519,12 @@ internal class UploadInvoker(
         )
     }
 
-    /** Re-sends an interrupted attempt under the same attempt id; the protocol's journal makes this idempotent. */
-    private suspend fun resume(binding: AccountBinding, transfer: TransferEntity, attemptId: String) {
-        accounts.gate(binding.accountId).withLock {
+    /**
+     * Re-sends an interrupted attempt under the same attempt id; the protocol's journal makes this idempotent. It checks
+     * under the account gate and sends holding an upload permit, as a first upload does.
+     */
+    private suspend fun resume(binding: AccountBinding, transfer: TransferEntity, attemptId: String) = accounts.uploads(binding.accountId).withPermit {
+        val opened = accounts.gate(binding.accountId).withLock {
             refuseUnless(accounts.isCurrent(binding), StoredMessage.THE_ACCOUNT_CHANGED_BEFORE_UPLOAD)
             if (transfer.authorityType == AUTHORITY_AUTOMATIC) {
                 refuseUnless(
@@ -415,14 +536,17 @@ internal class UploadInvoker(
                 transferDao.findStagedSource(transfer.stagedSourceId),
                 StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN,
             )
-            if (authority.waitsForNetwork(transfer.authorityType, source.isVideo)) return@withLock
-            val sending = SentBytesSource(openStaged(source))
-            val prepared = protocol.prepareOriginal(binding, source.displayName, sending, source.uploadDate, source.captureOffsetMinutes)
+            if (authority.waitsForNetwork(transfer.authorityType, source.isVideo)) return@withPermit
+            source to openStaged(source)
+        }
+        val (source, original) = opened
+        original.use {
+            val prepared = protocol.prepareOriginal(binding, source.displayName, it.sending, source.uploadDate, source.captureOffsetMinutes)
             if (!canWriteNow(transfer.authorityType, source.isVideo) || !isStillSending(transfer.transferId)) {
                 prepared.cancel()
-                return@withLock
+                return@withPermit
             }
-            send(prepared, sending, transfer.transferId, attemptId)
+            sendOnce(prepared, it.sending, transfer.transferId, attemptId)
         }
     }
 
@@ -430,7 +554,7 @@ internal class UploadInvoker(
      * Sends the prepared bytes once and records Apple's acceptance with its receipt and what was sent; the transfer then
      * waits for reconciliation, which matches the receipt in iCloud's change feed.
      */
-    private suspend fun send(prepared: PreparedICloudUpload, sending: SentBytesSource, transferId: String, attemptId: String) {
+    private suspend fun sendOnce(prepared: PreparedICloudUpload, sending: SentBytesSource, transferId: String, attemptId: String) {
         val acceptance = prepared.startOnce(attemptId)
         database.withTransaction {
             // Apple accepted an upload, so iCloud has space again: lift a storage pause.
@@ -448,8 +572,9 @@ internal class UploadInvoker(
         }
     }
 
-    private suspend fun openStaged(source: StagedSourceEntity): OneShotUploadSource = try {
-        staging.openVerified(source.ownedFileToken, source.byteCount, source.sha256Hex)
+    /** Opens [source] for a resumed upload: in place, or its staged copy. An in-place original that changed throws. */
+    private suspend fun openStaged(source: StagedSourceEntity): OpenedOriginal = try {
+        originals.open(source)
     } catch (_: StagedOriginalUnavailableException) {
         throw PhotoCompanionException.Refused(StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN)
     }
@@ -503,9 +628,15 @@ internal class UploadInvoker(
      * Lets go of [attempt], armed but never sent: the transfer goes to [state] without an attempt and the write slot is
      * freed. The attempt row stays, and the next attempt names it as its predecessor.
      */
-    private suspend fun releaseUnsent(binding: AccountBinding, attempt: UploadAttemptEntity, state: TransferState, message: StoredMessage) {
+    private suspend fun releaseUnsent(
+        binding: AccountBinding,
+        attempt: UploadAttemptEntity,
+        state: TransferState,
+        message: StoredMessage,
+        reason: String = "RELEASED_BEFORE_SEND",
+    ) {
         database.withTransaction {
-            transferDao.insertUncertainty(UploadUncertaintyEntity(attempt.attemptId, "RELEASED_BEFORE_SEND", now()))
+            transferDao.insertUncertainty(UploadUncertaintyEntity(attempt.attemptId, reason, now()))
             check(transferDao.releaseUnsentAttempt(attempt.transferId, attempt.attemptId, state, now(), message.code) == 1)
             check(transferDao.releaseWriteSlot(binding.accountId, attempt.attemptId) == 1)
         }
@@ -556,6 +687,9 @@ internal class UploadInvoker(
  */
 private fun Throwable.failsEveryRetry(): Boolean =
     isFinalRefusal() || this is IllegalStateException || this is IllegalArgumentException
+
+/** Whether this failure, or one it wraps, is an original that changed while it was being sent. */
+private fun Throwable.isSourceChange(): Boolean = generateSequence(this) { it.cause }.any { it is SourceChangedException }
 
 /**
  * The date iCloud is given for the original: its capture time, or, for a source staged before capture times were kept,

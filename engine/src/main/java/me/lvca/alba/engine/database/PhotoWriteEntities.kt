@@ -151,10 +151,11 @@ data class UploadUncertaintyEntity(
     val observedAtEpochMillis: Long,
 )
 
-@Entity(tableName = "account_write_slots")
+/** A write slot an attempt holds from arming until it is verified or resolved; an account has a few at most. */
+@Entity(tableName = "account_write_slots", indices = [Index(value = ["accountId"])])
 data class AccountWriteSlotEntity(
-    @PrimaryKey val accountId: String,
-    val attemptId: String,
+    val accountId: String,
+    @PrimaryKey val attemptId: String,
     val authEpoch: Long,
     val acquiredAtEpochMillis: Long,
 )

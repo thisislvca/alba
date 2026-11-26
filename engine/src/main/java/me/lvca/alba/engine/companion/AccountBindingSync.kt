@@ -2,6 +2,7 @@ package me.lvca.alba.engine.companion
 
 import androidx.room.withTransaction
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import me.lvca.alba.engine.database.AccountEntity
 import me.lvca.alba.engine.database.AlbaDatabase
@@ -29,9 +30,17 @@ internal class AccountBindingSync(
     private val transferDao = database.transferDao()
     private val trashDao = database.trashDao()
     private val gates = ConcurrentHashMap<String, Mutex>()
+    private val uploadPermits = ConcurrentHashMap<String, Semaphore>()
 
-    /** Serializes account-fenced writes. An upload holds it while awaiting Apple. */
+    /** Serializes account-fenced writes: arming an upload, consent hand-offs, account changes. Held only briefly. */
     fun gate(accountId: String): Mutex = gates.getOrPut(accountId, ::Mutex)
+
+    /**
+     * Bounds the uploads in flight for the account to [MAX_UPLOADS_IN_FLIGHT]. An upload holds a permit while it awaits
+     * Apple; an account change takes every permit first, so it waits for uploads in flight, as it did when an upload
+     * held the [gate]. Permits are always taken before the gate, so the two never deadlock.
+     */
+    fun uploads(accountId: String): Semaphore = uploadPermits.getOrPut(accountId) { Semaphore(MAX_UPLOADS_IN_FLIGHT) }
 
     /** Whether [binding] still names the active account under the same epoch and fence. */
     suspend fun isCurrent(binding: AccountBinding): Boolean = accountDao.findActiveAccount()?.toBinding() == binding
@@ -94,7 +103,7 @@ internal class AccountBindingSync(
             runSuspendCatching { scheduler.setAutomaticBackupEnabled(false) }
             return AccountChangeResult.Allowed
         }
-        val result = gate(active.accountId).withLock {
+        val result = withEveryUploadPermit(active.accountId) { gate(active.accountId).withLock {
             if (trashDao.countPotentiallyExecutableTrashAttempts() > 0) {
                 return@withLock AccountChangeResult.Blocked(
                     StoredMessage.A_SYSTEM_TRASH_REQUEST_MAY_STILL_EXECUTE_FINISH_THE_ANDROID_DIALOG_OR_RESTART_YOUR_DEVICE_AND_R.code,
@@ -104,12 +113,27 @@ internal class AccountBindingSync(
                 retire(active, StoredMessage.THE_ICLOUD_ACCOUNT_CHANGED_BEFORE_UPLOAD_SELECT_THIS_PHOTO_AGAIN_FOR_THE_NEW_ACCOUNT)
             }
             AccountChangeResult.Allowed
-        }
+        } }
         if (result is AccountChangeResult.Allowed) {
             stages.deleteReleasable()
             runSuspendCatching { scheduler.setAutomaticBackupEnabled(false) }
         }
         return result
+    }
+
+    /** Runs [block] once no upload of [accountId] is in flight, and starts none until it returns. */
+    private suspend fun <T> withEveryUploadPermit(accountId: String, block: suspend () -> T): T {
+        val permits = uploads(accountId)
+        var held = 0
+        try {
+            repeat(MAX_UPLOADS_IN_FLIGHT) {
+                permits.acquire()
+                held += 1
+            }
+            return block()
+        } finally {
+            repeat(held) { permits.release() }
+        }
     }
 
     /** Stops [active]'s queued uploads and backup, then deactivates it. Runs inside the caller's transaction. */

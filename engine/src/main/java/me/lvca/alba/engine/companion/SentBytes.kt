@@ -9,7 +9,7 @@ import java.security.MessageDigest
 internal data class SentBytes(val byteCount: Long, val sha256Hex: String)
 
 /** The original changed while it was being sent: the upload stops before its last bytes leave the phone. */
-internal class SourceChangedException(message: String) : IOException(message)
+internal class SourceChangedException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
 /**
  * The upload source as the transport reads it. Every byte is hashed and counted as it is handed over, so what is hashed
