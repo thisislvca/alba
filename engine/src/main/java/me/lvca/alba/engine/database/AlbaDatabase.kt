@@ -38,7 +38,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CollectionEntity::class, CollectionMemberEntity::class, BatchItemEntity::class, UploadCheckpointEntity::class,
         UploadPauseEntity::class, DiscoveryFailureEntity::class, CatalogScanEntity::class,
     ],
-    version = 24,
+    version = 25,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15), AutoMigration(from = 15, to = 16),
@@ -64,6 +64,31 @@ abstract class AlbaDatabase : RoomDatabase() {
     abstract fun trashDao(): TrashDao
 
     companion object {
+        /**
+         * Self-healing: a transfer keeps why it stopped for good, and when its upload became uncertain and was last looked
+         * for in a refreshed iCloud library. Uploads already uncertain start their healing window now, and give back the
+         * write slot they held, since the suppression of their bytes is what keeps them from being sent twice. An upload
+         * iCloud could not process is recorded as rejected, which nothing retries.
+         */
+        internal val MIGRATION_24_25 = object : Migration(24, 25) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transfers ADD COLUMN failureReason TEXT")
+                db.execSQL("ALTER TABLE transfers ADD COLUMN unresolvedSinceEpochMillis INTEGER")
+                db.execSQL("ALTER TABLE transfers ADD COLUMN healCheckedAtEpochMillis INTEGER")
+                db.execSQL(
+                    "UPDATE transfers SET unresolvedSinceEpochMillis = updatedAtEpochMillis WHERE state IN ('AMBIGUOUS', 'NOT_OBSERVED')",
+                )
+                db.execSQL(
+                    "UPDATE transfers SET failureReason = 'ICLOUD_REJECTED' " +
+                        "WHERE state = 'NOT_OBSERVED' AND message = 'upload_processing_failed'",
+                )
+                db.execSQL(
+                    "DELETE FROM account_write_slots WHERE attemptId IN (SELECT activeAttemptId FROM transfers " +
+                        "WHERE state IN ('AMBIGUOUS', 'NOT_OBSERVED', 'ABANDONED') AND activeAttemptId IS NOT NULL)",
+                )
+            }
+        }
+
         /**
          * Receipt verification: an acceptance keeps Apple's upload receipt (size and checksum) and the size and SHA-256
          * of the bytes Alba sent, and a proof says how it was made. Every proof before this was a byte comparison.
@@ -305,6 +330,6 @@ abstract class AlbaDatabase : RoomDatabase() {
             AlbaDatabase::class.java,
             // Named before the Alba rename and stored on devices; keep it.
             "mela-catalog.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_21_22, MIGRATION_23_24).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_21_22, MIGRATION_23_24, MIGRATION_24_25).build()
     }
 }

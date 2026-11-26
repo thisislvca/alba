@@ -1240,4 +1240,9 @@
     <string name="shared_unreachable_body">Connect to the internet to see its photos and videos.</string>
     <string name="shared_no_photos_body">Photos and videos people add to this album appear here.</string>
     <string name="collection_detail_placeholder">Open an album, a collection or a shared album to see its photos here.</string>
+    <string name="message_not_found_in_icloud_yet_checking_again">Not found in iCloud yet. Alba looks again after each library refresh, and uploads it again only if no copy appears.</string>
+    <string name="message_several_icloud_copies_match_checking_again">More than one copy in iCloud matches. Alba looks again after each library refresh and never uploads it twice.</string>
+    <string name="message_no_copy_appeared_in_icloud_uploading_again">No copy appeared in iCloud, so Alba is uploading it again.</string>
+    <string name="message_icloud_rejected_this_file">iCloud didn\'t accept this file. The original stays on this phone.</string>
+    <string name="message_this_file_is_no_longer_on_the_phone">This file is no longer on the phone.</string>
 </resources>

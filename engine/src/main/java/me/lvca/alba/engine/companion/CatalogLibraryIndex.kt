@@ -47,6 +47,12 @@ class CatalogLibraryIndex(
 
     override fun requestRefresh() = refresh()
 
+    override suspend fun refreshedAt(binding: AccountBinding): Long? {
+        val space = namespace()?.takeIf { it.isNotBlank() } ?: return null
+        if (accountId() != binding.accountId) return null
+        return catalog.checkpoint("icloud:$space")?.refreshedAtEpochMillis
+    }
+
     companion object {
         /** A catalog synced longer ago than this is brought up to date before more items are looked up in it. */
         const val DEFAULT_MAX_AGE_MILLIS = 24 * 60 * 60 * 1_000L

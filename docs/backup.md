@@ -34,7 +34,7 @@ While uploading, Alba computes SHA-256 and the byte count over exactly the bytes
 - `resOriginalRes.fileChecksum` equal to the receipt's `fileChecksum`, and
 - `resOriginalFingerprint` equal to the receipt's `fileChecksum` too (Apple sets them equal).
 
-Exactly one such record is a backup; none or several by the deadline go to the uncertainty handling (no second upload, the bytes are suppressed).
+Exactly one such record is a backup; none or several by the deadline go to the uncertainty handling below.
 
 Why this is enough: Alba knows what it sent (hashed as sent, refused if it differs from what was queued), TLS guarantees Apple received those bytes, and the receipt is Apple's own size and checksum of what it received. The CPLMaster carrying that same size, checksum and fingerprint is Apple's record that the original it stores is the one it received. Downloading the original again would compare Apple's copy with itself.
 
@@ -45,6 +45,17 @@ The one residual risk is a bug on Apple's side after the receipt: the stored ori
 `ByteCheck` downloads the iCloud original afresh and compares every byte, by count and SHA-256, with the phone's file. Free up space (debug-only, `FREE_UP_SPACE_ENABLED`) runs it on each item right before Android's trash request. Only items that pass are offered, and their proof becomes method `BYTES`. An item whose iCloud original differs stays on the phone and its proof is invalidated with `BYTE_CHECK_FAILED`, so it is never offered again. A failed read keeps the item without flagging it.
 
 The byte check also verifies an attempt that has no receipt (one from before receipts were kept), and backs the existing-copy link, which compares before linking.
+
+## Uncertain uploads heal themselves
+
+An upload Reconciler could not settle by its deadline ends uncertain: `NOT_OBSERVED` (no matching record) or `AMBIGUOUS` (several). Its bytes are suppressed, so it is never sent twice while uncertain, and it gives its write slot back, so other uploads go on. `UncertainHealer` then looks for it again; its schedule is `HealSchedule`:
+
+- **When.** Only after a library refresh newer than the last look (the catalog checkpoint's refresh time): after each refresh for the first 24 hours, then at most daily for seven more days. A `NOT_OBSERVED` upload is often one the change feed reported late.
+- **How.** The refreshed catalog's items of the same size are read afresh and matched against Apple's receipt, as Reconciler does. One match verifies the upload (proof `RECEIPT`) and lifts the suppression. Several make a `NOT_OBSERVED` upload `AMBIGUOUS`.
+- **After the window**, a `NOT_OBSERVED` upload is decided once more. With no receipt match and no candidate at all in the catalog (no item of its size with its file name or capture time, `ExistingCopyMatcher`), nothing in iCloud can be it, so it is sent again in a fresh attempt that names the uncertain one. A single candidate that is an exact copy, compared byte for byte, verifies it instead. Any other candidate makes it `AMBIGUOUS`: a second upload could duplicate it.
+- **Ambiguous uploads are never sent again.** They are resolved with the byte check, which downloads each candidate, only when the user opens the item or before Free up space lists what it can remove. Exact copies are the same original, so the upload is verified against the one Apple's acceptance named, or the first. Until then the item waits, marked as being checked, without holding up the queue.
+
+An upload iCloud could not process (`UploadProcessingStatus.Failed`) is recorded as rejected and is never sent again; a later look can still verify it if a copy appears.
 
 ## No resumable upload
 

@@ -103,6 +103,15 @@ data class TransferEntity(
     val existingCopyCheck: String? = null,
     /** When reading the iCloud library first failed for this transfer; the failure window runs from here. */
     val existingCopyFirstFailureAtEpochMillis: Long? = null,
+    /**
+     * Why the transfer stopped for good, one of the TransferFailureReason names: a permanent error that no automatic
+     * retry or re-upload fixes. Null while it can still go through on its own.
+     */
+    val failureReason: String? = null,
+    /** When its upload became uncertain (AMBIGUOUS or NOT_OBSERVED); the self-healing window runs from here. */
+    val unresolvedSinceEpochMillis: Long? = null,
+    /** When the uncertain upload was last looked for in a refreshed iCloud library. */
+    val healCheckedAtEpochMillis: Long? = null,
 )
 
 /**

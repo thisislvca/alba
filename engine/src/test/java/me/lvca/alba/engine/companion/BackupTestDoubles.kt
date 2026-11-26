@@ -8,8 +8,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.CandidatePage
+import me.lvca.alba.engine.model.CloudLibraryIndex
 import me.lvca.alba.engine.model.ICloudDestination
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
+import me.lvca.alba.engine.model.LibraryCandidate
+import me.lvca.alba.engine.model.LibraryIndexState
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.RemoteOriginalObservation
@@ -287,9 +290,12 @@ internal class TestICloud : ICloudPhotoProtocol {
         awaitCancellation()
     }
 
+    /** While set, the change feed has not caught up: it reports no new records, though they are in the library. */
+    var feedLags = false
+
     override suspend fun findUploadCandidates(
         binding: AccountBinding, afterChangeToken: String, acceptance: UploadAcceptance?, limit: Int,
-    ) = CandidatePage(registered + extraPairs, nextChangeToken = "after", moreComing = false)
+    ) = CandidatePage(if (feedLags) emptyList() else registered + extraPairs, nextChangeToken = "after", moreComing = false)
 
     override suspend fun streamFreshOriginal(
         binding: AccountBinding, pair: RemotePairCandidate, output: OutputStream,
@@ -311,6 +317,29 @@ internal class TestICloud : ICloudPhotoProtocol {
         /** Apple's checksum of an original, as its receipt and CPLMaster give it: opaque, and the same for the same bytes. */
         fun checksum(bytes: ByteArray) = "apple:" + sha256(bytes).take(24)
     }
+}
+
+/**
+ * The synced iCloud catalog over [icloud]'s library: every registered pair and extra pair, by size, named [names] (or
+ * after its master). [refreshedAt] is when the test last "refreshed" it; [reads] counts the lookups.
+ */
+internal class TestLibrary(private val icloud: TestICloud) : CloudLibraryIndex {
+    var refreshedAt: Long? = null
+    var reads = 0
+    val names = mutableMapOf<String, String>()
+
+    override suspend fun state(binding: AccountBinding) =
+        if (refreshedAt == null) LibraryIndexState.NOT_SYNCED else LibraryIndexState.READY
+
+    override suspend fun candidates(binding: AccountBinding, byteCount: Long, limit: Int): List<LibraryCandidate> {
+        reads += 1
+        return (icloud.registered + icloud.extraPairs).filter { it.originalByteCount == byteCount }.take(limit).map {
+            LibraryCandidate("icloud:test:${it.asset.name}", it.master.name, it.asset.name, names[it.master.name] ?: it.master.name,
+                byteCount, capturedAtEpochMillis = 0)
+        }
+    }
+
+    override suspend fun refreshedAt(binding: AccountBinding) = refreshedAt
 }
 
 internal object NoWakeups : WakeupScheduler {

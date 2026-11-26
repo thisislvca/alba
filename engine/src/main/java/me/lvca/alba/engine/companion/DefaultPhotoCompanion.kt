@@ -29,6 +29,7 @@ import me.lvca.alba.engine.model.ReclaimProposalId
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.SyncTicket
 import me.lvca.alba.engine.model.SystemConsentCallback
+import me.lvca.alba.engine.model.TransferFailureReason
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferProgress
 import me.lvca.alba.engine.model.TransferView
@@ -77,6 +78,7 @@ class DefaultPhotoCompanion(
     private val invoker = UploadInvoker(database, UploadOriginals(staging, InPlaceOriginals(originals), intake::restage), protocol,
         scheduler, accounts, authority, now, stages, ExistingCopyCheck(protocol, cloudLibrary, now), protocolStatus)
     private val reconciler = Reconciler(database, originals, protocol, authority, stages, now)
+    private val healer = UncertainHealer(database, protocol, cloudLibrary, stages, now)
     private val enrollment = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages, protocolStatus)
     private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts, elapsedRealtime)
 
@@ -154,9 +156,9 @@ class DefaultPhotoCompanion(
                 check(transferDao.abandonUnresolved(row.transferId, attemptId, now()) == 1) {
                     "This uncertain upload was already resolved"
                 }
-                check(transferDao.releaseWriteSlot(binding.accountId, attemptId) == 1) {
-                    "The uncertain upload no longer owns the write queue"
-                }
+                // An uncertain upload gave its write slot back when it became uncertain; one from before schema 25
+                // gave it back in the migration. Releasing again is harmless.
+                transferDao.releaseWriteSlot(binding.accountId, attemptId)
             }
         }
         transferDao.findStagedSource(row.stagedSourceId)?.let { source ->
@@ -177,6 +179,9 @@ class DefaultPhotoCompanion(
 
         if (binding == null || !protocol.isWriteAuthorized()) return@withLock WakeSummary(recovered, 0, 0, 0, false)
         var reconciled = reconciler.reconcileOne(binding)
+        // Uploads that ended uncertain are looked for again once the library has been refreshed since the last look.
+        // Automatic items wait for a network backup may use, as their uploads did; the user's own go on any network.
+        reconciled += healer.healDue(binding) { it.authorityType == AUTHORITY_MANUAL || authority.mayUseNetwork() }
         // Verification only reads, so it continues while uploads are paused remotely; nothing new is sent or staged.
         val uploadsPaused = invoker.isProtocolPaused()
 
@@ -228,7 +233,16 @@ class DefaultPhotoCompanion(
 
     /** Backup status, settings, retry and free space, over the same intake, trash and journal. */
     private inner class Controls : BackupControls {
-        override suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates = trash.freeUpSpaceCandidates()
+        override suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates {
+            // Before anything is offered for deletion, ambiguous uploads are settled by their bytes where they can be.
+            runSuspendCatching { accounts.synchronize()?.let { healer.resolveAllByBytes(it) } }
+            return trash.freeUpSpaceCandidates()
+        }
+
+        override suspend fun checkUncertain(transfer: TransferId): Boolean {
+            val binding = accounts.synchronize() ?: return false
+            return healer.resolveByBytes(binding, transfer.value)
+        }
 
         override suspend fun retryTransfer(transfer: TransferId): UploadTicket = intake.retry(transfer.value).also {
             runSuspendCatching { scheduler.scheduleSoon() }
@@ -303,5 +317,38 @@ class DefaultPhotoCompanion(
         retryable = row.activeAttemptId == null &&
             (row.state == TransferState.NEEDS_ATTENTION || row.state == TransferState.UNSUPPORTED),
         alreadyInICloud = row.state == TransferState.VERIFIED && row.message == StoredMessage.ALREADY_IN_ICLOUD.code,
+        failureReason = row.failureReasonView(),
+        nextTryAtEpochMillis = row.notBeforeEpochMillis?.takeIf { row.state == TransferState.READY && row.automaticRetries > 0 },
     )
+
+    /** Why the item has not gone through, by what fixes it; null while nothing is wrong. */
+    private fun TransferProjection.failureReasonView(): TransferFailureReason? = when (state) {
+        TransferState.READY -> TransferFailureReason.WAITING_TO_RETRY.takeIf { automaticRetries > 0 }
+        TransferState.SENDING -> TransferFailureReason.STORAGE_FULL.takeIf { message == StoredMessage.ICLOUD_STORAGE_FULL.code }
+        TransferState.AMBIGUOUS, TransferState.NOT_OBSERVED ->
+            if (failureReason == FailureReasons.ICLOUD_REJECTED) TransferFailureReason.FORMAT_NOT_SUPPORTED else TransferFailureReason.CHECKING_ICLOUD
+        TransferState.UNSUPPORTED -> TransferFailureReason.FORMAT_NOT_SUPPORTED
+        TransferState.NEEDS_ATTENTION, TransferState.NEEDS_SIGN_IN -> when {
+            failureReason == FailureReasons.ICLOUD_REJECTED -> TransferFailureReason.FORMAT_NOT_SUPPORTED
+            failureReason == FailureReasons.FILE_GONE || StoredMessage.decode(message) in FILE_GONE_MESSAGES -> TransferFailureReason.FILE_GONE
+            StoredMessage.decode(message) in PHOTO_ACCESS_MESSAGES -> TransferFailureReason.PHOTO_ACCESS
+            else -> TransferFailureReason.STOPPED
+        }
+        else -> null
+    }
+
+    private companion object {
+        /** Messages that mean the phone file is gone, from before the reason was kept with the transfer. */
+        val FILE_GONE_MESSAGES = setOf(
+            StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN,
+            StoredMessage.THIS_PHOTO_IS_NO_LONGER_AVAILABLE_ON_THE_PHONE,
+            StoredMessage.THIS_FILE_IS_NO_LONGER_ON_THE_PHONE,
+        )
+
+        /** Messages that mean automatic backup lost the photo access it needs. */
+        val PHOTO_ACCESS_MESSAGES = setOf(
+            StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED,
+            StoredMessage.BACKUP_PAUSED_ALLOW_FULL_PHOTO_AND_MEDIA_LOCATION_ACCESS,
+        )
+    }
 }

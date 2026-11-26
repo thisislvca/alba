@@ -19,6 +19,9 @@ data class TransferProjection(
     val message: String?,
     val authorityType: String = "MANUAL",
     val activeAttemptId: String? = null,
+    val automaticRetries: Int = 0,
+    val notBeforeEpochMillis: Long? = null,
+    val failureReason: String? = null,
 )
 
 data class ReleasableStageProjection(
@@ -34,7 +37,7 @@ interface TransferDao {
         """
         SELECT t.transferId, t.mediaId, t.displayName, t.state,
                s.byteCount, t.updatedAtEpochMillis, t.verifiedAtEpochMillis, t.message,
-               t.authorityType, t.activeAttemptId
+               t.authorityType, t.activeAttemptId, t.automaticRetries, t.notBeforeEpochMillis, t.failureReason
         FROM transfers t
         JOIN staged_sources s ON s.stagedSourceId = t.stagedSourceId
         JOIN accounts a ON a.accountId = t.accountId AND a.active = 1
@@ -479,7 +482,8 @@ interface TransferDao {
         UPDATE transfers
         SET state = :state, stateVersion = stateVersion + 1,
             reconciliationDueAtEpochMillis = NULL, updatedAtEpochMillis = :now,
-            message = :message
+            unresolvedSinceEpochMillis = COALESCE(unresolvedSinceEpochMillis, :now), healCheckedAtEpochMillis = NULL,
+            failureReason = :failureReason, message = :message
         WHERE transferId = :transferId AND activeAttemptId = :attemptId
           AND state IN ('OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE')
         """,
@@ -490,7 +494,85 @@ interface TransferDao {
         state: TransferState,
         now: Long,
         message: String,
+        failureReason: String? = null,
     ): Int
+
+    /** Uncertain uploads of the account, the one looked for longest ago first. */
+    @Query(
+        """
+        SELECT * FROM transfers
+        WHERE accountId = :accountId AND state IN ('AMBIGUOUS', 'NOT_OBSERVED') AND activeAttemptId IS NOT NULL
+        ORDER BY COALESCE(healCheckedAtEpochMillis, 0), transferId
+        """,
+    )
+    suspend fun findUnresolved(accountId: String): List<TransferEntity>
+
+    /** The uncertain upload was looked for in the refreshed library at [checkedAt] and is still uncertain. */
+    @Query(
+        """
+        UPDATE transfers SET healCheckedAtEpochMillis = :checkedAt
+        WHERE transferId = :transferId AND activeAttemptId = :attemptId AND state IN ('AMBIGUOUS', 'NOT_OBSERVED')
+        """,
+    )
+    suspend fun noteHealChecked(transferId: String, attemptId: String, checkedAt: Long): Int
+
+    /** Several iCloud items could be the upload that was not observed: it stays uncertain, now as ambiguous. */
+    @Query(
+        """
+        UPDATE transfers
+        SET state = 'AMBIGUOUS', stateVersion = stateVersion + 1, healCheckedAtEpochMillis = :now,
+            updatedAtEpochMillis = :now, message = :message
+        WHERE transferId = :transferId AND activeAttemptId = :attemptId AND state = 'NOT_OBSERVED'
+        """,
+    )
+    suspend fun markNotObservedAmbiguous(transferId: String, attemptId: String, now: Long, message: String): Int
+
+    /** A unique copy of the uncertain upload appeared in iCloud: it is verified after all. */
+    @Query(
+        """
+        UPDATE transfers
+        SET state = 'VERIFIED', stateVersion = stateVersion + 1, unresolvedSinceEpochMillis = NULL,
+            healCheckedAtEpochMillis = NULL, verifiedAtEpochMillis = :verifiedAt, updatedAtEpochMillis = :verifiedAt,
+            message = :message
+        WHERE transferId = :transferId AND activeAttemptId = :attemptId AND state IN ('AMBIGUOUS', 'NOT_OBSERVED')
+        """,
+    )
+    suspend fun markHealed(
+        transferId: String,
+        attemptId: String,
+        verifiedAt: Long,
+        message: String = StoredMessage.VERIFIED_IN_ICLOUD.code,
+    ): Int
+
+    /**
+     * No copy of the upload appeared in iCloud for the whole healing window, and nothing in the library could be it: the
+     * transfer is READY again without its attempt, and the next attempt names it as its predecessor.
+     */
+    @Query(
+        """
+        UPDATE transfers
+        SET state = 'READY', stateVersion = stateVersion + 1, activeAttemptId = NULL,
+            leaseToken = NULL, leaseExpiresAtEpochMillis = NULL,
+            reconciliationDueAtEpochMillis = NULL, reconciliationDeadlineEpochMillis = NULL,
+            reconciliationChangeToken = NULL, notBeforeEpochMillis = NULL,
+            unresolvedSinceEpochMillis = NULL, healCheckedAtEpochMillis = NULL, existingCopyCheck = :existingCopyCheck,
+            automaticRetries = 0,
+            updatedAtEpochMillis = :now, message = :message
+        WHERE transferId = :transferId AND activeAttemptId = :attemptId AND state = 'NOT_OBSERVED'
+          AND failureReason IS NULL
+        """,
+    )
+    suspend fun reuploadNotObserved(
+        transferId: String,
+        attemptId: String,
+        now: Long,
+        existingCopyCheck: String,
+        message: String = StoredMessage.NO_COPY_APPEARED_IN_ICLOUD_UPLOADING_AGAIN.code,
+    ): Int
+
+    /** The uncertainty of [attemptId] is settled: its bytes may be uploaded or staged again. */
+    @Query("UPDATE upload_suppressions SET active = 0 WHERE attemptId = :attemptId AND active = 1")
+    suspend fun deactivateSuppressions(attemptId: String): Int
 
     @Query(
         """
