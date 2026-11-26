@@ -4,6 +4,7 @@ import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.BackupEnrollmentEntity
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
+import me.lvca.alba.engine.model.BackupNetwork
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.source.ExactOriginalSource
 
@@ -31,6 +32,9 @@ internal class AutomaticBackupAuthority(
 
     /** Whether automatic backup may find, stage or retry items now: the network allows it and so does the charger. */
     fun mayBackUp(): Boolean = mayUseNetwork() && chargingAllows()
+
+    /** Whether the phone is on an unmetered network now, which large automatic items wait for. */
+    fun isUnmetered(): Boolean = policy.network() == BackupNetwork.UNMETERED
 
     private fun chargingAllows(): Boolean = !policy.settings().onlyWhileCharging || policy.isCharging()
 

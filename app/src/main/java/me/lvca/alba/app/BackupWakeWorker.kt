@@ -108,7 +108,8 @@ class BackupWakeWorker(
         var progressShownAt = System.currentTimeMillis()
         return withTimeoutOrNull(drain.hardLimitMillis - (System.currentTimeMillis() - startedAt)) {
             while (true) {
-                val summary = app.graph.maintenance.wake(WakeReason.BACKGROUND)
+                // Only a foreground run has the time budget to finish a large item; it may start them on an unmetered network.
+                val summary = app.graph.maintenance.wake(if (drain.foreground) WakeReason.LONG_RUNNING else WakeReason.BACKGROUND)
                 totals.passes += 1
                 totals.recovered += summary.recoveredInvocations
                 totals.reconciled += summary.reconciledTransfers

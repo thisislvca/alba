@@ -35,6 +35,7 @@ import me.lvca.alba.engine.model.RemoteOriginalObservation
 import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.RemoteRecordRef
 import me.lvca.alba.engine.model.StoredMessage
+import me.lvca.alba.engine.model.TransferFailureReason
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadReceipt
@@ -559,38 +560,57 @@ class BackupJournalTest {
     }
 
     @Test
-    fun automaticRetriesStopAfterTheCapAndTheUserCanRetry() = runBlocking {
+    fun automaticRetriesBackOffToADailyCapAndNeverGiveUp() = runBlocking {
         source.items += item(1, "camera.jpg", "image/jpeg")
         val photos = enrolled()
-        protocol.interruptions = Reconciler.MAX_AUTOMATIC_RETRIES + 1
+        protocol.interruptions = 6
 
-        repeat(Reconciler.MAX_AUTOMATIC_RETRIES + 1) {
+        val waits = mutableListOf<Long>()
+        repeat(6) { tries ->
             photos.syncNow()
-            clock += Reconciler.retryBackoffMillis(it)
+            val waiting = photos.observeTransfers().first().single()
+            assertEquals(TransferViewState.WAITING, waiting.state)
+            assertEquals(TransferFailureReason.WAITING_TO_RETRY, waiting.failureReason)
+            assertEquals(StoredMessage.UPLOAD_INTERRUPTED_TRYING_AGAIN.code, waiting.message)
+            val nextTry = requireNotNull(waiting.nextTryAtEpochMillis)
+            waits += nextTry - clock
+            assertEquals(tries + 1, protocol.uploadStarts)
+            clock = nextTry - 1
+            photos.syncNow()
+            assertEquals("Nothing starts before its next try", tries + 1, protocol.uploadStarts)
+            clock = nextTry
         }
-        val stopped = photos.observeTransfers().first().single()
-        assertEquals(TransferViewState.NEEDS_ATTENTION, stopped.state)
-        assertEquals(StoredMessage.UPLOAD_INTERRUPTED_REPEATEDLY.code, stopped.message)
-        assertTrue("Nothing reached iCloud, so the user can retry", stopped.retryable)
-        assertEquals(Reconciler.MAX_AUTOMATIC_RETRIES + 1, protocol.uploadStarts)
-        photos.syncNow()
-        assertEquals("No automatic attempt after the cap", Reconciler.MAX_AUTOMATIC_RETRIES + 1, protocol.uploadStarts)
+        assertEquals("1, 5, 15 and 60 minutes, then daily", listOf(1L, 5, 15, 60, 24 * 60, 24 * 60).map { it * 60_000L }, waits)
 
-        photos.backup.retryTransfer(stopped.id)
         photos.syncNow()
+        assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
+        assertEquals("Each try was a fresh attempt", 7, protocol.uploadStarts)
+    }
+
+    @Test
+    fun retryNowSkipsTheBackoff() = runBlocking {
+        source.items += item(1, "camera.jpg", "image/jpeg")
+        val photos = enrolled()
+        protocol.interruptions = 1
+        photos.syncNow()
+        assertEquals(1, protocol.uploadStarts)
+
+        assertEquals(1, photos.backup.retryWaitingNow())
+        photos.syncNow()
+
+        assertEquals(2, protocol.uploadStarts)
         assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
     }
 
     @Test
-    fun retryingAfterTheCapReleasesTheOldStagedCopy() = runBlocking {
+    fun retryingAnItemICloudRefusedReleasesTheOldStagedCopy() = runBlocking {
         source.items += item(1, "camera.jpg", "image/jpeg")
         val photos = enrolled()
-        protocol.interruptions = Reconciler.MAX_AUTOMATIC_RETRIES + 1
-        repeat(Reconciler.MAX_AUTOMATIC_RETRIES + 1) {
-            photos.syncNow()
-            clock += Reconciler.retryBackoffMillis(it)
-        }
+        protocol.rejectStatus = 415
+        photos.syncNow()
+        protocol.rejectStatus = null
         val stopped = photos.observeTransfers().first().single()
+        assertEquals(TransferFailureReason.FORMAT_NOT_SUPPORTED, stopped.failureReason)
 
         // Retried at once, before any later pass could release the stopped item's copy.
         photos.backup.retryTransfer(stopped.id)
@@ -946,6 +966,9 @@ class BackupJournalTest {
         var onCaptureChangeToken: () -> Unit = {}
         override suspend fun captureChangeToken(binding: AccountBinding) = "before".also { onCaptureChangeToken() }
 
+        /** While set, iCloud refuses each file at registration with this status. */
+        var rejectStatus: Int? = null
+
         override suspend fun prepareOriginal(
             binding: AccountBinding, fileName: String, source: OneShotUploadSource, lastModifiedAtEpochMillis: Long?,
             captureOffsetMinutes: Int?,
@@ -955,6 +978,7 @@ class BackupJournalTest {
             override suspend fun startOnce(attemptId: String): UploadAcceptance {
                 uploadStarts += 1
                 if (storageFull) throw ICloudStorageFullException()
+                rejectStatus?.let { throw me.lvca.alba.engine.model.ICloudRejectedUploadException(it) }
                 if (interruptions > 0) {
                     interruptions -= 1
                     interrupted += attemptId

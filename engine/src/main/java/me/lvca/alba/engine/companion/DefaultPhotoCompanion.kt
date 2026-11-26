@@ -22,6 +22,7 @@ import me.lvca.alba.engine.model.CloudLibraryIndex
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.FreeUpSpaceCandidates
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
+import me.lvca.alba.engine.model.LARGE_ITEM_BYTES
 import me.lvca.alba.engine.model.MaintenanceWakeup
 import me.lvca.alba.engine.model.PhotoCompanion
 import me.lvca.alba.engine.model.ProtocolStatusGate
@@ -65,6 +66,8 @@ class DefaultPhotoCompanion(
     cloudLibrary: CloudLibraryIndex = CloudLibraryIndex.NONE,
     /** Alba's remote protocol status, which can pause uploads while an iCloud change is investigated. */
     protocolStatus: ProtocolStatusGate = ProtocolStatusGate.Open,
+    /** Automatic items larger than this upload only in a long run on an unmetered network. */
+    private val largeItemBytes: Long = LARGE_ITEM_BYTES,
 ) : PhotoCompanion, MaintenanceWakeup {
     private val accountDao = database.accountDao()
     private val transferDao = database.transferDao()
@@ -170,8 +173,10 @@ class DefaultPhotoCompanion(
     override suspend fun wake(reason: WakeReason): WakeSummary = maintenanceGate.withLock {
         val allowManual = reason == WakeReason.USER_REQUESTED || reason == WakeReason.USER_TRANSFER
         val allowAutomatic = reason != WakeReason.USER_TRANSFER
+        // A large automatic item uploads only in a long run on an unmetered network; any other run would cut it off.
+        val maxAutomaticBytes = if (reason == WakeReason.LONG_RUNNING && authority.isUnmetered()) Long.MAX_VALUE else largeItemBytes
         val binding = accounts.synchronize()
-        val recovered = invoker.recoverInterrupted(binding, allowManual, allowAutomatic)
+        val recovered = invoker.recoverInterrupted(binding, allowManual, allowAutomatic, maxAutomaticBytes)
         trashDao.recoverTrashHandoffs()
         trash.inspectApprovedTrashAttempts()
         stages.deleteReleasable()
@@ -192,7 +197,7 @@ class DefaultPhotoCompanion(
         val round = if (uploadsPaused) {
             UploadInvoker.Round(0, 0)
         } else {
-            invoker.runRound(binding, allowManual, allowAutomatic) {
+            invoker.runRound(binding, allowManual, allowAutomatic, maxAutomaticBytes) {
                 if (allowAutomatic) intake.discoverAndStageAutomatic(binding) else 0
             }
         }
@@ -212,6 +217,7 @@ class DefaultPhotoCompanion(
                 allowAutomaticPhotos = authority.canRun(binding, video = false),
                 allowAutomaticVideos = authority.canRun(binding, video = true),
                 allowManual = false,
+                maxAutomaticBytes = maxAutomaticBytes,
             ) > 0
         val moreWork = dueAt != null || ready
         if (ready) scheduler.scheduleSoon()
@@ -237,6 +243,11 @@ class DefaultPhotoCompanion(
             // Before anything is offered for deletion, ambiguous uploads are settled by their bytes where they can be.
             runSuspendCatching { accounts.synchronize()?.let { healer.resolveAllByBytes(it) } }
             return trash.freeUpSpaceCandidates()
+        }
+
+        override suspend fun retryWaitingNow(): Int {
+            val binding = accounts.requireActive()
+            return transferDao.clearRetryBackoff(binding.accountId, now()).also { if (it > 0) runSuspendCatching { scheduler.scheduleSoon() } }
         }
 
         override suspend fun checkUncertain(transfer: TransferId): Boolean {

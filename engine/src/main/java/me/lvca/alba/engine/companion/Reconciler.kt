@@ -28,9 +28,9 @@ import java.util.UUID
  *
  * One case is not uncertain: an attempt Apple never accepted, whose write journal proves it never sent the request
  * that registers a photo, and for which a complete read of the library's changes since it started shows no exact copy.
- * iCloud did not receive it, so the transfer goes back to READY for a fresh attempt after a backoff, up to
- * [MAX_AUTOMATIC_RETRIES] times; after that it waits for the user's Retry. Nothing is suppressed, since nothing of it is
- * in iCloud.
+ * iCloud did not receive it, so the transfer goes back to READY for a fresh attempt, with a fresh upload URL, after a
+ * backoff ([retryBackoffMillis]) that grows to a daily cap; it keeps trying until it goes through or fails for good.
+ * Nothing is suppressed, since nothing of it is in iCloud.
  */
 internal class Reconciler(
     private val database: AlbaDatabase,
@@ -229,15 +229,13 @@ internal class Reconciler(
         }
     }
 
-    /** iCloud did not receive [attempt]: start afresh after a backoff, or, with retries used up, leave it to the user. */
+    /** iCloud did not receive [attempt]: start afresh after a backoff that grows with each try, up to a day. */
     private suspend fun retryProvenNotReceived(binding: AccountBinding, transfer: TransferEntity, attempt: UploadAttemptEntity) {
         val retries = transfer.automaticRetries
         database.withTransaction {
-            val changed = if (retries < MAX_AUTOMATIC_RETRIES) {
-                transferDao.retryAfterProvenNotReceived(transfer.transferId, attempt.attemptId, now() + retryBackoffMillis(retries), now())
-            } else {
-                transferDao.stopRetryingProvenNotReceived(transfer.transferId, attempt.attemptId, now())
-            }
+            val changed = transferDao.retryAfterProvenNotReceived(
+                transfer.transferId, attempt.attemptId, now() + retryBackoffMillis(retries), now(),
+            )
             check(changed == 1)
             check(transferDao.releaseWriteSlot(binding.accountId, attempt.attemptId) == 1)
         }
@@ -277,12 +275,13 @@ internal class Reconciler(
         private const val RECONCILIATION_READ_RETRY_MILLIS = 15 * 1_000L
         private const val RECONCILIATION_PAGE_LIMIT = 200
 
-        /** Fresh attempts after ones proven not received, before the user is asked. */
-        internal const val MAX_AUTOMATIC_RETRIES = 3
+        /** 1, 5, 15 and 60 minutes, then [RETRY_BACKOFF_CAP_MILLIS]. */
+        private val RETRY_BACKOFF_MILLIS = longArrayOf(60_000L, 5 * 60_000L, 15 * 60_000L, 60 * 60_000L)
 
-        private val RETRY_BACKOFF_MILLIS = longArrayOf(60_000L, 5 * 60_000L, 15 * 60_000L)
+        /** The longest wait between fresh attempts: once a day, for as long as it takes. */
+        internal const val RETRY_BACKOFF_CAP_MILLIS = 24 * 60 * 60_000L
 
         /** How long to wait before the fresh attempt that follows [retries] earlier ones. */
-        internal fun retryBackoffMillis(retries: Int): Long = RETRY_BACKOFF_MILLIS[retries.coerceIn(0, RETRY_BACKOFF_MILLIS.lastIndex)]
+        internal fun retryBackoffMillis(retries: Int): Long = RETRY_BACKOFF_MILLIS.getOrElse(retries.coerceAtLeast(0)) { RETRY_BACKOFF_CAP_MILLIS }
     }
 }

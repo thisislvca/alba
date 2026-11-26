@@ -207,6 +207,9 @@ internal class TestICloud : ICloudPhotoProtocol {
     /** Changes the bytes iCloud serves for a master, to model an original that differs from what was received. */
     var serveAs: (ByteArray) -> ByteArray = { it }
 
+    /** While set, iCloud refuses each file at registration with this status, as it does a file it will not take. */
+    var rejectStatus: Int? = null
+
     /** The next registrations reach iCloud but their response is lost. */
     var lostResponses = 0
 
@@ -257,6 +260,7 @@ internal class TestICloud : ICloudPhotoProtocol {
             }
             check(phases[attemptId] == "RECEIPT_SAVED") { "An uncertain write cannot be replayed" }
             phases[attemptId] = "REGISTERING"
+            rejectStatus?.let { throw me.lvca.alba.engine.model.ICloudRejectedUploadException(it) }
             val bytes = requireNotNull(sentBytes[attemptId])
             val receipt = receipts[attemptId]
             registrations += 1

@@ -57,6 +57,13 @@ An upload Reconciler could not settle by its deadline ends uncertain: `NOT_OBSER
 
 An upload iCloud could not process (`UploadProcessingStatus.Failed`) is recorded as rejected and is never sent again; a later look can still verify it if a copy appears.
 
+## Retries
+
+- **A failed byte transfer starts again from the beginning.** An attempt whose PUT failed never registered a photo (its journal stops before `REGISTERING`), so Reconciler lets it go once a complete read of the changes since it started shows no copy. The transfer is queued again for a fresh attempt, which asks `createUploadUrl` for a fresh URL. It waits 1, 5, 15 and 60 minutes, then once a day (`Reconciler.retryBackoffMillis`), for as long as it takes; "Retry now" skips the wait.
+- **An expired URL is never used.** `createUploadUrl`'s URL lasts about 15 minutes. A reservation saved in the journal records when it was made, and an attempt resumed from `RESERVED` after that (or one saved before the time was kept) reserves again before sending any byte.
+- **Large items need a long run.** An automatic item over 100 MB (`LARGE_ITEM_BYTES`) starts, or resumes, only in a foreground backup run (`BackupDrain`, `WakeReason.LONG_RUNNING`) on an unmetered network. The 6-minute background budget would always cut it off. A run with a large item queued asks to be a foreground run; Android may refuse that while Alba is in the background, and the item then waits for a run that is allowed. The user's own uploads are not limited.
+- **Only clear permanent errors stop retries**, each recorded with its reason (`TransferEntity.failureReason` and the message): a format iCloud.com does not take (skipped at discovery), iCloud refusing the file at registration (a 400, 415 or 422 for that file) or failing to process it, and a phone file that is gone. Everything else is retried.
+
 ## No resumable upload
 
 An upload that stops mid-PUT starts its bytes again; there is no ranged or resumed upload, because the endpoint takes a single PUT:

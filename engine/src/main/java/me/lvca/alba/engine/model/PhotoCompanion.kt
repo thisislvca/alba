@@ -272,6 +272,9 @@ interface BackupControls {
      */
     suspend fun checkUncertain(transfer: TransferId): Boolean = false
 
+    /** The user asked to try now: items waiting out a retry backoff start on the next pass. Returns how many. */
+    suspend fun retryWaitingNow(): Int = 0
+
     /** How much of what backup covers is verified, counted from the phone and the journal. */
     suspend fun backupProgress(): BackupProgress
 
@@ -309,6 +312,12 @@ enum class WakeReason {
     PROCESS_STARTED,
     FOREGROUND,
     BACKGROUND,
+
+    /**
+     * A background run in the foreground, with a long time budget: the only run that starts automatic items larger than
+     * [LARGE_ITEM_BYTES], and only on an unmetered network. An ordinary background run would always cut them off.
+     */
+    LONG_RUNNING,
     USER_REQUESTED,
     USER_TRANSFER,
 }
@@ -423,6 +432,12 @@ interface OneShotUploadSource {
  * sent, so the attempt stays safely resumable; backup pauses instead of failing each item.
  */
 class ICloudStorageFullException(message: String = "iCloud storage is full") : RuntimeException(message)
+
+/**
+ * iCloud answered the registration of an upload by refusing that file (a client error for it, not for the session or the
+ * account). Nothing was added to the library, and the same bytes would be refused again, so the upload stops for good.
+ */
+class ICloudRejectedUploadException(val status: Int) : RuntimeException("iCloud refused this file (status $status)")
 
 interface PreparedICloudUpload {
     suspend fun startOnce(attemptId: String): UploadAcceptance
