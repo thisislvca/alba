@@ -36,7 +36,7 @@ When a change alters how a screen looks on purpose, push it:
 2. Open the pull request's Files changed, look at the images and check they're the differences you meant.
 3. Merge once the new run is green. Merging accepts the images.
 
-Goldens left over from a removed screenshot test are deleted the same way. This works for branches of this repository only. For a fork, or a branch without a pull request, open Actions > CI > Run workflow, pick the branch and tick "record-screenshots": it records and pushes the same way. If the head commit is already a bot golden update and the screenshots still differ, rendering isn't deterministic: CI fails instead of committing again, so fix what varies.
+Goldens left over from a removed screenshot test are deleted the same way. This works for branches of this repository only. For a fork, or a branch without a pull request, open Actions > CI > Run workflow, pick the branch and tick "record-screenshots": it records and pushes the same way. If the head commit is already a bot golden update and the screenshots still differ, rendering isn't deterministic: CI fails instead of committing again, so fix what varies. Re-recorded PNGs whose pixels are unchanged are dropped before the bot commits, so only real pixel changes reach a commit.
 
 Both paths push with the App's token, because a push with the default `GITHUB_TOKEN` starts no CI. The App's ID and private key are the repository secrets `ALBA_BOT_APP_ID` and `ALBA_BOT_PRIVATE_KEY`. Without them the update fails and names the missing one; there is no fallback. To create them, register a GitHub App with Contents: read and write on this repository, install it there, and store its ID and a generated private key (the whole `.pem` file) as those two secrets.
 
