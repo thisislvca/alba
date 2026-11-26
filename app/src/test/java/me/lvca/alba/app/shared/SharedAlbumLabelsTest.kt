@@ -1,18 +1,29 @@
 package me.lvca.alba.app.shared
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import me.lvca.alba.app.testing.SHORT_WAIT
 import me.lvca.alba.app.ui.collections.AlbumCard
 import me.lvca.alba.app.ui.collections.AlbumHero
 import me.lvca.alba.app.ui.collections.CollectionPreview
+import me.lvca.alba.app.ui.designsystem.AccountIdentity
+import me.lvca.alba.app.ui.designsystem.LocalAccountIdentity
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.shared.expiryDateLabel
 import me.lvca.alba.engine.model.GalleryCollection
@@ -24,6 +35,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.ByteArrayOutputStream
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.Locale
@@ -49,6 +61,43 @@ class SharedAlbumLabelsTest {
             .map { node -> node.config[SemanticsProperties.Text].joinToString { it.text } }
         assertEquals(listOf("Created by You", "Shared with Sample Guest", "Shared with 2 people", "From Sample Owner"), lines)
         compose.onNodeWithTag("shared-album-expiry", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun ownAlbumCardShowsTheAccountsAvatarAndOthersShowTheirOwnersInitial() {
+        val albums = listOf(
+            album("mine", SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER)),
+            album("theirs", SharedAlbumInfo(SharedAlbumGeneration.LEGACY, SharedAlbumRole.VIEWER, ownerName = "sample Owner")),
+            album("unnamed", SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.CONTRIBUTOR)),
+        )
+        compose.setContent { AlbaTheme(darkTheme = false) {
+            CompositionLocalProvider(LocalAccountIdentity provides AccountIdentity(null, "alex@example.com")) { Column {
+                albums.forEach { AlbumCard(it, CollectionPreview(3), 0, {}) {} }
+            } }
+        } }
+        // Your own album: the account's initial, as the header and Profile show it, never a generic glyph.
+        compose.onNodeWithTag("shared-owner-avatar-${albums[0].id}", useUnmergedTree = true)
+            .assertContentDescriptionEquals("Created by You").assert(hasAnyDescendant(hasText("A")))
+        compose.onAllNodesWithTag("account-photo", useUnmergedTree = true).assertCountEquals(0)
+        compose.onNodeWithTag("shared-owner-avatar-${albums[1].id}", useUnmergedTree = true)
+            .assertContentDescriptionEquals("Created by sample Owner").assert(hasAnyDescendant(hasText("S")))
+        // iCloud named no one: no avatar rather than a placeholder.
+        compose.onNodeWithTag("shared-owner-avatar-${albums[2].id}", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun ownAlbumCardShowsTheAccountsPhotoWhenThereIsOne() {
+        val photo = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888).let { bitmap ->
+            bitmap.eraseColor(android.graphics.Color.rgb(83, 132, 161))
+            ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it); bitmap.recycle() }.toByteArray()
+        }
+        val mine = album("mine", SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER))
+        compose.setContent { AlbaTheme(darkTheme = false) {
+            CompositionLocalProvider(LocalAccountIdentity provides AccountIdentity(photo, "alex@example.com")) {
+                AlbumCard(mine, CollectionPreview(3), 0, {}) {}
+            }
+        } }
+        compose.waitUntil(SHORT_WAIT) { compose.onAllNodesWithTag("account-photo", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("shared-owner-avatar-${mine.id}", useUnmergedTree = true)
+            .assertContentDescriptionEquals("Created by You").assert(hasAnyDescendant(hasTestTag("account-photo")))
     }
 
     @Test fun aTemporaryAlbumSaysWhenItExpires() {

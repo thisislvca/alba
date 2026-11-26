@@ -1,6 +1,7 @@
 package me.lvca.alba.app.ui.designsystem
 
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -33,9 +34,11 @@ internal fun AlbaAvatar(
     contentColor: Color,
     modifier: Modifier = Modifier,
     shadowElevation: Dp = 0.dp,
+    border: BorderStroke? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    Surface(modifier.size(size), shape = CircleShape, color = color, contentColor = contentColor, shadowElevation = shadowElevation) {
+    Surface(modifier.size(size), shape = CircleShape, color = color, contentColor = contentColor, shadowElevation = shadowElevation,
+        border = border) {
         Box(contentAlignment = Alignment.Center, content = content)
     }
 }
@@ -50,13 +53,21 @@ internal fun InitialAvatar(
     contentColor: Color = AlbaTheme.colors.onAvatar,
     textStyle: TextStyle = MaterialTheme.typography.titleSmall,
     shadowElevation: Dp = 0.dp,
+    border: BorderStroke? = null,
 ) {
-    AlbaAvatar(size, color, contentColor, modifier, shadowElevation) {
+    AlbaAvatar(size, color, contentColor, modifier, shadowElevation, border) {
         val initial = name?.trim()?.firstOrNull()?.uppercaseChar()?.toString()
         if (initial == null) Icon(AlbaIcons.AccountCircle, null, Modifier.size(size * .77f))
         else Text(initial, style = textStyle)
     }
 }
+
+/** Who "You" is wherever the app shows the account's avatar: its photo when Apple has one, and its Apple Account. */
+@Stable
+internal class AccountIdentity(val photo: ByteArray?, val name: String?)
+
+/** The signed-in account's identity; AlbaApp provides it. Empty in previews and tests that render a screen alone. */
+internal val LocalAccountIdentity = compositionLocalOf { AccountIdentity(null, null) }
 
 /**
  * The account's avatar, the same wherever it appears: its photo when Apple has one, otherwise the initial of [name]
@@ -69,6 +80,8 @@ internal fun AccountAvatar(
     avatarSize: Dp = 56.dp,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.titleSmall,
+    shadowElevation: Dp = 0.dp,
+    border: BorderStroke? = null,
 ) {
     // Bound decoded dimensions as well as download size; a compressed image can be enormous.
     val bitmap by produceState<ImageBitmap?>(null, photo) {
@@ -87,10 +100,10 @@ internal fun AccountAvatar(
     }
     val image = bitmap
     val colors = MaterialTheme.colorScheme
-    if (image != null) AlbaAvatar(avatarSize, colors.primaryContainer, colors.onPrimaryContainer, modifier) {
+    if (image != null) AlbaAvatar(avatarSize, colors.primaryContainer, colors.onPrimaryContainer, modifier, shadowElevation, border) {
         Image(image, null, Modifier.size(avatarSize).testTag("account-photo"), contentScale = ContentScale.Crop)
     } else InitialAvatar(name, avatarSize, modifier, color = colors.primaryContainer, contentColor = colors.onPrimaryContainer,
-        textStyle = textStyle)
+        textStyle = textStyle, shadowElevation = shadowElevation, border = border)
 }
 
 @AlbaPreviews
