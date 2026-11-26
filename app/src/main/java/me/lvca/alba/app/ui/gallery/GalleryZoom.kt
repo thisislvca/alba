@@ -23,6 +23,7 @@ import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import me.lvca.alba.app.ui.adaptive.WindowWidth
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
@@ -38,29 +39,32 @@ internal enum class GridLevel(val dayHeaders: Boolean) {
     ;
 
     /**
-     * Columns for a grid [widthDp] wide on a screen whose shortest side is [smallestWidthDp]. Portrait counts come from
-     * the shortest side; wider grids (landscape, tablets beside a rail) scale them so tiles keep their size.
+     * Columns for a grid [gridWidthDp] wide in a window of width class [window]. A compact window (a phone in portrait)
+     * uses Google Photos' phone counts for its width. Wider windows scale a reference count to the grid's width, so
+     * tiles keep a steady size however wide the window is: phone-sized tiles on a medium window, and a little roomier
+     * ones, from Photos' large-screen counts, on an expanded one. Pinching still steps through the same levels.
      */
-    fun columns(smallestWidthDp: Float, widthDp: Float): Int {
+    fun columns(window: WindowWidth, gridWidthDp: Float): Int {
         // Google Photos' photogrid_calculator column counts: compact 4 / sw400 5 / sw700 7, default 3 / sw413 4 / sw700 5.
-        val large = smallestWidthDp >= LARGE_SCREEN_DP
-        val compact = if (large) COMPACT_LARGE else if (smallestWidthDp >= COMPACT_FIVE_FROM_DP) COMPACT_PHONE else COMPACT_SMALL
-        val day = if (large) DAY_LARGE else if (smallestWidthDp >= GalleryFeel.DAY_FOUR_COLUMNS_FROM_DP) DAY_PHONE else DAY_SMALL
+        val (reference, compact, day) = when (window) {
+            WindowWidth.COMPACT -> Triple(0f, if (gridWidthDp >= COMPACT_FIVE_FROM_DP) COMPACT_PHONE else COMPACT_SMALL,
+                if (gridWidthDp >= GalleryFeel.DAY_FOUR_COLUMNS_FROM_DP) DAY_PHONE else DAY_SMALL)
+            WindowWidth.MEDIUM -> Triple(MEDIUM_REFERENCE_DP, COMPACT_PHONE, DAY_PHONE)
+            WindowWidth.EXPANDED -> Triple(EXPANDED_REFERENCE_DP, COMPACT_LARGE, DAY_LARGE)
+        }
         val base = when (this) {
             COMPACT -> compact
             DAY -> day
             COZY -> (day - 1).coerceAtLeast(MIN_COZY)
             FIT -> 1
         }
-        val wider = smallestWidthDp > 0 && widthDp > smallestWidthDp * LANDSCAPE_RATIO
-        return if (wider) (base * widthDp / smallestWidthDp).roundToInt().coerceAtLeast(1) else base
+        return if (reference > 0f) (base * gridWidthDp / reference).roundToInt().coerceAtLeast(1) else base
     }
 
     /** The level one pinch step away: larger tiles when [zoomIn], or null at either end. */
     fun next(zoomIn: Boolean): GridLevel? = entries.getOrNull(ordinal + if (zoomIn) 1 else -1)
 
     private companion object {
-        const val LARGE_SCREEN_DP = 700f
         const val COMPACT_FIVE_FROM_DP = 400f
         const val COMPACT_SMALL = 4
         const val COMPACT_PHONE = 5
@@ -70,8 +74,11 @@ internal enum class GridLevel(val dayHeaders: Boolean) {
         const val DAY_LARGE = 5
         const val MIN_COZY = 2
 
-        /** A grid this much wider than the shortest side is in landscape or beside a rail. */
-        const val LANDSCAPE_RATIO = 1.05f
+        /** The grid width a medium window's phone counts are for; wider grids add columns of the same size. */
+        const val MEDIUM_REFERENCE_DP = 480f
+
+        /** The grid width an expanded window's large-screen counts are for. */
+        const val EXPANDED_REFERENCE_DP = 640f
     }
 }
 

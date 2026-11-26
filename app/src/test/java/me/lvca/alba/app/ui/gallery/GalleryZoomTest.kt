@@ -3,18 +3,31 @@ package me.lvca.alba.app.ui.gallery
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import me.lvca.alba.app.ui.adaptive.WindowWidth
 import org.junit.Assert.*
 import org.junit.Test
 
 class GalleryZoomTest {
     @Test fun levelsMatchGooglePhotosColumnCounts() {
         // A 411dp phone: compact 5, day 3 (under 413dp), cozy 2, one photo per row.
-        assertEquals(listOf(5, 3, 2, 1), GridLevel.entries.map { it.columns(411f, 411f) })
+        assertEquals(listOf(5, 3, 2, 1), GridLevel.entries.map { it.columns(WindowWidth.COMPACT, 411f) })
         // From 413dp the day level has 4 columns, and cozy one fewer.
-        assertEquals(listOf(5, 4, 3, 1), GridLevel.entries.map { it.columns(420f, 420f) })
-        assertEquals(listOf(4, 3, 2, 1), GridLevel.entries.map { it.columns(360f, 360f) })
-        // Landscape keeps the portrait tile size by scaling with the longer side.
-        assertEquals(10, GridLevel.COMPACT.columns(411f, 822f))
+        assertEquals(listOf(5, 4, 3, 1), GridLevel.entries.map { it.columns(WindowWidth.COMPACT, 420f) })
+        assertEquals(listOf(4, 3, 2, 1), GridLevel.entries.map { it.columns(WindowWidth.COMPACT, 360f) })
+    }
+
+    @Test fun widerWindowsAddColumnsRatherThanStretchingTiles() {
+        // A tablet in portrait beside its rail (medium): phone-sized tiles, twice the phone's day columns or near it.
+        assertEquals(listOf(8, 6, 5, 2), GridLevel.entries.map { it.columns(WindowWidth.MEDIUM, 720f) })
+        // A phone in landscape beside its rail (expanded): Photos' large-screen counts, scaled to the grid.
+        assertEquals(listOf(9, 7, 5, 1), GridLevel.entries.map { it.columns(WindowWidth.EXPANDED, 834f) })
+        // A tablet in landscape.
+        assertEquals(listOf(13, 9, 8, 2), GridLevel.entries.map { it.columns(WindowWidth.EXPANDED, 1200f) })
+        // Every level keeps at least the phone's count however the window grows.
+        GridLevel.entries.forEach { level ->
+            assertTrue(level.columns(WindowWidth.MEDIUM, 520f) >= level.columns(WindowWidth.COMPACT, 411f))
+            assertTrue(level.columns(WindowWidth.EXPANDED, 760f) >= level.columns(WindowWidth.COMPACT, 411f))
+        }
     }
 
     @Test fun pinchStepsOneLevelAndStopsAtTheEnds() {

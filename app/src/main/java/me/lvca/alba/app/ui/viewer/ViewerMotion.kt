@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.CoroutineScope
@@ -74,6 +75,10 @@ internal object ViewerSpec {
 
     /** ...and take two thirds of the height in landscape. */
     const val DETAILS_LANDSCAPE_FRACTION = 2f / 3f
+
+    /** Info beside the photo, on wide windows and in landscape: a standard Material pane, never more than half the window. */
+    val InfoPaneWidth = 360.dp
+    const val INFO_PANE_MAX_FRACTION = .5f
 
     /** GP `photos_pager_page_margin`. */
     val PageSpacing = 24.dp
@@ -166,6 +171,9 @@ internal fun shouldDismiss(travel: Offset, fullEffectPx: Float): Boolean =
 /** [velocityY] is in px/s, positive downward. [progress] is 0 collapsed to 1 expanded. */
 internal fun detailsOpenAfterRelease(progress: Float, velocityY: Float): Boolean =
     if (abs(velocityY) < ViewerSpec.DETAILS_VELOCITY_DEADZONE) progress > ViewerSpec.DETAILS_OPEN_POSITION else velocityY < 0f
+
+/** How wide Info's side pane opens in a viewer [viewerWidth] wide. */
+internal fun infoPaneWidth(viewerWidth: Dp): Dp = minOf(ViewerSpec.InfoPaneWidth, viewerWidth * ViewerSpec.INFO_PANE_MAX_FRACTION)
 
 /** Height of the expanded details sheet, leaving GP's 16:9 media band in portrait. */
 internal fun detailsSheetHeight(widthPx: Float, heightPx: Float, statusBarPx: Float): Float {

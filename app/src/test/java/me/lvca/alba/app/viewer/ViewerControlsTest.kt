@@ -157,7 +157,7 @@ class ViewerControlsTest {
         compose.runOnIdle { assertEquals(listOf(photo.id), requested) }
     }
 
-    /** In landscape the details panel leaves the photo a short slot; Try again must keep a full-height, labelled button. */
+    /** In landscape the details pane leaves the photo a narrower slot; Try again must keep a full-height, labelled button. */
     @Config(qualifiers = "w900dp-h600dp-land-hdpi")
     @Test fun aShortPhotoSlotKeepsTryAgainWhole() {
         compose.setAlbaContent(gallery.copy(selectedMedia = gallery.items[0]), ScreenshotFixtures.signedIn)

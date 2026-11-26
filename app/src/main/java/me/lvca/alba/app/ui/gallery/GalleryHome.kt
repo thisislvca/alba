@@ -33,7 +33,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -63,8 +62,12 @@ import me.lvca.alba.app.platform.demoEntry
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.BrowseActions
 import me.lvca.alba.app.ui.GalleryScreenActions
+import me.lvca.alba.app.ui.adaptive.albaLayout
 import me.lvca.alba.app.ui.collections.AlbumHero
 import me.lvca.alba.app.ui.collections.AlbumNameDialog
+import me.lvca.alba.app.ui.collections.CollectionDetailPlaceholder
+import me.lvca.alba.app.ui.collections.CollectionRow
+import me.lvca.alba.app.ui.collections.CollectionsListDetail
 import me.lvca.alba.app.ui.collections.CollectionsPage
 import me.lvca.alba.app.ui.collections.CollectionsScreen
 import me.lvca.alba.app.ui.collections.SharedAlbumsStrip
@@ -243,7 +246,12 @@ internal fun GalleryHome(
         tabFade.start(tab, next, reduceTabMotion) { interruptedTab = null; switchTab(it) }
     }
     val query = gallery.query
+    val layout = albaLayout()
+    // An expanded window keeps Collections' list on the left and shows the opened collection in a pane on the right,
+    // under a bar of its own; the header then belongs to the list.
+    val splitCollections = layout.listDetail && tab == GalleryTab.COLLECTIONS
     val inCollection = tab == GalleryTab.COLLECTIONS && (query.collectionId != null || query.offlineOnly || query.trashOnly)
+    val albumInHeader = inCollection && !splitCollections
     val collection = gallery.collections.firstOrNull { it.id == query.collectionId }
     val collectionTitle = when {
         query.trashOnly -> stringResource(if (query.origin == MediaOrigin.ICLOUD) R.string.icloud_recently_deleted else R.string.phone_trash)
@@ -252,18 +260,20 @@ internal fun GalleryHome(
         query.collectionId == GalleryQuery.HIDDEN -> stringResource(R.string.hidden)
         else -> collection?.localizedName() ?: SmartCollection.entries.firstOrNull { it.id == query.collectionId }?.localizedTitle() ?: stringResource(R.string.collection)
     }
+    fun closeCollection() = actions.changeQuery(GalleryQuery())
     fun backInCollections() {
-        if (inCollection) actions.changeQuery(GalleryQuery())
+        if (albumInHeader) closeCollection()
         else if (folder != null) folder = gallery.collections.firstOrNull { it.id == folder }?.parentId
         else if (collectionsPage != null) collectionsPage = null
         else switchTab(GalleryTab.LIBRARY)
     }
     val backEnabled = LocalPhotoTransition.current?.active != false && gallery.selection.isEmpty()
     val parentOf: (String) -> String? = { id -> gallery.collections.firstOrNull { it.id == id }?.parentId }
-    val screen = if (tab == GalleryTab.COLLECTIONS) GalleryScreen(tab, collectionsPage, folder, GalleryScreen.albumOf(query))
-        else GalleryScreen(tab)
+    val screen = if (tab == GalleryTab.COLLECTIONS) GalleryScreen(tab, collectionsPage, folder,
+        GalleryScreen.albumOf(query).takeUnless { splitCollections }) else GalleryScreen(tab)
     val libraryFrame = rememberGraphicsLayer()
-    val title = if (inCollection) collectionTitle else if (tab == GalleryTab.COLLECTIONS && folder != null)
+    val detailFrame = rememberGraphicsLayer()
+    val title = if (albumInHeader) collectionTitle else if (tab == GalleryTab.COLLECTIONS && folder != null)
         gallery.collections.firstOrNull { it.id == folder }?.name ?: stringResource(R.string.albums) else stringResource(if (tab == GalleryTab.COLLECTIONS) collectionsPage?.title ?: tab.title else tab.title)
     val contextAccountLabel = stringResource(R.string.open_icloud_account)
     val signedIn = session.accountState as? ICloudAccountState.SignedIn
@@ -282,6 +292,7 @@ internal fun GalleryHome(
     val connectPrompt = session.accountState == ICloudAccountState.SignedOut && tab == GalleryTab.LIBRARY &&
         query == unfiltered && gallery.items.isEmpty() && !session.isRefreshing
     val hero = inCollection && collection != null && !collection.isFolder && !collection.id.startsWith("smart:") && !collection.id.startsWith("device-folder:")
+    val heroInHeader = hero && !splitCollections
     val visibleLevel = if (hero) albumLevel else level
     val changeLevel: (GridLevel) -> Unit = { if (hero) albumLevel = it else level = it }
     // Reserve the leading grid item before the catalog arrives, so lazy-key anchoring cannot hide it.
@@ -317,14 +328,14 @@ internal fun GalleryHome(
         if (invitations) sheet = GallerySheet.SharedInvitations
     }
     val uiDensity = LocalDensity.current
-    BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
-        val wide = maxWidth >= 600.dp
+    Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
+        val wide = layout.navigationRail
         val phonePhotos = !wide && tab == GalleryTab.LIBRARY
         // Selecting keeps the header where it is: resetting it would shift the grid under a drag-selecting finger.
         val collapseHeader = phonePhotos
         val selecting = gallery.selection.isNotEmpty()
         // Kept while selecting: the selection bar covers it, and removing it would shift the grid.
-        val filterRow = !hero && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || inCollection)
+        val filterRow = !heroInHeader && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || albumInHeader)
         val headerState = rememberTopAppBarState()
         // A short grid can fit after collapse; it must still allow a reverse drag to restore the header.
         val collapseAllowed by rememberUpdatedState(collapseHeader)
@@ -372,7 +383,7 @@ internal fun GalleryHome(
         }
         // Elsewhere the large title collapses into its bar as the content scrolls, and opens again on each new screen.
         // Photos on a phone keeps Google Photos' header instead, which scrolls away whole.
-        val collapseTitle = !phonePhotos && !hero
+        val collapseTitle = !phonePhotos && !heroInHeader
         val titleState = rememberTopAppBarState()
         val titleScroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(titleState)
         LaunchedEffect(screen) { titleState.heightOffset = 0f; titleState.contentOffset = 0f }
@@ -381,13 +392,76 @@ internal fun GalleryHome(
         // The floating bar sits up to 16dp above the navigation bar; keep the grid's last row a clear 24dp above it.
         val bottomSpace = if (wide) 24.dp else floatingBarHeight + 40.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         LaunchedEffect(bottomSpace) { onBottomSpaceChanged(bottomSpace) }
-        Row(Modifier.fillMaxSize()) {
-            if (wide) NavigationRail(Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).testTag("navigation-rail"), containerColor = MaterialTheme.colorScheme.surface) {
-                Spacer(Modifier.height(24.dp))
-                GalleryTab.entries.forEach { destination -> NavigationRailItem(selected = selectedTab() == destination,
-                    onClick = { navigate(destination) }, icon = { Icon(destination.icon(selectedTab() == destination), null, Modifier.size(AlbaIconSize.standard)) }, label = { Text(stringResource(destination.title)) },
-                    modifier = Modifier.testTag("tab-${destination.name}")) }
+        // An album with a hero carries its title over the cover, so its bar holds only these.
+        val heroActions: @Composable RowScope.() -> Unit = {
+            if (collection?.shared != null) IconButton(onClick = { sheet = GallerySheet.SharedManage }, enabled = canEdit) {
+                Icon(AlbaIcons.AccountCircle, stringResource(R.string.shared_manage))
             }
+            IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+            Box {
+                IconButton(onClick = { albumMenu = true }, modifier = Modifier.testTag("album-options")) {
+                    Icon(AlbaIcons.MoreVert, stringResource(R.string.album_options))
+                }
+                AlbaMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
+                    AlbaMenuItem(stringResource(R.string.browse_by_date), onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate },
+                        enabled = sections.isNotEmpty(), leadingIcon = { Icon(AlbaIcons.DateRange, null) })
+                    AlbaMenuDivider()
+                    if (collection?.shared != null) {
+                        AlbaMenuItem(stringResource(R.string.shared_details),
+                            onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo },
+                            leadingIcon = { Icon(AlbaIcons.Info, null) })
+                        if (collection.shared?.canContribute == true) AlbaMenuItem(stringResource(R.string.shared_add_photos),
+                            onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit,
+                            leadingIcon = { Icon(AlbaIcons.Add, null) })
+                    } else {
+                        AlbaMenuItem(stringResource(R.string.rename_album),
+                            onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit,
+                            leadingIcon = { Icon(AlbaIcons.Edit, null) }, modifier = Modifier.testTag("album-rename"))
+                        AlbaMenuItem(stringResource(R.string.delete_album),
+                            onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit,
+                            leadingIcon = { Icon(AlbaIcons.DeleteOutline, null) })
+                    }
+                }
+            }
+            TextButton(onClick = { if (gallery.selection.isEmpty()) gallery.items.firstOrNull()?.let { actions.toggleSelection(it.id) } else actions.clearSelection() }, enabled = gallery.items.isNotEmpty()) {
+                Text(stringResource(if (gallery.selection.isEmpty()) R.string.select_items else R.string.cancel))
+            }
+        }
+        // What the grid shows, with its album, date and filter actions.
+        val filterControls: @Composable () -> Unit = {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                val filterName = query.collectionId?.let { id -> when (id) {
+                    GalleryQuery.FAVORITES -> stringResource(R.string.favorites)
+                    GalleryQuery.HIDDEN -> stringResource(R.string.hidden)
+                    else -> SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle()
+                } }
+                Text(listOfNotNull(query.origin?.let { if (it == MediaOrigin.DEVICE) stringResource(R.string.this_phone) else stringResource(R.string.icloud) } ?: stringResource(R.string.all_photos), filterName,
+                    if (query.fromDate != null || query.throughDate != null) stringResource(R.string.date_range) else null,
+                    if (query.date == GalleryDate.ADDED) stringResource(R.string.date_added) else null).joinToString(" · "),
+                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+
+                if (inCollection && collection != null && collection.isPersonal) {
+                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) {
+                        Icon(AlbaIcons.Edit, stringResource(R.string.rename_album))
+                    }
+                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
+                }
+                // Recently Deleted is in deletion order, with no dates to browse by. Where there are none,
+                // the button is left out rather than dimmed, so the actions here keep one colour.
+                val datesBrowsable = sections.isNotEmpty() && !query.trashOnly
+                if (datesBrowsable) IconButton(onClick = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.testTag("browse-dates-button")) {
+                    Icon(AlbaIcons.DateRange, stringResource(R.string.browse_by_date))
+                }
+                IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+            }
+        }
+        // In landscape the navigation bar or a cutout can sit at either side; the rail takes the start side's itself.
+        val sideInsets = WindowInsets.navigationBarsIgnoringVisibility.union(WindowInsets.displayCutout)
+        var railWidth by remember { mutableStateOf(0.dp) }
+        Row(Modifier.fillMaxSize().windowInsetsPadding(sideInsets.only(if (wide) WindowInsetsSides.End else WindowInsetsSides.Horizontal))) {
+            if (wide) GalleryNavigationRail(selectedTab(), { navigate(it) },
+                Modifier.onSizeChanged { railWidth = with(uiDensity) { it.width.toDp() } })
             Scaffold(modifier = Modifier.weight(1f).nestedScroll(headerScroll)
                 .then(if (collapseTitle) Modifier.nestedScroll(titleScroll.nestedScrollConnection) else Modifier), contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 containerColor = if (phonePhotos) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background,
@@ -400,47 +474,13 @@ internal fun GalleryHome(
                         .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
                         .drawBehind { drawRect(headerColor.value) }.testTag("gallery-header")
                         .then(if (collapseHeader && headerHidden) Modifier.clearAndSetSemantics {} else Modifier)) {
-                        val subScreen = tab == GalleryTab.COLLECTIONS && (inCollection || folder != null || collectionsPage != null)
+                        val subScreen = tab == GalleryTab.COLLECTIONS && (albumInHeader || folder != null || collectionsPage != null)
                         // The header draws its own surface behind the bar, so the bar itself stays clear.
                         val barColors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent)
                         val back: @Composable () -> Unit = {
                             IconButton(onClick = ::backInCollections) { Icon(AlbaIcons.ArrowBack, stringResource(R.string.back_action)) }
                         }
-                        // An album with a hero carries its title over the cover, so its bar has none.
-                        if (hero) TopAppBar(title = {}, navigationIcon = back, colors = barColors, windowInsets = WindowInsets(0, 0, 0, 0), actions = {
-                            if (collection?.shared != null) IconButton(onClick = { sheet = GallerySheet.SharedManage }, enabled = canEdit) {
-                                Icon(AlbaIcons.AccountCircle, stringResource(R.string.shared_manage))
-                            }
-                            IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
-                            Box {
-                                IconButton(onClick = { albumMenu = true }, modifier = Modifier.testTag("album-options")) {
-                                    Icon(AlbaIcons.MoreVert, stringResource(R.string.album_options))
-                                }
-                                AlbaMenu(expanded = albumMenu, onDismissRequest = { albumMenu = false }) {
-                                    AlbaMenuItem(stringResource(R.string.browse_by_date), onClick = { albumMenu = false; sheet = GallerySheet.JumpToDate },
-                                        enabled = sections.isNotEmpty(), leadingIcon = { Icon(AlbaIcons.DateRange, null) })
-                                    AlbaMenuDivider()
-                                    if (collection?.shared != null) {
-                                        AlbaMenuItem(stringResource(R.string.shared_details),
-                                            onClick = { albumMenu = false; sheet = GallerySheet.SharedInfo },
-                                            leadingIcon = { Icon(AlbaIcons.Info, null) })
-                                        if (collection.shared?.canContribute == true) AlbaMenuItem(stringResource(R.string.shared_add_photos),
-                                            onClick = { albumMenu = false; sheet = GallerySheet.SharedPicker }, enabled = canEdit,
-                                            leadingIcon = { Icon(AlbaIcons.Add, null) })
-                                    } else {
-                                        AlbaMenuItem(stringResource(R.string.rename_album),
-                                            onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::RenameAlbum) }, enabled = canEdit,
-                                            leadingIcon = { Icon(AlbaIcons.Edit, null) }, modifier = Modifier.testTag("album-rename"))
-                                        AlbaMenuItem(stringResource(R.string.delete_album),
-                                            onClick = { albumMenu = false; sheet = collection?.id?.let(GallerySheet::DeleteAlbum) }, enabled = canEdit,
-                                            leadingIcon = { Icon(AlbaIcons.DeleteOutline, null) })
-                                    }
-                                }
-                            }
-                            TextButton(onClick = { if (gallery.selection.isEmpty()) gallery.items.firstOrNull()?.let { actions.toggleSelection(it.id) } else actions.clearSelection() }, enabled = gallery.items.isNotEmpty()) {
-                                Text(stringResource(if (gallery.selection.isEmpty()) R.string.select_items else R.string.cancel))
-                            }
-                        })
+                        if (heroInHeader) TopAppBar(title = {}, navigationIcon = back, colors = barColors, windowInsets = WindowInsets(0, 0, 0, 0), actions = heroActions)
                         // Every other screen opens with its name as a large title, Apple's large titles on Material's bar.
                         else LargeTopAppBar(
                             title = {
@@ -489,32 +529,7 @@ internal fun GalleryHome(
                         else if (filterRow) {
                             if (tab == GalleryTab.SEARCH) GallerySearchBar(query.filename, { actions.changeQuery(query.copy(filename = it)) },
                                 Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                val filterName = query.collectionId?.let { id -> when (id) {
-                                    GalleryQuery.FAVORITES -> stringResource(R.string.favorites)
-                                    GalleryQuery.HIDDEN -> stringResource(R.string.hidden)
-                                    else -> SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle()
-                                } }
-                                Text(listOfNotNull(query.origin?.let { if (it == MediaOrigin.DEVICE) stringResource(R.string.this_phone) else stringResource(R.string.icloud) } ?: stringResource(R.string.all_photos), filterName,
-                                    if (query.fromDate != null || query.throughDate != null) stringResource(R.string.date_range) else null,
-                                    if (query.date == GalleryDate.ADDED) stringResource(R.string.date_added) else null).joinToString(" · "),
-                                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-
-                                if (inCollection && collection != null && collection.isPersonal) {
-                                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) {
-                                        Icon(AlbaIcons.Edit, stringResource(R.string.rename_album))
-                                    }
-                                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
-                                }
-                                // Recently Deleted is in deletion order, with no dates to browse by. Where there are none,
-                                // the button is left out rather than dimmed, so the actions here keep one colour.
-                                val datesBrowsable = sections.isNotEmpty() && !query.trashOnly
-                                if (datesBrowsable) IconButton(onClick = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.testTag("browse-dates-button")) {
-                                    Icon(AlbaIcons.DateRange, stringResource(R.string.browse_by_date))
-                                }
-                                IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
-                            }
+                            filterControls()
                         }
                     }
                 }) { padding ->
@@ -529,23 +544,23 @@ internal fun GalleryHome(
                         if (tab == GalleryTab.COLLECTIONS) backInCollections() else switchTab(GalleryTab.LIBRARY)
                     }, libraryFrame = libraryFrame, faded = { tabFade.switched },
                         modifier = Modifier.fillMaxSize().graphicsLayer { alpha = tabFade.alpha }) { shown ->
-                    // Only the Collections hub pulls to refresh, and its indicator shows only that pull's own refresh:
-                    // a refresh already running, at start-up or in the background, stays quiet.
-                    if (shown.tab == GalleryTab.COLLECTIONS && shown.album == null) CollectionsPullToRefresh(enabled = shown.page == null && shown.folder == null, refreshing = session.pullRefreshing, onRefresh = actions::pullToRefresh) {
-                        CollectionsScreen(gallery, canEdit, previewRetryVersion, shown.folder, shown.page, summaries,
-                            if (shown.page == null && shown.folder == null) collectionScroll else rememberLazyGridState(), actions::requestPreview,
-                            openPage = { collectionsPage = it },
-                            openFolder = { folder = it }, openCollection = { collectionGrid.requestScrollToItem(0); actions.changeQuery(GalleryQuery(collectionId = it)) },
-                            openOffline = { actions.changeQuery(GalleryQuery(offlineOnly = true)) }, openTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.DEVICE, trashOnly = true)) },
-                            openCloudTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)) }, createAlbum = { sheet = GallerySheet.CreateAlbum },
-                            openHidden = { collectionGrid.requestScrollToItem(0); actions.openHidden() },
-                            createSharedAlbum = { sheet = GallerySheet.CreateSharedAlbum }, openSharedInvitations = { sheet = GallerySheet.SharedInvitations },
-                            requestPhotos = actions::requestDevicePhotos, bottomSpace = bottomSpace)
+                    val collectionsList: @Composable () -> Unit = {
+                        // Only this pull's own refresh shows the indicator: one already running, at start-up or in the background, stays quiet.
+                        CollectionsPullToRefresh(enabled = shown.page == null && shown.folder == null, refreshing = session.pullRefreshing,
+                            onRefresh = actions::pullToRefresh) {
+                            CollectionsScreen(gallery, canEdit, previewRetryVersion, shown.folder, shown.page, summaries,
+                                if (shown.page == null && shown.folder == null) collectionScroll else rememberLazyGridState(), actions::requestPreview,
+                                openPage = { collectionsPage = it },
+                                openFolder = { folder = it }, openCollection = { collectionGrid.requestScrollToItem(0); actions.changeQuery(GalleryQuery(collectionId = it)) },
+                                openOffline = { actions.changeQuery(GalleryQuery(offlineOnly = true)) }, openTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.DEVICE, trashOnly = true)) },
+                                openCloudTrash = { actions.changeQuery(GalleryQuery(origin = MediaOrigin.ICLOUD, trashOnly = true)) }, createAlbum = { sheet = GallerySheet.CreateAlbum },
+                                openHidden = { collectionGrid.requestScrollToItem(0); actions.openHidden() },
+                                createSharedAlbum = { sheet = GallerySheet.CreateSharedAlbum },
+                                openSharedInvitations = { sheet = GallerySheet.SharedInvitations },
+                                requestPhotos = actions::requestDevicePhotos, bottomSpace = bottomSpace)
+                        }
                     }
-                    else if (shown.tab == GalleryTab.SEARCH && query.isBlankSearch) {
-                        SearchLanding(summaries, bottomSpace = bottomSpace, onDates = { sheet = GallerySheet.Filters },
-                            choose = { actions.changeQuery(query.copy(collectionId = it)) })
-                    } else {
+                    val photoGrid: @Composable () -> Unit = {
                         // Like Google Photos, the photo grid stretches at its edges instead of pulling to refresh:
                         // the library refreshes on resume and from Filter and sort.
                         PhotoGrid(
@@ -597,6 +612,25 @@ internal fun GalleryHome(
                             }) else if (cloudTrash) ({ RecentlyDeletedNote() }) else null,
                         )
                     }
+                    if (shown.tab == GalleryTab.COLLECTIONS && splitCollections) {
+                        val detail = GalleryScreen(GalleryTab.COLLECTIONS, album = GalleryScreen.albumOf(query))
+                        CollectionsListDetail(detailOpen = detail.album != null, list = collectionsList) {
+                            // Back closes the collection with the gesture, and leaves the list where it was.
+                            GalleryScreenHost(detail, parentOf, backEnabled && detail.album != null, onBack = ::closeCollection,
+                                libraryFrame = detailFrame, modifier = Modifier.fillMaxSize()) { shownDetail ->
+                                if (shownDetail.album == null) CollectionDetailPlaceholder()
+                                else Column(Modifier.fillMaxSize()) {
+                                    CollectionDetailBar(collectionTitle, hero = hero, close = ::closeCollection, heroActions = heroActions,
+                                        filters = filterControls.takeUnless { hero || (wide && selecting) })
+                                    Box(Modifier.weight(1f)) { photoGrid() }
+                                }
+                            }
+                        }
+                    } else if (shown.tab == GalleryTab.COLLECTIONS && shown.album == null) collectionsList()
+                    else if (shown.tab == GalleryTab.SEARCH && query.isBlankSearch) {
+                        SearchLanding(summaries, bottomSpace = bottomSpace, onDates = { sheet = GallerySheet.Filters },
+                            choose = { actions.changeQuery(query.copy(collectionId = it)) })
+                    } else photoGrid()
                     }
                     if (collapseHeader) FloatingGridDate(visibleMonth.takeUnless { selecting },
                         dates = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f),
@@ -624,7 +658,9 @@ internal fun GalleryHome(
         // The contextual bar replaces the header in place, over it, so the grid never moves when selection starts.
         SelectionTopBar(gallery.selection.size, minHeight = if (wide) 0.dp else headerHeight, reducedMotion = reducedMotion,
             selectAll = actions::selectAllShown, clear = actions::clearSelection,
-            modifier = Modifier.align(Alignment.TopCenter).padding(start = if (wide) 80.dp else 0.dp).zIndex(3f))
+            modifier = Modifier.align(Alignment.TopCenter)
+                .windowInsetsPadding(sideInsets.only(if (wide) WindowInsetsSides.End else WindowInsetsSides.Horizontal))
+                .padding(start = if (wide) railWidth else 0.dp).zIndex(3f))
     }
     val currentGrid = when (tab) { GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid }
     if (sheet == GallerySheet.JumpToDate) {
@@ -956,9 +992,9 @@ private fun PhotoGrid(
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-    val smallestWidth = LocalConfiguration.current.smallestScreenWidthDp.toFloat()
+    val windowWidth = albaLayout().width
     val gridWidth = maxWidth.value
-    val columns = level.columns(smallestWidth, gridWidth)
+    val columns = level.columns(windowWidth, gridWidth)
     val spacing = Arrangement.spacedBy(GalleryFeel.GRID_SPACING)
     pinch.target?.let { target ->
         // The next level, laid out with the anchor's row at the same top. It draws only what the current grid cannot.
@@ -968,7 +1004,7 @@ private fun PhotoGrid(
             pinch.measured(snapshotFlow { incomingGrid.layoutInfo.visibleItemsInfo }.first { it.isNotEmpty() })
         }
         CompositionLocalProvider(LocalPhotoTransition provides null) {
-            LazyVerticalGrid(GridCells.Fixed(target.columns(smallestWidth, gridWidth)), state = incomingGrid, userScrollEnabled = false,
+            LazyVerticalGrid(GridCells.Fixed(target.columns(windowWidth, gridWidth)), state = incomingGrid, userScrollEnabled = false,
                 modifier = Modifier.fillMaxSize().clearAndSetSemantics {}, horizontalArrangement = spacing, verticalArrangement = spacing,
                 contentPadding = PaddingValues(bottom = bottomSpace)) { photoItems(target, incoming = true) }
         }
@@ -1014,6 +1050,29 @@ private fun PhotoGrid(
         }
     }
     GalleryFastScroll(grid, scrollLabels, fullSpans, columns, Modifier.align(Alignment.CenterEnd).fillMaxHeight(), bottomSpace)
+    }
+}
+
+/**
+ * The detail pane's own bar on an expanded window, where the header belongs to the list: the collection's name with
+ * Close, or, over an album's hero, only its actions; then the collection's filter row.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CollectionDetailBar(title: String, hero: Boolean, close: () -> Unit, heroActions: @Composable RowScope.() -> Unit,
+    filters: (@Composable () -> Unit)?) {
+    val colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent)
+    val closeButton: @Composable () -> Unit = {
+        IconButton(onClick = close, modifier = Modifier.testTag("collection-detail-close")) {
+            Icon(AlbaIcons.Close, stringResource(R.string.close_surface))
+        }
+    }
+    Column(Modifier.fillMaxWidth().testTag("collection-detail-bar")) {
+        if (hero) TopAppBar(title = {}, navigationIcon = closeButton, actions = heroActions, colors = colors, windowInsets = WindowInsets(0, 0, 0, 0))
+        else TopAppBar(title = { Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.testTag("collection-detail-title")) }, navigationIcon = closeButton, colors = colors,
+            windowInsets = WindowInsets(0, 0, 0, 0))
+        filters?.invoke()
     }
 }
 

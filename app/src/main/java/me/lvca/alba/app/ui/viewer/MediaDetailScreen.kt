@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -64,6 +65,7 @@ import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.ExternalUse
 import me.lvca.alba.app.ui.MediaScreenActions
+import me.lvca.alba.app.ui.adaptive.albaLayout
 import me.lvca.alba.app.ui.collections.AlbumChooser
 import me.lvca.alba.app.ui.collections.isUserAlbum
 import me.lvca.alba.app.ui.dayMonthLabel
@@ -77,6 +79,7 @@ import me.lvca.alba.app.ui.designsystem.FavoriteIcon
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
+import me.lvca.alba.app.ui.designsystem.theme.ViewerColors
 import me.lvca.alba.app.ui.designsystem.theme.sheet
 import me.lvca.alba.app.ui.designsystem.theme.viewerTitle
 import me.lvca.alba.app.ui.gallery.LocalViewerPhotoPage
@@ -151,16 +154,20 @@ internal fun MediaDetailScreen(
     val reduceMotion = reduceGalleryMotion()
     // Keyed by photo only: a resize or rotation must not drop an in-flight drag (B3).
     val motion = remember(media.id) { ViewerMotion(details) }
+    // Wide windows and phones in landscape open Info beside the photo; compact portrait keeps the sheet below it.
+    val sidePane = albaLayout().infoSidePane
     BoxWithConstraints(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
         val density = LocalDensity.current
         val widthPx = with(density) { maxWidth.toPx() }
         val heightPx = with(density) { maxHeight.toPx() }
         val statusBarPx = WindowInsets.statusBarsIgnoringVisibility.getTop(density).toFloat()
-        val detailsHeightPx = detailsSheetHeight(widthPx, heightPx, statusBarPx)
+        val paneWidth = infoPaneWidth(maxWidth)
+        // How far Info travels as it opens: the sheet's height, or the side pane's width. Swiping up opens either.
+        val detailsTravelPx = if (sidePane) with(density) { paneWidth.toPx() } else detailsSheetHeight(widthPx, heightPx, statusBarPx)
         val fullEffectPx = with(density) { ViewerSpec.DismissFullEffect.toPx() }
         val pose = { motion.pose(fullEffectPx, widthPx) }
-        val panelHeight = with(density) { (motion.details * detailsHeightPx).toDp() }
-        val expanded = panelHeight > 0.dp
+        val panelSize = with(density) { (motion.details * detailsTravelPx).toDp() }
+        val expanded = panelSize > 0.dp
         // Like Google Photos, a tap on a playing video brings back the whole chrome (top bar, actions and the playback
         // overlay) over a black canvas; the overlay hides it all again after a few seconds of playback.
         val chromeOn = controls
@@ -189,7 +196,7 @@ internal fun MediaDetailScreen(
                 val past = shouldDismiss(motion.travel, fullEffectPx)
                 if (past && !pastDismiss) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                 pastDismiss = past
-            } else motion.dragDetails(delta.y, detailsHeightPx)
+            } else motion.dragDetails(delta.y, detailsTravelPx)
         }
         val stopDrag: (ViewerDrag, Velocity) -> Unit = { mode, velocity ->
             dragMode = null
@@ -238,18 +245,18 @@ internal fun MediaDetailScreen(
                 if (wasExpanded) showDetails(true) else motion.settleBack(scope, reduceMotion)
             }
         }
-        val detailsScroll = remember(media.id, motion, detailsHeightPx) { object : NestedScrollConnection {
+        val detailsScroll = remember(media.id, motion, detailsTravelPx) { object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (available.y < 0 && motion.details < 1f) {
-                    motion.begin(); val before = motion.details; motion.dragDetails(available.y, detailsHeightPx)
-                    return Offset(0f, (before - motion.details) * detailsHeightPx)
+                    motion.begin(); val before = motion.details; motion.dragDetails(available.y, detailsTravelPx)
+                    return Offset(0f, (before - motion.details) * detailsTravelPx)
                 }
                 return Offset.Zero
             }
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                 if (available.y > 0) {
-                    motion.begin(); val before = motion.details; motion.dragDetails(available.y, detailsHeightPx)
-                    return Offset(0f, (before - motion.details) * detailsHeightPx)
+                    motion.begin(); val before = motion.details; motion.dragDetails(available.y, detailsTravelPx)
+                    return Offset(0f, (before - motion.details) * detailsTravelPx)
                 }
                 return Offset.Zero
             }
@@ -260,8 +267,8 @@ internal fun MediaDetailScreen(
         } }
         val detailsLabel = stringResource(R.string.details)
         val backLabel = stringResource(R.string.back_to_gallery)
-        Column(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxWidth().weight(1f).testTag("viewer-photo-viewport")) {
+        val viewport: @Composable (Modifier) -> Unit = { viewportModifier ->
+            Box(viewportModifier.testTag("viewer-photo-viewport")) {
                 HorizontalPager(state = pager, key = { latestItems.getOrNull(it)?.id ?: "removed:$it" },
                     userScrollEnabled = !zoomed && !expanded && !motion.dragging,
                     pageSpacing = ViewerSpec.PageSpacing,
@@ -335,7 +342,8 @@ internal fun MediaDetailScreen(
                 androidx.compose.animation.AnimatedVisibility((chromeOn || expanded) && !detailsDragging,
                     modifier = Modifier.align(Alignment.TopCenter).photoChrome().then(chromeAlpha),
                     enter = fadeIn(chromeFade), exit = fadeOut(chromeFade)) {
-                    if (expanded) ViewerDetailsBackButton(backLabel, { showDetails(false) })
+                    // Beside the pane the photo keeps its own bar; the pane closes from its own button.
+                    if (expanded && !sidePane) ViewerDetailsBackButton(backLabel, { showDetails(false) })
                     else ViewerTopBar(media, backLabel, actions::closeMedia,
                         favoriteEnabled = canEdit && !media.isTrashed && !media.isShared && !pager.isScrollInProgress,
                         onFavorite = {
@@ -350,7 +358,7 @@ internal fun MediaDetailScreen(
                         externalUseEnabled = !isWorking && !media.isTrashed,
                         onUseElsewhere = { use -> videoOptions = false; actions.useElsewhere(media, use) })
                 }
-                androidx.compose.animation.AnimatedVisibility(chromeOn && !expanded && !detailsDragging,
+                androidx.compose.animation.AnimatedVisibility(chromeOn && (!expanded || sidePane) && !detailsDragging,
                     modifier = Modifier.align(Alignment.BottomCenter).photoChrome().then(chromeAlpha),
                     enter = fadeIn(chromeFade), exit = fadeOut(chromeFade)) {
                     ViewerActionBar(
@@ -369,17 +377,9 @@ internal fun MediaDetailScreen(
                     )
                 }
             }
-            if (expanded) Surface(Modifier.fillMaxWidth().height(panelHeight).clipToBounds().testTag("photo-details-panel"),
-                shape = MaterialTheme.shapes.sheet, color = colors.canvas, contentColor = colors.foreground) {
-                Column {
-                    Box(Modifier.fillMaxWidth().height(32.dp).then(handleDrag).testTag("details-drag-handle"), contentAlignment = Alignment.Center) {
-                        Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = AlbaTheme.colors.sheetHandle) {}
-                    }
-                    // The date is Info's title. Pinned above the scrolling facts, it can never scroll or clip out of reach.
-                    PhotoInfoHeader(media, onClose = { showDetails(false) },
-                        modifier = Modifier.then(handleDrag).padding(horizontal = 20.dp))
-                    Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp).windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility).testTag("photo-info-scroll")) {
+        }
+        // Everything under Info's pinned title: facts, then the actions.
+        val infoBody: @Composable ColumnScope.() -> Unit = {
                         Spacer(Modifier.height(8.dp))
                         PhotoInfoContent(media, accountState, uploadTransfer)
                         if (media.origin == MediaOrigin.DEVICE || media.linkedDeviceReference != null) {
@@ -460,12 +460,43 @@ internal fun MediaDetailScreen(
                             )
                         }
                         Spacer(Modifier.height(24.dp))
+        }
+        // The side pane has no drag handle to pin the title above, so it scrolls with the rest.
+        val infoContent: @Composable ColumnScope.() -> Unit = {
+            PhotoInfoHeader(media, onClose = { showDetails(false) })
+            infoBody()
+        }
+        if (sidePane) Row(Modifier.fillMaxSize()) {
+            // The open pane meets the window's end edge, so the photo's controls need not clear what is there.
+            viewport(Modifier.weight(1f).fillMaxHeight()
+                .then(if (expanded) Modifier.consumeWindowInsets(ViewerSideInsets.only(WindowInsetsSides.End)) else Modifier))
+            if (expanded) InfoSidePane(width = panelSize, contentWidth = paneWidth, colors = colors, content = infoContent)
+        } else Column(Modifier.fillMaxSize()) {
+            viewport(Modifier.fillMaxWidth().weight(1f))
+            if (expanded) Surface(Modifier.fillMaxWidth().height(panelSize).clipToBounds().testTag("photo-details-panel"),
+                shape = MaterialTheme.shapes.sheet, color = colors.canvas, contentColor = colors.foreground) {
+                Column {
+                    Box(Modifier.fillMaxWidth().height(32.dp).then(handleDrag).testTag("details-drag-handle"), contentAlignment = Alignment.Center) {
+                        Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = AlbaTheme.colors.sheetHandle) {}
                     }
+                    // The date is Info's title. Pinned above the scrolling facts, it can never scroll or clip out of reach.
+                    PhotoInfoHeader(media, onClose = { showDetails(false) },
+                        modifier = Modifier.then(handleDrag).padding(horizontal = 20.dp))
+                    Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp).windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility).testTag("photo-info-scroll"),
+                        content = infoBody)
                 }
             }
         }
     }
 }
+
+/**
+ * What can cover the viewer's sides in landscape: a three-button navigation bar or a camera cutout. The photo runs
+ * edge to edge beneath them; the controls stay clear. Visibility is ignored so controls do not jump as the bars hide.
+ */
+private val ViewerSideInsets: WindowInsets
+    @Composable get() = WindowInsets.navigationBarsIgnoringVisibility.union(WindowInsets.displayCutout)
 
 /** Hides the status and navigation bars while [hidden]; an edge swipe shows them transiently. Leaving restores them. */
 @Composable
@@ -480,10 +511,27 @@ private fun ImmersiveSystemBars(hidden: Boolean) {
     }
 }
 
+/**
+ * Info as a pane beside the photo. It opens to [width] as Info does (by a swipe up, the Info action or back), while its
+ * content keeps the full [contentWidth] and slides in from the edge rather than reflowing.
+ */
+@Composable
+private fun InfoSidePane(width: Dp, contentWidth: Dp, colors: ViewerColors, content: @Composable ColumnScope.() -> Unit) {
+    Surface(Modifier.fillMaxHeight().width(width).clipToBounds().testTag("info-side-pane"), color = colors.canvas, contentColor = colors.foreground) {
+        Column(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(contentWidth).fillMaxHeight()
+            .testTag("photo-details-panel").verticalScroll(rememberScrollState())
+            // The pane meets the window's top, end and bottom edges: keep its controls clear of the bars and any cutout.
+            .windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout)
+                .only(WindowInsetsSides.Top + WindowInsetsSides.End + WindowInsetsSides.Bottom))
+            .padding(start = 20.dp, end = 20.dp, top = 8.dp), content = content)
+    }
+}
+
 @Composable
 private fun ViewerDetailsBackButton(label: String, click: () -> Unit) {
     val colors = viewerColors()
-    Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).padding(start = 12.dp, top = 12.dp)) {
+    Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
+        .windowInsetsPadding(ViewerSideInsets.only(WindowInsetsSides.Start)).padding(start = 12.dp, top = 12.dp)) {
         Surface(shape = CircleShape, color = colors.canvas, contentColor = colors.foreground, shadowElevation = 4.dp) {
             IconButton(onClick = click, modifier = Modifier.size(48.dp).testTag("details-back")) {
                 Icon(AlbaIcons.ArrowBack, label)
@@ -511,7 +559,8 @@ private fun ViewerTopBar(
 ) {
     val colors = viewerColors()
     val ink = colors.secondary
-    Box(Modifier.fillMaxWidth().background(colors.canvas).windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).height(64.dp)) {
+    Box(Modifier.fillMaxWidth().background(colors.canvas).windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
+        .windowInsetsPadding(ViewerSideInsets.only(WindowInsetsSides.Horizontal)).height(64.dp)) {
         IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp).size(48.dp)
             .testTag("floating-viewer-back")) {
             Icon(AlbaIcons.ArrowBack, backLabel, tint = ink)
@@ -590,7 +639,8 @@ private fun ViewerActionBar(
     val viewer = viewerColors()
     val ink = if (canvas.luminance() > .5f) viewer.foreground else viewer.videoOnDark.ink
     Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(canvas.copy(alpha = 0f), canvas.copy(alpha = ACTION_SCRIM_ALPHA))))
-        .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility).offset(y = 5.dp).height(76.dp).testTag("viewer-actions"),
+        .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
+        .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)).offset(y = 5.dp).height(76.dp).testTag("viewer-actions"),
         horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
         CompositionLocalProvider(LocalContentColor provides ink) {
         ViewerAction(stringResource(R.string.share), enabled, onShare, Modifier.weight(1f).testTag("viewer-share")) {

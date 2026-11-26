@@ -67,13 +67,16 @@ class FloatingViewerTest {
         app.recreate()
         compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
         assertTrue(bounds("viewer-photo-viewport").bottom <= bounds("photo-details-panel").top + 1f)
-        // Turning the phone keeps the details below a visible photo.
+        // Turning the phone keeps the details open, now in a pane beside a full-height photo.
         RuntimeEnvironment.setQualifiers("+land")
         app.recreate()
         assertEquals(Configuration.ORIENTATION_LANDSCAPE, app.activity.resources.configuration.orientation)
         val landscapePhoto = bounds("viewer-photo-viewport")
-        assertTrue(landscapePhoto.height > 0 && landscapePhoto.bottom <= bounds("photo-details-panel").top + 1f)
-        compose.onNodeWithTag("details-back").assertIsDisplayed()
+        val pane = bounds("info-side-pane")
+        assertTrue(landscapePhoto.width > 0 && landscapePhoto.right <= pane.left + 1f)
+        assertEquals("The photo keeps the full height beside the pane", pane.height, landscapePhoto.height, 1f)
+        compose.onNodeWithTag("photo-details-panel").assertIsDisplayed()
+        compose.onNodeWithTag("details-drag-handle").assertDoesNotExist()
         RuntimeEnvironment.setQualifiers("+port")
         app.recreate()
         dispatchBack { onBackPressed() }
