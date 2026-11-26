@@ -9,13 +9,17 @@ import me.lvca.alba.app.messages.UserMessages
 import me.lvca.alba.app.platform.BackupPreferences
 import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.database.LibraryDao
+import me.lvca.alba.engine.model.BackupControls
 import me.lvca.alba.engine.model.BackupDraftId
+import me.lvca.alba.engine.model.BackupLibrarySummary
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.OfflineMediaStore
 import me.lvca.alba.engine.model.PhotoCompanion
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,6 +49,28 @@ class LiveTransferModeTest {
         assertEquals(setOf("device-folder:external_primary:3"), preferences.settings.value.deviceFolders)
     }
 
+    @Test
+    fun backupTurnedOnAfreshBacksUpTheWholeLibraryByDefaultAndCountsItWithTheScreenshots() = runBlocking {
+        preferences.update { it.copy(deviceFolders = setOf("device-folder:external_primary:3")) }
+        assertTrue(mode().includesExistingByDefault())
+        assertEquals(BackupLibrarySummary(12, 3_000L), mode().libraryToBackUp())
+        assertEquals(listOf(setOf("device-folder:external_primary:3", DeviceFolder.SCREENSHOTS)), photos.counted)
+        // The user may still narrow it to new items only.
+        mode().finishBackup(BackupDraftId("draft"), includeExisting = false)
+        assertEquals(listOf(false), photos.finished)
+    }
+
+    @Test
+    fun someoneWhoChoseOnlyNewItemsKeepsThatChoiceWhenAgreeingAgain() = runBlocking {
+        photos.view.value = BackupView(enabled = true, scope = BackupScope.CAMERA_MEDIA, includesExisting = false)
+        assertFalse(mode().includesExistingByDefault())
+        mode().libraryToBackUp()
+        assertEquals("Agreeing again counts the folders already chosen", listOf(emptySet<String>()), photos.counted)
+
+        photos.view.value = BackupView(enabled = true, scope = BackupScope.CAMERA_MEDIA, includesExisting = true)
+        assertTrue(mode().includesExistingByDefault())
+    }
+
     private fun mode() = LiveTransferMode(
         photos,
         GalleryBatchActions(unexpected<LibraryDao>(), unexpected<OfflineMediaStore>(), photos, account = { "account" }),
@@ -56,6 +82,14 @@ class LiveTransferModeTest {
     private class FakePhotos : PhotoCompanion by unexpected() {
         val view = MutableStateFlow(BackupView(enabled = false))
         val finished = mutableListOf<Boolean>()
+        val counted = mutableListOf<Set<String>>()
+
+        override val backup: BackupControls = object : BackupControls by unexpected() {
+            override suspend fun libraryToBackUp(folders: Set<String>): BackupLibrarySummary {
+                counted += folders
+                return BackupLibrarySummary(12, 3_000L)
+            }
+        }
 
         override fun observeTransfers() = MutableStateFlow(emptyList<me.lvca.alba.engine.model.TransferView>())
         override fun observeBackup() = view

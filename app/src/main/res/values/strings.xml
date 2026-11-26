@@ -966,9 +966,9 @@
     <string name="backup_pause">Pause backup</string>
     <string name="backup_pause_detail">Stops automatic uploads until you turn this off.</string>
     <string name="backup_disclosure_title">Turn on backup?</string>
-    <string name="backup_existing_choice_all">Back up existing photos and videos too</string>
+    <string name="backup_existing_choice_all">Back up all photos and videos</string>
     <string name="backup_existing_choice_all_detail">Newest first, after anything new. Items Alba already backed up are not uploaded again.</string>
-    <string name="backup_existing_choice_new">Only new ones</string>
+    <string name="backup_existing_choice_new">Only new photos and videos</string>
     <string name="backup_existing_started">Existing photos and videos will back up, newest first.</string>
     <string name="backup_existing_row_title">Back up existing photos and videos</string>
     <string name="backup_existing_row_detail">Right now, only items added since you turned on backup are backed up.</string>
@@ -1033,6 +1033,10 @@
     <plurals name="backup_chip_backing_up">
         <item quantity="one">Backing up %,d item</item>
         <item quantity="other">Backing up %,d items</item>
+    </plurals>
+    <plurals name="backup_existing_choice_all_count">
+        <item quantity="one">Back up %1$,d photo or video (%2$s)</item>
+        <item quantity="other">Back up all %1$,d photos and videos (%2$s)</item>
     </plurals>
     <plurals name="backup_chip_failed">
         <item quantity="one">%,d item can’t be backed up</item>

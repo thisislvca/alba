@@ -16,6 +16,7 @@ import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import me.lvca.alba.engine.model.BackupLibrarySummary
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.PhoneMetadata
@@ -278,6 +279,25 @@ class AndroidMediaStoreSource(
         }
         counts.values.sortedWith(compareByDescending<DeviceFolder> { it.isCamera }.thenBy { it.name.lowercase() })
     }
+
+    override suspend fun librarySummary(scope: BackupScope, folders: Set<String>): BackupLibrarySummary? =
+        withContext(Dispatchers.IO) {
+            // Before the backup permissions are granted, or with only some photos allowed, a count would mislead.
+            if (!permissionFingerprint().startsWith("full:") || !hasVideoAccess()) return@withContext null
+            // Both sides of enrollment, so the baseline and its volume version play no part.
+            val (selection, args) = eligibleSelection(scope, folders, 0L, null, version = "", coverage = Coverage.ALL)
+            val queryArgs = Bundle().apply {
+                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+                putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args.toTypedArray())
+            }
+            // MediaStore refuses aggregate columns, so the rows are summed here; a missing size counts as nothing.
+            resolver.query(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL), arrayOf(MediaStore.MediaColumns.SIZE), queryArgs, null)
+                ?.use { cursor ->
+                    var bytes = 0L
+                    while (cursor.moveToNext()) bytes += if (cursor.isNull(0)) 0L else cursor.getLong(0)
+                    BackupLibrarySummary(cursor.count, bytes)
+                }
+        }
 
     override suspend fun companionJpegNames(
         raw: DeviceMediaRecord,

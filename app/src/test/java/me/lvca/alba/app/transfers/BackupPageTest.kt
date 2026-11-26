@@ -3,7 +3,9 @@ package me.lvca.alba.app.transfers
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
@@ -36,6 +38,7 @@ import me.lvca.alba.app.ui.gallery.BackupStatusChip
 import me.lvca.alba.app.ui.gallery.LocalBackupBadges
 import me.lvca.alba.app.ui.gallery.MediaTile
 import me.lvca.alba.engine.model.BackupDraftId
+import me.lvca.alba.engine.model.BackupLibrarySummary
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.BackupView
@@ -215,6 +218,24 @@ class BackupPageTest {
         compose.onNodeWithTag("backup-choice-new-only").assertIsSelected()
         compose.onNodeWithTag("backup-disclosure-accept").performClick()
         assertEquals(listOf(true, false), accepted)
+    }
+
+    @Test
+    fun theDisclosureNamesHowManyPhotosAndVideosBackingUpAllCovers() {
+        var setup by mutableStateOf(BackupSetup(BackupDraftId("draft"), "alex@example.com"))
+        compose.setContent {
+            AlbaTheme(darkTheme = false) {
+                BackupDisclosure(setup, storageFull = false, accept = {}, dismiss = {})
+            }
+        }
+        // Until MediaStore is counted, or without full access to count it, no number is named.
+        compose.onNodeWithText("Back up all photos and videos").assertIsDisplayed()
+        compose.onNodeWithText("Only new photos and videos").assertIsDisplayed()
+
+        setup = setup.copy(library = BackupLibrarySummary(items = 1_234, bytes = 5_000_000_000L))
+        val size = android.text.format.Formatter.formatShortFileSize(context, 5_000_000_000L)
+        compose.onNodeWithText("Back up all 1,234 photos and videos ($size)").assertIsDisplayed()
+        compose.onNodeWithTag("backup-choice-existing").assertIsSelected()
     }
 
     @Test

@@ -45,6 +45,7 @@ import me.lvca.alba.app.work.backgroundSessionDecision
 import me.lvca.alba.engine.companion.BatchAction
 import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.model.BackupDraftId
+import me.lvca.alba.engine.model.BackupLibrarySummary
 import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.BackupSetupEffect
@@ -106,6 +107,8 @@ data class BackupSetup(
     val awaitingPermissions: Boolean = false,
     /** Back up what is already on the phone too, as Google Photos does by default. */
     val includeExisting: Boolean = true,
+    /** What "Back up all" would upload; null until counted, or when it cannot be. */
+    val library: BackupLibrarySummary? = null,
 ) {
     val demo: Boolean get() = DemoTransferMode.owns(draftId)
 }
@@ -239,12 +242,24 @@ internal class TransferController(
         scope.launch {
             try {
                 val draft = mode.beginBackup()
-                backupSetup.save(BackupSetup(draft.id, draft.destinationLabel))
+                backupSetup.save(BackupSetup(draft.id, draft.destinationLabel, includeExisting = mode.includesExistingByDefault()))
+                countLibrary(mode, draft.id)
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 messages.show(error.toUserMessage(R.string.message_could_not_start_backup_setup))
             }
         }
+    }
+
+    /** Counts what "Back up all" covers while the disclosure shows; without a count it names no number. */
+    private fun countLibrary(mode: TransferMode, draftId: BackupDraftId) = scope.launch {
+        val library = try {
+            mode.libraryToBackUp()
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            null
+        }
+        if (library != null) backupSetup.attachLibrary(draftId, library)
     }
 
     /**

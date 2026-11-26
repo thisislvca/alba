@@ -12,6 +12,7 @@ import me.lvca.alba.engine.companion.GalleryBatchActions
 import me.lvca.alba.engine.model.BackupChange
 import me.lvca.alba.engine.model.BackupDraft
 import me.lvca.alba.engine.model.BackupDraftId
+import me.lvca.alba.engine.model.BackupLibrarySummary
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupSetupEffect
 import me.lvca.alba.engine.model.BackupView
@@ -43,6 +44,15 @@ internal interface TransferMode {
     suspend fun uploadGalleryMedia(mediaIds: List<String>)
 
     suspend fun beginBackup(): BackupDraft
+
+    /**
+     * Whether setup starts with "Back up all" chosen: yes for backup turned on afresh, as in Google Photos; someone
+     * agreeing again keeps what they chose before, so a new-only choice stays new-only unless they change it.
+     */
+    suspend fun includesExistingByDefault(): Boolean = true
+
+    /** What "Back up all" would upload, for the setup to show; null when it cannot be counted. */
+    suspend fun libraryToBackUp(): BackupLibrarySummary? = null
     suspend fun acceptBackup(draftId: BackupDraftId): BackupSetupEffect
     suspend fun finishBackup(draftId: BackupDraftId, includeExisting: Boolean)
     suspend fun disableBackup()
@@ -78,6 +88,16 @@ internal class LiveTransferMode(
     }
 
     override suspend fun beginBackup(): BackupDraft = photos.beginBackupEnrollment(BackupScope.CURRENT)
+
+    override suspend fun includesExistingByDefault(): Boolean =
+        photos.observeBackup().first().let { !it.enabled || it.includesExisting }
+
+    override suspend fun libraryToBackUp(): BackupLibrarySummary? {
+        // Backup turned on afresh starts with the screenshots folders, as finishBackup adds them.
+        val turningOn = !photos.observeBackup().first().enabled
+        val folders = preferences.settings.value.deviceFolders + if (turningOn) setOf(DeviceFolder.SCREENSHOTS) else emptySet()
+        return photos.backup.libraryToBackUp(folders)
+    }
 
     override suspend fun acceptBackup(draftId: BackupDraftId): BackupSetupEffect =
         photos.acceptBackupDisclosure(draftId).also { effect ->
