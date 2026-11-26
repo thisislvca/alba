@@ -36,9 +36,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TrashAttemptEntity::class,
         TrashObligationEntity::class,
         CollectionEntity::class, CollectionMemberEntity::class, BatchItemEntity::class, UploadCheckpointEntity::class,
-        UploadPauseEntity::class, DiscoveryFailureEntity::class, CatalogScanEntity::class,
+        UploadPauseEntity::class, DiscoveryFailureEntity::class, CatalogScanEntity::class, MotionPhotoPartEntity::class,
     ],
-    version = 25,
+    version = 26,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 5), AutoMigration(from = 7, to = 8), AutoMigration(from = 14, to = 15), AutoMigration(from = 15, to = 16),
@@ -62,8 +62,34 @@ abstract class AlbaDatabase : RoomDatabase() {
     abstract fun backupDao(): BackupDao
     abstract fun localAssetDao(): LocalAssetDao
     abstract fun trashDao(): TrashDao
+    abstract fun motionPhotoDao(): MotionPhotoDao
 
     companion object {
+        /**
+         * Motion photos: the video part of a motion photo backed up as a Live Photo, or as a photo and a video, one row per
+         * still. Nothing existing changes; motion photos backed up before stay stills.
+         */
+        internal val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `motion_photo_parts` (`transferId` TEXT NOT NULL, `accountId` TEXT NOT NULL, " +
+                        "`mediaId` TEXT, `mode` TEXT NOT NULL, `state` TEXT NOT NULL, `contentIdentifier` TEXT NOT NULL, `format` TEXT, " +
+                        "`videoOffset` INTEGER, `videoByteCount` INTEGER, `videoSha256Hex` TEXT, `durationNanos` INTEGER, " +
+                        "`stillTimeNanos` INTEGER, `width` INTEGER, `height` INTEGER, `attachRound` INTEGER NOT NULL, " +
+                        "`tries` INTEGER NOT NULL, `nextTryAtEpochMillis` INTEGER, `message` TEXT, `videoTransferId` TEXT, " +
+                        "`masterRecordName` TEXT, `assetRecordName` TEXT, `receiptFileChecksum` TEXT, `mediaGroupIdWritten` INTEGER, " +
+                        "`attachedAtEpochMillis` INTEGER, `byteCheckedAtEpochMillis` INTEGER, `createdAtEpochMillis` INTEGER NOT NULL, " +
+                        "`updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`transferId`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_motion_photo_parts_accountId_mediaId` ON `motion_photo_parts` (`accountId`, `mediaId`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_motion_photo_parts_accountId_state` ON `motion_photo_parts` (`accountId`, `state`)",
+                )
+            }
+        }
+
         /**
          * Self-healing: a transfer keeps why it stopped for good, and when its upload became uncertain and was last looked
          * for in a refreshed iCloud library. Uploads already uncertain start their healing window now, and give back the
@@ -330,6 +356,6 @@ abstract class AlbaDatabase : RoomDatabase() {
             AlbaDatabase::class.java,
             // Named before the Alba rename and stored on devices; keep it.
             "mela-catalog.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_21_22, MIGRATION_23_24, MIGRATION_24_25).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_21_22, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26).build()
     }
 }

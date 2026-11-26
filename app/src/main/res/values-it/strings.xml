@@ -990,6 +990,15 @@
     <string name="backup_while_roaming_detail">Usa i dati mobili all’estero, che possono costare di più.</string>
     <string name="backup_only_while_charging">Solo durante la ricarica</string>
     <string name="backup_only_while_charging_detail">Esegue il backup solo mentre il telefono è in carica.</string>
+    <string name="backup_motion_photos">Foto in movimento</string>
+    <string name="backup_motion_photos_title">Backup delle foto in movimento</string>
+    <string name="backup_motion_photos_intro">Le foto in movimento contengono un breve video, e le scattano molte fotocamere Android.</string>
+    <string name="backup_motion_photos_photo_only">Solo foto</string>
+    <string name="backup_motion_photos_photo_only_detail">La foto, con il video conservato nel file, come la accetta iCloud.com.</string>
+    <string name="backup_motion_photos_separately">Foto e video separati</string>
+    <string name="backup_motion_photos_separately_detail">La foto, più il video come elemento a sé in iCloud.</string>
+    <string name="backup_motion_photos_live">Come Live Photo (sperimentale)</string>
+    <string name="backup_motion_photos_live_detail">Si riproduce come una Live Photo su iPhone, Mac e iCloud.com. Alba aggiunge il movimento dopo il backup della foto.</string>
     <string name="backup_pause">Metti in pausa il backup</string>
     <string name="backup_pause_detail">Interrompe i caricamenti automatici finché non lo disattivi.</string>
     <string name="backup_disclosure_title">Attivare il backup?</string>
@@ -1283,6 +1292,9 @@
     <string name="message_no_copy_appeared_in_icloud_uploading_again">Nessuna copia è comparsa in iCloud, quindi Alba lo sta caricando di nuovo.</string>
     <string name="message_icloud_rejected_this_file">iCloud non ha accettato questo file. L\'originale resta su questo telefono.</string>
     <string name="message_this_file_is_no_longer_on_the_phone">Questo file non è più sul telefono.</string>
+    <string name="message_adding_the_live_photo_motion">Aggiunta del movimento per renderla una Live Photo</string>
+    <string name="message_live_photo_part_not_attached">Parte Live Photo non aggiunta. La foto è comunque nel backup.</string>
+    <string name="message_motion_photo_video_not_backed_up_yet">Il suo video non è ancora nel backup, quindi resta su questo telefono.</string>
     <string name="backup_failure_waiting_to_retry">In attesa di riprovare</string>
     <string name="backup_failure_needs_unmetered">Serve il Wi-Fi (video grande)</string>
     <string name="backup_failure_storage_full">Spazio iCloud esaurito</string>
@@ -1291,6 +1303,7 @@
     <string name="backup_failure_file_gone">File non più sul telefono</string>
     <string name="backup_failure_checking_icloud">Controllo in iCloud</string>
     <string name="backup_failure_stopped">Interrotti</string>
+    <string name="backup_failure_live_photo">Parte Live Photo non aggiunta</string>
     <string name="backup_failure_waiting_to_retry_detail">Il caricamento si è interrotto prima che iCloud lo ricevesse. Alba riprova da sola.</string>
     <string name="backup_failure_needs_unmetered_detail">Gli elementi oltre 100 MB vengono salvati con il Wi-Fi, quando Alba può restare attiva più a lungo.</string>
     <string name="backup_failure_storage_full_detail">Il backup riprende quando iCloud ha spazio.</string>
@@ -1299,6 +1312,7 @@
     <string name="backup_failure_file_gone_detail">Sono stati eliminati dal telefono prima del backup.</string>
     <string name="backup_failure_checking_icloud_detail">Alba li cerca in iCloud dopo ogni aggiornamento della libreria e non li carica mai due volte.</string>
     <string name="backup_failure_stopped_detail">Si sono interrotti prima di arrivare in iCloud.</string>
+    <string name="backup_failure_live_photo_detail">Queste foto sono nel backup, ma non è stato possibile aggiungere il movimento per renderle Live Photo.</string>
     <string name="backup_fix_retry_now">Riprova ora</string>
     <string name="backup_fix_wifi_settings">Impostazioni Wi-Fi</string>
     <string name="backup_fix_open_storage">Apri spazio di archiviazione</string>

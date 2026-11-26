@@ -9,6 +9,13 @@ import me.lvca.alba.engine.database.TrashAttemptEntity
 import me.lvca.alba.engine.database.TrashObligationEntity
 import me.lvca.alba.engine.database.VerificationProofEntity
 import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.BackupAttribute
+import me.lvca.alba.engine.model.BackupDiagnostics
+import me.lvca.alba.engine.model.BackupEvent
+import me.lvca.alba.engine.model.BackupPhase
+import me.lvca.alba.engine.model.BackupTelemetry
+import me.lvca.alba.engine.model.BackupTelemetry.traced
+import me.lvca.alba.engine.model.DiagnosticSeverity
 import me.lvca.alba.engine.model.FreeUpSpaceCandidates
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.ReclaimProposal
@@ -38,6 +45,9 @@ internal class VerifiedPhotoTrash(
     /** A clock that never moves back, for the check budget and the consent window. */
     private val elapsedRealtime: () -> Long,
     private val byteCheck: ByteCheck = ByteCheck(protocol),
+    /** A motion photo goes only once its video passed the byte check too. */
+    private val motionParts: MotionPhotoParts? = null,
+    private val diagnostics: BackupDiagnostics = BackupDiagnostics.None,
 ) {
     /**
      * When each proposal's consent window closes, on [elapsedRealtime]. Kept in memory: a proposal from before a
@@ -143,33 +153,44 @@ internal class VerifiedPhotoTrash(
         // A phone read and an iCloud read fail for different reasons; the user is told which.
         val local = runSuspendCatching { originals.hashMediaStoreItem(source.contentUri, source.sourceRevision) }
             .getOrElse { return StoredMessage.decode(it.message)?.code ?: StoredMessage.COULD_NOT_READ_THIS_FILE_ON_THE_PHONE.code }
-        val remote = runSuspendCatching { byteCheck.compare(binding, pairEntity.toCandidate(), proof.byteCount, proof.sha256Hex) }
+        val checked = mapOf(BackupAttribute.MEDIA_KIND to BackupTelemetry.mediaKind(source.mimeType),
+            BackupAttribute.SIZE_BUCKET to BackupTelemetry.sizeBucket(proof.byteCount))
+        val remote = runSuspendCatching {
+            diagnostics.traced(BackupPhase.BYTE_CHECK, checked) { byteCheck.compare(binding, pairEntity.toCandidate(), proof.byteCount, proof.sha256Hex) }
+        }
             .getOrElse { return StoredMessage.decode(it.message)?.code ?: StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code }
         val localUnchanged = local.sha256Hex == proof.sha256Hex && local.byteCount == proof.byteCount
         if (!remote.matches || !localUnchanged) {
             // An iCloud copy that is not the phone's flags the proof, so the phone copy is kept and never offered again.
             // A phone file edited since its upload is a different photo now: it stays, and the proof is left as it was.
-            if (!remote.matches) verificationDao.invalidateProof(proof.proofId, now(), VerificationProofEntity.BYTE_CHECK_FAILED)
+            if (!remote.matches) {
+                verificationDao.invalidateProof(proof.proofId, now(), VerificationProofEntity.BYTE_CHECK_FAILED)
+                diagnostics.capture(BackupEvent.BYTE_CHECK_FAILED, DiagnosticSeverity.FATAL, checked + (BackupAttribute.PHASE to "before_delete"))
+            }
             return StoredMessage.THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH.code
         }
-        verificationDao.markByteChecked(proof.proofId, now())
-        accept(
-            ReclaimProposalItemEntity(
-                proposalId = proposalId,
-                mediaId = mediaId,
-                contentUri = source.contentUri,
-                proofId = proof.proofId,
-                localSha256Hex = local.sha256Hex,
-                remoteSha256Hex = remote.sha256Hex,
-                verifiedAtEpochMillis = now(),
-            ),
-        )
-        return null
+        // A motion photo backed up with its video, as a Live Photo or as its own item, stays until that video passes too.
+        return motionParts?.checkBeforeTrash(binding, mediaId) ?: run {
+            verificationDao.markByteChecked(proof.proofId, now())
+            accept(
+                ReclaimProposalItemEntity(
+                    proposalId = proposalId,
+                    mediaId = mediaId,
+                    contentUri = source.contentUri,
+                    proofId = proof.proofId,
+                    localSha256Hex = local.sha256Hex,
+                    remoteSha256Hex = remote.sha256Hex,
+                    verifiedAtEpochMillis = now(),
+                ),
+            )
+            null
+        }
     }
 
     /** Phone items with a current proof, oldest first, and the bytes they hold on the phone. */
     suspend fun freeUpSpaceCandidates(): FreeUpSpaceCandidates {
-        val rows = verificationDao.findReclaimableOnPhone()
+        val kept = accountDao.findActiveAccount()?.let { account -> motionParts?.keptOnPhone(account.toBinding()) }.orEmpty()
+        val rows = verificationDao.findReclaimableOnPhone().filter { it.mediaId !in kept }
         return FreeUpSpaceCandidates(rows.map { it.mediaId }, rows.sumOf { it.byteCount }, rows.map { it.byteCount })
     }
 

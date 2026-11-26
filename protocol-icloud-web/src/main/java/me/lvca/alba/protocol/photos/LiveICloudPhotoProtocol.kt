@@ -10,9 +10,12 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.BackupDiagnostics
 import me.lvca.alba.engine.model.CandidatePage
 import me.lvca.alba.engine.model.ICloudDestination
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
+import me.lvca.alba.engine.model.LivePhotoAttachment
+import me.lvca.alba.engine.model.LivePhotoVideo
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PhoneMetadata
 import me.lvca.alba.engine.model.PreparedICloudUpload
@@ -52,6 +55,9 @@ class LiveICloudPhotoProtocol(
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
     /** The library's edits, shared with the viewer; without one, uploads carry nothing beyond their bytes. */
     private val metadataEditor: UploadMetadataEditor? = null,
+    /** Where uploads report their phases; only while the user allows diagnostics. */
+    private val diagnostics: BackupDiagnostics = BackupDiagnostics.None,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : ICloudPhotoProtocol {
     override fun isWriteAuthorized(): Boolean = isAuthorized()
     override suspend fun canResume(binding: AccountBinding, attemptId: String): Boolean = try {
@@ -88,6 +94,25 @@ class LiveICloudPhotoProtocol(
         requireBoundSession(binding)
         // The editor checks the account again under its lock, so a switch in between edits nothing.
         editor.applyPhoneMetadata(binding.accountId, assetRecordName, metadata.favorite, metadata.caption)
+    }
+
+    override suspend fun attachLivePhotoVideo(
+        binding: AccountBinding,
+        attachId: String,
+        masterRecordName: String,
+        assetRecordName: String,
+        video: LivePhotoVideo,
+    ): LivePhotoAttachment = livePhotos(binding).attach(attachId, masterRecordName, assetRecordName, video)
+
+    override suspend fun livePhotoVideoResource(binding: AccountBinding, masterRecordName: String): UploadReceipt? =
+        livePhotos(binding).videoResource(masterRecordName)
+
+    override suspend fun streamLivePhotoVideo(binding: AccountBinding, masterRecordName: String, output: OutputStream): Long =
+        livePhotos(binding).streamVideo(masterRecordName, output)
+
+    private fun livePhotos(binding: AccountBinding): LivePhotoAttach {
+        val session = requireBoundSession(binding)
+        return LivePhotoAttach(transport, cloudKit, session, binding, uploadJournal, ::requireCurrentSession, clock, diagnostics)
     }
 
     override fun currentDestination(): ICloudDestination? = sessionProvider()?.let { session ->
@@ -143,6 +168,7 @@ class LiveICloudPhotoProtocol(
             journal = uploadJournal,
             binding = binding,
             onSessionRejected = onSessionRejected,
+            diagnostics = diagnostics,
             checkAuthorized = {
                 val current = sessionProvider()
                 if (!isAuthorized() || current == null || current.dsid != session.dsid || current.clientId != session.clientId) {

@@ -82,6 +82,9 @@ enum class TransferFailureReason {
 
     /** It stopped for another reason and waits for the user's Retry. */
     STOPPED,
+
+    /** The photo is backed up, but its motion video could not be attached to it as a Live Photo; Retry tries again. */
+    LIVE_PHOTO_NOT_ATTACHED,
 }
 
 /** Automatic items larger than this upload only on an unmetered network, in a foreground run with a long time budget. */
@@ -524,7 +527,52 @@ interface ICloudPhotoProtocol {
      * to ignore.
      */
     suspend fun applyPhoneMetadata(binding: AccountBinding, assetRecordName: String, metadata: PhoneMetadata): Unit = Unit
+
+    /**
+     * Attaches [video] to the still Alba just uploaded ([masterRecordName], [assetRecordName]) so iCloud shows it as a
+     * Live Photo. Journalled under [attachId]: calling it again after a crash resumes rather than repeating what was
+     * done, and once attached it returns the saved result. Throws [LivePhotoAttachRefusedException] when iCloud refuses
+     * it in a way a retry would not change; anything else may pass on retry.
+     */
+    suspend fun attachLivePhotoVideo(
+        binding: AccountBinding,
+        attachId: String,
+        masterRecordName: String,
+        assetRecordName: String,
+        video: LivePhotoVideo,
+    ): LivePhotoAttachment = throw LivePhotoAttachRefusedException("This iCloud connection cannot attach Live Photo videos")
+
+    /** The Live Photo video [masterRecordName] holds, read afresh: Apple's size and checksum of it, or null when none. */
+    suspend fun livePhotoVideoResource(binding: AccountBinding, masterRecordName: String): UploadReceipt? = null
+
+    /** Downloads the Live Photo video [masterRecordName] holds into [output], for the byte check; returns its size. */
+    suspend fun streamLivePhotoVideo(binding: AccountBinding, masterRecordName: String, output: OutputStream): Long =
+        throw UnsupportedOperationException("This iCloud connection cannot read Live Photo videos")
 }
+
+/**
+ * A motion photo's embedded video, to attach to its still as a Live Photo. It is a few seconds long, so it is held in
+ * memory and sent once for each resource iCloud keeps (the original and two smaller ones, all these same bytes).
+ */
+class LivePhotoVideo(
+    val bytes: ByteArray,
+    val sha256Hex: String,
+    val durationNanos: Long,
+    /** When in the video the still was taken. */
+    val stillTimeNanos: Long,
+    val width: Int,
+    val height: Int,
+    /** A UUID pairing the still and the video, as Apple's ContentIdentifier does; sent as the asset's mediaGroupId. */
+    val contentIdentifier: String,
+) {
+    val byteCount: Long get() = bytes.size.toLong()
+}
+
+/** A Live Photo video attached: Apple's receipt for the original video resource, and whether mediaGroupId was written. */
+data class LivePhotoAttachment(val receipt: UploadReceipt, val mediaGroupIdWritten: Boolean)
+
+/** iCloud refused a Live Photo attach in a way a retry would not change; [code] is CloudKit's error code or HTTP status. */
+class LivePhotoAttachRefusedException(message: String, val code: String? = null) : RuntimeException(message)
 
 /** What the phone records about an item beyond its bytes, carried into iCloud after upload. */
 data class PhoneMetadata(
@@ -535,6 +583,21 @@ data class PhoneMetadata(
 ) {
     /** Whether there is anything to carry into iCloud. */
     val isEmpty: Boolean get() = !favorite && caption == null
+}
+
+/**
+ * How automatic backup treats an Android motion photo, a JPEG or HEIC with a short MP4 embedded at its end. Stored by
+ * name; keep the names.
+ */
+enum class MotionPhotoMode {
+    /** The still only, byte for byte with its embedded video kept, as iCloud.com takes it. */
+    PHOTO_ONLY,
+
+    /** The still, and the embedded video extracted and uploaded as its own video item. */
+    PHOTO_AND_VIDEO,
+
+    /** Experimental: the still, with its embedded video attached to it in iCloud as a Live Photo. */
+    LIVE_PHOTO,
 }
 
 /** The network automatic backup sees now. */
@@ -551,6 +614,8 @@ data class BackupSettings(
     val paused: Boolean = false,
     /** Automatic backup uploads only while the phone is charging, as Google Photos' "While charging only". */
     val onlyWhileCharging: Boolean = false,
+    /** How automatic backup treats a motion photo's embedded video. */
+    val motionPhotos: MotionPhotoMode = MotionPhotoMode.PHOTO_ONLY,
 ) {
     /** Whether automatic backup may upload a photo, or a video when [video], on [network]. */
     fun allows(network: BackupNetwork, video: Boolean): Boolean = !paused && when (network) {

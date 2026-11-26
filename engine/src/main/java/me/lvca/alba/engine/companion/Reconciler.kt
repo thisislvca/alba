@@ -11,10 +11,20 @@ import me.lvca.alba.engine.database.UploadAttemptEntity
 import me.lvca.alba.engine.database.UploadSuppressionEntity
 import me.lvca.alba.engine.database.VerificationProofEntity
 import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.BackupAttribute
+import me.lvca.alba.engine.model.BackupBreadcrumb
+import me.lvca.alba.engine.model.BackupDiagnostics
+import me.lvca.alba.engine.model.BackupEvent
+import me.lvca.alba.engine.model.BackupPhase
+import me.lvca.alba.engine.model.BackupTelemetry
+import me.lvca.alba.engine.model.BackupTelemetry.traced
+import me.lvca.alba.engine.model.DiagnosticSeverity
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.StoredMessage
+import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
+import me.lvca.alba.engine.model.UploadReceipt
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
 
@@ -40,6 +50,7 @@ internal class Reconciler(
     private val stages: UploadStages,
     private val now: () -> Long,
     private val byteCheck: ByteCheck = ByteCheck(protocol),
+    private val diagnostics: BackupDiagnostics = BackupDiagnostics.None,
 ) {
     private val transferDao = database.transferDao()
     private val verificationDao = database.verificationDao()
@@ -73,7 +84,9 @@ internal class Reconciler(
                     StoredMessage.UPLOAD_PROCESSING.code)
                 return 1
             }
-            protocol.findUploadCandidates(binding, cursor, acceptance, RECONCILIATION_PAGE_LIMIT)
+            diagnostics.traced(BackupPhase.RECEIPT_MATCH, mapOf(BackupAttribute.SIZE_BUCKET to BackupTelemetry.sizeBucket(source.byteCount))) {
+                protocol.findUploadCandidates(binding, cursor, acceptance, RECONCILIATION_PAGE_LIMIT)
+            }
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             transferDao.markReadFailure(
@@ -98,6 +111,7 @@ internal class Reconciler(
             .filter { it.relationIsCurrent && !it.masterDeleted && !it.assetDeleted }
         val exactMatches = mutableListOf<RemotePairCandidate>()
         if (receipt != null) exactMatches += current.filter { it.matchesReceipt(receipt, source.byteCount) }
+        if (receipt != null) reportReceiptMismatch(receipt, acceptance, current, source)
         // Without a receipt, each candidate is downloaded and compared byte for byte.
         for (pair in current.takeIf { receipt == null }.orEmpty()) {
             val checked = try {
@@ -168,6 +182,23 @@ internal class Reconciler(
         return 1
     }
 
+    /** The item Apple named on acceptance is there but does not carry the receipt: worth knowing about, never a match. */
+    private fun reportReceiptMismatch(
+        receipt: UploadReceipt,
+        acceptance: UploadAcceptance?,
+        current: List<RemotePairCandidate>,
+        source: StagedSourceEntity,
+    ) {
+        if (current.none { it.master.name == acceptance?.masterRecordName && !it.matchesReceipt(receipt, source.byteCount) }) return
+        diagnostics.capture(
+            BackupEvent.RECEIPT_MISMATCH, DiagnosticSeverity.ERROR,
+            mapOf(
+                BackupAttribute.MEDIA_KIND to BackupTelemetry.mediaKind(source.mimeType),
+                BackupAttribute.SIZE_BUCKET to BackupTelemetry.sizeBucket(source.byteCount),
+            ),
+        )
+    }
+
     private suspend fun persistReconciliationMatches(
         binding: AccountBinding,
         attemptId: String,
@@ -232,6 +263,8 @@ internal class Reconciler(
     /** iCloud did not receive [attempt]: start afresh after a backoff that grows with each try, up to a day. */
     private suspend fun retryProvenNotReceived(binding: AccountBinding, transfer: TransferEntity, attempt: UploadAttemptEntity) {
         val retries = transfer.automaticRetries
+        diagnostics.breadcrumb(BackupBreadcrumb.RETRY_SCHEDULED, mapOf(BackupAttribute.COUNT to retries + 1,
+            BackupAttribute.DURATION_MS to retryBackoffMillis(retries)))
         database.withTransaction {
             val changed = transferDao.retryAfterProvenNotReceived(
                 transfer.transferId, attempt.attemptId, now() + retryBackoffMillis(retries), now(),
@@ -253,6 +286,11 @@ internal class Reconciler(
         message: String,
         failureReason: String? = null,
     ) {
+        diagnostics.capture(BackupEvent.UPLOAD_UNRESOLVED, DiagnosticSeverity.WARNING, mapOf(
+            BackupAttribute.OUTCOME to state.name,
+            BackupAttribute.MEDIA_KIND to BackupTelemetry.mediaKind(source.mimeType),
+            BackupAttribute.SIZE_BUCKET to BackupTelemetry.sizeBucket(source.byteCount),
+        ) + (failureReason?.let { mapOf(BackupAttribute.ERROR to it) } ?: emptyMap()))
         database.withTransaction {
             check(transferDao.markUnresolvedTerminal(transfer.transferId, attempt.attemptId, state, now(), message, failureReason) == 1)
             transferDao.releaseWriteSlot(transfer.accountId, attempt.attemptId)

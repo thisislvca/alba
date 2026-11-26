@@ -20,6 +20,13 @@ import me.lvca.alba.engine.database.UploadPauseEntity
 import me.lvca.alba.engine.database.UploadUncertaintyEntity
 import me.lvca.alba.engine.database.VerificationProofEntity
 import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.BackupAttribute
+import me.lvca.alba.engine.model.BackupDiagnostics
+import me.lvca.alba.engine.model.BackupEvent
+import me.lvca.alba.engine.model.BackupPhase
+import me.lvca.alba.engine.model.BackupTelemetry
+import me.lvca.alba.engine.model.BackupTelemetry.traced
+import me.lvca.alba.engine.model.DiagnosticSeverity
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.ICloudRejectedUploadException
 import me.lvca.alba.engine.model.ICloudStorageFullException
@@ -50,6 +57,7 @@ internal class UploadInvoker(
     private val stages: UploadStages,
     private val existingCopies: ExistingCopyCheck,
     private val protocolStatus: ProtocolStatusGate = ProtocolStatusGate.Open,
+    private val diagnostics: BackupDiagnostics = BackupDiagnostics.None,
 ) {
     private val accountDao = database.accountDao()
     private val transferDao = database.transferDao()
@@ -242,6 +250,7 @@ internal class UploadInvoker(
             rejectForGood(binding, armed, rejected)
         } catch (error: Throwable) {
             prepared.cancel()
+            reportIfUnexpected(error)
             when {
                 error.isSourceChange() && releaseChanged(binding, armed) -> Unit
                 !protocol.canResume(binding, armed.attemptId) ->
@@ -250,6 +259,15 @@ internal class UploadInvoker(
             }
             if (error is CancellationException) throw error
         }
+    }
+
+    /** An upload failure no retry would change and Alba did not expect (not a changed original) goes to diagnostics. */
+    private fun reportIfUnexpected(error: Throwable) {
+        if (error is CancellationException || !error.failsEveryRetry() || error.isSourceChange()) return
+        diagnostics.capture(
+            BackupEvent.UNEXPECTED_ERROR, DiagnosticSeverity.ERROR,
+            mapOf(BackupAttribute.PHASE to "upload", BackupAttribute.ERROR to BackupTelemetry.errorClass(error)),
+        )
     }
 
     /**
@@ -609,7 +627,9 @@ internal class UploadInvoker(
      * waits for reconciliation, which matches the receipt in iCloud's change feed.
      */
     private suspend fun sendOnce(prepared: PreparedICloudUpload, sending: SentBytesSource, transferId: String, attemptId: String) {
-        val acceptance = prepared.startOnce(attemptId)
+        val acceptance = diagnostics.traced(BackupPhase.UPLOAD, mapOf(BackupAttribute.SIZE_BUCKET to BackupTelemetry.sizeBucket(sending.byteCount))) {
+            prepared.startOnce(attemptId)
+        }
         database.withTransaction {
             // Apple accepted an upload, so iCloud has space again: lift a storage pause.
             transferDao.findTransfer(transferId)?.let { transferDao.clearUploadPause(it.accountId) }
