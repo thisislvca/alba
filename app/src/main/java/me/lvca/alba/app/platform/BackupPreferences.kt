@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import me.lvca.alba.engine.model.BackupSettings
+import me.lvca.alba.engine.model.MotionPhotoMode
 
 /** How manual uploads and downloads treat mobile data. Stored by name; keep the names. */
 enum class MobileDataChoice {
@@ -40,6 +41,7 @@ class BackupPreferences(context: Context) {
             putStringSet(DEVICE_FOLDERS, next.deviceFolders)
             putBoolean(PAUSED, next.paused)
             putBoolean(ONLY_WHILE_CHARGING, next.onlyWhileCharging)
+            putString(MOTION_PHOTOS, next.motionPhotos.name)
         }
         current.value = next
     }
@@ -77,6 +79,8 @@ class BackupPreferences(context: Context) {
         deviceFolders = preferences.getStringSet(DEVICE_FOLDERS, emptySet()).orEmpty().toSet(),
         paused = preferences.getBoolean(PAUSED, false),
         onlyWhileCharging = preferences.getBoolean(ONLY_WHILE_CHARGING, false),
+        motionPhotos = preferences.getString(MOTION_PHOTOS, null)
+            ?.let { saved -> MotionPhotoMode.entries.firstOrNull { it.name == saved } } ?: MotionPhotoMode.PHOTO_ONLY,
     )
 
     private companion object {
@@ -87,6 +91,7 @@ class BackupPreferences(context: Context) {
         const val DEVICE_FOLDERS = "device-folders"
         const val PAUSED = "paused"
         const val ONLY_WHILE_CHARGING = "only-while-charging"
+        const val MOTION_PHOTOS = "motion-photos"
         const val MOBILE_DATA_CHOICE = "manual-mobile-data"
         const val WAIT_FOR_WIFI = "manual-wait-for-wifi"
         const val NOTIFICATIONS_ASKED = "notifications-asked"

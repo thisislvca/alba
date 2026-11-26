@@ -158,7 +158,8 @@ private fun FixButton(group: FailureGroup, actions: QueueActions, enableAutomati
             { try { uris.openUri(ICLOUD_STORAGE_URL) } catch (_: IllegalArgumentException) { } }
         }
         TransferFailureReason.PHOTO_ACCESS -> enableAutomaticBackup
-        TransferFailureReason.FORMAT_NOT_SUPPORTED, TransferFailureReason.STOPPED -> actions::retryAllTransfers
+        TransferFailureReason.FORMAT_NOT_SUPPORTED, TransferFailureReason.STOPPED, TransferFailureReason.LIVE_PHOTO_NOT_ATTACHED ->
+            actions::retryAllTransfers
         TransferFailureReason.FILE_GONE -> { { actions.dismissFailedTransfers(group.items.filter { it.retryable }.map { it.id }) } }
         TransferFailureReason.CHECKING_ICLOUD -> actions::checkICloudNow
     }
@@ -180,6 +181,7 @@ internal fun TransferFailureReason.title(): String = stringResource(when (this) 
     TransferFailureReason.FILE_GONE -> R.string.backup_failure_file_gone
     TransferFailureReason.CHECKING_ICLOUD -> R.string.backup_failure_checking_icloud
     TransferFailureReason.STOPPED -> R.string.backup_failure_stopped
+    TransferFailureReason.LIVE_PHOTO_NOT_ATTACHED -> R.string.backup_failure_live_photo
 })
 
 @Composable
@@ -192,6 +194,7 @@ private fun TransferFailureReason.explanation(): String = stringResource(when (t
     TransferFailureReason.FILE_GONE -> R.string.backup_failure_file_gone_detail
     TransferFailureReason.CHECKING_ICLOUD -> R.string.backup_failure_checking_icloud_detail
     TransferFailureReason.STOPPED -> R.string.backup_failure_stopped_detail
+    TransferFailureReason.LIVE_PHOTO_NOT_ATTACHED -> R.string.backup_failure_live_photo_detail
 })
 
 @Composable
@@ -203,5 +206,5 @@ private fun TransferFailureReason.fixLabel(): String = stringResource(when (this
     TransferFailureReason.FORMAT_NOT_SUPPORTED -> R.string.backup_fix_try_again
     TransferFailureReason.FILE_GONE -> R.string.backup_fix_remove
     TransferFailureReason.CHECKING_ICLOUD -> R.string.backup_fix_check_now
-    TransferFailureReason.STOPPED -> R.string.retry_all
+    TransferFailureReason.STOPPED, TransferFailureReason.LIVE_PHOTO_NOT_ATTACHED -> R.string.retry_all
 })

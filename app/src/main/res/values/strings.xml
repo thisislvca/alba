@@ -974,6 +974,15 @@
     <string name="backup_while_roaming_detail">Uses mobile data abroad, which may cost more.</string>
     <string name="backup_only_while_charging">Only while charging</string>
     <string name="backup_only_while_charging_detail">Backs up only while the phone is charging.</string>
+    <string name="backup_motion_photos">Motion photos</string>
+    <string name="backup_motion_photos_title">Back up motion photos</string>
+    <string name="backup_motion_photos_intro">Motion photos are photos with a short video inside, taken by many Android cameras.</string>
+    <string name="backup_motion_photos_photo_only">Photo only</string>
+    <string name="backup_motion_photos_photo_only_detail">The photo, with its video kept inside the file, as iCloud.com takes it.</string>
+    <string name="backup_motion_photos_separately">Photo and video separately</string>
+    <string name="backup_motion_photos_separately_detail">The photo, plus the video as its own item in iCloud.</string>
+    <string name="backup_motion_photos_live">As Live Photo (experimental)</string>
+    <string name="backup_motion_photos_live_detail">Plays like a Live Photo on iPhone, Mac and iCloud.com. Alba attaches the motion after the photo backs up.</string>
     <string name="backup_pause">Pause backup</string>
     <string name="backup_pause_detail">Stops automatic uploads until you turn this off.</string>
     <string name="backup_disclosure_title">Turn on backup?</string>
@@ -1245,6 +1254,9 @@
     <string name="message_no_copy_appeared_in_icloud_uploading_again">No copy appeared in iCloud, so Alba is uploading it again.</string>
     <string name="message_icloud_rejected_this_file">iCloud didn\'t accept this file. The original stays on this phone.</string>
     <string name="message_this_file_is_no_longer_on_the_phone">This file is no longer on the phone.</string>
+    <string name="message_adding_the_live_photo_motion">Adding the motion to make it a Live Photo</string>
+    <string name="message_live_photo_part_not_attached">Live Photo part not attached. The photo itself is backed up.</string>
+    <string name="message_motion_photo_video_not_backed_up_yet">Its motion video isn\'t backed up yet, so it stays on this phone.</string>
     <string name="backup_failure_waiting_to_retry">Waiting to retry</string>
     <string name="backup_failure_needs_unmetered">Needs Wi-Fi (large video)</string>
     <string name="backup_failure_storage_full">iCloud storage full</string>
@@ -1253,6 +1265,7 @@
     <string name="backup_failure_file_gone">File no longer on phone</string>
     <string name="backup_failure_checking_icloud">Checking iCloud</string>
     <string name="backup_failure_stopped">Stopped</string>
+    <string name="backup_failure_live_photo">Live Photo part not attached</string>
     <string name="backup_failure_waiting_to_retry_detail">The upload stopped before iCloud received it. Alba tries again on its own.</string>
     <string name="backup_failure_needs_unmetered_detail">Items over 100 MB back up on Wi-Fi, while Alba can keep running.</string>
     <string name="backup_failure_storage_full_detail">Backup continues when iCloud has space.</string>
@@ -1261,6 +1274,7 @@
     <string name="backup_failure_file_gone_detail">These were deleted from the phone before they were backed up.</string>
     <string name="backup_failure_checking_icloud_detail">Alba looks for these in iCloud after each library refresh and never uploads them twice.</string>
     <string name="backup_failure_stopped_detail">These stopped before reaching iCloud.</string>
+    <string name="backup_failure_live_photo_detail">These photos are backed up, but their motion couldn\'t be added to make them Live Photos.</string>
     <string name="backup_fix_retry_now">Retry now</string>
     <string name="backup_fix_wifi_settings">Wi-Fi settings</string>
     <string name="backup_fix_open_storage">Open storage</string>

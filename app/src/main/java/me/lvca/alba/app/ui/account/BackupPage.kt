@@ -3,6 +3,7 @@ package me.lvca.alba.app.ui.account
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,12 +11,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,6 +60,7 @@ import me.lvca.alba.app.ui.transfers.failureGroups
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.DeviceFolder
+import me.lvca.alba.engine.model.MotionPhotoMode
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -321,6 +325,7 @@ private fun BackupSettingsCard(transfers: TransferState, folders: Boolean, actio
             settings.onlyWhileCharging, "backup-only-while-charging") { actions.setBackupSettings(settings.copy(onlyWhileCharging = it)) }
         SettingSwitch(stringResource(R.string.backup_pause), stringResource(R.string.backup_pause_detail),
             settings.paused, "backup-pause") { actions.setBackupSettings(settings.copy(paused = it)) }
+        MotionPhotosSetting(settings.motionPhotos) { actions.setBackupSettings(settings.copy(motionPhotos = it)) }
         if (folders) {
             LaunchedEffect(Unit) { actions.loadDeviceFolders() }
             val names = backedUpFolderNames(settings.deviceFolders, transfers.deviceFolders, stringResource(R.string.backup_screenshots_folder))
@@ -331,6 +336,64 @@ private fun BackupSettingsCard(transfers: TransferState, folders: Boolean, actio
         }
     }
 }
+
+/**
+ * "Motion photos": how backup treats a photo with a short video inside. A single choice in a dialog; "As Live Photo" is
+ * experimental and says what it does in one line.
+ */
+@Composable
+internal fun MotionPhotosSetting(current: MotionPhotoMode, choose: (MotionPhotoMode) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    AlbaListRow(stringResource(R.string.backup_motion_photos), { open = true }, Modifier.testTag("motion-photos-setting"),
+        subtitle = current.label())
+    if (!open) return
+    AlertDialog(
+        onDismissRequest = { open = false },
+        title = { Text(stringResource(R.string.backup_motion_photos_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(stringResource(R.string.backup_motion_photos_intro))
+                Column(Modifier.selectableGroup().testTag("motion-photos-options")) {
+                    MotionPhotoMode.entries.forEach { option ->
+                        AlbaListRow(
+                            title = option.label(),
+                            subtitle = option.detail(),
+                            selected = option == current,
+                            onClick = { open = false; if (option != current) choose(option) },
+                            leading = { RadioButton(selected = option == current, onClick = null) },
+                            leadingSize = null,
+                            contentPadding = PaddingValues(vertical = 4.dp),
+                            minHeight = 48.dp,
+                            modifier = Modifier.testTag("motion-photos-option-${option.tagId}"),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** The option's id in test tags: photo-only, photo-and-video, live-photo. */
+internal val MotionPhotoMode.tagId: String get() = name.lowercase().replace('_', '-')
+
+@Composable
+private fun MotionPhotoMode.label(): String = stringResource(
+    when (this) {
+        MotionPhotoMode.PHOTO_ONLY -> R.string.backup_motion_photos_photo_only
+        MotionPhotoMode.PHOTO_AND_VIDEO -> R.string.backup_motion_photos_separately
+        MotionPhotoMode.LIVE_PHOTO -> R.string.backup_motion_photos_live
+    },
+)
+
+@Composable
+private fun MotionPhotoMode.detail(): String = stringResource(
+    when (this) {
+        MotionPhotoMode.PHOTO_ONLY -> R.string.backup_motion_photos_photo_only_detail
+        MotionPhotoMode.PHOTO_AND_VIDEO -> R.string.backup_motion_photos_separately_detail
+        MotionPhotoMode.LIVE_PHOTO -> R.string.backup_motion_photos_live_detail
+    },
+)
 
 /**
  * The folders backup covers, by name: the camera, the screenshots folders when chosen (named [screenshots] if the phone
