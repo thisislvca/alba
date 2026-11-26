@@ -730,7 +730,8 @@ internal fun GalleryHome(
                 onAction = { action ->
                     if (action != BackupHeroAction.RETRY_STORAGE) sheet = null
                     when (action) {
-                        BackupHeroAction.TURN_ON, BackupHeroAction.ALLOW_ACCESS, BackupHeroAction.REVIEW -> actions.enableAutomaticBackup()
+                        BackupHeroAction.TURN_ON, BackupHeroAction.REVIEW -> actions.enableAutomaticBackup()
+                        BackupHeroAction.ALLOW_ACCESS -> actions.openPermissions()
                         BackupHeroAction.SIGN_IN -> actions.openAccount()
                         BackupHeroAction.RETRY_STORAGE -> actions.retryAfterStorageFull()
                     }

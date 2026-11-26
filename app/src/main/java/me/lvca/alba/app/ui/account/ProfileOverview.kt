@@ -59,6 +59,7 @@ enum class ProfilePage(val title: Int) {
     BACKUP_FOLDERS(R.string.backup_device_folders),
     FREE_UP_SPACE(R.string.free_up_space_title),
     PHONE(R.string.phone_storage_title),
+    PERMISSIONS(R.string.permissions_title),
     ABOUT(R.string.about_title),
     ;
 
@@ -170,6 +171,8 @@ internal fun ProfileOverview(
                 }
             }
         }
+        ProfileRow(stringResource(R.string.permissions_title), permissionsSummary(rememberAppPermissions().value),
+            AlbaIcons.Lock, profileColors.permissionsTile, "profile-permissions", onClick = { onNavigate(ProfilePage.PERMISSIONS) })
     }
     AppearanceSettings()
     Spacer(Modifier.height(AlbaSpacing.xxl))

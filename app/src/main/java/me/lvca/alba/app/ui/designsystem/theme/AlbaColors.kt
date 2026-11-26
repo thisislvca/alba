@@ -82,6 +82,7 @@ internal data class ProfileColors(
     val backupTile: Color = SuccessTile,
     val phoneTile: Color = Color(0xFF777C88),
     val aboutTile: Color = Color(0xFF8A5CCD),
+    val permissionsTile: Color = PermissionsTile,
     val storage: StorageColors = StorageColors(),
 )
 
@@ -109,6 +110,7 @@ private val FavoriteDark = Color(0xFFFF8798)
 private val SuccessLight = Color(0xFF006C48)
 private val SuccessDark = Color(0xFF00C385)
 private val SuccessTile = Color(0xFF268858)
+private val PermissionsTile = Color(0xFF2F6FDB)
 
 /** Material's opacity for a bottom sheet's drag handle (onSurfaceVariant at 40%). */
 private const val HANDLE_ALPHA = .4f

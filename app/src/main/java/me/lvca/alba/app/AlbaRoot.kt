@@ -66,7 +66,7 @@ import me.lvca.alba.app.platform.HiddenScreenGuard
 import me.lvca.alba.app.platform.MobileDataChoice
 import me.lvca.alba.app.platform.OnboardingPreferences
 import me.lvca.alba.app.platform.PendingExport
-import me.lvca.alba.app.platform.PhotoPromptPreferences
+import me.lvca.alba.app.platform.PermissionPromptPreferences
 import me.lvca.alba.app.platform.UploadTarget
 import me.lvca.alba.app.platform.appSettingsIntent
 import me.lvca.alba.app.platform.deviceLibraryChanges
@@ -76,6 +76,7 @@ import me.lvca.alba.app.platform.hasLimitedPhotoAccess
 import me.lvca.alba.app.platform.notBackedUpCount
 import me.lvca.alba.app.platform.phoneTrashUris
 import me.lvca.alba.app.platform.photoPromptBlocked
+import me.lvca.alba.app.platform.readAppPermissions
 import me.lvca.alba.app.platform.requestedDevicePhotoPermissions
 import me.lvca.alba.app.platform.uploadNeedsMediaLocationPermission
 import me.lvca.alba.app.transfers.BackupSetup
@@ -243,7 +244,7 @@ private fun AlbaMain(
     onAccountClosed: () -> Unit,
 ) {
     val context = LocalContext.current
-    val photoPrompt = remember(context) { PhotoPromptPreferences(context) }
+    val photoPrompt = remember(context) { PermissionPromptPreferences(context) }
     val useAsTitle = stringResource(R.string.viewer_use_as)
     val openWithTitle = stringResource(R.string.viewer_open_with)
     val editInTitle = stringResource(R.string.viewer_edit_in)
@@ -288,8 +289,19 @@ private fun AlbaMain(
     HiddenScreenGuard(activity, gallery.query.collectionId == GalleryQuery.HIDDEN || gallery.selectedMedia?.isHidden == true)
     val unlockTitle = stringResource(R.string.hidden_unlock_title)
     val unlockSubtitle = stringResource(R.string.hidden_unlock_subtitle)
+    // Granting what backup needs, in a prompt or in Settings, does not restart Alba as revoking does: backup's status is
+    // told, so it stops asking and backup resumes.
+    var backupAccess by remember { mutableStateOf(readAppPermissions(context).backupAccess) }
+    fun recheckBackupAccess() {
+        val now = readAppPermissions(context).backupAccess
+        if (now != backupAccess) {
+            backupAccess = now
+            viewModel.transfers.backup.backupAccessChanged()
+        }
+    }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         recheckDevicePhotoAccess()
+        recheckBackupAccess()
         viewModel.setDeviceMediaAccess(hasDevicePhotoAccess, hasLimitedPhotoAccess(Build.VERSION.SDK_INT, context::granted))
         viewModel.sync.refresh()
     }
@@ -306,12 +318,14 @@ private fun AlbaMain(
     val devicePhotoPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
         recheckDevicePhotoAccess()
         val requested = requestedDevicePhotoPermissions(Build.VERSION.SDK_INT).first()
-        photoPrompt.blocked = photoPromptBlocked(anyGranted = results.values.any { it } || hasDevicePhotoAccess,
-            showRationale = activity?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, requested) } ?: true)
+        photoPrompt.setBlocked(PermissionPromptPreferences.PHOTOS, photoPromptBlocked(anyGranted = results.values.any { it } || hasDevicePhotoAccess,
+            showRationale = activity?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, requested) } ?: true))
+        recheckBackupAccess()
     }
     val backupPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         viewModel.transfers.backupPermissionsAnswered()
         recheckDevicePhotoAccess()
+        recheckBackupAccess()
     }
     val phoneTrash = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         viewModel.phoneTrashAnswered(result.resultCode == Activity.RESULT_OK)
@@ -379,7 +393,7 @@ private fun AlbaMain(
         object : PlatformRequests {
             override fun requestDevicePhotos() {
                 // Android no longer shows its prompt after two denials; its settings page is the only way left.
-                if (photoPrompt.blocked && !hasDevicePhotoAccess(Build.VERSION.SDK_INT, context::granted)) {
+                if (photoPrompt.blocked(PermissionPromptPreferences.PHOTOS) && !hasDevicePhotoAccess(Build.VERSION.SDK_INT, context::granted)) {
                     runCatching { context.startActivity(appSettingsIntent(context.packageName)) }
                         .onSuccess { Toast.makeText(context, R.string.phone_photo_settings_hint, Toast.LENGTH_LONG).show() }
                         .onFailure { viewModel.localOperationFailed() }
@@ -841,6 +855,7 @@ private class AlbaRootActions(
     override fun requestDevicePhotos() = platform.requestDevicePhotos()
     override fun openAccount() = account.openAccount()
     override fun openBackup() = account.openAccount(ProfilePage.BACKUP)
+    override fun openPermissions() = account.openAccount(ProfilePage.PERMISSIONS)
     override fun startDemo() = account.startDemo()
     override fun openHidden() = platform.unlockHidden()
     override fun expandBurst(burstId: String, expanded: Boolean) = gallery.expandBurst(burstId, expanded)

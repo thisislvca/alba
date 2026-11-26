@@ -172,6 +172,22 @@ class BackupHeroTest {
     }
 
     @Test
+    fun theActivitySheetSendsMissingAccessToThePermissionsPage() {
+        var enabled = 0
+        var permissions = 0
+        showApp(TransferState(backup = on.copy(message = StoredMessage.BACKUP_PAUSED_ALLOW_FULL_PHOTO_AND_MEDIA_LOCATION_ACCESS.code)),
+            testAlbaActions(enableAutomaticBackup = { enabled++ }, openPermissions = { permissions++ }))
+        compose.onNodeWithTag("activity-button").performClick()
+
+        compose.onNodeWithTag("backup-hero-title").assertTextEquals(context.getString(R.string.backup_status_permission))
+        compose.onNodeWithTag("backup-hero-action").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(1, permissions)
+            assertEquals("Allowing access opens the Permissions page, not backup setup again", 0, enabled)
+        }
+    }
+
+    @Test
     fun theActivityHeroGroupsFailuresWithTheirFix() {
         var retriedAll = 0
         val failed = listOf(
