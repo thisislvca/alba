@@ -937,6 +937,14 @@
     <string name="backup_chip_offline">Waiting for a connection</string>
     <string name="backup_chip_wifi">Waiting for Wi-Fi</string>
     <string name="backup_chip_charging">Waiting to charge</string>
+    <string name="backup_hero_backed_up">Backed up</string>
+    <string name="backup_hero_backing_up">Backing up</string>
+    <string name="backup_hero_paused">Paused</string>
+    <string name="backup_hero_off_detail">Back up your photos and videos to iCloud automatically.</string>
+    <string name="backup_hero_last_backup">Last backup %1$s</string>
+    <string name="backup_hero_last_backup_now">Last backup just now</string>
+    <string name="backup_hero_turn_on">Turn on backup</string>
+    <string name="backup_hero_allow_access">Allow access</string>
     <string name="backup_status_off">Backup is off</string>
     <string name="backup_status_review">Backup now covers more</string>
     <string name="backup_status_permission">Backup paused: allow access</string>
@@ -1037,6 +1045,14 @@
     <plurals name="backup_existing_choice_all_count">
         <item quantity="one">Back up %1$,d photo or video (%2$s)</item>
         <item quantity="other">Back up all %1$,d photos and videos (%2$s)</item>
+    </plurals>
+    <plurals name="backup_hero_left">
+        <item quantity="one">%1$,d left · %2$s</item>
+        <item quantity="other">%1$,d left · %2$s</item>
+    </plurals>
+    <plurals name="backup_hero_left_count">
+        <item quantity="one">%1$,d left</item>
+        <item quantity="other">%1$,d left</item>
     </plurals>
     <plurals name="backup_chip_failed">
         <item quantity="one">%,d item can’t be backed up</item>

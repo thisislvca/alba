@@ -953,6 +953,14 @@
     <string name="backup_chip_offline">In attesa di connessione</string>
     <string name="backup_chip_wifi">In attesa del Wi-Fi</string>
     <string name="backup_chip_charging">In attesa della ricarica</string>
+    <string name="backup_hero_backed_up">Backup completato</string>
+    <string name="backup_hero_backing_up">Backup in corso</string>
+    <string name="backup_hero_paused">In pausa</string>
+    <string name="backup_hero_off_detail">Esegui automaticamente il backup di foto e video su iCloud.</string>
+    <string name="backup_hero_last_backup">Ultimo backup %1$s</string>
+    <string name="backup_hero_last_backup_now">Ultimo backup poco fa</string>
+    <string name="backup_hero_turn_on">Attiva il backup</string>
+    <string name="backup_hero_allow_access">Consenti l’accesso</string>
     <string name="backup_status_off">Il backup è disattivato</string>
     <string name="backup_status_review">Il backup ora include di più</string>
     <string name="backup_status_permission">Backup in pausa: consenti l’accesso</string>
@@ -1060,6 +1068,16 @@
         <item quantity="one">Esegui il backup di %1$,d foto o video (%2$s)</item>
         <item quantity="other">Esegui il backup di tutti i %1$,d elementi tra foto e video (%2$s)</item>
         <item quantity="many">Esegui il backup di tutti i %1$,d elementi tra foto e video (%2$s)</item>
+    </plurals>
+    <plurals name="backup_hero_left">
+        <item quantity="one">%1$,d rimanente · %2$s</item>
+        <item quantity="other">%1$,d rimanenti · %2$s</item>
+        <item quantity="many">%1$,d rimanenti · %2$s</item>
+    </plurals>
+    <plurals name="backup_hero_left_count">
+        <item quantity="one">%1$,d rimanente</item>
+        <item quantity="other">%1$,d rimanenti</item>
+        <item quantity="many">%1$,d rimanenti</item>
     </plurals>
     <plurals name="backup_chip_failed">
         <item quantity="one">Backup non riuscito per %,d elemento</item>
