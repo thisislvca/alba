@@ -7,6 +7,7 @@ import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
+import me.lvca.alba.engine.model.UploadReceipt
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.account.PersistedCookie
 import me.lvca.alba.protocol.auth.AppleProtocolError
@@ -194,6 +195,19 @@ class LiveICloudPhotoProtocolTest {
     }
 
     @Test
+    fun `the receipt saved before registration can be read back for an attempt whose response was lost`() = runBlocking {
+        val transport = ScriptedTransport()
+        val journal = CrashJournal("REGISTERING")
+        val protocol = LiveICloudPhotoProtocol(transport, { SESSION }, uploadJournal = journal)
+        val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
+        assertEquals(null, protocol.uploadReceipt(binding, "lost"))
+
+        assertTrue(runCatching { protocol.prepareOriginal(binding, "photo.jpg", CountingSource(JPEG)).startOnce("lost") }.isFailure)
+
+        assertEquals(UploadReceipt(6, "sum"), protocol.uploadReceipt(binding, "lost"))
+    }
+
+    @Test
     fun `inflight byte and registration phases cannot be resumed`() = runBlocking {
         for (phase in listOf("BYTES_SENDING", "REGISTERING")) {
             val transport = ScriptedTransport()
@@ -307,6 +321,7 @@ class LiveICloudPhotoProtocolTest {
 
         assertEquals("master-1", accepted.masterRecordName)
         assertEquals("asset-1", accepted.assetRecordName)
+        assertEquals("The acceptance carries the content store's receipt", UploadReceipt(6, "sum"), accepted.receipt)
         assertEquals(1, transport.rawUploadCalls)
         assertEquals(1, source.opens.get())
         assertEquals(JPEG.toList(), transport.uploadedBytes.toList())
@@ -331,6 +346,14 @@ class LiveICloudPhotoProtocolTest {
         val page = protocol.findUploadCandidates(binding, "before-token", null, 50)
 
         assertEquals(1, page.candidates.size)
+        val candidate = page.candidates.single()
+        assertEquals(
+            "The original's size, checksum and fingerprint are read for receipt matching",
+            Triple(6L, "checksum", "checksum"),
+            Triple(candidate.originalByteCount, candidate.originalFileChecksum, candidate.originalFingerprint),
+        )
+        assertTrue(candidate.matchesReceipt(UploadReceipt(6, "checksum"), 6))
+        assertTrue(transport.requests.filter { it.url.contains("/records/lookup") }.all { it.body.orEmpty().contains("resOriginalFingerprint") })
         assertEquals("after-token", page.nextChangeToken)
         assertEquals(
             1,
@@ -787,7 +810,8 @@ class LiveICloudPhotoProtocolTest {
                       "downloadURL":"https://download.example.icloud-content.com/original?token=secret",
                       "fileChecksum":"checksum",
                       "size":6
-                    }}
+                    }},
+                    "resOriginalFingerprint":{"value":"checksum"}
                   }
                 },
                 {

@@ -37,6 +37,7 @@ import me.lvca.alba.engine.model.RemoteRecordRef
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.TransferViewState
 import me.lvca.alba.engine.model.UploadAcceptance
+import me.lvca.alba.engine.model.UploadReceipt
 import me.lvca.alba.engine.model.UserSelectedPhoto
 import me.lvca.alba.engine.model.WakeReason
 import me.lvca.alba.engine.model.WakeupScheduler
@@ -234,6 +235,7 @@ class BackupJournalTest {
         repeat(3) { photos.syncNow() }
 
         assertTrue(photos.observeTransfers().first().all { it.state == TransferViewState.VERIFIED })
+        assertEquals("Both are verified by their receipts; no original is downloaded", 0, protocol.downloads)
         assertEquals("Only the item with something to carry is edited, once", 1, protocol.applied.size)
         val (asset, metadata) = protocol.applied.single()
         assertTrue(asset.startsWith("asset:"))
@@ -958,8 +960,12 @@ class BackupJournalTest {
                     throw java.io.IOException("connection reset while sending bytes")
                 }
                 uploadedNames += fileName
-                uploads[attemptId] = source.openOnce().use { it.readBytes() }
-                return UploadAcceptance("request", "master:$attemptId", "asset:$attemptId", duplicate)
+                val sent = source.openOnce().use { it.readBytes() }
+                uploads[attemptId] = sent
+                return UploadAcceptance(
+                    "request", "master:$attemptId", "asset:$attemptId", duplicate,
+                    receipt = UploadReceipt(sent.size.toLong(), checksum(sent)),
+                )
             }
 
             override fun cancel() = Unit
@@ -968,17 +974,26 @@ class BackupJournalTest {
         override suspend fun findUploadCandidates(
             binding: AccountBinding, afterChangeToken: String, acceptance: UploadAcceptance?, limit: Int,
         ) = CandidatePage(
-            listOfNotNull(acceptance?.let { RemotePairCandidate(
-                RemoteRecordRef(requireNotNull(it.masterRecordName), "tag"), RemoteRecordRef(requireNotNull(it.assetRecordName), "tag"),
-                relationIsCurrent = true, masterDeleted = false, assetDeleted = false, originalResourceIdentity = "resource",
-            ) }),
+            listOfNotNull(acceptance?.let {
+                // iCloud records the original Apple received: its size, and its checksum as both fileChecksum and fingerprint.
+                val stored = uploads.getValue(requireNotNull(it.masterRecordName).removePrefix("master:"))
+                RemotePairCandidate(
+                    RemoteRecordRef(requireNotNull(it.masterRecordName), "tag"), RemoteRecordRef(requireNotNull(it.assetRecordName), "tag"),
+                    relationIsCurrent = true, masterDeleted = false, assetDeleted = false, originalResourceIdentity = "resource",
+                    originalByteCount = stored.size.toLong(), originalFileChecksum = checksum(stored), originalFingerprint = checksum(stored),
+                )
+            }),
             nextChangeToken = "after",
             moreComing = false,
         )
 
+        /** Originals downloaded afresh: only Free up space's byte check does, never an upload's verification. */
+        var downloads = 0
+
         override suspend fun streamFreshOriginal(
             binding: AccountBinding, pair: RemotePairCandidate, output: OutputStream,
         ): RemoteOriginalObservation {
+            downloads += 1
             val bytes = uploads.getValue(pair.master.name.removePrefix("master:"))
             output.write(bytes)
             return RemoteOriginalObservation("resource", bytes.size.toLong())
@@ -1004,6 +1019,8 @@ class BackupJournalTest {
         const val MODIFIED_AT = 1_700_000_000_000L
 
         fun bytes(id: Long) = byteArrayOf(-1, -40, -1, 1, 2, 3, id.toByte())
+
+        fun checksum(bytes: ByteArray) = "apple:" + sha256(bytes).take(24)
 
         fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes)
             .joinToString(separator = "") { "%02x".format(it) }

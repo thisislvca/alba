@@ -80,8 +80,9 @@ internal class UploadInvoker(
             transferDao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.COULD_NOT_READ_THE_ICLOUD_CHANGE_CURSOR.code)
             return 0
         }
+        val sending = SentBytesSource(uploadSource)
         val prepared = try {
-            protocol.prepareOriginal(binding, source.displayName, uploadSource, source.uploadDate, source.captureOffsetMinutes)
+            protocol.prepareOriginal(binding, source.displayName, sending, source.uploadDate, source.captureOffsetMinutes)
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             transferDao.releaseReadyLease(leased.transferId, leaseToken, now(), StoredMessage.COULD_NOT_PREPARE_THE_ICLOUD_UPLOAD.code)
@@ -120,7 +121,7 @@ internal class UploadInvoker(
             }
 
             try {
-                send(prepared, armed.transferId, armed.attemptId)
+                send(prepared, sending, armed.transferId, armed.attemptId)
             } catch (full: ICloudStorageFullException) {
                 prepared.cancel()
                 storageRefused(binding, armed, full)
@@ -238,6 +239,9 @@ internal class UploadInvoker(
                     verifiedAtEpochMillis = linkedAt,
                     invalidatedAtEpochMillis = null,
                     invalidationReason = null,
+                    // The existing copy was downloaded and compared byte for byte before it was linked.
+                    method = VerificationProofEntity.METHOD_BYTES,
+                    byteCheckedAtEpochMillis = linkedAt,
                 ),
             )
             null
@@ -412,22 +416,26 @@ internal class UploadInvoker(
                 StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN,
             )
             if (authority.waitsForNetwork(transfer.authorityType, source.isVideo)) return@withLock
-            val prepared = protocol.prepareOriginal(binding, source.displayName, openStaged(source), source.uploadDate, source.captureOffsetMinutes)
+            val sending = SentBytesSource(openStaged(source))
+            val prepared = protocol.prepareOriginal(binding, source.displayName, sending, source.uploadDate, source.captureOffsetMinutes)
             if (!canWriteNow(transfer.authorityType, source.isVideo) || !isStillSending(transfer.transferId)) {
                 prepared.cancel()
                 return@withLock
             }
-            send(prepared, transfer.transferId, attemptId)
+            send(prepared, sending, transfer.transferId, attemptId)
         }
     }
 
-    /** Sends the prepared bytes once and records Apple's acceptance; the transfer then waits for reconciliation. */
-    private suspend fun send(prepared: PreparedICloudUpload, transferId: String, attemptId: String) {
+    /**
+     * Sends the prepared bytes once and records Apple's acceptance with its receipt and what was sent; the transfer then
+     * waits for reconciliation, which matches the receipt in iCloud's change feed.
+     */
+    private suspend fun send(prepared: PreparedICloudUpload, sending: SentBytesSource, transferId: String, attemptId: String) {
         val acceptance = prepared.startOnce(attemptId)
         database.withTransaction {
             // Apple accepted an upload, so iCloud has space again: lift a storage pause.
             transferDao.findTransfer(transferId)?.let { transferDao.clearUploadPause(it.accountId) }
-            transferDao.insertAcceptance(acceptance.toEntity(attemptId, now()))
+            transferDao.insertAcceptance(acceptance.toEntity(attemptId, now(), sending.sent))
             fenceHolds(
                 transferDao.markReconciling(
                     transferId,
@@ -523,8 +531,12 @@ internal class UploadInvoker(
         }
     }
 
-    private fun UploadAcceptance.toEntity(attemptId: String, receivedAt: Long) = UploadAcceptanceEntity(
+    private fun UploadAcceptance.toEntity(attemptId: String, receivedAt: Long, sent: SentBytes?) = UploadAcceptanceEntity(
         attemptId, requestUuid, masterRecordName, assetRecordName, duplicateHint, receivedAt, uploadJobId,
+        receiptByteCount = receipt?.byteCount,
+        receiptFileChecksum = receipt?.fileChecksum,
+        sentByteCount = sent?.byteCount,
+        sentSha256Hex = sent?.sha256Hex,
     )
 
     private companion object {

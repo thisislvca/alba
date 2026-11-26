@@ -308,6 +308,18 @@ data class UploadAcceptance(
     val assetRecordName: String?,
     val duplicateHint: Boolean?,
     val uploadJobId: String? = null,
+    /** What Apple's content store said it received; null when the protocol has no receipt for the upload. */
+    val receipt: UploadReceipt? = null,
+)
+
+/**
+ * The receipt Apple's content store returns for an upload's bytes: the size it received and its own checksum of them
+ * (`singleFile.size` and `singleFile.fileChecksum`). The photo registered with the receipt carries the same two values on
+ * its CPLMaster, as `resOriginalRes.size`, `resOriginalRes.fileChecksum` and `resOriginalFingerprint`.
+ */
+data class UploadReceipt(
+    val byteCount: Long,
+    val fileChecksum: String,
 )
 
 sealed interface UploadProcessingStatus {
@@ -329,7 +341,23 @@ data class RemotePairCandidate(
     val masterDeleted: Boolean,
     val assetDeleted: Boolean,
     val originalResourceIdentity: String,
-)
+    /** The master's `resOriginalRes.size`; null when the record does not say. */
+    val originalByteCount: Long? = null,
+    /** The master's `resOriginalRes.fileChecksum`, Apple's checksum of the original it stores. */
+    val originalFileChecksum: String? = null,
+    /** The master's `resOriginalFingerprint`, which Apple sets to the same checksum. */
+    val originalFingerprint: String? = null,
+) {
+    /**
+     * Whether this pair is the photo registered with [receipt] for [byteCount] sent bytes: the master's original has the
+     * receipt's size and checksum, and its fingerprint is that checksum too. A pair that lacks any of them never matches.
+     */
+    fun matchesReceipt(receipt: UploadReceipt, byteCount: Long): Boolean =
+        receipt.byteCount == byteCount &&
+            originalByteCount == byteCount &&
+            originalFileChecksum == receipt.fileChecksum &&
+            originalFingerprint == receipt.fileChecksum
+}
 
 data class CandidatePage(
     val candidates: List<RemotePairCandidate>,
@@ -373,6 +401,13 @@ interface ICloudPhotoProtocol {
      * journal cannot tell.
      */
     suspend fun registrationNeverSent(binding: AccountBinding, attemptId: String): Boolean = false
+
+    /**
+     * The receipt Apple's content store returned for [attemptId]'s bytes, read from the protocol's own write journal. It
+     * is there once the bytes were received, even when the registration that followed was lost. Null when no receipt
+     * was saved, or the journal cannot be read.
+     */
+    suspend fun uploadReceipt(binding: AccountBinding, attemptId: String): UploadReceipt? = null
     fun currentDestination(): ICloudDestination?
 
     suspend fun captureChangeToken(binding: AccountBinding): String

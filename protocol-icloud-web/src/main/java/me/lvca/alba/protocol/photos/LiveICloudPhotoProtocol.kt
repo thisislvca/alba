@@ -21,6 +21,7 @@ import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.RemoteRecordRef
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
+import me.lvca.alba.engine.model.UploadReceipt
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.array
 import me.lvca.alba.protocol.auth.AppleProtocolError
@@ -28,6 +29,7 @@ import me.lvca.alba.protocol.auth.AppleProtocolException
 import me.lvca.alba.protocol.boolean
 import me.lvca.alba.protocol.fieldFlag
 import me.lvca.alba.protocol.fieldObject
+import me.lvca.alba.protocol.fieldText
 import me.lvca.alba.protocol.isTombstone
 import me.lvca.alba.protocol.long
 import me.lvca.alba.protocol.network.AppleClientProfile
@@ -67,6 +69,15 @@ class LiveICloudPhotoProtocol(
         journal != null && journal.load(binding, attemptId).let { it == null || it.phase in PhotosUpload.BEFORE_REGISTRATION }
     } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
       catch (_: Exception) { false }
+
+    /** The receipt startOnce saved with "RECEIPT_SAVED", which every later phase keeps. */
+    override suspend fun uploadReceipt(binding: AccountBinding, attemptId: String): UploadReceipt? = try {
+        uploadJournal?.load(binding, attemptId)?.let { checkpoint ->
+            PhotosUpload.receiptOf((json.parseToJsonElement(checkpoint.payload) as? JsonObject)?.get("receipt") as? JsonObject)
+        }
+    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+      catch (_: Exception) { null }
+
     private val json = Json { ignoreUnknownKeys = true }
 
     private val cloudKit = CloudKitClient(transport, sessionProvider, onSessionUpdated, onSessionRejected)
@@ -354,6 +365,9 @@ class LiveICloudPhotoProtocol(
             masterDeleted = masterDeleted,
             assetDeleted = assetDeleted,
             originalResourceIdentity = resourceIdentity,
+            originalByteCount = resource.long("size"),
+            originalFileChecksum = resource.text("fileChecksum"),
+            originalFingerprint = master.fieldText(ORIGINAL_FINGERPRINT_KEY),
         )
     }
 
@@ -444,6 +458,9 @@ class LiveICloudPhotoProtocol(
         const val MASTER_RECORD_TYPE = "CPLMaster"
         const val ASSET_RECORD_TYPE = "CPLAsset"
         const val ORIGINAL_RESOURCE_KEY = "resOriginalRes"
+
+        /** Apple's checksum of the original on CPLMaster; equal to resOriginalRes.fileChecksum and the upload receipt's. */
+        const val ORIGINAL_FINGERPRINT_KEY = "resOriginalFingerprint"
         const val RECORD_LOOKUP_BATCH_SIZE = 100
         val JSON_HEADERS = mapOf("Content-Type" to AppleClientProfile.WEB_SERVICE_CONTENT_TYPE)
         val LOOKUP_KEYS = listOf(
@@ -453,6 +470,7 @@ class LiveICloudPhotoProtocol(
             "resOriginalWidth",
             "resOriginalHeight",
             ORIGINAL_RESOURCE_KEY,
+            ORIGINAL_FINGERPRINT_KEY,
             "masterRef",
             "assetDate",
         )
