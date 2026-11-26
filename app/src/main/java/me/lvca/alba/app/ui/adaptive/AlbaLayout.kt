@@ -14,11 +14,11 @@ import androidx.window.core.layout.computeWindowSizeClass
 internal enum class WindowWidth { COMPACT, MEDIUM, EXPANDED }
 
 /**
- * Where the app's adaptive layouts stand for the current window. Every width decision reads this, so the breakpoints
+ * Where the app's adaptive layouts stand for the current window. Every size decision reads this, so the breakpoints
  * live in one place: Material's window size classes (see [albaWindowInfo]), never a dp check of its own.
  */
 @Immutable
-internal data class AlbaLayout(val width: WindowWidth, val landscape: Boolean) {
+internal data class AlbaLayout(val width: WindowWidth, val landscape: Boolean, val compactHeight: Boolean = false) {
     /** A navigation rail beside the content, with Search in its header, instead of the floating pill. */
     val navigationRail: Boolean get() = width != WindowWidth.COMPACT
 
@@ -28,6 +28,12 @@ internal data class AlbaLayout(val width: WindowWidth, val landscape: Boolean) {
     /** A photo's Info opens as a pane beside the photo rather than a sheet below it. Compact portrait keeps the sheet. */
     val infoSidePane: Boolean get() = width != WindowWidth.COMPACT || landscape
 
+    /**
+     * Screens open with a large title that collapses as they scroll. A short window (a phone in landscape) has no
+     * height to spare, so its screens keep one small bar instead, with the title inline beside the actions.
+     */
+    val largeTitles: Boolean get() = !compactHeight
+
     companion object {
         fun of(sizeClass: WindowSizeClass, landscape: Boolean) = AlbaLayout(
             width = when {
@@ -36,6 +42,7 @@ internal data class AlbaLayout(val width: WindowWidth, val landscape: Boolean) {
                 else -> WindowWidth.COMPACT
             },
             landscape = landscape,
+            compactHeight = !sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
         )
     }
 }

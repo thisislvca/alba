@@ -16,7 +16,7 @@ The rule: **Android's skeleton, iCloud's skin.** Structure and behaviour come fr
 ## iCloud: look and feel
 
 - **Colour.** A complete static Material 3 scheme generated from an iCloud blue seed (Material Theme Builder), with every role set, so no Material default leaks. Primary is a deep enough blue to pass contrast; neutrals are cool and quiet; dark mode is near-black with surfaces that get lighter as they rise. Colour is used sparingly so photos stay the hero. Wallpaper (dynamic) colour is an opt-in setting, off by default.
-- **Large titles.** Top-level screens open with a large, bold, start-aligned title (Library, Collections, Shared Albums) that collapses as you scroll: Material's large top app bar, styled from the type scale.
+- **Large titles.** Top-level screens open with a large, bold, start-aligned title (Library, Collections, Shared Albums) that collapses as you scroll: Material's large top app bar, styled from the type scale. A short window (compact height, a phone in landscape) has no height to spare: its screens keep one small bar, the title inline beside the actions, with the Photos filters among them.
 - **Type.** Material's type scale with the system font. Tracking is size-specific: tighter on display and headline roles, untouched on body and label roles. No ad-hoc sizes outside the theme.
 - **Grouped lists.** Settings-style screens use Android 16 grouped list items: rounded groups separated by small gaps, no dividers, no chevrons.
 - **Materials.** Chrome that floats over photos (viewer bars, the gallery toolbar) is translucent and blurred where Android supports it, solid where it doesn't or when the user reduces transparency.
