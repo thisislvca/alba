@@ -24,9 +24,6 @@ internal data class AlbaColors(
     val onMedia: Color,
     /** The drag handle of a panel that rises over the viewer. */
     val sheetHandle: Color,
-    /** Initial avatars on album covers. */
-    val avatar: Color,
-    val onAvatar: Color,
     /** The photo viewer's canvas, chrome and details panel. */
     val viewer: ViewerColors,
     /** The account card and its artwork, which keep their own palette in both themes. */
@@ -127,8 +124,6 @@ internal fun albaColors(scheme: ColorScheme, isDark: Boolean) = AlbaColors(
     mediaScrim = Color.Black,
     onMedia = Color.White,
     sheetHandle = scheme.onSurfaceVariant.copy(alpha = HANDLE_ALPHA).compositeOver(scheme.surface),
-    avatar = scheme.surfaceContainerHighest,
-    onAvatar = scheme.onSurfaceVariant,
     // The canvas stays pure white or black like Google Photos'; the chrome and panels use the scheme's neutrals.
     viewer = ViewerColors(
         canvas = if (isDark) Color.Black else Color.White,

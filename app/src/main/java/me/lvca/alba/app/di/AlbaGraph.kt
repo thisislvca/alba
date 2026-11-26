@@ -3,6 +3,7 @@ package me.lvca.alba.app.di
 import android.content.Context
 import kotlinx.coroutines.flow.map
 import me.lvca.alba.app.BuildConfig
+import me.lvca.alba.app.account.AccountPhotoStore
 import me.lvca.alba.app.demo.DemoMediaImporter
 import me.lvca.alba.app.diagnostics.DiagnosticAttribute
 import me.lvca.alba.app.diagnostics.DiagnosticOperation
@@ -121,8 +122,12 @@ class AlbaGraph(context: Context, val diagnostics: SentryAlbaDiagnostics) {
     val offlinePhotos: OfflinePhotosScheduler = WorkManagerOfflinePhotosScheduler(appContext)
     val exporter = GalleryExporter(appContext, galleryRepository)
     val sharedActivity = SharedActivityStore(appContext) { enabled -> SharedActivitySchedule.apply(appContext, enabled) }
+
+    /** The account's photo and name, in app-private storage that is not backed up. */
+    val accountPhotos = AccountPhotoStore(File(appContext.noBackupFilesDir, "account-photo"))
     private suspend fun clearSignedOutData() {
         sharedActivity.clear()
+        accountPhotos.clear()
         cancelSharedActivityNotifications(appContext)
         offlinePhotos.cancel()
         offlineFill.stopAndJoin()

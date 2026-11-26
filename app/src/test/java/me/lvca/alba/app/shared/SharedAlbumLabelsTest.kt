@@ -63,7 +63,7 @@ class SharedAlbumLabelsTest {
         compose.onNodeWithTag("shared-album-expiry", useUnmergedTree = true).assertDoesNotExist()
     }
 
-    @Test fun ownAlbumCardShowsTheAccountsAvatarAndOthersShowTheirOwnersInitial() {
+    @Test fun ownAlbumCardShowsTheAccountsAvatarAndOthersShowTheirOwnersMonogram() {
         val albums = listOf(
             album("mine", SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER)),
             album("theirs", SharedAlbumInfo(SharedAlbumGeneration.LEGACY, SharedAlbumRole.VIEWER, ownerName = "sample Owner")),
@@ -74,14 +74,16 @@ class SharedAlbumLabelsTest {
                 albums.forEach { AlbumCard(it, CollectionPreview(3), 0, {}) {} }
             } }
         } }
-        // Your own album: the account's initial, as the header and Profile show it, never a generic glyph.
+        // Your own album: the account's monogram (an email's first letter), as the header and Profile show it.
         compose.onNodeWithTag("shared-owner-avatar-${albums[0].id}", useUnmergedTree = true)
             .assertContentDescriptionEquals("Created by You").assert(hasAnyDescendant(hasText("A")))
         compose.onAllNodesWithTag("account-photo", useUnmergedTree = true).assertCountEquals(0)
+        // Another owner: the given and family name's initials, as iCloud.com draws them.
         compose.onNodeWithTag("shared-owner-avatar-${albums[1].id}", useUnmergedTree = true)
-            .assertContentDescriptionEquals("Created by sample Owner").assert(hasAnyDescendant(hasText("S")))
-        // iCloud named no one: no avatar rather than a placeholder.
-        compose.onNodeWithTag("shared-owner-avatar-${albums[2].id}", useUnmergedTree = true).assertDoesNotExist()
+            .assertContentDescriptionEquals("Created by sample Owner").assert(hasAnyDescendant(hasText("SO")))
+        // iCloud named no one: a person silhouette on Apple's grey, as iCloud.com shows an unnamed owner.
+        compose.onNodeWithTag("shared-owner-avatar-${albums[2].id}", useUnmergedTree = true)
+            .assert(hasAnyDescendant(hasTestTag("avatar-silhouette")))
     }
 
     @Test fun ownAlbumCardShowsTheAccountsPhotoWhenThereIsOne() {
