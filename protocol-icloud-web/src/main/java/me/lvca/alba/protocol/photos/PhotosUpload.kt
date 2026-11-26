@@ -1,6 +1,7 @@
 package me.lvca.alba.protocol.photos
 
 import kotlinx.serialization.json.*
+import me.lvca.alba.engine.model.ICloudRejectedUploadException
 import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PreparedICloudUpload
@@ -84,7 +85,10 @@ internal class PhotosUpload(
         saved["zoneName"]?.let { check(it.jsonPrimitive.content == zoneName) { "Upload destination changed" } }
         saved = JsonObject(saved + ("zoneName" to JsonPrimitive(zoneName)))
         val clientId = saved["clientId"]!!.jsonPrimitive.content
-        if (previous?.phase !in setOf("RESERVED", "RECEIPT_SAVED", "ACCEPTED")) {
+        // The upload URL createUploadUrl hands out expires; a reservation older than that is made again before any byte.
+        val reservationExpired = previous?.phase == "RESERVED" &&
+            saved["reservedAt"]?.jsonPrimitive?.longOrNull?.let { now().toEpochMilli() - it >= UPLOAD_URL_LIFETIME_MILLIS } != false
+        if (previous?.phase !in setOf("RESERVED", "RECEIPT_SAVED", "ACCEPTED") || reservationExpired) {
         save("RESERVING")
         checkAuthorized()
         val reservation = post("createUploadUrl", buildJsonObject {
@@ -96,7 +100,7 @@ internal class PhotosUpload(
         }.objectBody()
         val target = (reservation["uploadUrls"] as? JsonObject)?.text(clientId)
             ?: malformed("Apple did not reserve the requested upload")
-        save("RESERVED", mapOf("target" to JsonPrimitive(target)))
+        save("RESERVED", mapOf("target" to JsonPrimitive(target), "reservedAt" to JsonPrimitive(now().toEpochMilli())))
         }
         if (previous?.phase !in setOf("RECEIPT_SAVED", "ACCEPTED")) {
         val target = saved["target"]!!.jsonPrimitive.content
@@ -147,6 +151,8 @@ internal class PhotosUpload(
         }
         val status = ((result["response"] as? JsonObject)?.get("status") as? JsonPrimitive)?.intOrNull
         if (CloudKitErrors.quotaExceeded(status ?: 0, result)) throw ICloudStorageFullException()
+        // A client error for this one file, not for the session or the request: iCloud would refuse the same bytes again.
+        if (status != null && status in REJECTED_FILE_STATUSES) throw ICloudRejectedUploadException(status)
         if (status != 200 && status != 409) {
             throw AppleProtocolException(AppleProtocolError.PHOTOS_UNAVAILABLE,
                 "Apple Photos registration returned status ${status ?: "unknown"}.")
@@ -241,6 +247,18 @@ internal class PhotosUpload(
         }
 
         val RESUMABLE = setOf("RESERVING", "RESERVED", "RECEIPT_SAVED", "ACCEPTED")
+
+        /**
+         * How long an upload URL from createUploadUrl is honoured. iCloud.com asks for a URL right before each PUT; a
+         * resumed reservation older than this asks again rather than PUT to a URL that has expired.
+         */
+        const val UPLOAD_URL_LIFETIME_MILLIS = 15 * 60 * 1_000L
+
+        /**
+         * Per-file registration statuses that refuse the file itself (bad request, unsupported media, unprocessable).
+         * Authorization (401, 403), timeouts (408), the 409 duplicate, quota (413) and throttling (429) are not among them.
+         */
+        private val REJECTED_FILE_STATUSES = setOf(400, 415, 422)
 
         /**
          * Phases saved before "REGISTERING", which is saved before putAsset is sent. In these the photo was never

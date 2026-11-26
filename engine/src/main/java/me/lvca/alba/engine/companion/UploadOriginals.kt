@@ -35,6 +35,9 @@ internal class UploadOriginals(
         OpenedOriginal(staging.openVerified(source.ownedFileToken, source.byteCount, source.sha256Hex), null)
     }
 
+    /** Whether [source]'s phone file is gone, so reading it again cannot succeed. */
+    suspend fun isGone(source: StagedSourceEntity): Boolean = inPlace.isGone(source.contentUri)
+
     /** Deletes [source]'s staged copy, which can no longer be uploaded. */
     fun discardStaged(source: StagedSourceEntity) {
         staging.deleteOwned(source.ownedFileToken)

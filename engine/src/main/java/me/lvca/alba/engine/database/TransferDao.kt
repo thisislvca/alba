@@ -135,6 +135,7 @@ interface TransferDao {
                (s.mimeType LIKE 'video/%' AND :allowAutomaticVideos) OR
                (s.mimeType NOT LIKE 'video/%' AND :allowAutomaticPhotos))
           AND (:allowManual OR t.authorityType != 'MANUAL')
+          AND (t.authorityType != 'AUTOMATIC' OR s.byteCount <= :maxAutomaticBytes)
           AND (t.leaseExpiresAtEpochMillis IS NULL OR t.leaseExpiresAtEpochMillis < :now)
           AND (t.notBeforeEpochMillis IS NULL OR t.notBeforeEpochMillis <= :now)
         ORDER BY CASE t.authorityType WHEN 'MANUAL' THEN 0 ELSE 1 END,
@@ -148,6 +149,8 @@ interface TransferDao {
         allowAutomaticPhotos: Boolean = true,
         allowAutomaticVideos: Boolean = allowAutomaticPhotos,
         allowManual: Boolean = true,
+        /** Automatic items larger than this wait for a long run on an unmetered network. */
+        maxAutomaticBytes: Long = Long.MAX_VALUE,
     ): TransferEntity?
 
     @Query(
@@ -290,12 +293,14 @@ interface TransferDao {
     /** Automatic items READY and not leased by an upload: what discovery has queued ahead of the uploads. */
     @Query(
         """
-        SELECT COUNT(*) FROM transfers
-        WHERE accountId = :accountId AND state = 'READY' AND authorityType = 'AUTOMATIC'
-          AND (leaseExpiresAtEpochMillis IS NULL OR leaseExpiresAtEpochMillis < :now)
+        SELECT COUNT(*) FROM transfers t
+        JOIN staged_sources s ON s.stagedSourceId = t.stagedSourceId
+        WHERE t.accountId = :accountId AND t.state = 'READY' AND t.authorityType = 'AUTOMATIC'
+          AND s.byteCount <= :maxAutomaticBytes
+          AND (t.leaseExpiresAtEpochMillis IS NULL OR t.leaseExpiresAtEpochMillis < :now)
         """,
     )
-    suspend fun countQueuedAutomatic(accountId: String, now: Long): Int
+    suspend fun countQueuedAutomatic(accountId: String, now: Long, maxAutomaticBytes: Long = Long.MAX_VALUE): Int
 
     @Query("DELETE FROM account_write_slots WHERE accountId = :accountId AND attemptId = :attemptId")
     suspend fun releaseWriteSlot(accountId: String, attemptId: String): Int
@@ -382,27 +387,37 @@ interface TransferDao {
     ): Int
 
     /**
-     * The attempt was proven never to have reached iCloud, but automatic retries are used up: the user decides. Nothing
-     * of it is in iCloud, so it is retryable like an item that sent nothing.
+     * iCloud refused [attemptId]'s file for good when it was registered: nothing of it is in the library, and the same
+     * bytes would be refused again. The transfer stops without its attempt, with [failureReason] kept; the user may retry.
      */
     @Query(
         """
         UPDATE transfers
-        SET state = 'NEEDS_ATTENTION', stateVersion = stateVersion + 1, activeAttemptId = NULL,
-            leaseToken = NULL, leaseExpiresAtEpochMillis = NULL,
-            reconciliationDueAtEpochMillis = NULL, reconciliationDeadlineEpochMillis = NULL,
-            reconciliationChangeToken = NULL, notBeforeEpochMillis = NULL,
-            updatedAtEpochMillis = :now, message = :message
-        WHERE transferId = :transferId AND activeAttemptId = :attemptId
-          AND state IN ('OUTCOME_UNKNOWN', 'RECONCILING', 'READ_FAILURE')
+        SET state = 'UNSUPPORTED', stateVersion = stateVersion + 1, activeAttemptId = NULL,
+            leaseToken = NULL, leaseExpiresAtEpochMillis = NULL, notBeforeEpochMillis = NULL,
+            failureReason = :failureReason, updatedAtEpochMillis = :now, message = :message
+        WHERE transferId = :transferId AND activeAttemptId = :attemptId AND state = 'SENDING'
         """,
     )
-    suspend fun stopRetryingProvenNotReceived(
-        transferId: String,
-        attemptId: String,
-        now: Long,
-        message: String = StoredMessage.UPLOAD_INTERRUPTED_REPEATEDLY.code,
-    ): Int
+    suspend fun rejectSending(transferId: String, attemptId: String, now: Long, failureReason: String, message: String): Int
+
+    /** A transfer that stopped (NEEDS_ATTENTION) did so for good, for [failureReason]. */
+    @Query(
+        """
+        UPDATE transfers SET failureReason = :failureReason, message = :message, updatedAtEpochMillis = :now
+        WHERE transferId = :transferId AND state = 'NEEDS_ATTENTION' AND activeAttemptId IS NULL
+        """,
+    )
+    suspend fun markStoppedFor(transferId: String, failureReason: String, message: String, now: Long): Int
+
+    /** The user asked to try now: items waiting out a retry backoff may start at once. Returns how many. */
+    @Query(
+        """
+        UPDATE transfers SET notBeforeEpochMillis = NULL, stateVersion = stateVersion + 1, updatedAtEpochMillis = :now
+        WHERE accountId = :accountId AND state = 'READY' AND notBeforeEpochMillis > :now
+        """,
+    )
+    suspend fun clearRetryBackoff(accountId: String, now: Long): Int
 
     /** An attempt armed but never sent: the transfer goes to [state] without it, as if it had not been armed. */
     @Query(
@@ -630,6 +645,7 @@ interface TransferDao {
                (s.mimeType LIKE 'video/%' AND :allowAutomaticVideos) OR
                (s.mimeType NOT LIKE 'video/%' AND :allowAutomaticPhotos))
           AND (:allowManual OR t.authorityType != 'MANUAL')
+          AND (t.authorityType != 'AUTOMATIC' OR s.byteCount <= :maxAutomaticBytes)
           AND (t.notBeforeEpochMillis IS NULL OR t.notBeforeEpochMillis <= :now)
     """)
     suspend fun countRunnableReady(
@@ -638,6 +654,7 @@ interface TransferDao {
         allowAutomaticPhotos: Boolean,
         allowAutomaticVideos: Boolean = allowAutomaticPhotos,
         allowManual: Boolean = true,
+        maxAutomaticBytes: Long = Long.MAX_VALUE,
     ): Int
 
     @Query("SELECT * FROM transfers WHERE accountId = :accountId AND mediaId = :mediaId AND state NOT IN ('NEEDS_ATTENTION', 'UNSUPPORTED', 'ABANDONED') LIMIT 1")
