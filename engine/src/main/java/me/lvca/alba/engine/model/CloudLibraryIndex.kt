@@ -39,6 +39,12 @@ interface CloudLibraryIndex {
     /** Asks for the catalog to be read or brought up to date in the background. */
     fun requestRefresh() = Unit
 
+    /**
+     * When the catalog was last read completely for [binding]'s account; null when it never was or cannot speak for it.
+     * Uncertain uploads are looked for again after each refresh.
+     */
+    suspend fun refreshedAt(binding: AccountBinding): Long? = null
+
     companion object {
         /** No catalog: backup uploads everything, as before Alba looked for copies already in iCloud. */
         val NONE = object : CloudLibraryIndex {

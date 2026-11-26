@@ -19,3 +19,12 @@ internal val RECONCILABLE_STATES = setOf(TransferState.OUTCOME_UNKNOWN, Transfer
  * and its own journal row, so a crash with several in flight recovers each on its own.
  */
 internal const val MAX_UPLOADS_IN_FLIGHT = 3
+
+/** Why a transfer stopped for good, as [me.lvca.alba.engine.database.TransferEntity.failureReason] keeps it. */
+internal object FailureReasons {
+    /** iCloud received the file but would not register or process it; the same bytes would be refused again. */
+    const val ICLOUD_REJECTED = "ICLOUD_REJECTED"
+
+    /** The original is no longer on the phone. */
+    const val FILE_GONE = "FILE_GONE"
+}

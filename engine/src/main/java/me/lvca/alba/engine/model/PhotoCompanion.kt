@@ -51,7 +51,41 @@ data class TransferView(
     val retryable: Boolean = false,
     /** Backed up without an upload: the exact same original was already in the iCloud library. */
     val alreadyInICloud: Boolean = false,
+    /** Why it has not gone through yet, for grouping by what fixes it; null while nothing is wrong. */
+    val failureReason: TransferFailureReason? = null,
+    /** When Alba tries it again on its own, for an item waiting out a retry backoff. */
+    val nextTryAtEpochMillis: Long? = null,
 )
+
+/** Why a backup item has not gone through, grouped by what fixes it. */
+enum class TransferFailureReason {
+    /** An upload stopped before iCloud received it; Alba tries again on its own after a backoff. */
+    WAITING_TO_RETRY,
+
+    /** Larger than [LARGE_ITEM_BYTES]: it uploads only on an unmetered network, in a long foreground run. */
+    NEEDS_UNMETERED,
+
+    /** iCloud has no space for it. */
+    STORAGE_FULL,
+
+    /** Alba lost the photo access automatic backup needs. */
+    PHOTO_ACCESS,
+
+    /** iCloud.com does not take the format, or iCloud would not keep the file. Nothing retries it. */
+    FORMAT_NOT_SUPPORTED,
+
+    /** The file is no longer on the phone. */
+    FILE_GONE,
+
+    /** Its upload could not be confirmed yet; Alba looks for it again after library refreshes and never sends it twice. */
+    CHECKING_ICLOUD,
+
+    /** It stopped for another reason and waits for the user's Retry. */
+    STOPPED,
+}
+
+/** Automatic items larger than this upload only on an unmetered network, in a foreground run with a long time budget. */
+const val LARGE_ITEM_BYTES = 100L * 1_000_000
 
 /** What automatic backup reads. Names are persisted with each enrollment; keep them stable. */
 enum class BackupScope {
@@ -231,6 +265,12 @@ interface BackupControls {
 
     /** Retries every item [retryTransfer] accepts. Returns how many it queued. */
     suspend fun retryAllTransfers(): Int
+
+    /**
+     * The user opened an item whose upload is ambiguous (several iCloud copies matched): downloads each candidate and
+     * compares its bytes, and verifies the upload when an exact copy is there. Returns true when it did.
+     */
+    suspend fun checkUncertain(transfer: TransferId): Boolean = false
 
     /** How much of what backup covers is verified, counted from the phone and the journal. */
     suspend fun backupProgress(): BackupProgress

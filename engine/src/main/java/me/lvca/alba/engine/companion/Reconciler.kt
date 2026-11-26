@@ -3,12 +3,10 @@ package me.lvca.alba.engine.companion
 import androidx.room.withTransaction
 import kotlinx.coroutines.CancellationException
 import me.lvca.alba.engine.database.AlbaDatabase
-import me.lvca.alba.engine.database.AssetLinkEntity
 import me.lvca.alba.engine.database.ReconciliationMatchEntity
 import me.lvca.alba.engine.database.StagedSourceEntity
 import me.lvca.alba.engine.database.TransferEntity
 import me.lvca.alba.engine.database.TransferState
-import me.lvca.alba.engine.database.UploadAcceptanceEntity
 import me.lvca.alba.engine.database.UploadAttemptEntity
 import me.lvca.alba.engine.database.UploadSuppressionEntity
 import me.lvca.alba.engine.database.VerificationProofEntity
@@ -16,9 +14,7 @@ import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.StoredMessage
-import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
-import me.lvca.alba.engine.model.UploadReceipt
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
 
@@ -27,7 +23,8 @@ import java.util.UUID
  * when its CPLMaster's original has the receipt's size and checksum and its fingerprint is that checksum: nothing is
  * downloaded, and the proof records the method RECEIPT. An attempt with no receipt (one from before receipts were kept)
  * falls back to the [ByteCheck], downloading each candidate. One match verifies the upload; several, or none by the
- * deadline, end it unresolved and suppress the bytes so Alba never uploads them again.
+ * deadline, end it uncertain: the bytes are suppressed so it is never sent twice, and [UncertainHealer] looks for it
+ * again after later library refreshes.
  *
  * One case is not uncertain: an attempt Apple never accepted, whose write journal proves it never sent the request
  * that registers a photo, and for which a complete read of the library's changes since it started shows no exact copy.
@@ -64,8 +61,9 @@ internal class Reconciler(
         }
         val page = try {
             if (processing is UploadProcessingStatus.Failed) {
+                // iCloud took the bytes but would not keep the file: nothing retries it, and it is never sent again.
                 markUnresolved(transfer, attempt, source, TransferState.NOT_OBSERVED,
-                    StoredMessage.UPLOAD_PROCESSING_FAILED.code)
+                    StoredMessage.UPLOAD_PROCESSING_FAILED.code, FailureReasons.ICLOUD_REJECTED)
                 return 1
             }
             if (processing is UploadProcessingStatus.Processing &&
@@ -150,14 +148,14 @@ internal class Reconciler(
                 attempt,
                 source,
                 TransferState.AMBIGUOUS,
-                StoredMessage.MORE_THAN_ONE_EXACT_ICLOUD_COPY_MATCHED_ALBA_WILL_NOT_UPLOAD_AGAIN.code,
+                StoredMessage.SEVERAL_ICLOUD_COPIES_MATCH_CHECKING_AGAIN.code,
             )
             now() >= (transfer.reconciliationDeadlineEpochMillis ?: Long.MAX_VALUE) -> markUnresolved(
                 transfer,
                 attempt,
                 source,
                 TransferState.NOT_OBSERVED,
-                StoredMessage.NO_EXACT_ICLOUD_COPY_WAS_OBSERVED_BEFORE_THE_CHECK_DEADLINE_ALBA_WILL_NOT_UPLOAD_AGAIN.code,
+                StoredMessage.NOT_FOUND_IN_ICLOUD_YET_CHECKING_AGAIN.code,
             )
             else -> transferDao.markReadFailure(
                 transfer.transferId,
@@ -197,41 +195,11 @@ internal class Reconciler(
         method: String,
     ) {
         val verifiedAt = now()
-        val pairId = remotePairId(binding, pair)
-        val linkId = UUID.randomUUID().toString()
-        val proofId = UUID.randomUUID().toString()
         database.withTransaction {
             val fresh = requireNotNull(transferDao.findTransfer(transfer.transferId))
             require(fresh.state in RECONCILABLE_STATES && fresh.activeAttemptId == attempt.attemptId)
-            verificationDao.insertRemotePair(pair.toPairEntity(binding, verifiedAt))
-            verificationDao.insertAssetLink(
-                AssetLinkEntity(
-                    linkId, binding.accountId, transfer.mediaId, source.stagedSourceId,
-                    pairId, attempt.attemptId, verifiedAt, "CURRENT",
-                ),
-            )
-            verificationDao.insertVerificationProof(
-                VerificationProofEntity(
-                    proofId = proofId,
-                    accountId = binding.accountId,
-                    verificationAuthEpoch = binding.authEpoch,
-                    invocationAuthEpoch = attempt.authEpoch,
-                    linkId = linkId,
-                    mediaId = transfer.mediaId,
-                    stagedSourceId = source.stagedSourceId,
-                    sourceRevision = source.sourceRevision,
-                    remotePairId = pairId,
-                    masterChangeTag = pair.master.changeTag,
-                    assetChangeTag = pair.asset.changeTag,
-                    originalResourceIdentity = pair.originalResourceIdentity,
-                    byteCount = source.byteCount,
-                    sha256Hex = source.sha256Hex,
-                    verifiedAtEpochMillis = verifiedAt,
-                    invalidatedAtEpochMillis = null,
-                    invalidationReason = null,
-                    method = method,
-                    byteCheckedAtEpochMillis = verifiedAt.takeIf { method == VerificationProofEntity.METHOD_BYTES },
-                ),
+            verificationDao.recordVerifiedLink(
+                binding, transfer.mediaId, source, attempt, pair, method, verifiedAt,
             )
             check(transferDao.markVerified(transfer.transferId, attempt.attemptId, verifiedAt) == 1)
             check(transferDao.releaseWriteSlot(binding.accountId, attempt.attemptId) == 1)
@@ -275,15 +243,21 @@ internal class Reconciler(
         }
     }
 
+    /**
+     * Ends [attempt] uncertain. Its bytes are suppressed, so it is never sent again while uncertain, and its write slot is
+     * given back so other uploads go on; [UncertainHealer] looks for it again after later library refreshes.
+     */
     private suspend fun markUnresolved(
         transfer: TransferEntity,
         attempt: UploadAttemptEntity,
         source: StagedSourceEntity,
         state: TransferState,
         message: String,
+        failureReason: String? = null,
     ) {
         database.withTransaction {
-            check(transferDao.markUnresolvedTerminal(transfer.transferId, attempt.attemptId, state, now(), message) == 1)
+            check(transferDao.markUnresolvedTerminal(transfer.transferId, attempt.attemptId, state, now(), message, failureReason) == 1)
+            transferDao.releaseWriteSlot(transfer.accountId, attempt.attemptId)
             transferDao.insertSuppression(
                 UploadSuppressionEntity(
                     suppressionId = UUID.randomUUID().toString(),
@@ -298,11 +272,6 @@ internal class Reconciler(
             )
         }
     }
-
-    private fun UploadAcceptanceEntity.toModel() = UploadAcceptance(
-        requestUuid, masterRecordName, assetRecordName, duplicateHint, uploadJobId,
-        receipt = receiptByteCount?.let { size -> receiptFileChecksum?.let { UploadReceipt(size, it) } },
-    )
 
     companion object {
         private const val RECONCILIATION_READ_RETRY_MILLIS = 15 * 1_000L
