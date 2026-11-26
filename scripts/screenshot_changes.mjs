@@ -7,7 +7,7 @@
 //     results-summary.json; environment: BUILD_OUTCOME, TESTS_OUTCOME, LINT_OUTCOME (step outcomes) and MODE (verify or
 //     record). Appends `update-goldens=true|false` to $GITHUB_OUTPUT and prints the reason.
 //   screenshot_changes.mjs trailer      < `git diff --name-status --no-renames` of the goldens
-//   screenshot_changes.mjs comment      < same; environment: COMMIT_URL, FILES_URL
+//   screenshot_changes.mjs comment      < same; environment: COMMIT_URL, FILES_URL, SKIPPED (re-encoded goldens not committed)
 import { appendFileSync, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,8 +97,8 @@ export function trailer(changes) {
   return changes.map(it => `Golden-${LABELS[it.status]}: ${it.variant}/${it.name}`).join('\n');
 }
 
-/** The sticky PR comment: changed, new and removed screens by variant. */
-export function comment(changes, { commitUrl, filesUrl }) {
+/** The sticky PR comment: changed, new and removed screens by variant. `skipped`: re-encoded goldens not committed. */
+export function comment(changes, { commitUrl, filesUrl, skipped = 0 }) {
   const commit = commitUrl ? `[${commitUrl.split('/').pop().slice(0, 7)}](${commitUrl})` : 'a commit';
   const lines = [MARKER, '### Screenshot goldens updated', '',
     `CI recorded the goldens on Linux and pushed ${commit} to this branch. The checks run again on it.`, ''];
@@ -110,6 +110,9 @@ export function comment(changes, { commitUrl, filesUrl }) {
       if (names.length > 0) lines.push(`- ${LABELS[status]}: ${names.join(', ')}`);
     }
     lines.push('');
+  }
+  if (skipped > 0) {
+    lines.push(`${skipped} re-encoded image(s) had the same pixels as their goldens and were not committed.`, '');
   }
   lines.push(`Review the images in [Files changed](${filesUrl}) before merging: merging accepts them.`);
   return `${lines.join('\n')}\n`;
@@ -147,7 +150,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (command === 'trailer' || command === 'comment') {
     const changes = parseNameStatus(readFileSync(0, 'utf8'));
     process.stdout.write(command === 'trailer' ? `${trailer(changes)}\n`
-      : comment(changes, { commitUrl: process.env.COMMIT_URL, filesUrl: process.env.FILES_URL }));
+      : comment(changes, {
+        commitUrl: process.env.COMMIT_URL,
+        filesUrl: process.env.FILES_URL,
+        skipped: Number(process.env.SKIPPED || 0),
+      }));
   } else {
     console.error('Usage: screenshot_changes.mjs classify | trailer | comment');
     process.exit(2);
