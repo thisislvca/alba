@@ -182,8 +182,17 @@ enum class ExternalUse {
     PRINT,
 }
 
+/** Starting backup, or fixing what stops it, from wherever its status shows: the Backup page and the Activity sheet. */
+interface BackupStartActions {
+    /** Starts backup setup: the disclosure, then the permissions it needs. Agreeing again keeps what backup covers. */
+    fun enableAutomaticBackup()
+
+    /** The user says iCloud has space again. */
+    fun retryAfterStorageFull()
+}
+
 /** The account screen: sign-in, connection, backup and diagnostics. */
-interface AccountActions {
+interface AccountActions : BackupStartActions {
     /** The password being typed, kept in memory across rotation but never in saved state. */
     val signInDraft: SignInDraft
 
@@ -203,7 +212,6 @@ interface AccountActions {
     fun signOut()
     fun checkConnection()
     fun retryRestore()
-    fun enableAutomaticBackup()
     fun disableAutomaticBackup()
 
     /** Backup also covers what was on the phone before it was turned on. */
@@ -216,16 +224,13 @@ interface AccountActions {
     fun refreshBackupStatus()
     fun loadFreeUpSpace()
 
-    /** The user says iCloud has space again. */
-    fun retryAfterStorageFull()
-
     /** Drives the demo backup walkthrough: interrupt, pause for Wi-Fi, clean up or retry a sample row. */
     fun demoBackupAction(transferId: TransferId)
     fun setDiagnosticsEnabled(enabled: Boolean)
 }
 
 /** Everything the gallery, its sheets and its dialogs can do. */
-interface GalleryScreenActions : BrowseActions, LibraryEditActions, TransferActions, SharedActions, InvitationActions
+interface GalleryScreenActions : BrowseActions, LibraryEditActions, TransferActions, SharedActions, InvitationActions, BackupStartActions
 
 /** Everything the photo viewer can do. */
 interface MediaScreenActions : BrowseActions, LibraryEditActions, TransferActions, ViewerActions, SharedActions

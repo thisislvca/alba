@@ -15,6 +15,7 @@ import me.lvca.alba.app.diagnostics.DiagnosticOutcome
 import me.lvca.alba.app.work.BACKUP_PROGRESS_NOTIFICATION_ID
 import me.lvca.alba.app.work.BackgroundSessionDecision
 import me.lvca.alba.app.work.BackupDrain
+import me.lvca.alba.app.work.WorkManagerWakeupScheduler
 import me.lvca.alba.app.work.backgroundSessionDecision
 import me.lvca.alba.app.work.backupProgressNotification
 import me.lvca.alba.app.work.runsInForeground
@@ -69,6 +70,8 @@ class BackupWakeWorker(
                 span.finish(DiagnosticOutcome.CANCELLED)
                 Result.retry()
             } else {
+                // Backup turned on before Alba watched MediaStore gets its watch here, from the periodic run.
+                WorkManagerWakeupScheduler(app) { app.graph.backupPreferences.settings.value }.ensureNewMediaTrigger()
                 // Storage full and failed items need the user; routine progress posts nothing.
                 report(app, signInNeeded = false)
                 span.finish(

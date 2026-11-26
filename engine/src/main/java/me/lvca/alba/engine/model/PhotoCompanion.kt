@@ -104,6 +104,9 @@ data class BackupProgress(
     val pending: Int = 0,
 )
 
+/** What backing up the whole library would upload: how many photos and videos backup covers, and their bytes. */
+data class BackupLibrarySummary(val items: Int, val bytes: Long)
+
 /** Phone items with a current exact iCloud proof, which Android's trash could take off the phone. */
 data class FreeUpSpaceCandidates(
     val mediaIds: List<String>,
@@ -237,6 +240,12 @@ interface BackupControls {
 
     /** Folders on the phone that hold photos or videos, for choosing what backup includes. */
     suspend fun deviceFolders(): List<DeviceFolder>
+
+    /**
+     * Every photo and video on the phone that backup of the current scope covers in the camera folder and [folders],
+     * for the setup's "Back up all" choice. Null when Alba cannot read the whole library yet, so it cannot count it.
+     */
+    suspend fun libraryToBackUp(folders: Set<String>): BackupLibrarySummary? = null
 
     /**
      * The user changed backup settings: re-plan background work for the networks they now allow. Pausing stops the

@@ -62,6 +62,7 @@ import me.lvca.alba.app.platform.demoEntry
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.BrowseActions
 import me.lvca.alba.app.ui.GalleryScreenActions
+import me.lvca.alba.app.ui.account.backupStatus
 import me.lvca.alba.app.ui.adaptive.albaLayout
 import me.lvca.alba.app.ui.collections.AlbumHero
 import me.lvca.alba.app.ui.collections.AlbumNameDialog
@@ -86,6 +87,7 @@ import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.AlbaSheetBody
 import me.lvca.alba.app.ui.designsystem.DemoBadge
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
+import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.galleryOverlay
 import me.lvca.alba.app.ui.designsystem.theme.tile
 import me.lvca.alba.app.ui.itemCount
@@ -103,6 +105,8 @@ import me.lvca.alba.app.ui.shared.SharedAlbumNotice
 import me.lvca.alba.app.ui.shared.SharedContributionPicker
 import me.lvca.alba.app.ui.shared.SharedInvitations
 import me.lvca.alba.app.ui.shared.sharedContributionCandidates
+import me.lvca.alba.app.ui.transfers.BackupHero
+import me.lvca.alba.app.ui.transfers.BackupHeroAction
 import me.lvca.alba.app.ui.transfers.BatchProgress
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
 import me.lvca.alba.app.ui.viewer.LocalPhotoTransition
@@ -717,21 +721,37 @@ internal fun GalleryHome(
     }
     if (sheet == GallerySheet.Activity) AlbaBottomSheet(onDismissRequest = { sheet = null }) {
         AlbaSheetBody(stringResource(R.string.activity), dismiss = { sheet = null }, subtitle = stringResource(R.string.uploads_downloads_and_backup)) {
-            Button(onClick = if (canUpload) actions::pickUpload else { { sheet = null; actions.openAccount() } },
-                modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) { Icon(AlbaIcons.CloudUpload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.upload_photos)) }
-            OutlinedButton(onClick = { sheet = null; actions.openBackup() }, modifier = Modifier.fillMaxWidth().testTag("activity-open-backup")) {
-                Text(stringResource(R.string.account_storage_and_backup))
+            // Backup first, as in Google Photos: its status and the one action that helps, then what moved recently.
+            val demo = session.accountState == ICloudAccountState.Demo
+            BackupHero(backupStatus(transfers, session.accountState, session.network, session.charging), transfers, demo, canTurnOn = canUpload,
+                onAction = { action ->
+                    if (action != BackupHeroAction.RETRY_STORAGE) sheet = null
+                    when (action) {
+                        BackupHeroAction.TURN_ON, BackupHeroAction.ALLOW_ACCESS, BackupHeroAction.REVIEW -> actions.enableAutomaticBackup()
+                        BackupHeroAction.SIGN_IN -> actions.openAccount()
+                        BackupHeroAction.RETRY_STORAGE -> actions.retryAfterStorageFull()
+                    }
+                })
+            if (transfers.queue.isEmpty() && transfers.batches.isEmpty()) {
+                Text(stringResource(R.string.no_transfers_yet), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = AlbaSpacing.lg).testTag("activity-empty"))
             }
-            if (transfers.queue.any { !it.automatic && it.state in setOf(TransferViewState.WAITING, TransferViewState.UPLOADING) } &&
-                session.accountState != ICloudAccountState.Demo) {
+            if (transfers.queue.isNotEmpty()) TransferQueueCard(transfers.queue, actions::continuePastUnresolved, demo = demo, onRetry = actions::retryTransfer)
+            BatchProgress(transfers.batches, gallery.items, actions::retryBatch, actions::cancelDownloadBatch)
+            if (transfers.queue.any { !it.automatic && it.state in setOf(TransferViewState.WAITING, TransferViewState.UPLOADING) } && !demo) {
                 OutlinedButton(onClick = actions::cancelUploads, modifier = Modifier.fillMaxWidth().testTag("cancel-uploads")) {
                     Text(stringResource(R.string.cancel_uploads))
                 }
             }
-            if (transfers.queue.isEmpty() && transfers.batches.isEmpty()) Text(stringResource(R.string.no_transfers_yet), Modifier.padding(vertical = 16.dp))
-            if (transfers.queue.isNotEmpty()) TransferQueueCard(transfers.queue, actions::continuePastUnresolved,
-                demo = session.accountState == ICloudAccountState.Demo, onRetry = actions::retryTransfer)
-            BatchProgress(transfers.batches, gallery.items, actions::retryBatch, actions::cancelDownloadBatch)
+            FilledTonalButton(onClick = if (canUpload) actions::pickUpload else { { sheet = null; actions.openAccount() } },
+                modifier = Modifier.fillMaxWidth().testTag("upload-picker-button")) {
+                Icon(AlbaIcons.CloudUpload, null, Modifier.size(ButtonDefaults.IconSize))
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text(stringResource(R.string.upload_photos))
+            }
+            TextButton(onClick = { sheet = null; actions.openBackup() }, modifier = Modifier.testTag("activity-open-backup")) {
+                Text(stringResource(R.string.account_storage_and_backup))
+            }
         }
     }
     if (sheet == GallerySheet.SharedPicker && collection?.shared != null) {

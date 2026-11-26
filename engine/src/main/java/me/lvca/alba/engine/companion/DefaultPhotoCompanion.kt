@@ -15,6 +15,7 @@ import me.lvca.alba.engine.model.AutomaticBackupPolicy
 import me.lvca.alba.engine.model.BackupChange
 import me.lvca.alba.engine.model.BackupControls
 import me.lvca.alba.engine.model.BackupDraftId
+import me.lvca.alba.engine.model.BackupLibrarySummary
 import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.CloudLibraryIndex
@@ -238,6 +239,9 @@ class DefaultPhotoCompanion(
             accounts.synchronize()?.let { intake.verifiedSince(it, sinceEpochMillis) } ?: 0
 
         override suspend fun deviceFolders(): List<DeviceFolder> = originals.deviceFolders()
+
+        override suspend fun libraryToBackUp(folders: Set<String>): BackupLibrarySummary? =
+            originals.librarySummary(BackupScope.CURRENT, folders)
 
         override suspend fun backupSettingsChanged() {
             val binding = accounts.synchronize()

@@ -1,6 +1,7 @@
 package me.lvca.alba.app.work
 
 import android.content.Context
+import android.provider.MediaStore
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -14,9 +15,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import me.lvca.alba.app.BackupWakeWorker
+import me.lvca.alba.app.NewMediaWorker
 import me.lvca.alba.app.ReconciliationTimerWorker
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.WakeupScheduler
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 class WorkManagerWakeupScheduler(
@@ -63,6 +66,7 @@ class WorkManagerWakeupScheduler(
     override suspend fun setAutomaticBackupEnabled(enabled: Boolean) {
         if (!enabled) {
             workManager.cancelUniqueWork(PERIODIC_WORK_NAME)
+            workManager.cancelUniqueWork(NEW_MEDIA_WORK_NAME)
             return
         }
         // UPDATE keeps the period's schedule and applies the networks and charging the user's settings now ask for.
@@ -75,6 +79,38 @@ class WorkManagerWakeupScheduler(
             ExistingPeriodicWorkPolicy.UPDATE,
             request,
         )
+        // The periodic run is the backstop; this one backs up a new photo within seconds, even with Alba closed.
+        // REPLACE applies the settings the user chose now; the watch it replaces has not fired, so nothing is lost.
+        workManager.enqueueUniqueWork(NEW_MEDIA_WORK_NAME, ExistingWorkPolicy.REPLACE, newMediaRequest(current))
+    }
+
+    /**
+     * Watches MediaStore again after a new photo or video woke backup. A content-triggered job fires once, so each run
+     * arms the next one. It is appended behind the run that arms it, so it starts watching as soon as that run ends.
+     * Nothing is armed while backup is off.
+     */
+    suspend fun rearmNewMediaTrigger() = enqueueGate.withLock {
+        if (!backupPlanned()) return@withLock
+        workManager.enqueueUniqueWork(NEW_MEDIA_WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, newMediaRequest(settings()))
+        Unit
+    }
+
+    /**
+     * Arms the MediaStore watch when backup is on and none is waiting, for an install that turned backup on before
+     * Alba watched for new photos. A watch already waiting is kept as it is. Nothing is armed while backup is off.
+     */
+    suspend fun ensureNewMediaTrigger() = enqueueGate.withLock {
+        if (!backupPlanned()) return@withLock
+        workManager.enqueueUniqueWork(NEW_MEDIA_WORK_NAME, ExistingWorkPolicy.KEEP, newMediaRequest(settings()))
+        Unit
+    }
+
+    /**
+     * Whether automatic backup is on: its periodic run is planned exactly while backup is enabled, enrolled and not
+     * paused, so a watch is never armed again after the user turned backup off, paused it or signed out.
+     */
+    private suspend fun backupPlanned(): Boolean = withContext(Dispatchers.IO) {
+        workManager.getWorkInfosForUniqueWork(PERIODIC_WORK_NAME).get().any { !it.state.isFinished }
     }
 
     override suspend fun cancelRunningBackup() {
@@ -89,6 +125,16 @@ class WorkManagerWakeupScheduler(
         const val IMMEDIATE_WORK_NAME = "mela-photo-maintenance"
         const val IMMEDIATE_CHARGING_WORK_NAME = "alba-photo-maintenance-charging"
         const val PERIODIC_WORK_NAME = "mela-automatic-photo-backup"
+        const val NEW_MEDIA_WORK_NAME = "alba-backup-new-media"
+
+        /**
+         * How long MediaStore must stay quiet before the watch fires: a burst from the camera, or a phone saving a
+         * photo and then its edits, becomes one run rather than one per change.
+         */
+        val NEW_MEDIA_UPDATE_DELAY: Duration = Duration.ofSeconds(5)
+
+        /** The longest the watch waits for MediaStore to go quiet, so a long burst still starts backup this soon. */
+        val NEW_MEDIA_MAX_DELAY: Duration = Duration.ofSeconds(30)
         private val IMMEDIATE_WORK_NAMES = listOf(IMMEDIATE_WORK_NAME, IMMEDIATE_CHARGING_WORK_NAME)
 
         /** The unique name runs soon wait under, one per charging choice, so one choice's runs never replace the other's. */
@@ -108,6 +154,23 @@ internal fun needsAnotherRun(states: List<WorkInfo.State>): Boolean =
 internal fun backupConstraints(network: NetworkType, settings: BackupSettings): Constraints = Constraints.Builder()
     .setRequiredNetworkType(network)
     .setRequiresCharging(settings.onlyWhileCharging)
+    .build()
+
+/**
+ * A one-shot run that waits for a change under MediaStore's images or videos, on any volume, then for the network and
+ * charger backup may use. Android's JobScheduler watches for it while Alba is closed.
+ */
+internal fun newMediaRequest(settings: BackupSettings) = OneTimeWorkRequestBuilder<NewMediaWorker>()
+    .setConstraints(
+        Constraints.Builder()
+            .setRequiredNetworkType(backupNetworkType(settings))
+            .setRequiresCharging(settings.onlyWhileCharging)
+            .addContentUriTrigger(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true)
+            .addContentUriTrigger(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true)
+            .setTriggerContentUpdateDelay(WorkManagerWakeupScheduler.NEW_MEDIA_UPDATE_DELAY)
+            .setTriggerContentMaxDelay(WorkManagerWakeupScheduler.NEW_MEDIA_MAX_DELAY)
+            .build(),
+    )
     .build()
 
 /** The least the periodic backup pass needs from the network, given what the user allows. */

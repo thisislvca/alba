@@ -71,6 +71,7 @@ internal fun testAlbaActions(
     setBackupSettings: (BackupSettings) -> Unit = {},
     openBackup: () -> Unit = {},
     retryAfterStorageFull: () -> Unit = {},
+    enableAutomaticBackup: () -> Unit = {},
     includeExistingInBackup: () -> Unit = {},
     signOut: () -> Unit = {},
     sendCodeBySms: () -> Unit = {},
@@ -94,6 +95,7 @@ internal fun testAlbaActions(
     val onOpenHidden = openHidden; val onSetHidden = setHidden; val onExpandBurst = expandBurst
     val onRetry = retryTransfer; val onRetryAll = retryAllTransfers; val onCancelUploads = cancelUploads; val onFreeUp = freeUpSpace
     val onSettings = setBackupSettings; val onOpenBackup = openBackup; val onRetryStorage = retryAfterStorageFull
+    val onEnableBackup = enableAutomaticBackup
     val onSignOut = signOut; val onSendCodeBySms = sendCodeBySms; val onResend = resendTwoFactor
     val onCancelTwoFactor = cancelTwoFactor; val onConfirmMixedTrash = confirmMixedTrash
     val onUseElsewhere = useElsewhere; val onIncludeExisting = includeExistingInBackup; val onRefresh = refresh
@@ -192,7 +194,7 @@ internal fun testAlbaActions(
         override fun useElsewhere(media: GalleryMedia, use: ExternalUse) = onUseElsewhere(media, use)
         override fun signOut() = onSignOut()
         override fun retryRestore() = Unit
-        override fun enableAutomaticBackup() = Unit
+        override fun enableAutomaticBackup() = onEnableBackup()
         override fun disableAutomaticBackup() = Unit
         override fun setDiagnosticsEnabled(enabled: Boolean) = Unit
         override fun checkPhoneStorage() = Unit

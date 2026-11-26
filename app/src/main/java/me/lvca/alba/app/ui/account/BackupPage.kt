@@ -207,7 +207,7 @@ private fun StatusLine(status: BackupStatus) {
 
 /** Why backup waits, in plain words, when the headline alone does not say it. */
 @Composable
-private fun statusDetail(status: BackupStatus): String? = when (status) {
+internal fun statusDetail(status: BackupStatus): String? = when (status) {
     is BackupStatus.WaitingForWifi -> pluralStringResource(R.plurals.backup_detail_wifi, status.remaining, status.remaining)
     is BackupStatus.WaitingToCharge -> pluralStringResource(R.plurals.backup_detail_charging, status.remaining, status.remaining)
     BackupStatus.SignInNeeded -> stringResource(R.string.backup_paused_sign_in_body)

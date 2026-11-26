@@ -1,5 +1,6 @@
 package me.lvca.alba.app.ui.account
 
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,12 +22,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.transfers.BackupSetup
+import me.lvca.alba.engine.model.BackupLibrarySummary
 
 /**
  * What turning on backup does, and whether it covers what is already on the phone. Backing up existing photos and
@@ -49,7 +53,7 @@ internal fun BackupDisclosure(
                     else stringResource(R.string.backup_disclosure, setup.destinationLabel))
                 // Google Photos backs up the whole library by default; "only new" is the narrower choice.
                 if (!setup.demo) Column(Modifier.selectableGroup()) {
-                    BackupExistingChoice(stringResource(R.string.backup_existing_choice_all), stringResource(R.string.backup_existing_choice_all_detail),
+                    BackupExistingChoice(backUpAllLabel(setup.library), stringResource(R.string.backup_existing_choice_all_detail),
                         selected = includeExisting, tag = "backup-choice-existing") { includeExisting = true }
                     BackupExistingChoice(stringResource(R.string.backup_existing_choice_new), null,
                         selected = !includeExisting, tag = "backup-choice-new-only") { includeExisting = false }
@@ -74,6 +78,14 @@ internal fun BackupDisclosure(
             OutlinedButton(onClick = dismiss, modifier = Modifier.testTag("backup-disclosure-dismiss")) { Text(stringResource(R.string.not_now)) }
         },
     )
+}
+
+/** "Back up all 1,234 photos and videos (5.2 GB)" once counted; without a count it names no number. */
+@Composable
+private fun backUpAllLabel(library: BackupLibrarySummary?): String {
+    if (library == null || library.items == 0) return stringResource(R.string.backup_existing_choice_all)
+    val size = Formatter.formatShortFileSize(LocalContext.current, library.bytes)
+    return pluralStringResource(R.plurals.backup_existing_choice_all_count, library.items, library.items, size)
 }
 
 @Composable

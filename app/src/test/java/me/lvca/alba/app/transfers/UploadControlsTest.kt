@@ -63,8 +63,8 @@ class UploadControlsTest {
         )
 
         compose.onNodeWithTag("activity-button").performClick()
-        compose.onNodeWithTag("upload-picker-button").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("transfer-queue").assertIsDisplayed()
+        compose.onNodeWithTag("upload-picker-button").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag("transfer-queue").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("selected.jpg").assertIsDisplayed()
         compose.onNodeWithText("Skip this item").performClick()
         compose.runOnIdle {

@@ -1,6 +1,7 @@
 package me.lvca.alba.engine.source
 
 import android.content.IntentSender
+import me.lvca.alba.engine.model.BackupLibrarySummary
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.PhoneMetadata
@@ -142,6 +143,12 @@ interface ExactOriginalSource {
 
     /** Folders holding photos or videos on every volume, the camera first. */
     suspend fun deviceFolders(): List<DeviceFolder> = emptyList()
+
+    /**
+     * How many photos and videos [scope] covers in the camera folder and [folders], before and after enrollment, and
+     * their bytes. Null without full access to photos and videos, since a partial count would mislead.
+     */
+    suspend fun librarySummary(scope: BackupScope, folders: Set<String>): BackupLibrarySummary? = null
 
     suspend fun captureEnrollmentBaseline(): LocalDiscoveryCheckpoint? = null
 

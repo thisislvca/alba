@@ -953,6 +953,14 @@
     <string name="backup_chip_offline">In attesa di connessione</string>
     <string name="backup_chip_wifi">In attesa del Wi-Fi</string>
     <string name="backup_chip_charging">In attesa della ricarica</string>
+    <string name="backup_hero_backed_up">Backup completato</string>
+    <string name="backup_hero_backing_up">Backup in corso</string>
+    <string name="backup_hero_paused">In pausa</string>
+    <string name="backup_hero_off_detail">Esegui automaticamente il backup di foto e video su iCloud.</string>
+    <string name="backup_hero_last_backup">Ultimo backup %1$s</string>
+    <string name="backup_hero_last_backup_now">Ultimo backup poco fa</string>
+    <string name="backup_hero_turn_on">Attiva il backup</string>
+    <string name="backup_hero_allow_access">Consenti l’accesso</string>
     <string name="backup_status_off">Il backup è disattivato</string>
     <string name="backup_status_review">Il backup ora include di più</string>
     <string name="backup_status_permission">Backup in pausa: consenti l’accesso</string>
@@ -982,9 +990,9 @@
     <string name="backup_pause">Metti in pausa il backup</string>
     <string name="backup_pause_detail">Interrompe i caricamenti automatici finché non lo disattivi.</string>
     <string name="backup_disclosure_title">Attivare il backup?</string>
-    <string name="backup_existing_choice_all">Esegui anche il backup di foto e video già presenti</string>
+    <string name="backup_existing_choice_all">Esegui il backup di tutte le foto e i video</string>
     <string name="backup_existing_choice_all_detail">Dai più recenti, dopo gli elementi nuovi. Gli elementi di cui Alba ha già eseguito il backup non vengono caricati di nuovo.</string>
-    <string name="backup_existing_choice_new">Solo i nuovi</string>
+    <string name="backup_existing_choice_new">Solo nuove foto e nuovi video</string>
     <string name="backup_existing_started">Verrà eseguito il backup di foto e video già presenti, dai più recenti.</string>
     <string name="backup_existing_row_title">Backup di foto e video già presenti</string>
     <string name="backup_existing_row_detail">Per ora viene eseguito il backup solo degli elementi aggiunti dopo l’attivazione.</string>
@@ -1055,6 +1063,21 @@
         <item quantity="one">Backup di %,d elemento</item>
         <item quantity="other">Backup di %,d elementi</item>
         <item quantity="many">Backup di %,d elementi</item>
+    </plurals>
+    <plurals name="backup_existing_choice_all_count">
+        <item quantity="one">Esegui il backup di %1$,d foto o video (%2$s)</item>
+        <item quantity="other">Esegui il backup di tutti i %1$,d elementi tra foto e video (%2$s)</item>
+        <item quantity="many">Esegui il backup di tutti i %1$,d elementi tra foto e video (%2$s)</item>
+    </plurals>
+    <plurals name="backup_hero_left">
+        <item quantity="one">%1$,d rimanente · %2$s</item>
+        <item quantity="other">%1$,d rimanenti · %2$s</item>
+        <item quantity="many">%1$,d rimanenti · %2$s</item>
+    </plurals>
+    <plurals name="backup_hero_left_count">
+        <item quantity="one">%1$,d rimanente</item>
+        <item quantity="other">%1$,d rimanenti</item>
+        <item quantity="many">%1$,d rimanenti</item>
     </plurals>
     <plurals name="backup_chip_failed">
         <item quantity="one">Backup non riuscito per %,d elemento</item>

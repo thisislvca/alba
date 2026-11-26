@@ -26,6 +26,7 @@ import me.lvca.alba.app.ui.account.backupStatus
 import me.lvca.alba.app.ui.account.headline
 import me.lvca.alba.app.ui.designsystem.AccountAvatar
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.transfers.backupFraction
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
@@ -37,8 +38,9 @@ internal enum class AccountStatusKind { SYNCING, PAUSED, ERROR, OFFLINE }
 internal data class AccountStatus(val kind: AccountStatusKind, val description: String, val progress: Float? = null)
 
 /**
- * The account and sync state the header once spelled out under the logo, now a quiet mark on the avatar. A verified,
- * idle account, a refresh of a library Alba already shows, the demo and a signed-out app have none.
+ * The account and sync state the header once spelled out under the logo, now a quiet mark on the avatar: a ring while
+ * the library loads or backup uploads, a badge when backup or the account needs the user. A verified, idle account, a
+ * refresh of a library Alba already shows, the demo and a signed-out app have none.
  */
 @Composable
 internal fun accountStatus(session: SessionState, transfers: TransferState, libraryLoad: LibraryLoad): AccountStatus? {
@@ -61,8 +63,13 @@ internal fun accountStatus(session: SessionState, transfers: TransferState, libr
         // Only a first load: a refresh of a library Alba already shows says nothing, as iCloud.com does.
         libraryLoad == LibraryLoad.INITIAL_LOAD -> AccountStatus(AccountStatusKind.SYNCING,
             session.catalogScan?.let { catalogScanLabel(it) } ?: stringResource(R.string.updating_library), session.catalogScan?.fraction())
+        // Backup problems only the user can fix: Android's photo access, or a full iCloud. Sign-in is marked above.
+        backup == BackupStatus.NeedsPermission || backup == BackupStatus.StorageFull ->
+            AccountStatus(AccountStatusKind.ERROR, backup.headline())
         backup == BackupStatus.Paused || backup is BackupStatus.PausedForICloudChange ->
             AccountStatus(AccountStatusKind.PAUSED, backup.headline())
+        // Backing up: the same thin ring, filling as the Activity sheet's progress bar does.
+        backup is BackupStatus.BackingUp -> AccountStatus(AccountStatusKind.SYNCING, backup.headline(), backupFraction(transfers, demo = false))
         else -> null
     }
 }
