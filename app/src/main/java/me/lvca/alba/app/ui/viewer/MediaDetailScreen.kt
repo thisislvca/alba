@@ -121,6 +121,9 @@ internal fun MediaDetailScreen(
         if (leavingVideo && media.kind != MediaKind.VIDEO) controls = true
         leavingVideo = media.kind == MediaKind.VIDEO
     }
+    // An upload that could not be confirmed is settled by its bytes when its photo is opened, if a copy is in iCloud.
+    val uncertain = uploadTransfer?.takeIf { it.state == TransferViewState.UNRESOLVED }?.id
+    LaunchedEffect(uncertain) { uncertain?.let(actions::checkUncertain) }
     var videoPlaying by remember(media.id) { mutableStateOf(false) }
     var videoOptions by remember(media.id) { mutableStateOf(false) }
     var videoSpeedSheet by remember(media.id) { mutableStateOf(false) }

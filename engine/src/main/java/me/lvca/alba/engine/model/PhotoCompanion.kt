@@ -275,6 +275,12 @@ interface BackupControls {
     /** The user asked to try now: items waiting out a retry backoff start on the next pass. Returns how many. */
     suspend fun retryWaitingNow(): Int = 0
 
+    /**
+     * Removes stopped items from the list, as for files no longer on the phone. Only items that sent nothing are removed;
+     * anything that may be in iCloud stays. Returns how many it removed.
+     */
+    suspend fun dismissFailed(transfers: List<TransferId>): Int = 0
+
     /** How much of what backup covers is verified, counted from the phone and the journal. */
     suspend fun backupProgress(): BackupProgress
 
