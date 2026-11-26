@@ -596,7 +596,7 @@ enum class MotionPhotoMode {
     /** The still, and the embedded video extracted and uploaded as its own video item. */
     PHOTO_AND_VIDEO,
 
-    /** Experimental: the still, with its embedded video attached to it in iCloud as a Live Photo. */
+    /** The default: the still, with its embedded video attached to it in iCloud as a Live Photo. */
     LIVE_PHOTO,
 }
 
@@ -615,7 +615,7 @@ data class BackupSettings(
     /** Automatic backup uploads only while the phone is charging, as Google Photos' "While charging only". */
     val onlyWhileCharging: Boolean = false,
     /** How automatic backup treats a motion photo's embedded video. */
-    val motionPhotos: MotionPhotoMode = MotionPhotoMode.PHOTO_ONLY,
+    val motionPhotos: MotionPhotoMode = MotionPhotoMode.LIVE_PHOTO,
 ) {
     /** Whether automatic backup may upload a photo, or a video when [video], on [network]. */
     fun allows(network: BackupNetwork, video: Boolean): Boolean = !paused && when (network) {

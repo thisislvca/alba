@@ -997,7 +997,7 @@
     <string name="backup_motion_photos_photo_only_detail">La foto, con il video conservato nel file, come la accetta iCloud.com.</string>
     <string name="backup_motion_photos_separately">Foto e video separati</string>
     <string name="backup_motion_photos_separately_detail">La foto, più il video come elemento a sé in iCloud.</string>
-    <string name="backup_motion_photos_live">Come Live Photo (sperimentale)</string>
+    <string name="backup_motion_photos_live">Come Live Photo</string>
     <string name="backup_motion_photos_live_detail">Si riproduce come una Live Photo su iPhone, Mac e iCloud.com. Alba aggiunge il movimento dopo il backup della foto.</string>
     <string name="backup_pause">Metti in pausa il backup</string>
     <string name="backup_pause_detail">Interrompe i caricamenti automatici finché non lo disattivi.</string>

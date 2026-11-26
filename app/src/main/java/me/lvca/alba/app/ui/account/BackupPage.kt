@@ -346,8 +346,8 @@ private fun BackupSettingsCard(transfers: TransferState, folders: Boolean, actio
 }
 
 /**
- * "Motion photos": how backup treats a photo with a short video inside. A single choice in a dialog; "As Live Photo" is
- * experimental and says what it does in one line.
+ * "Motion photos": how backup treats a photo with a short video inside. A single choice in a dialog; "As Live Photo",
+ * the default, says what it does in one line.
  */
 @Composable
 internal fun MotionPhotosSetting(current: MotionPhotoMode, choose: (MotionPhotoMode) -> Unit) {

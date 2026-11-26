@@ -78,9 +78,9 @@ What Alba does resume is the attempt: the journal records `RESERVED`, `RECEIPT_S
 
 An Android motion photo is a JPEG or HEIC with a short MP4 appended, described by its XMP. The "Motion photos" setting on the Backup page decides what backup does with one; it applies to items automatic backup queues after the change.
 
-- **Photo only** (default): the file uploads as its still, byte for byte, with the embedded video kept, never cut off. Nothing else happens.
+- **Photo only**: the file uploads as its still, byte for byte, with the embedded video kept, never cut off. Nothing else happens.
 - **Photo and video separately**: the still as above, plus the embedded MP4 extracted and staged as its own video item, which backs up through the normal path.
-- **As Live Photo** (experimental): the still as above, then the embedded MP4 is attached to it so iCloud shows a Live Photo. Meant to become the default once it is verified on a device.
+- **As Live Photo** (default): the still as above, then the embedded MP4 is attached to it so iCloud shows a Live Photo. Verified end to end on a device: a Pixel motion photo backed up in the background was attached and plays on iCloud.com with the LIVE badge. The default applies where no choice is saved; a choice the user made is kept.
 
 Under either of the last two, each queued still gets a row in `motion_photo_parts`. Once the still is verified, `MotionPhotoParts` reads the phone file once more (its SHA-256 must still be the one backed up) and `MotionPhotoReader` finds the video; a file with none ends `NOT_MOTION`.
 
@@ -118,7 +118,7 @@ Pitfalls found while proving it:
 ### Decisions, and what is unverified
 
 - **ContentIdentifier.** Alba does not rewrite the still: writing an Apple MakerNote into a JPEG on Android is not practical, and the still must stay the phone's exact bytes so its receipt and the byte check before Free up space hold. Instead a fresh upper-case UUID per item is written as the asset's `mediaGroupId` in the modify. If CloudKit refuses the record over a field (`BAD_REQUEST`, `INVALID_ARGUMENTS`, or HTTP 400), the modify is sent once more without it, and the part records `mediaGroupIdWritten` false. Nothing is written into the MP4 either: MediaMuxer cannot write QuickTime metadata keys. Unverified on a live account.
-- **Container and file type.** The video is the motion photo's own MP4, unchanged. MediaMuxer writes MP4, not QuickTime, so remuxing to .mov is not possible with it; the file type stays the proven `com.apple.quicktime-movie` (an MP4 is the same ISO base media format). Whether iCloud and Photos play MP4 bytes under that type, or would take `public.mpeg-4`, is unverified.
+- **Container and file type.** The video is the motion photo's own MP4, unchanged. MediaMuxer writes MP4, not QuickTime, so remuxing to .mov is not possible with it; the file type stays the proven `com.apple.quicktime-movie` (an MP4 is the same ISO base media format). iCloud.com plays a Pixel motion photo's MP4 bytes under that type (verified on a device); whether Photos on a Mac does is unverified.
 - **Derivatives.** The original video for all three resources, as proven; no MediaCodec transcoding.
 - **Dimensions** are the video track's as displayed (a quarter-turn matrix swaps them); the duration is the movie header's.
 
