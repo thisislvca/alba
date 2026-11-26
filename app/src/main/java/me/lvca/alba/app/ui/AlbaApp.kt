@@ -52,6 +52,8 @@ import me.lvca.alba.app.messages.UiMessage
 import me.lvca.alba.app.platform.demoEntry
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
+import me.lvca.alba.app.ui.designsystem.AccountIdentity
+import me.lvca.alba.app.ui.designsystem.LocalAccountIdentity
 import me.lvca.alba.app.ui.gallery.GalleryHome
 import me.lvca.alba.app.ui.navigation.BackPhase
 import me.lvca.alba.app.ui.navigation.NavigationDirection
@@ -168,6 +170,10 @@ fun AlbaApp(
         confirmButton = { TextButton(onClick = actions::cancelShare) { Text(stringResource(R.string.cancel)) } })
 
     val destination = Destination.of(session, gallery)
+    // "You" on shared album cards: the avatar the header and Profile show.
+    val appleId = (session.accountState as? ICloudAccountState.SignedIn)?.appleId
+    val accountPhoto = session.accountInfo.profile?.photo?.takeIf { appleId != null }
+    val accountIdentity = remember(accountPhoto, appleId) { AccountIdentity(accountPhoto, appleId) }
     val back = rootBack(destination, gallery.selection.isNotEmpty(), LocalSignInFirst.current)
     BackHandler(enabled = back == RootBack.CLEAR_SELECTION || back == RootBack.CLOSE_MEDIA) {
         when (back) {
@@ -254,7 +260,7 @@ fun AlbaApp(
                                 this@SharedTransitionLayout, this@photo, shown && target.key == beneath.key,
                                 returningMediaId = (navigation.currentState as? Destination.Media)?.media?.id
                                     .takeIf { beneath is Destination.Gallery },
-                            )) {
+                            ), LocalAccountIdentity provides accountIdentity) {
                                 screenState.SaveableStateProvider(target.key) {
                                     when (target) {
                                         Destination.Gallery -> Box(Modifier.fillMaxSize().drawWithContent {
