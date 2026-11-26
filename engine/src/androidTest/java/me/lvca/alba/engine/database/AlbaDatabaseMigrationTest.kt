@@ -42,6 +42,28 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
+    fun schemaTwentyFiveAddsMotionPhotoPartsKeepingEveryTransfer() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 25).use { db ->
+            db.insertTransfer("verified", "VERIFIED", "attempt-v", "verified_in_icloud")
+        }
+        helper.runMigrationsAndValidate(DATABASE_NAME, 26, true, AlbaDatabase.MIGRATION_25_26).use { db ->
+            db.query("SELECT transferId, state FROM transfers").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("verified", cursor.getString(0))
+                assertEquals("VERIFIED", cursor.getString(1))
+            }
+            db.query("SELECT COUNT(*) FROM motion_photo_parts").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Motion photos backed up before stay stills", 0, cursor.getInt(0))
+            }
+            db.execSQL(
+                "INSERT INTO motion_photo_parts (transferId, accountId, mediaId, mode, state, contentIdentifier, attachRound, tries, " +
+                    "createdAtEpochMillis, updatedAtEpochMillis) VALUES ('verified', 'account', 'device:1', 'LIVE_PHOTO', 'DETECTING', 'ID', 0, 0, 1, 1)",
+            )
+        }
+    }
+
+    @Test
     fun schemaTwentyFourStartsHealingUncertainUploadsAndGivesBackTheirWriteSlots() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 24).use { db ->
             db.insertTransfer("ambiguous", "AMBIGUOUS", "attempt-a", "more_than_one_exact_icloud_copy_matched_alba_will_not_upload_again")

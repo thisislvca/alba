@@ -3,27 +3,33 @@ package me.lvca.alba.engine.companion
 import androidx.room.withTransaction
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AlbaDatabase
+import me.lvca.alba.engine.database.MotionPhotoPartEntity
 import me.lvca.alba.engine.database.TransferProjection
 import me.lvca.alba.engine.database.TransferState
+import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.AccountChangeResult
 import me.lvca.alba.engine.model.AutomaticBackupPolicy
 import me.lvca.alba.engine.model.BackupChange
 import me.lvca.alba.engine.model.BackupControls
+import me.lvca.alba.engine.model.BackupDiagnostics
 import me.lvca.alba.engine.model.BackupDraftId
 import me.lvca.alba.engine.model.BackupLibrarySummary
+import me.lvca.alba.engine.model.BackupPhase
 import me.lvca.alba.engine.model.BackupProgress
 import me.lvca.alba.engine.model.BackupScope
+import me.lvca.alba.engine.model.BackupTelemetry.traced
 import me.lvca.alba.engine.model.CloudLibraryIndex
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.FreeUpSpaceCandidates
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.LARGE_ITEM_BYTES
 import me.lvca.alba.engine.model.MaintenanceWakeup
+import me.lvca.alba.engine.model.MotionPhotoMode
 import me.lvca.alba.engine.model.PhotoCompanion
 import me.lvca.alba.engine.model.ProtocolStatusGate
 import me.lvca.alba.engine.model.ReclaimProposalId
@@ -68,6 +74,8 @@ class DefaultPhotoCompanion(
     protocolStatus: ProtocolStatusGate = ProtocolStatusGate.Open,
     /** Automatic items larger than this upload only in a long run on an unmetered network. */
     private val largeItemBytes: Long = LARGE_ITEM_BYTES,
+    /** Where backup reports spans, breadcrumbs and events; the app sends them only while the user allows diagnostics. */
+    private val diagnostics: BackupDiagnostics = BackupDiagnostics.None,
 ) : PhotoCompanion, MaintenanceWakeup {
     private val accountDao = database.accountDao()
     private val transferDao = database.transferDao()
@@ -77,13 +85,15 @@ class DefaultPhotoCompanion(
     private val stages = UploadStages(database, staging, now)
     private val accounts = AccountBindingSync(database, protocol, scheduler, stages, now)
     private val authority = AutomaticBackupAuthority(database, originals, automaticBackupPolicy)
-    private val intake = TransferIntake(database, originals, staging, scheduler, accounts, authority, now)
+    private val intake = TransferIntake(database, originals, staging, scheduler, accounts, authority, now, diagnostics)
     private val invoker = UploadInvoker(database, UploadOriginals(staging, InPlaceOriginals(originals), intake::restage), protocol,
-        scheduler, accounts, authority, now, stages, ExistingCopyCheck(protocol, cloudLibrary, now), protocolStatus)
-    private val reconciler = Reconciler(database, originals, protocol, authority, stages, now)
-    private val healer = UncertainHealer(database, protocol, cloudLibrary, stages, now)
+        scheduler, accounts, authority, now, stages, ExistingCopyCheck(protocol, cloudLibrary, now), protocolStatus, diagnostics)
+    private val reconciler = Reconciler(database, originals, protocol, authority, stages, now, diagnostics = diagnostics)
+    private val healer = UncertainHealer(database, protocol, cloudLibrary, stages, now, diagnostics = diagnostics)
     private val enrollment = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages, protocolStatus)
-    private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts, elapsedRealtime)
+    private val motionParts = MotionPhotoParts(database, originals, protocol, now, intake::queueMotionVideo, diagnostics)
+    private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts, elapsedRealtime,
+        motionParts = motionParts, diagnostics = diagnostics)
 
     override fun observeBackup() = enrollment.observeBackup()
     override suspend fun beginBackupEnrollment(scope: BackupScope) = enrollment.beginBackupEnrollment(scope)
@@ -92,9 +102,11 @@ class DefaultPhotoCompanion(
         enrollment.finishBackupEnrollment(draft, includeExisting)
     override suspend fun changeBackup(change: BackupChange) = enrollment.changeBackup(change)
 
-    override fun observeTransfers(): Flow<List<TransferView>> = transferDao.observeTransfers().map { rows ->
-        rows.map(::toTransferView)
-    }
+    override fun observeTransfers(): Flow<List<TransferView>> =
+        combine(transferDao.observeTransfers(), database.motionPhotoDao().observeAll()) { rows, parts ->
+            val byTransfer = parts.associateBy { it.transferId }
+            rows.map { toTransferView(it, byTransfer[it.transferId]) }
+        }
 
     override suspend fun uploadSelected(photo: UserSelectedPhoto): UploadTicket = intake.uploadSelected(photo)
 
@@ -189,6 +201,9 @@ class DefaultPhotoCompanion(
         reconciled += healer.healDue(binding) { it.authorityType == AUTHORITY_MANUAL || authority.mayUseNetwork() }
         // Verification only reads, so it continues while uploads are paused remotely; nothing new is sent or staged.
         val uploadsPaused = invoker.isProtocolPaused()
+        // A motion photo's video is attached as a video upload: on a network the user allows for videos, not while paused.
+        val allowAttach = !uploadsPaused && authority.allows(video = true)
+        advanceMotionParts(binding, allowAttach)
 
         // Whether another upload could start now: a write slot is free, iCloud has space and uploads are not paused.
         suspend fun mayStartUpload() = !uploadsPaused && invoker.freeSlots(binding) > 0
@@ -197,15 +212,20 @@ class DefaultPhotoCompanion(
         val round = if (uploadsPaused) {
             UploadInvoker.Round(0, 0)
         } else {
-            invoker.runRound(binding, allowManual, allowAutomatic, maxAutomaticBytes) {
-                if (allowAutomatic) intake.discoverAndStageAutomatic(binding) else 0
+            diagnostics.traced(BackupPhase.ROUND) {
+                invoker.runRound(binding, allowManual, allowAutomatic, maxAutomaticBytes) {
+                    if (allowAutomatic) intake.discoverAndStageAutomatic(binding) else 0
+                }
             }
         }
         val stagedAutomatic = round.staged
         val invoked = round.invoked
         // Each upload just sent is matched by its receipt now, rather than on the next pass.
         repeat(invoked) { reconciled += reconciler.reconcileOne(binding) }
+        // A still verified just now has its motion read, and attached, in the same pass.
+        advanceMotionParts(binding, allowAttach)
         val dueAt = listOfNotNull(
+            motionParts.earliestDue(binding, allowAttach)?.coerceAtLeast(now()),
             transferDao.earliestReconciliationDue(binding.accountId, now(), authority.mayUseNetwork()),
             transferDao.earliestRetryDue(binding.accountId, now(), allowAutomatic = authority.mayBackUp(), allowManual = false),
         ).minOrNull()
@@ -223,6 +243,11 @@ class DefaultPhotoCompanion(
         if (ready) scheduler.scheduleSoon()
         else if (dueAt != null) scheduler.scheduleAt(dueAt)
         WakeSummary(recovered, reconciled, stagedAutomatic, invoked, moreWork, nextWorkAtEpochMillis = if (ready) now() else dueAt)
+    }
+
+    /** Reads or attaches a few motion photo videos whose stills are backed up. */
+    private suspend fun advanceMotionParts(binding: AccountBinding, allowAttach: Boolean) {
+        repeat(MOTION_PARTS_PER_PASS) { if (motionParts.advanceOne(binding, allowAttach) == 0) return }
     }
 
     override suspend fun prepareTrash(
@@ -268,17 +293,20 @@ class DefaultPhotoCompanion(
             return healer.resolveByBytes(binding, transfer.value)
         }
 
-        override suspend fun retryTransfer(transfer: TransferId): UploadTicket = intake.retry(transfer.value).also {
+        override suspend fun retryTransfer(transfer: TransferId): UploadTicket {
+            // A Live Photo whose motion was not attached: the photo is backed up, so only the attach is tried again.
+            val ticket = if (motionParts.retry(transfer.value)) UploadTicket(transfer) else intake.retry(transfer.value)
             runSuspendCatching { scheduler.scheduleSoon() }
+            return ticket
         }
 
         override suspend fun retryAllTransfers(): Int {
             val binding = accounts.requireActive()
-            return intake.retryAll(binding).also { if (it > 0) runSuspendCatching { scheduler.scheduleSoon() } }
+            return (intake.retryAll(binding) + motionParts.retryAll(binding)).also { if (it > 0) runSuspendCatching { scheduler.scheduleSoon() } }
         }
 
         override suspend fun backupProgress(): BackupProgress =
-            accounts.synchronize()?.let { intake.backupProgress(it) } ?: BackupProgress(0, 0)
+            accounts.synchronize()?.let { intake.backupProgress(it, notYet = motionParts.livePending(it)) } ?: BackupProgress(0, 0)
 
         override suspend fun verifiedSince(sinceEpochMillis: Long): Int =
             accounts.synchronize()?.let { intake.verifiedSince(it, sinceEpochMillis) } ?: 0
@@ -333,22 +361,39 @@ class DefaultPhotoCompanion(
         else -> TransferViewState.NEEDS_ATTENTION
     }
 
-    private fun toTransferView(row: TransferProjection) = TransferView(
-        id = TransferId(row.transferId),
-        mediaId = row.mediaId,
-        displayName = row.displayName,
-        state = row.toViewState(),
-        byteCount = row.byteCount,
-        updatedAtEpochMillis = row.updatedAtEpochMillis,
-        verifiedAtEpochMillis = row.verifiedAtEpochMillis,
-        message = row.message,
-        automatic = row.authorityType == AUTHORITY_AUTOMATIC,
-        retryable = row.activeAttemptId == null &&
-            (row.state == TransferState.NEEDS_ATTENTION || row.state == TransferState.UNSUPPORTED),
-        alreadyInICloud = row.state == TransferState.VERIFIED && row.message == StoredMessage.ALREADY_IN_ICLOUD.code,
-        failureReason = row.failureReasonView(),
-        nextTryAtEpochMillis = row.notBeforeEpochMillis?.takeIf { row.state == TransferState.READY && row.automaticRetries > 0 },
-    )
+    private fun toTransferView(row: TransferProjection, part: MotionPhotoPartEntity?): TransferView {
+        val view = TransferView(
+            id = TransferId(row.transferId),
+            mediaId = row.mediaId,
+            displayName = row.displayName,
+            state = row.toViewState(),
+            byteCount = row.byteCount,
+            updatedAtEpochMillis = row.updatedAtEpochMillis,
+            verifiedAtEpochMillis = row.verifiedAtEpochMillis,
+            message = row.message,
+            automatic = row.authorityType == AUTHORITY_AUTOMATIC,
+            retryable = row.activeAttemptId == null &&
+                (row.state == TransferState.NEEDS_ATTENTION || row.state == TransferState.UNSUPPORTED),
+            alreadyInICloud = row.state == TransferState.VERIFIED && row.message == StoredMessage.ALREADY_IN_ICLOUD.code,
+            failureReason = row.failureReasonView(),
+            nextTryAtEpochMillis = row.notBeforeEpochMillis?.takeIf { row.state == TransferState.READY && row.automaticRetries > 0 },
+        )
+        // A Live Photo is backed up once both its still and its motion are in iCloud. Until then the still, though
+        // verified, shows as still going; when the motion could not be attached, it says so, with Retry.
+        if (row.state != TransferState.VERIFIED || part?.mode != MotionPhotoMode.LIVE_PHOTO.name) return view
+        return when (part.state) {
+            MotionPhotoPartEntity.DETECTING -> view.copy(state = TransferViewState.CHECKING_ICLOUD)
+            MotionPhotoPartEntity.ATTACHING ->
+                view.copy(state = TransferViewState.UPLOADING, message = StoredMessage.ADDING_THE_LIVE_PHOTO_MOTION.code)
+            MotionPhotoPartEntity.FAILED -> view.copy(
+                state = TransferViewState.NEEDS_ATTENTION,
+                message = StoredMessage.LIVE_PHOTO_PART_NOT_ATTACHED.code,
+                retryable = true,
+                failureReason = TransferFailureReason.LIVE_PHOTO_NOT_ATTACHED,
+            )
+            else -> view
+        }
+    }
 
     /** Why the item has not gone through, by what fixes it; null while nothing is wrong. */
     private fun TransferProjection.failureReasonView(): TransferFailureReason? = when (state) {
@@ -367,6 +412,9 @@ class DefaultPhotoCompanion(
     }
 
     private companion object {
+        /** Motion photo parts one wake reads or attaches at most, so a library of them does not hold up uploads. */
+        const val MOTION_PARTS_PER_PASS = 3
+
         /** Messages that mean the phone file is gone, from before the reason was kept with the transfer. */
         val FILE_GONE_MESSAGES = setOf(
             StoredMessage.THE_STAGED_ORIGINAL_CHANGED_OR_IS_MISSING_SELECT_THE_PHOTO_AGAIN,

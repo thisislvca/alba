@@ -28,6 +28,9 @@ import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
+/** A quarter of per-item backup phases are traced: a library backs up thousands of items. */
+private const val ITEM_PHASE_SAMPLE_RATE = 0.25
+
 enum class DiagnosticOperation(val wireName: String, val sampleRate: Double) {
     APP_INITIALIZED("app.initialized", 1.0),
     GALLERY_REFRESH("gallery.refresh", 1.0),
@@ -41,6 +44,10 @@ enum class DiagnosticOperation(val wireName: String, val sampleRate: Double) {
     SHARED_ALBUM("shared_album.action", 1.0),
     BACKUP_ENROLLMENT("backup.enrollment", 1.0),
     MAINTENANCE_WAKE("backup.wake", 1.0),
+    BACKUP_ROUND("backup.round", 1.0),
+
+    /** One step of one item: staging, upload, putAsset, receipt match, heal, byte check, the Live Photo attach. */
+    BACKUP_PHASE("backup.phase", ITEM_PHASE_SAMPLE_RATE),
 
     /** Apple's indexing state was not FINISHED but did not hold the read back: it FAILED, or ran for a readable library. */
     LIBRARY_INDEXING("icloud.library_indexing", 1.0),
@@ -110,6 +117,9 @@ class SentryAlbaDiagnostics(context: Context) : AlbaDiagnostics, AccountTelemetr
     private val initialized = AtomicBoolean(false)
     private val mutableEnabled = MutableStateFlow(available && preferences.getBoolean(ENABLED, true))
     override val enabled: StateFlow<Boolean> = mutableEnabled.asStateFlow()
+
+    /** Backup's spans, breadcrumbs and events, sent only while diagnostics are on. */
+    val backup: me.lvca.alba.engine.model.BackupDiagnostics = SentryBackupTracing { enabled.value && initialized.get() }
 
     fun initialize() {
         if (mutableEnabled.value) initializeSentry()

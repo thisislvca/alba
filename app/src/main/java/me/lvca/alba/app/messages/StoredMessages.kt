@@ -145,5 +145,8 @@ private fun secondMessageResources(message: StoredMessage): Int? = when (message
     StoredMessage.NO_COPY_APPEARED_IN_ICLOUD_UPLOADING_AGAIN -> R.string.message_no_copy_appeared_in_icloud_uploading_again
     StoredMessage.ICLOUD_REJECTED_THIS_FILE -> R.string.message_icloud_rejected_this_file
     StoredMessage.THIS_FILE_IS_NO_LONGER_ON_THE_PHONE -> R.string.message_this_file_is_no_longer_on_the_phone
+    StoredMessage.ADDING_THE_LIVE_PHOTO_MOTION -> R.string.message_adding_the_live_photo_motion
+    StoredMessage.LIVE_PHOTO_PART_NOT_ATTACHED -> R.string.message_live_photo_part_not_attached
+    StoredMessage.MOTION_PHOTO_VIDEO_NOT_BACKED_UP_YET -> R.string.message_motion_photo_video_not_backed_up_yet
     else -> null
 }

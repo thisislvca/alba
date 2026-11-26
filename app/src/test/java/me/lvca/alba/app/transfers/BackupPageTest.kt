@@ -47,6 +47,7 @@ import me.lvca.alba.engine.model.GalleryMedia
 import me.lvca.alba.engine.model.LARGE_ITEM_BYTES
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
+import me.lvca.alba.engine.model.MotionPhotoMode
 import me.lvca.alba.engine.model.ProtocolArea
 import me.lvca.alba.engine.model.ProtocolPause
 import me.lvca.alba.engine.model.StoredMessage
@@ -196,6 +197,32 @@ class BackupPageTest {
         compose.onNodeWithTag("backup-only-while-charging").performScrollTo().assertIsOff().performClick()
         assertEquals(listOf(BackupSettings(onlyWhileCharging = true)), saved)
         compose.onNodeWithTag("backup-headline").assertTextEquals(context.resources.getQuantityString(R.plurals.backup_chip_backing_up, 1, 1))
+    }
+
+    @Test
+    fun motionPhotosIsPhotoOnlyUntilTheUserPicksAnotherOptionInItsDialog() {
+        val saved = mutableListOf<BackupSettings>()
+        render(TransferState(backup = on), setBackupSettings = { saved += it })
+        compose.onNodeWithTag("motion-photos-setting").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.backup_motion_photos_photo_only)).assertIsDisplayed()
+
+        compose.onNodeWithTag("motion-photos-setting").performClick()
+        compose.onNodeWithTag("motion-photos-option-photo-only").assertIsSelected()
+        compose.onNodeWithTag("motion-photos-option-photo-and-video").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.backup_motion_photos_live)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.backup_motion_photos_live_detail)).assertIsDisplayed()
+        compose.onNodeWithTag("motion-photos-option-live-photo").performClick()
+
+        assertEquals(listOf(BackupSettings(motionPhotos = MotionPhotoMode.LIVE_PHOTO)), saved)
+        compose.onNodeWithTag("motion-photos-options").assertDoesNotExist()
+    }
+
+    @Test
+    fun theChosenMotionPhotoOptionIsShownAndSelected() {
+        render(TransferState(backup = on, backupSettings = BackupSettings(motionPhotos = MotionPhotoMode.PHOTO_AND_VIDEO)))
+        compose.onNodeWithText(context.getString(R.string.backup_motion_photos_separately)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("motion-photos-setting").performClick()
+        compose.onNodeWithTag("motion-photos-option-photo-and-video").assertIsSelected()
     }
 
     @Test

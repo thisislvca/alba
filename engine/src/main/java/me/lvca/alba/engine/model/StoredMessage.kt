@@ -154,7 +154,16 @@ enum class StoredMessage(val code: String, val legacyText: String) {
         "No copy appeared in iCloud, so Alba is uploading it again.",
     ),
     ICLOUD_REJECTED_THIS_FILE("icloud_rejected_this_file", "iCloud didn't accept this file. The original stays on this phone."),
-    THIS_FILE_IS_NO_LONGER_ON_THE_PHONE("this_file_is_no_longer_on_the_phone", "This file is no longer on the phone.");
+    THIS_FILE_IS_NO_LONGER_ON_THE_PHONE("this_file_is_no_longer_on_the_phone", "This file is no longer on the phone."),
+    ADDING_THE_LIVE_PHOTO_MOTION("adding_the_live_photo_motion", "Adding the motion to make it a Live Photo"),
+    LIVE_PHOTO_PART_NOT_ATTACHED(
+        "live_photo_part_not_attached",
+        "Live Photo part not attached. The photo itself is backed up.",
+    ),
+    MOTION_PHOTO_VIDEO_NOT_BACKED_UP_YET(
+        "motion_photo_video_not_backed_up_yet",
+        "Its motion video isn't backed up yet, so it stays on this phone.",
+    );
 
     companion object {
         private val byCode = entries.associateBy { it.code }
