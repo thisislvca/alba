@@ -67,12 +67,12 @@ internal class InPlaceOriginals(private val originals: ExactOriginalSource) {
         requireUnchanged(original, count)
         val format = UploadMediaFormat.detect(prefix.copyOf(prefixCount))
         val captureTime = try {
-            UploadMediaValidator.validate(original.file, format)
-            CaptureTimes.read(original.file, format.mimeType, original.description.dateTakenEpochMillis, original.description.lastModifiedAtEpochMillis)
+            UploadMediaValidator.validate(original.descriptor, format)
+            CaptureTimes.read(original.descriptor, format.mimeType, original.description.dateTakenEpochMillis, original.description.lastModifiedAtEpochMillis)
         } catch (refused: UnsupportedUploadException) {
             throw refused
         } catch (_: java.io.IOException) {
-            // The random-access view could not be read: a private copy can be, so the item is staged instead.
+            // The descriptor could not be read by position: a private copy can be, so the item is staged instead.
             return null
         } catch (_: SecurityException) {
             return null

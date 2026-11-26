@@ -38,14 +38,14 @@ data class InPlaceDescription(
 )
 
 /**
- * A MediaStore original opened where it is, read in place rather than copied. [file] reads the same bytes with random
- * access, for format checks and the capture time; [openStream] reads them from the start; [isUnchanged] tells whether the
- * file still has the size and modification time it had when it was opened.
+ * A MediaStore original opened where it is, read in place rather than copied. [descriptor] is the open, seekable file
+ * itself, read by position for format checks and the capture time and never closed by readers; [openStream] reads it
+ * from the start; [isUnchanged] tells whether it still has the size and modification time it had when it was opened.
  */
 class InPlaceOriginal(
     val description: InPlaceDescription,
     val byteCount: Long,
-    val file: java.io.File,
+    val descriptor: java.io.FileDescriptor,
     private val stream: () -> java.io.InputStream,
     private val unchanged: () -> Boolean,
     private val release: () -> Unit,

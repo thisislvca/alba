@@ -320,9 +320,10 @@ class AndroidMediaStoreSourceTest {
             original.use {
                 assertEquals(bytes.size.toLong(), it.byteCount)
                 assertEquals(item.sourceRevision, it.description.sourceRevision)
-                // Read twice from the start, as queueing and the upload do, and through the random-access view.
+                // Read twice from the start, as queueing and the upload do.
                 repeat(2) { _ -> assertTrue(bytes.contentEquals(it.openStream().use { input -> input.readBytes() })) }
-                assertTrue(bytes.contentEquals(it.file.readBytes()))
+                // Read by position through the descriptor itself, as the format check and capture time read it.
+                assertTrue(bytes.contentEquals(java.io.FileInputStream(it.descriptor).channel.readAt(0, bytes.size).array()))
                 assertTrue(it.isUnchanged())
             }
         } finally {

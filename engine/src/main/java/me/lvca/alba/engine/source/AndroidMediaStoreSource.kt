@@ -24,7 +24,6 @@ import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.PhoneMetadata
 import me.lvca.alba.engine.model.StoredMessage
-import java.io.File
 import java.io.OutputStream
 import java.security.MessageDigest
 
@@ -86,9 +85,10 @@ class AndroidMediaStoreSource(
     )
 
     /**
-     * Opens the exact original's descriptor, as [copyMediaStoreItem] reads it, and keeps it open. Only a regular file is
-     * offered: a pipe or socket (a transcoded or provider-served stream) cannot be read twice, so it is staged instead.
-     * [InPlaceOriginal.file] reads the same open file through /proc/self/fd, and must match the descriptor's size.
+     * Opens the exact original's descriptor, as [copyMediaStoreItem] reads it, and keeps it open; every read goes through
+     * that descriptor, by position or from the start. Only a regular file is offered: a pipe or socket (a transcoded or
+     * provider-served stream) cannot be read twice, so it is staged instead. A change is seen by the descriptor's size
+     * and modification time, and by MediaStore's revision (generation and size) and DATE_MODIFIED.
      */
     override suspend fun openInPlace(contentUri: String, expectedRevision: String): InPlaceOriginal? = withContext(Dispatchers.IO) {
         val uri = contentUri.toUri()
@@ -105,8 +105,7 @@ class AndroidMediaStoreSource(
         } ?: return@withContext null
         val opened = runCatching { Os.fstat(descriptor.fileDescriptor) }.getOrNull()
             ?.takeIf { OsConstants.S_ISREG(it.st_mode) && it.st_size > 0L }
-        val file = File("/proc/self/fd/${descriptor.fd}")
-        if (opened == null || !file.canRead() || file.length() != opened.st_size) {
+        if (opened == null) {
             descriptor.close()
             return@withContext null
         }
@@ -123,7 +122,7 @@ class AndroidMediaStoreSource(
                 dateTakenEpochMillis = before.dateTakenEpochMillis,
             ),
             byteCount = opened.st_size,
-            file = file,
+            descriptor = descriptor.fileDescriptor,
             stream = {
                 Os.lseek(descriptor.fileDescriptor, 0L, OsConstants.SEEK_SET)
                 // Closing the stream must not close the descriptor, which the original still uses.
@@ -132,8 +131,10 @@ class AndroidMediaStoreSource(
                 }
             },
             unchanged = {
-                runCatching { Os.fstat(descriptor.fileDescriptor) }.getOrNull()
-                    ?.let { now -> now.st_size == opened.st_size && now.st_mtime == opened.st_mtime } == true
+                val now = runCatching { Os.fstat(descriptor.fileDescriptor) }.getOrNull()
+                val listed = readSourceMetadata(uri, displayNameHint = null)
+                now != null && now.st_size == opened.st_size && now.st_mtime == opened.st_mtime &&
+                    listed.revision == before.revision && listed.lastModifiedAtEpochMillis == before.lastModifiedAtEpochMillis
             },
             release = { descriptor.close() },
         )

@@ -731,11 +731,15 @@ class DefaultPhotoCompanionTest {
         var authorized = true
         var beforePrepare: () -> Unit = {}
         var beforeStart: suspend () -> Unit = {}
+
+        /** Each upload becomes its own library item, as in iCloud, which the change feed lists and serves. */
         var verifyUploadedBytes = false
+        private val uploadedByMaster = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
         var candidateReads = 0
         var processingStatus: UploadProcessingStatus = UploadProcessingStatus.Unknown
         var statusReadFails = false
         var preparedDate: Long? = null
+
         override fun isWriteAuthorized(): Boolean = authorized
         override suspend fun canResume(binding: AccountBinding, attemptId: String): Boolean = safeResume
         val uploadStarts = AtomicInteger(0)
@@ -765,7 +769,13 @@ class DefaultPhotoCompanionTest {
                 beforeStart()
                 if (mode == UploadMode.THROW_BEFORE_BODY) throw IOException("reservation interrupted before body")
                 uploadedBytes += source.openOnce().use { it.readBytes() }
-                if (verifyUploadedBytes) remoteBytes = uploadedBytes.last()
+                if (verifyUploadedBytes) {
+                    // Uploads can be in flight together: each is registered under its own records.
+                    val master = "$MASTER_NAME-$attemptId"
+                    uploadedByMaster[master] = uploadedBytes.last()
+                    if (mode == UploadMode.THROW_AFTER_BODY) throw IOException("response lost")
+                    return UploadAcceptance("request", master, "$ASSET_NAME-$attemptId", false, "job")
+                }
                 if (mode == UploadMode.THROW_AFTER_BODY) throw IOException("response lost")
                 return UploadAcceptance("request", MASTER_NAME, ASSET_NAME, false, "job")
             }
@@ -790,7 +800,11 @@ class DefaultPhotoCompanionTest {
             return candidatePages?.let { pages ->
             pages[candidatePageIndex.getAndIncrement().coerceAtMost(pages.lastIndex)]
         } ?: CandidatePage(
-            candidates = remoteBytes?.let { listOf(candidate(MASTER_NAME, ASSET_NAME)) }.orEmpty(),
+            candidates = if (verifyUploadedBytes) {
+                uploadedByMaster.keys.map { master -> candidate(master, ASSET_NAME + master.removePrefix(MASTER_NAME)) }
+            } else {
+                remoteBytes?.let { listOf(candidate(MASTER_NAME, ASSET_NAME)) }.orEmpty()
+            },
             nextChangeToken = "after",
             moreComing = false,
         )
@@ -801,7 +815,7 @@ class DefaultPhotoCompanionTest {
             pair: RemotePairCandidate,
             output: OutputStream,
         ): RemoteOriginalObservation {
-            val bytes = requireNotNull(remoteBytes)
+            val bytes = requireNotNull(uploadedByMaster[pair.master.name] ?: remoteBytes)
             output.write(bytes)
             return RemoteOriginalObservation(RESOURCE_ID, bytes.size.toLong())
         }

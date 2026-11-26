@@ -15,13 +15,13 @@ The constraints around this are unchanged: the network and charging settings, th
 
 ### Reading in place, and when Alba stages a copy
 
-A source read in place is read twice: once to queue it, once as it is sent. `SentBytesSource` hashes the bytes as the transport reads them and, before handing over the last bytes, checks the hash against the queued one and that the file's size and modification time did not change. If anything changed, the PUT never completes; the journal proves nothing was registered, so the attempt is let go and the item is read and queued afresh. An item edited between queueing and its upload is caught when it is opened again, and is redone the same way.
+A source read in place is read through the descriptor MediaStore hands over (MediaStore opens camera files on the lower filesystem, which has no path the app could open again): twice from the start, once to queue it and once as it is sent, and by position for the format check and capture time. A change shows in the descriptor's size and modification time and in MediaStore's revision and `DATE_MODIFIED`; a retry opens the item again by its URI. `SentBytesSource` hashes the bytes as the transport reads them and, before handing over the last bytes, checks the hash against the queued one and that the file's size and modification time did not change. If anything changed, the PUT never completes; the journal proves nothing was registered, so the attempt is let go and the item is read and queued afresh. An item edited between queueing and its upload is caught when it is opened again, and is redone the same way.
 
 Alba stages a private copy instead when the source cannot be re-opened reliably:
 
 - photos the user picks with the system photo picker or a document picker, whose access grant may not outlive the process;
 - MediaStore descriptors that are not regular files (a pipe or socket, such as a transcoded or provider-served stream), which cannot be read twice;
-- originals whose random-access view (`/proc/self/fd`) cannot be read for the format check and capture time;
+- originals whose open descriptor cannot be read by position for the format check and capture time;
 - sources that do not implement `ExactOriginalSource.openInPlace`.
 
 ## Two levels of verification

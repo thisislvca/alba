@@ -116,7 +116,10 @@ internal open class TestPhone(private val context: Context) : ExactOriginalSourc
         val revision = requireNotNull(revisions[contentUri])
         require(expectedRevision.isBlank() || expectedRevision == revision) { "changed before staging" }
         val content = requireNotNull(bytes[contentUri])
+        // Like MediaStore's: an open descriptor on a file that has no path the app could open again.
         val view = File.createTempFile("in-place", ".jpg").apply { writeBytes(content) }
+        val open = java.io.RandomAccessFile(view, "r")
+        check(view.delete()) { "The test file keeps no path" }
         return InPlaceOriginal(
             InPlaceDescription(
                 contentUri = contentUri, displayName = items.first { it.contentUri == contentUri }.fileName,
@@ -124,7 +127,7 @@ internal open class TestPhone(private val context: Context) : ExactOriginalSourc
                 originalFormatRequested = true, unredacted = true, lastModifiedAtEpochMillis = MODIFIED_AT,
                 dateTakenEpochMillis = null,
             ),
-            byteCount = content.size.toLong(), file = view,
+            byteCount = content.size.toLong(), descriptor = open.fd,
             stream = {
                 val opens = (inPlaceOpens[contentUri] ?: 0) + 1
                 inPlaceOpens[contentUri] = opens
@@ -132,7 +135,7 @@ internal open class TestPhone(private val context: Context) : ExactOriginalSourc
                 ByteArrayInputStream(requireNotNull(bytes[contentUri])).also { onOpenedInPlace(contentUri, opens) }
             },
             unchanged = { revisions[contentUri] == revision },
-            release = { view.delete() },
+            release = { open.close() },
         )
     }
 
