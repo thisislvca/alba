@@ -469,19 +469,20 @@ class DefaultGalleryRepository(
     override fun observeLastRefresh(): Flow<Long?> =
         sync.observeCheckpointTime("icloud:${cloudSource.accountLabel}").distinctUntilChanged()
 
-    /** A refresh already running, on screen or in the background, is joined: it continues any unfinished read. */
+    /**
+     * A refresh already running, on screen or in the background, continues any unfinished read: this waits for it to
+     * end, then continues the read only if one is still unfinished. Null when there was none to continue, so a caller
+     * that needs a fresh library asks for a refresh of its own.
+     */
     override suspend fun resumeCatalogScan(): RefreshSummary? {
-        priority.joinRunning()?.let { return it }
+        priority.awaitRunning()
         if (sync.scan(cloudSource.accountLabel) == null) return null
-        return priority.shared { syncLock.withLock { refreshUnderSyncLock(includeDeviceMedia = false) } }.summary
+        return priority.shared(includeDeviceMedia = false) { device -> syncLock.withLock { refreshUnderSyncLock(device) } }.summary
     }
 
-    override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary {
-        val shared = priority.shared { syncLock.withLock { refreshUnderSyncLock(includeDeviceMedia) } }
-        // The refresh this one joined read the phone when it started, if at all: read it now.
-        if (shared.joined && includeDeviceMedia) refreshDevice()
-        return shared.summary
-    }
+    /** A refresh that starts after this call: asked for while another runs, it shares the one follow-up that comes next. */
+    override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary =
+        priority.shared(includeDeviceMedia) { device -> syncLock.withLock { refreshUnderSyncLock(device) } }.summary
 
     /**
      * Reads the library into the catalog page by page, never holding it in memory, then replaces what Recently Deleted,

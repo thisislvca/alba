@@ -5,7 +5,9 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -307,21 +309,44 @@ class OfflineThumbnailFillTest {
         Unit
     }
 
-    /** A refresh asked for while another runs (background work's, or the screen's) joins it instead of queueing a second. */
+    /**
+     * An edit made while a refresh runs, after it read what changed, reaches the library through a refresh asked for
+     * after the edit: that refresh waits for a follow-up instead of returning the running one's stale read.
+     */
     @Test
-    fun aSecondRefreshJoinsTheOneRunning() = runBlocking {
+    fun aRefreshAskedForDuringAnotherReadsWhatChangedSince() = runBlocking {
+        val repository = repository().also { it.refresh(false) }
+        val refreshing = CompletableDeferred<Unit>()
+        val finishRefresh = CompletableDeferred<Unit>()
+        source.onChanges = { if (refreshing.complete(Unit)) finishRefresh.await() }
+        val running = async { repository.refresh(false) }
+        refreshing.await()
+
+        source.changes = CloudChanges(listOf(source.record(10)), emptySet(), "token-later", false)
+        val afterEdit = async(start = CoroutineStart.UNDISPATCHED) { repository.refresh(false) }
+        finishRefresh.complete(Unit)
+        running.await()
+        afterEdit.await()
+        assertTrue("The edit is in the library", repository.observeGallery().first().any { it.id == source.id(10) })
+    }
+
+    /** However many refreshes are asked for while one runs (background work's, the screen's), they share one follow-up. */
+    @Test
+    fun refreshesAskedForDuringAnotherShareOneFollowUp() = runBlocking {
         val repository = repository().also { it.refresh(false) }
         val reads = source.changeReads
         val refreshing = CompletableDeferred<Unit>()
         val finishRefresh = CompletableDeferred<Unit>()
-        source.onChanges = { refreshing.complete(Unit); finishRefresh.await() }
+        source.onChanges = { if (refreshing.complete(Unit)) finishRefresh.await() }
         val background = async { repository.resumeCatalogScan() ?: repository.refresh(false) }
         refreshing.await()
 
-        val onScreen = async { repository.refresh(false) }
+        val asked = List(3) { async(start = CoroutineStart.UNDISPATCHED) { repository.refresh(it == 0) } }
         finishRefresh.complete(Unit)
-        assertEquals(background.await().refreshedAtEpochMillis, onScreen.await().refreshedAtEpochMillis)
-        assertEquals("One read of the library's changes for both", reads + 1, source.changeReads)
+        background.await()
+        val followUps = asked.awaitAll().map { it.refreshedAtEpochMillis }.distinct()
+        assertEquals("One follow-up for every request", 1, followUps.size)
+        assertEquals("The running read and one follow-up", reads + 2, source.changeReads)
     }
 
     private companion object {
@@ -361,8 +386,10 @@ class OfflineThumbnailFillTest {
         override suspend fun fetchPage(cursor: String?, limit: Int) = CloudCatalogPage(items.map(::record), null, "rank:0")
         override suspend fun changes(token: String, known: KnownCloudRecords): CloudChanges {
             changeReads++
+            // What changed is read when the call starts; a change made while it waits is the next read's.
+            val read = changes
             onChanges()
-            return changes
+            return read
         }
         override suspend fun prepareDownloads(mediaIds: List<String>) {
             prepared += mediaIds
