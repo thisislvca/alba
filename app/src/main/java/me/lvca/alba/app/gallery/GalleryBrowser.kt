@@ -4,9 +4,11 @@ import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -51,6 +53,11 @@ data class GalleryState(
     val expandedBursts: Set<String> = emptySet(),
     /** Phone items not in iCloud, which their tiles mark as not backed up. */
     val phoneOnly: Set<String> = emptySet(),
+    /**
+     * The whole library is read. While it loads this is false and [items] hold at most the newest photos, for the
+     * library's own newest-first view, so totals and an empty grid mean nothing yet.
+     */
+    val libraryLoaded: Boolean = true,
 )
 
 /**
@@ -73,6 +80,14 @@ private fun libraryOwner(state: ICloudAccountState, savedAccount: String?): IClo
     if (state == ICloudAccountState.Restoring && savedAccount != null) ICloudAccountState.SignedIn(savedAccount) else state
 
 private data class DeviceAccess(val granted: Boolean = false, val limited: Boolean = false)
+
+/** The library as it loads: [complete] once it is read whole, before that only its newest photos. */
+private data class LibraryItems(val items: List<GalleryMedia>, val complete: Boolean)
+
+private data class ShownGallery(val gallery: ProjectedGallery, val complete: Boolean)
+
+/** The library tab's own view, whose top the newest photos are. */
+private fun GalleryQuery.showsNewestFirst() = this == GalleryQuery()
 
 private data class Browsing(
     val query: GalleryQuery,
@@ -118,28 +133,45 @@ internal class GalleryBrowser(
         if (previous != null && previous.filename != next.filename && previous.copy(filename = next.filename) == next) SEARCH_DEBOUNCE_MILLIS else 0L
     }.onEach { lastProjected = it }
 
+    /**
+     * Reading a library of thousands of photos takes a moment. A small query for the newest photos fills the first
+     * screen meanwhile, and the whole library replaces it as soon as it is read.
+     */
+    private val library = channelFlow {
+        val newest = launch {
+            repository.newestMedia(FIRST_SCREEN_ITEMS).takeIf { it.isNotEmpty() }?.let { send(LibraryItems(it, complete = false)) }
+        }
+        repository.observeGallery().collect { items ->
+            newest.cancelAndJoin()
+            send(LibraryItems(items, complete = true))
+        }
+    }
+
     private val projected = combine(
-        repository.observeGallery(),
+        library,
         projectedQuery,
         deviceAccess.map { it.granted }.distinctUntilChanged(),
         combine(accountManager.state, accountManager.session.map { it?.accountName }, ::libraryOwner).distinctUntilChanged(),
         combine(removing, expandedBursts, ::Pair),
-    ) { items, query, granted, account, (removing, expanded) ->
-        projection.apply(if (removing.isEmpty()) items else items.filterNot { it.id in removing }, query, granted, account,
-            expandedBursts = expanded)
+    ) { library, query, granted, account, (removing, expanded) ->
+        // Only the newest-first library has the newest photos on top: any other view waits for the whole library.
+        val items = if (library.complete || query.showsNewestFirst()) library.items else emptyList()
+        ShownGallery(projection.apply(if (removing.isEmpty()) items else items.filterNot { it.id in removing }, query, granted,
+            account, expandedBursts = expanded), library.complete)
     }
         .flowOn(Dispatchers.Default)
         .shareIn(scope, SharingStarted.WhileSubscribed(5_000), replay = 1)
 
     private val collections = combine(
         repository.observeCollections(),
-        projected.map { it.accountState to it.catalog.deviceFolders }.distinctUntilChanged(),
+        projected.map { it.gallery.accountState to it.gallery.catalog.deviceFolders }.distinctUntilChanged(),
     ) { collections, (account, folders) -> visibleCollections(collections, account, folders) }
         .flowOn(Dispatchers.Default)
 
     private val browsing = combine(query, selection, selectedMediaId, deviceAccess, expandedBursts, ::Browsing)
 
-    val state: StateFlow<GalleryState> = combine(projected, collections, browsing) { projected, collections, browsing ->
+    val state: StateFlow<GalleryState> = combine(projected, collections, browsing) { shown, collections, browsing ->
+        val projected = shown.gallery
         GalleryState(
             query = browsing.query,
             selection = browsing.selection,
@@ -157,8 +189,9 @@ internal class GalleryBrowser(
             bursts = projected.catalog.bursts,
             expandedBursts = browsing.expandedBursts,
             phoneOnly = projected.catalog.phoneOnly,
+            libraryLoaded = shown.complete,
         )
-    }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), GalleryState())
+    }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), GalleryState(libraryLoaded = false))
 
     /** The latest published state. Only current while the UI observes [state]. */
     val current: GalleryState get() = state.value
@@ -278,6 +311,9 @@ internal class GalleryBrowser(
 
     private companion object {
         const val SEARCH_DEBOUNCE_MILLIS = 150L
+
+        /** More tiles than the smallest zoom level shows on one screen. */
+        const val FIRST_SCREEN_ITEMS = 500
         const val MEDIA = "media"
         const val SELECTION = "selection"
         const val ACCOUNT = "accountIdentity"

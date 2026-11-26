@@ -8,6 +8,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -122,6 +123,28 @@ class ResumableCatalogSyncTest {
         source.changes = CloudChanges(emptyList(), emptySet(), "token-later", false)
         DefaultGalleryRepository(database, source, null, cache, now = { 3_000L }, pause = { }).refresh(false)
         assertEquals("A refresh that found no changes still counts", 3_000L, repository(source).observeLastRefresh().first())
+    }
+
+    /**
+     * The app starts observing the last refresh before the saved account is restored. Bound to the account it saw then
+     * ("signed-out"), it never saw a refresh, and Profile said "Library not refreshed yet" after every refresh.
+     */
+    @Test
+    fun theLastRefreshFollowsTheAccountRestoredAfterObservingStarted() = runBlocking {
+        val source = PagedSource(count = 10).apply { accountLabel = "signed-out" }
+        val lastRefresh = DefaultGalleryRepository(database, source, null, cache, now = { 4_000L }, pause = { })
+        val observing = CompletableDeferred<Unit>()
+        val flow = lastRefresh.observeLastRefresh()
+        val observed = async(Dispatchers.IO) { flow.onEach { observing.complete(Unit) }.first { it != null } }
+        withTimeout(5_000) { observing.await() }
+
+        source.accountLabel = "account-a"
+        lastRefresh.refresh(false)
+        assertEquals(4_000L, withTimeout(5_000) { observed.await() })
+
+        // An incremental refresh that found nothing new counts as well.
+        DefaultGalleryRepository(database, source, null, cache, now = { 6_000L }, pause = { }).refresh(false)
+        assertEquals(6_000L, lastRefresh.observeLastRefresh().first())
     }
 
     @Test
@@ -386,9 +409,14 @@ class ResumableCatalogSyncTest {
         source.resetChanges = true
         source.token = null
 
-        repository(source).refresh(false)
+        DefaultGalleryRepository(database, source, null, cache, now = { 5_000L }, pause = { }).refresh(false)
 
-        assertNull(database.catalogDao().checkpoint("icloud:account-a"))
+        // No token is kept, so the next refresh reads the library again; the refresh still counts as one.
+        assertEquals("", database.catalogDao().checkpoint("icloud:account-a")?.changeToken)
+        assertEquals(5_000L, repository(source).observeLastRefresh().first())
+        source.requested.clear()
+        repository(source).refresh(false)
+        assertTrue("A refresh without a token read no page", source.requested.isNotEmpty())
     }
 
     @Test

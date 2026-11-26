@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -23,6 +24,7 @@ import me.lvca.alba.engine.database.CatalogScanEntity
 import me.lvca.alba.engine.database.CollectionEntity
 import me.lvca.alba.engine.database.CollectionMemberEntity
 import me.lvca.alba.engine.database.mediaDetails
+import me.lvca.alba.engine.database.retryFailedReads
 import me.lvca.alba.engine.database.toEntity
 import me.lvca.alba.engine.database.toModel
 import me.lvca.alba.engine.model.*
@@ -336,12 +338,19 @@ class DefaultGalleryRepository(
 
     override suspend fun findMedia(id: String): GalleryMedia? = dao.findById(id)?.let(::toModel)
 
-    override fun observeGallery(): Flow<List<GalleryMedia>> = flow {
+    override fun observeGallery(): Flow<List<GalleryMedia>> = gallery(dao.observeAll().retryFailedReads("catalog"))
+
+    // The same rows as the top of [observeGallery], from a query that reads only them: the first screen of tiles shows
+    // while the whole library still loads.
+    override suspend fun newestMedia(limit: Int): List<GalleryMedia> = gallery(flowOf(dao.newest(limit))).first()
+
+    private fun gallery(rows: Flow<List<CatalogItemEntity>>): Flow<List<GalleryMedia>> = flow {
         // Cache writes do not invalidate catalog metadata. Reuse model conversion
         // and filesystem probes for unchanged records while thumbnails arrive.
         val models = mutableMapOf<String, CachedGalleryModel>()
-        val metadata = combine(dao.observeAll().distinctUntilChanged(),
-            library.observeMembers().distinctUntilChanged(), dao.observeDisplayLinks().distinctUntilChanged()) { entities, members, links ->
+        val metadata = combine(rows.distinctUntilChanged(),
+            library.observeMembers().retryFailedReads("album members").distinctUntilChanged(),
+            dao.observeDisplayLinks().retryFailedReads("backed-up phone photos").distinctUntilChanged()) { entities, members, links ->
             val byMedia = members.groupBy { it.mediaId }
             val byId = entities.associateBy { it.mediaId }
             val devices = links.filter { it.accountId == cloudSource.writeAccountId }.groupBy { it.cloudId }
@@ -358,17 +367,19 @@ class DefaultGalleryRepository(
                 GalleryMetadata(entity, collections, devices[entity.mediaId], devices[entity.mediaId]?.let { byId[it]?.localUri })
             }
         }
-        combine(metadata, dao.observeCache().distinctUntilChanged()) { entries, cacheRows ->
+        combine(metadata, dao.observeCache().retryFailedReads("cached files").distinctUntilChanged()) { entries, cacheRows ->
             val caches = cacheRows.associateBy { it.mediaId }
             val ids = entries.mapTo(HashSet(entries.size)) { it.entity.mediaId }
             models.keys.retainAll(ids)
+            // Loading the library converts every row: one listing of the cache folders answers for all their files.
+            val readable = if (entries.size - models.size > BULK_PROBE_ROWS) cache.readableSnapshot() else cache::isReadable
             entries.map { entry ->
                 val cached = caches[entry.entity.mediaId]
                 val previous = models[entry.entity.mediaId]
                 if (previous?.metadata == entry && previous.cache == cached) previous.model
                 else {
                     val base = if (previous?.metadata?.entity == entry.entity && previous.cache == cached) previous.model
-                        else toModel(cached?.applyTo(entry.entity) ?: entry.entity)
+                        else toModel(cached?.applyTo(entry.entity) ?: entry.entity, readable)
                     val model = base.copy(collectionIds = entry.collections,
                         isFavorite = entry.entity.localFavorite || GalleryQuery.FAVORITES in entry.collections,
                         linkedDeviceId = entry.deviceId, linkedDeviceReference = entry.deviceReference)
@@ -385,7 +396,7 @@ class DefaultGalleryRepository(
     private data class GalleryMetadata(val entity: CatalogItemEntity, val collections: Set<String>,
         val deviceId: String?, val deviceReference: String?)
 
-    override fun observeCollections(): Flow<List<GalleryCollection>> = library.observeCollections().map { rows ->
+    override fun observeCollections(): Flow<List<GalleryCollection>> = library.observeCollections().retryFailedReads("albums").map { rows ->
         rows.map { it.toModel() }
     }
 
@@ -465,9 +476,13 @@ class DefaultGalleryRepository(
         }
     }.distinctUntilChanged()
 
-    // Every library refresh saves its change token with the time it ran, whether on screen or in background work.
-    override fun observeLastRefresh(): Flow<Long?> =
-        sync.observeCheckpointTime("icloud:${cloudSource.accountLabel}").distinctUntilChanged()
+    // Every library refresh saves its change token with the time it ran, whether on screen or in background work. The
+    // account is read at every change rather than once: the screen starts observing before the saved account is
+    // restored, and observing "signed-out" then never saw a refresh.
+    override fun observeLastRefresh(): Flow<Long?> = sync.observeCloudCheckpoints().map { rows ->
+        val scope = "icloud:${cloudSource.accountLabel}"
+        rows.firstOrNull { it.scope == scope }?.refreshedAtEpochMillis
+    }.distinctUntilChanged()
 
     /**
      * A refresh already running, on screen or in the background, continues any unfinished read: this waits for it to
@@ -544,9 +559,9 @@ class DefaultGalleryRepository(
                 writeRecords(snapshots, libraryRead.stamp)
                 sync.deleteUnstamped()
                 val scope = "icloud:$account"
-                // A read without a change token must not leave an older token behind for the next refresh.
-                if (libraryRead.changeToken.isBlank()) sync.deleteCheckpoint(scope)
-                else dao.upsertCheckpoint(CatalogCheckpointEntity(scope, libraryRead.changeToken, refreshedAt))
+                // A read without a change token must not leave an older token behind for the next refresh; its time
+                // still counts as the last refresh.
+                dao.upsertCheckpoint(CatalogCheckpointEntity(scope, libraryRead.changeToken, refreshedAt))
                 sync.deleteScan(account)
                 // A read under any other account is over: this one replaced its rows.
                 sync.deleteOtherScans(account)
@@ -603,7 +618,7 @@ class DefaultGalleryRepository(
      */
     private suspend fun syncLibrary(account: String): LibraryRead {
         if (sync.scan(account) == null) {
-            val checkpoint = dao.checkpoint("icloud:$account")?.changeToken?.takeUnless { it.startsWith("rank:") }
+            val checkpoint = dao.checkpoint("icloud:$account")?.changeToken?.takeUnless { it.isBlank() || it.startsWith("rank:") }
             if (checkpoint != null) {
                 val stamp = UUID.randomUUID().toString()
                 try { return LibraryRead(stamp, null, applyChanges(checkpoint, stamp, account)) }
@@ -989,10 +1004,10 @@ class DefaultGalleryRepository(
         } finally { repeat(held) { catalogPermits.release() } }
     }
 
-    private fun toModel(entity: CatalogItemEntity): GalleryMedia {
+    private fun toModel(entity: CatalogItemEntity, readable: (String?) -> Boolean = cache::isReadable): GalleryMedia {
         val origin = MediaOrigin.valueOf(entity.origin)
-        val previewReadable = cache.isReadable(entity.previewCachePath)
-        val originalReadable = cache.isReadable(entity.originalCachePath)
+        val previewReadable = readable(entity.previewCachePath)
+        val originalReadable = readable(entity.originalCachePath)
         return GalleryMedia(
             id = entity.mediaId,
             sourceRevision = entity.sourceRevision,
@@ -1003,8 +1018,8 @@ class DefaultGalleryRepository(
             height = entity.height,
             origin = origin,
             availability = AvailabilityResolver.resolve(origin, previewReadable, originalReadable &&
-                (entity.kind != MediaKind.LIVE_PHOTO.name || cache.isReadable(entity.motionCachePath))),
-            motionReference = entity.motionCachePath?.takeIf(cache::isReadable),
+                (entity.kind != MediaKind.LIVE_PHOTO.name || readable(entity.motionCachePath))),
+            motionReference = entity.motionCachePath?.takeIf(readable),
             motionMimeType = entity.motionMimeType,
             previewReference = when {
                 origin == MediaOrigin.DEVICE -> entity.localUri
@@ -1018,7 +1033,7 @@ class DefaultGalleryRepository(
             },
             accentStartArgb = entity.accentStartArgb,
             accentEndArgb = entity.accentEndArgb,
-            viewerReference = entity.viewerCachePath?.takeIf(cache::isReadable),
+            viewerReference = entity.viewerCachePath?.takeIf(readable),
             byteCount = entity.byteCount ?: entity.originalCachePath?.takeIf { originalReadable }?.let { java.io.File(it).length() }, deviceFolderId = entity.deviceFolderId, deviceFolderName = entity.deviceFolderName,
             isTrashed = entity.isTrashed, expiresAtEpochMillis = entity.expiresAtEpochMillis,
             kind = MediaKind.valueOf(entity.kind), mimeType = entity.mimeType, durationMillis = entity.durationMillis,
@@ -1045,5 +1060,8 @@ class DefaultGalleryRepository(
         const val SQLITE_BIND_CHUNK_SIZE = 900
         const val DEFAULT_DEVICE_ACCENT_START = 0xFF5C6670L
         const val DEFAULT_DEVICE_ACCENT_END = 0xFF1F252BL
+
+        /** Above this many rows to convert, a folder listing is cheaper than probing each file. */
+        const val BULK_PROBE_ROWS = 64
     }
 }

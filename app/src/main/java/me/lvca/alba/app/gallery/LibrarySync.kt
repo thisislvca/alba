@@ -3,12 +3,16 @@ package me.lvca.alba.app.gallery
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
@@ -69,13 +73,17 @@ internal class LibrarySync(
     private var refreshJob: Job? = null
 
     /** Opens the saved account, resumes pending photo work and loads the library. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun start() {
         scope.launch {
             repository.observeCatalogScan().collect { progress -> mutableState.update { it.copy(catalogScan = progress) } }
         }
-        // A refresh that finished in background work, or before Alba last stopped, counts too.
+        // A refresh that finished in background work, or before Alba last stopped, counts too. It is the restored
+        // account's: the saved account is restored after this starts, so it is observed again for each account.
         scope.launch {
-            repository.observeLastRefresh().filterNotNull().collect { millis ->
+            accountManager.session.map { it?.dsid }.distinctUntilChanged().flatMapLatest {
+                repository.observeLastRefresh()
+            }.filterNotNull().collect { millis ->
                 val stored = Instant.ofEpochMilli(millis)
                 mutableState.update { state -> if (state.lastRefreshedAt?.isBefore(stored) != false) state.copy(lastRefreshedAt = stored) else state }
             }

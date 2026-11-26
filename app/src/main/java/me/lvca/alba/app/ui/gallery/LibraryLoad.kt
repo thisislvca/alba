@@ -1,6 +1,7 @@
 package me.lvca.alba.app.ui.gallery
 
 import me.lvca.alba.app.account.SessionState
+import me.lvca.alba.app.gallery.GalleryState
 
 /** What the library is loading, for the header. */
 internal enum class LibraryLoad {
@@ -12,6 +13,13 @@ internal enum class LibraryLoad {
     /** A refresh or rescan of a library Alba already shows: it runs quietly, as iCloud.com's does. */
     REFRESHING,
 }
+
+/**
+ * What a running refresh is for the library [gallery] shows. Until the stored library is read its size is unknown, and
+ * a refresh then is not taken for a first load: that showed "Updating library…" over a stored library at every start.
+ */
+internal fun SessionState.libraryLoad(gallery: GalleryState): LibraryLoad =
+    libraryLoad(storedLibrary = gallery.cloudCount > 0 || !gallery.libraryLoaded)
 
 /** What a running refresh is, given whether Alba already shows a [storedLibrary] of iCloud photos. */
 internal fun SessionState.libraryLoad(storedLibrary: Boolean): LibraryLoad = when {

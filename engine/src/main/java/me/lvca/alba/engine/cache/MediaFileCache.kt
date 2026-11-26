@@ -48,10 +48,11 @@ class MediaFileCache(
     private val canonicalRoot = root.canonicalFile
 
     // Browsed thumbnails are part of the local library, not disposable Android cache.
-    private val previewRoot = File(context.applicationContext.filesDir, "gallery_previews").apply {
+    private val filesDir = context.applicationContext.filesDir
+    private val previewRoot = File(filesDir, PREVIEW_FOLDER).apply {
         check(isDirectory || mkdirs()) { "Could not create thumbnail storage" }
     }.canonicalFile
-    private val originalRoot = File(context.applicationContext.filesDir, "gallery_originals").apply {
+    private val originalRoot = File(filesDir, ORIGINAL_FOLDER).apply {
         check(isDirectory || mkdirs()) { "Could not create offline originals storage" }
     }.canonicalFile
 
@@ -342,6 +343,30 @@ class MediaFileCache(
 
     fun isReadable(path: String?): Boolean = ownedFile(path)?.let { it.isFile && it.canRead() } == true
 
+    /**
+     * [isReadable] for checking thousands of paths at once, as loading the library does: one listing of each folder
+     * instead of resolving and probing every path, which took most of the library's load. A path the cache wrote is
+     * already canonical and is answered from the listing; any other path is probed as [isReadable] does.
+     */
+    fun readableSnapshot(): (String?) -> Boolean {
+        val listings = listOf(canonicalRoot, previewRoot, originalRoot).associateWith { it.list().orEmpty().toHashSet() }
+        // A folder under its canonical name and the name the app gave it, which differ where a parent is a link.
+        val listed = HashMap<String, Set<String>>()
+        listOf(root to canonicalRoot, File(filesDir, PREVIEW_FOLDER) to previewRoot, File(filesDir, ORIGINAL_FOLDER) to originalRoot)
+            .forEach { (given, canonical) ->
+                listed[canonical.path] = listings.getValue(canonical)
+                listed[given.absolutePath] = listings.getValue(canonical)
+            }
+        return { path ->
+            if (path == null) false
+            else {
+                val file = File(path)
+                val names = file.parent?.let(listed::get)
+                if (names != null && file.isAbsolute && file.normalize().path == path) file.name in names else isReadable(path)
+            }
+        }
+    }
+
     private fun allFiles(): List<File> = listOf(canonicalRoot, previewRoot, originalRoot)
         .flatMap { it.listFiles().orEmpty().toList() }
 
@@ -358,6 +383,8 @@ class MediaFileCache(
 
     companion object {
         private val VARIANT_PATTERN = Regex("[a-z]+")
+        private const val PREVIEW_FOLDER = "gallery_previews"
+        private const val ORIGINAL_FOLDER = "gallery_originals"
         private const val STALE_TEMP_MILLIS = 60L * 60L * 1_000L
         private const val UNKNOWN = -1L
         private const val PREVIEW_SUFFIX = "-preview.jpg"

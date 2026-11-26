@@ -32,13 +32,15 @@ interface LibraryDao {
     suspend fun deleteCollection(account: String, id: String)
     @Query("DELETE FROM collection_members WHERE account = :account AND collectionId = :id")
     suspend fun deleteCollectionMembers(account: String, id: String)
-    @Query("SELECT * FROM collections ORDER BY position, collectionId") fun observeCollections(): Flow<List<CollectionEntity>>
-    @Query("SELECT * FROM collection_members") fun observeMembers(): Flow<List<CollectionMemberEntity>>
+
+    // Whole-table reads span several cursor windows: one read transaction keeps them one snapshot (see CatalogDao).
+    @Transaction @Query("SELECT * FROM collections ORDER BY position, collectionId") fun observeCollections(): Flow<List<CollectionEntity>>
+    @Transaction @Query("SELECT * FROM collection_members") fun observeMembers(): Flow<List<CollectionMemberEntity>>
     @Query("DELETE FROM collections") suspend fun clearCollections()
     @Query("DELETE FROM collection_members WHERE account NOT LIKE 'device:%'") suspend fun clearMembers()
     @Upsert suspend fun putCollections(items: List<CollectionEntity>)
     @Upsert suspend fun putMembers(items: List<CollectionMemberEntity>)
-    @Query("SELECT * FROM batch_items ORDER BY createdAt, batchId, mediaId") fun observeBatches(): Flow<List<BatchItemEntity>>
+    @Transaction @Query("SELECT * FROM batch_items ORDER BY createdAt, batchId, mediaId") fun observeBatches(): Flow<List<BatchItemEntity>>
     @Query("SELECT * FROM batch_items WHERE state IN ('WAITING', 'RUNNING') AND (:localOnly = 0 OR action = 'REMOVE_CACHE') ORDER BY createdAt, mediaId LIMIT :limit")
     suspend fun pendingBatches(limit: Int = Int.MAX_VALUE, localOnly: Boolean = false): List<BatchItemEntity>
     @Query("SELECT * FROM batch_items WHERE batchId = :id AND state = 'FAILED'") suspend fun failedBatch(id: String): List<BatchItemEntity>

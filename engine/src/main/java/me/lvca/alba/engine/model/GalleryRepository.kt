@@ -28,6 +28,12 @@ data class CatalogScanProgress(
 interface GalleryReader {
     suspend fun findMedia(id: String): GalleryMedia?
     fun observeGallery(): Flow<List<GalleryMedia>>
+
+    /**
+     * The newest [limit] items as [observeGallery] would list them first, read without loading the whole library, so the
+     * first screen of tiles shows sooner. Empty where there is nothing faster than [observeGallery].
+     */
+    suspend fun newestMedia(limit: Int): List<GalleryMedia> = emptyList()
     fun observeGallery(query: GalleryQuery): Flow<List<GalleryMedia>> = observeGallery().map { query.apply(it) }
     fun observeCollections(): Flow<List<GalleryCollection>>
     suspend fun refreshDevice()
