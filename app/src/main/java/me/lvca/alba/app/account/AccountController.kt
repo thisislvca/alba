@@ -61,6 +61,8 @@ data class SessionState(
     /** Whether the phone is charging; null while unknown. */
     val charging: Boolean? = null,
     val isRefreshing: Boolean = true,
+    /** The running refresh is one a pull-down started; only then does the pull indicator show. */
+    val pullRefreshing: Boolean = false,
     val lastRefreshedAt: Instant? = null,
     /** Restoring the saved account failed; the account screen offers a retry instead of a spinner. */
     val restoreFailed: Boolean = false,
@@ -155,6 +157,7 @@ internal class AccountController(
             network = network,
             charging = charging,
             isRefreshing = sync.isRefreshing,
+            pullRefreshing = sync.pullRefreshing,
             lastRefreshedAt = sync.lastRefreshedAt,
             restoreFailed = sync.restoreFailed,
             requestedPage = flags.page,

@@ -81,6 +81,18 @@ class GalleryProjectionTest {
         assertEquals(device, demo.sections.single().items.single())
     }
 
+    /** The library's totals leave out Recently Deleted: 12,607 photos plus 130 deleted read as 12,737 on device. */
+    @Test
+    fun `library totals leave out recently deleted items`() {
+        val kept = media("icloud:account:1", MediaOrigin.ICLOUD, "2026-02-03T00:00:00Z")
+        val deleted = media("icloud:account:2", MediaOrigin.ICLOUD, "2026-02-04T00:00:00Z").copy(isTrashed = true)
+        val phone = media("device:external:1", MediaOrigin.DEVICE, "2026-01-04T00:00:00Z")
+        val phoneDeleted = media("device:external:2", MediaOrigin.DEVICE, "2026-01-05T00:00:00Z").copy(isTrashed = true)
+        val catalog = projectGalleryCatalog(listOf(kept, deleted, phone, phoneDeleted), true, ICloudAccountState.SignedIn("person@example.com"))
+        assertEquals(1, catalog.cloudCount)
+        assertEquals(1, catalog.deviceCount)
+    }
+
     @Test
     fun `phone folders become collections once, without trashed photos`() {
         val camera = media("device:1", MediaOrigin.DEVICE, "2026-01-04T00:00:00Z").copy(deviceFolderId = "device-folder:1", deviceFolderName = "Camera")

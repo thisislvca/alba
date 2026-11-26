@@ -72,6 +72,9 @@ interface BrowseActions {
     fun requestPreview(mediaId: String)
     fun prefetchPreviews(mediaIds: List<String>)
     fun refresh()
+
+    /** Refreshes from a pull-down; the pull indicator shows only while the refresh it started runs. */
+    fun pullToRefresh() = refresh()
     fun requestDevicePhotos()
     fun openAccount()
 

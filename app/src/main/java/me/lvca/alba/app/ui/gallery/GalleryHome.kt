@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
@@ -530,7 +529,9 @@ internal fun GalleryHome(
                         if (tab == GalleryTab.COLLECTIONS) backInCollections() else switchTab(GalleryTab.LIBRARY)
                     }, libraryFrame = libraryFrame, faded = { tabFade.switched },
                         modifier = Modifier.fillMaxSize().graphicsLayer { alpha = tabFade.alpha }) { shown ->
-                    if (shown.tab == GalleryTab.COLLECTIONS && shown.album == null) PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
+                    // Only the Collections hub pulls to refresh, and its indicator shows only that pull's own refresh:
+                    // a refresh already running, at start-up or in the background, stays quiet.
+                    if (shown.tab == GalleryTab.COLLECTIONS && shown.album == null) CollectionsPullToRefresh(enabled = shown.page == null && shown.folder == null, refreshing = session.pullRefreshing, onRefresh = actions::pullToRefresh) {
                         CollectionsScreen(gallery, canEdit, previewRetryVersion, shown.folder, shown.page, summaries,
                             if (shown.page == null && shown.folder == null) collectionScroll else rememberLazyGridState(), actions::requestPreview,
                             openPage = { collectionsPage = it },
@@ -946,7 +947,8 @@ private fun PhotoGrid(
             Column(posed("summary").fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
                 // While Apple is indexing, "0 iCloud photos" would read as an empty library: count only the phone's.
-                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(if (counts.libraryPreparing != null) stringResource(R.string.phone_photo_count, counts.device)
+                // A trash counts only itself: the library's totals beneath its own count read as what it holds.
+                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true && !query.trashOnly) Text(if (counts.libraryPreparing != null) stringResource(R.string.phone_photo_count, counts.device)
                     else stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
