@@ -60,10 +60,13 @@ class PhoneStorageTest {
             offlinePhotos = OfflinePhotosStatus(OfflineThumbnailProgress(libraryCount = 12_606, setSize = 12_606, savedCount = 8_400),
                 wait = OfflinePhotosWait.WIFI_AND_CHARGING)))
 
-        compose.onNodeWithTag("offline-photos-setting").performScrollTo().assert(hasText(text(R.string.storage_limit_1_gb)))
-        compose.onNodeWithTag("offline-photos-progress").performScrollTo()
-            .assertTextEquals(app.getString(R.string.offline_photos_progress, "8,400", "12,606"))
-        compose.onNodeWithTag("offline-photos-status").assertTextEquals(text(R.string.offline_photos_waiting))
+        // One row: the setting, how far it has got and why it waits as supporting text, and the budget at the end.
+        val summary = app.getString(R.string.label_with_detail, app.getString(R.string.offline_photos_progress, "8,400", "12,606"),
+            text(R.string.offline_photos_waiting))
+        compose.onNodeWithTag("offline-photos-setting").performScrollTo()
+            .assert(hasText(text(R.string.offline_photos))).assert(hasText(summary)).assert(hasText(text(R.string.storage_limit_1_gb)))
+        compose.onNodeWithTag("offline-photos-progress", useUnmergedTree = true).assertTextEquals(summary)
+        assertEquals("8,400 of 12,606 available offline · Waiting for Wi‑Fi and charging", summary)
         // 1 GB holds the whole library: no suggestion.
         compose.onNodeWithTag("offline-photos-suggestion").assertDoesNotExist()
     }
@@ -71,14 +74,16 @@ class PhoneStorageTest {
     @Test fun offlinePhotosSaysWhenStorageIsLow() {
         val progress = OfflineThumbnailProgress(libraryCount = 500, setSize = 500, savedCount = 120)
         show(PhoneStorageState(offlinePhotos = OfflinePhotosStatus(progress, wait = OfflinePhotosWait.STORAGE_LOW)))
-        compose.onNodeWithTag("offline-photos-status").performScrollTo().assertTextEquals(text(R.string.offline_photos_storage_low))
+        compose.onNodeWithTag("offline-photos-setting").performScrollTo()
+        compose.onNodeWithTag("offline-photos-progress", useUnmergedTree = true).assertTextEquals(app.getString(R.string.label_with_detail,
+            app.getString(R.string.offline_photos_progress, "120", "500"), text(R.string.offline_photos_storage_low)))
     }
 
     @Test fun aCompleteSetSaysNothingMore() {
         show(PhoneStorageState(offlinePhotos = OfflinePhotosStatus(OfflineThumbnailProgress(libraryCount = 500, setSize = 500, savedCount = 500))))
-        compose.onNodeWithTag("offline-photos-progress").performScrollTo()
+        compose.onNodeWithTag("offline-photos-setting").performScrollTo()
+        compose.onNodeWithTag("offline-photos-progress", useUnmergedTree = true)
             .assertTextEquals(app.getString(R.string.offline_photos_progress, "500", "500"))
-        compose.onNodeWithTag("offline-photos-status").assertDoesNotExist()
     }
 
     @Test fun aBudgetTooSmallSuggestsRaisingIt() {
@@ -99,8 +104,11 @@ class PhoneStorageTest {
         val limits = mutableListOf<CacheLimit>()
         show(PhoneStorageState(usage = LocalMediaStorage(0, 0, 0, 8_000_000_000, cacheBytes = 120_000_000)), budgets, limits)
 
-        compose.onNodeWithTag("media-cache-usage").performScrollTo()
-            .assertTextEquals(app.getString(R.string.media_cache_usage, Formatter.formatShortFileSize(app, 120_000_000)))
+        // The cache is one row too: its usage as supporting text and its limit at the end.
+        val using = app.getString(R.string.media_cache_usage, Formatter.formatShortFileSize(app, 120_000_000))
+        compose.onNodeWithTag("media-cache-setting").performScrollTo().assert(hasText(using))
+            .assert(hasText(text(R.string.storage_limit_500_mb)))
+        compose.onNodeWithTag("media-cache-usage", useUnmergedTree = true).assertTextEquals(using)
         compose.onNodeWithTag("offline-photos-setting").performScrollTo().performClick()
         compose.onNodeWithTag("offline-photos-GB_1").assertIsSelected()
         listOf("GB_2", "GB_4", "NO_LIMIT").forEach { compose.onNodeWithTag("offline-photos-$it").assertIsNotSelected() }

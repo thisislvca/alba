@@ -28,9 +28,10 @@ data class GalleryQuery(
 ) {
     fun apply(items: List<GalleryMedia>, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): List<GalleryMedia> {
         val byDate = compareBy<GalleryMedia> { it.dateMillis(date) }.thenBy { it.id }
-        // Recently Deleted lists items by when they were deleted, as Photos does. Every item is deleted for good a fixed
-        // 30 days after it was deleted, so its expiry orders it the same way; an item with no known expiry goes last.
-        val comparator = if (trashOnly) compareBy<GalleryMedia, Long?>(nullsFirst()) { it.expiresAtEpochMillis }.then(byDate)
+        // Recently Deleted lists what goes soonest first, as iCloud.com does: the fewest days left at the top, newest
+        // deletions at the bottom. An item with no known expiry goes last. The newest-first sort already reads that way,
+        // so it is not reversed again; oldest-first turns it round.
+        val comparator = if (trashOnly) compareByDescending<GalleryMedia, Long?>(nullsLast()) { it.expiresAtEpochMillis }.then(byDate)
             else byDate
         val search = GallerySearch.parse(filename)
         // Hidden photos appear only in Hidden (and, once deleted, in Recently Deleted), never in the library, albums,

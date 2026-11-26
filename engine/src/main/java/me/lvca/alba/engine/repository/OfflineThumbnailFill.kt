@@ -3,13 +3,16 @@ package me.lvca.alba.engine.repository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import me.lvca.alba.engine.cache.InsufficientStorageException
 import me.lvca.alba.engine.model.OfflineThumbnails
 import me.lvca.alba.engine.source.ThrottledFailure
-import java.util.concurrent.atomic.AtomicInteger
 
 /** What a failed thumbnail download means for the rest of the run. */
 enum class FillFailure {
@@ -82,13 +85,15 @@ class OfflineThumbnailFill(
     private val batchRoom: Long = BATCH_ROOM_BYTES,
 ) {
     private val running = Mutex()
-    private val generation = AtomicInteger()
+
+    // A state flow, so a fill waiting for its turn also wakes when it is stopped.
+    private val generation = MutableStateFlow(0)
 
     /** Runs until the set is complete or something stops it; [keepGoing] is checked before each download. */
-    suspend fun run(keepGoing: () -> Boolean = { true }): FillOutcome = running.withLock { fill(generation.get(), keepGoing) }
+    suspend fun run(keepGoing: () -> Boolean = { true }): FillOutcome = running.withLock { fill(generation.value, keepGoing) }
 
     private suspend fun fill(started: Int, keepGoing: () -> Boolean): FillOutcome {
-        val go = { keepGoing() && generation.get() == started }
+        val go = { keepGoing() && generation.value == started }
         val attempts = HashMap<String, Int>()
         val skipped = LinkedHashSet<String>()
         var outcome: FillOutcome? = null
@@ -101,7 +106,7 @@ class OfflineThumbnailFill(
             }
             first = false
             // A stop shows as the downloads ending early; say why.
-            if ((outcome == null || outcome == FillOutcome.Interrupted) && generation.get() != started) outcome = FillOutcome.Stopped
+            if ((outcome == null || outcome == FillOutcome.Interrupted) && generation.value != started) outcome = FillOutcome.Stopped
         }
         return outcome
     }
@@ -117,7 +122,7 @@ class OfflineThumbnailFill(
 
     /** Stops a run in progress after its downloads in flight, and waits for it to end. */
     suspend fun stopAndJoin() {
-        generation.incrementAndGet()
+        generation.update { it + 1 }
         running.withLock { }
     }
 
@@ -140,10 +145,14 @@ class OfflineThumbnailFill(
         val queue = ArrayDeque(batch)
         val lock = Any()
         var stop: FillOutcome? = null
+        // The fill's turn, or its stop: whichever comes first ends a wait, with no polling in between.
+        val turnOrStop = combine(thumbnails.backgroundTurns(), generation) { turn, _ -> turn || !go() }
         coroutineScope {
             repeat(minOf(concurrency, batch.size)) {
                 launch {
                     while (true) {
+                        // A refresh or what is on screen goes first: wait for it between downloads, never during one.
+                        turnOrStop.first { it }
                         val id = synchronized(lock) {
                             if (stop != null) return@synchronized null
                             if (!go()) { stop = FillOutcome.Interrupted; return@synchronized null }

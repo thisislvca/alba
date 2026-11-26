@@ -7,7 +7,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -103,46 +102,43 @@ internal fun ProfileOverview(
     val profile = session.accountInfo.profile?.takeIf { signedIn != null }
     val allowance = session.accountInfo.storage?.takeIf { it.isDemo == demo }
     val profileColors = AlbaTheme.colors.profile
-    Surface(shape = MaterialTheme.shapes.extraLarge, color = profileColors.card, contentColor = profileColors.onCard,
-        modifier = Modifier.fillMaxWidth().testTag("profile-identity")) {
-        Box {
-            ProfileArtwork(Modifier.matchParentSize())
-            Column(Modifier.padding(AlbaSpacing.xxl), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
-                    Box(Modifier.size(width = 144.dp, height = 124.dp).profileAvatarCloud(profileColors.avatarCloudShadow), contentAlignment = Alignment.TopStart) {
-                        Box(Modifier.padding(top = 18.dp)) { AccountAvatar(profile?.photo, avatarSize = 88.dp) }
-                    }
-                    Spacer(Modifier.weight(1f))
-                    if (demo) DemoBadge(color = profileColors.badge, contentColor = profileColors.onCard, large = true)
-                    allowance?.let {
-                        Surface(color = profileColors.badge, contentColor = profileColors.onCard, shape = MaterialTheme.shapes.small) {
-                            Text(icloudSize(it.totalBytes), Modifier.padding(horizontal = 10.dp, vertical = 7.dp).testTag("profile-plan-size"),
-                                style = MaterialTheme.typography.titleSmall)
-                        }
+    // Apple Account's header on a calm grouped card: the account's avatar as the header shows it, the name, the
+    // Apple Account and the plan. The dawn gradient stays for brand moments; this is an everyday screen.
+    AlbaCard(Modifier.testTag("profile-identity"), contentPadding = PaddingValues(horizontal = AlbaSpacing.xl, vertical = AlbaSpacing.xxl)) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
+            AccountAvatar(profile?.photo, signedIn?.appleId, avatarSize = 88.dp, textStyle = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = AlbaSpacing.sm).testTag("profile-avatar"))
+            Text(profile?.displayName ?: stringResource(R.string.icloud), style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center)
+            signedIn?.let { Text(it.appleId, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center) }
+            val planLabels = profile?.plan?.sources?.map { source -> stringResource(when (source) {
+                CloudPlanSource.ICLOUD_PLUS -> R.string.profile_plan_icloud_plus
+                CloudPlanSource.APPLE_ONE -> R.string.profile_plan_apple_one
+                CloudPlanSource.FAMILY -> R.string.profile_plan_family
+                CloudPlanSource.COMPLIMENTARY -> R.string.profile_plan_complimentary
+                CloudPlanSource.MANAGED -> R.string.profile_plan_managed
+            }) }
+            if (demo || planLabels != null || allowance != null) Row(Modifier.padding(top = AlbaSpacing.xs),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.sm)) {
+                if (demo) DemoBadge(color = MaterialTheme.colorScheme.surfaceContainerHighest)
+                planLabels?.let { Text(it.joinToString(" · "), style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("profile-plan-name")) }
+                allowance?.let {
+                    Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.small) {
+                        Text(icloudSize(it.totalBytes), Modifier.padding(horizontal = AlbaSpacing.sm, vertical = AlbaSpacing.xxs).testTag("profile-plan-size"),
+                            style = MaterialTheme.typography.labelLarge)
                     }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xs)) {
-                    Text(profile?.displayName ?: stringResource(R.string.icloud), style = MaterialTheme.typography.headlineLarge)
-                    signedIn?.let { Text(it.appleId, style = MaterialTheme.typography.bodyLarge, color = profileColors.onCardMuted) }
-                    profile?.plan?.let { plan ->
-                        val labels = plan.sources.map { source -> stringResource(when (source) {
-                            CloudPlanSource.ICLOUD_PLUS -> R.string.profile_plan_icloud_plus
-                            CloudPlanSource.APPLE_ONE -> R.string.profile_plan_apple_one
-                            CloudPlanSource.FAMILY -> R.string.profile_plan_family
-                            CloudPlanSource.COMPLIMENTARY -> R.string.profile_plan_complimentary
-                            CloudPlanSource.MANAGED -> R.string.profile_plan_managed
-                        }) }
-                        Text(labels.joinToString(" · "), style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("profile-plan-name"))
-                    }
-                    status?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = profileColors.onCardMuted) }
-                }
-                if (demo || signedIn?.status == SessionStatus.EXPIRED || signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) {
-                    Button(onClick = { onNavigate(if (signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) ProfilePage.ACTIVATION else ProfilePage.SIGN_IN) }, enabled = !busy,
-                        colors = ButtonDefaults.buttonColors(containerColor = profileColors.onCard, contentColor = profileColors.action), modifier = Modifier.testTag("profile-sign-in")) {
-                        Text(stringResource(if (signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) R.string.how_to_activate_icloud_photos else R.string.sign_in_to_icloud))
-                    }
-                } else if (signedIn != null) PlanLink(hero = true)
             }
+            status?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center) }
+            if (demo || signedIn?.status == SessionStatus.EXPIRED || signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) {
+                Button(onClick = { onNavigate(if (signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) ProfilePage.ACTIVATION else ProfilePage.SIGN_IN) }, enabled = !busy,
+                    modifier = Modifier.padding(top = AlbaSpacing.md).testTag("profile-sign-in")) {
+                    Text(stringResource(if (signedIn?.status == SessionStatus.PHOTOS_NOT_ENABLED) R.string.how_to_activate_icloud_photos else R.string.sign_in_to_icloud))
+                }
+            } else if (signedIn != null) PlanLink()
         }
     }
     if (session.webAccessOff && signedIn != null) {
@@ -207,9 +203,8 @@ private fun AppearanceSettings() {
 }
 
 @Composable
-private fun PlanLink(hero: Boolean = false) {
+private fun PlanLink() {
     val context = LocalContext.current
-    val ink = if (hero) AlbaTheme.colors.profile.onCard else MaterialTheme.colorScheme.primary
     val uriHandler = LocalUriHandler.current
     TextButton(onClick = {
         try { uriHandler.openUri("https://www.icloud.com/plan") }
@@ -217,7 +212,7 @@ private fun PlanLink(hero: Boolean = false) {
             Toast.makeText(context, R.string.profile_browser_unavailable, Toast.LENGTH_LONG).show()
         }
     }, contentPadding = PaddingValues(0.dp), modifier = Modifier.heightIn(min = 48.dp).testTag("profile-manage-plan")) {
-        Text(stringResource(R.string.profile_manage_plan), color = ink)
+        Text(stringResource(R.string.profile_manage_plan))
     }
 }
 

@@ -37,6 +37,9 @@ internal object GalleryFeel {
      */
     val STICKY_DATE_HEADER_CLEARANCE = 150.dp
 
+    /** The floating date hides this long after scrolling or a scrubber drag stops, with a short fade. */
+    const val DATE_PILL_HOLD_MILLIS = 1000L
+
     // Tile overlays. Google Photos uses the same resources at every grid level; Alba's smallest tile (5 columns on a
     // 400dp phone) is still about 78dp, so an 18dp icon 8dp from the edge stays clear of the opposite corner.
 

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -59,9 +58,18 @@ internal fun InitialAvatar(
     }
 }
 
-/** The signed-in account's photo, or a person glyph. Drawn in the surrounding content colour. */
+/**
+ * The account's avatar, the same wherever it appears: its photo when Apple has one, otherwise the initial of [name]
+ * (the Apple Account, as the header's account button shows it) on primaryContainer.
+ */
 @Composable
-internal fun AccountAvatar(photo: ByteArray?, avatarSize: Dp = 56.dp) {
+internal fun AccountAvatar(
+    photo: ByteArray?,
+    name: String?,
+    avatarSize: Dp = 56.dp,
+    modifier: Modifier = Modifier,
+    textStyle: TextStyle = MaterialTheme.typography.titleSmall,
+) {
     // Bound decoded dimensions as well as download size; a compressed image can be enormous.
     val bitmap by produceState<ImageBitmap?>(null, photo) {
         value = null
@@ -77,11 +85,12 @@ internal fun AccountAvatar(photo: ByteArray?, avatarSize: Dp = 56.dp) {
             }
         }
     }
-    val ink = LocalContentColor.current
-    AlbaAvatar(avatarSize, color = ink.copy(alpha = .12f), contentColor = ink) {
-        bitmap?.let { Image(it, null, Modifier.size(avatarSize).testTag("account-photo"), contentScale = ContentScale.Crop) }
-            ?: Icon(AlbaIcons.Person, null, Modifier.size(avatarSize * .55f))
-    }
+    val image = bitmap
+    val colors = MaterialTheme.colorScheme
+    if (image != null) AlbaAvatar(avatarSize, colors.primaryContainer, colors.onPrimaryContainer, modifier) {
+        Image(image, null, Modifier.size(avatarSize).testTag("account-photo"), contentScale = ContentScale.Crop)
+    } else InitialAvatar(name, avatarSize, modifier, color = colors.primaryContainer, contentColor = colors.onPrimaryContainer,
+        textStyle = textStyle)
 }
 
 @AlbaPreviews
@@ -91,5 +100,5 @@ private fun AvatarPreview() = AlbaPreviewSurface {
     InitialAvatar(null, 34.dp, shadowElevation = 2.dp)
     InitialAvatar("alba@example.com", 36.dp, color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer, textStyle = MaterialTheme.typography.titleMedium)
-    AccountAvatar(null)
+    AccountAvatar(null, "alex@example.com")
 }

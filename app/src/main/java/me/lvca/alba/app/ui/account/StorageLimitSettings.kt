@@ -1,6 +1,7 @@
 package me.lvca.alba.app.ui.account
 
 import android.text.format.Formatter
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.selection.selectableGroup
@@ -26,12 +27,14 @@ import me.lvca.alba.app.account.PhoneStorageState
 import me.lvca.alba.app.ui.countLabel
 import me.lvca.alba.app.ui.designsystem.AlbaListItem
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
+import me.lvca.alba.app.ui.designsystem.AlbaListValue
 import me.lvca.alba.engine.model.CacheLimit
 import me.lvca.alba.engine.model.ThumbnailBudget
 
 /**
  * The two stores of media on the phone: "Offline photos", the thumbnail budget that keeps photos browsable without a
- * connection, and the cache for full-size photos and videos. Each row opens a single-choice dialog. They are rows of
+ * connection, and the cache for full-size photos and videos. Each is one row, its state as supporting text and its
+ * value at the end, and opens a single-choice dialog. They are rows of
  * the [me.lvca.alba.app.ui.designsystem.AlbaListGroup] the caller puts them in.
  */
 @Composable
@@ -42,29 +45,27 @@ internal fun StorageLimitSettings(
     chooseCacheLimit: (CacheLimit) -> Unit,
 ) {
     var choosing by rememberSaveable { mutableStateOf<String?>(null) }
+    val offline = state.offlinePhotos?.takeIf { it.progress.libraryCount > 0 }
+    // One row per setting: what it is, how it stands as supporting text, and the chosen value at the end.
     AlbaListRow(
         title = stringResource(R.string.offline_photos),
-        subtitle = state.thumbnailBudget.label(),
+        subtitle = offline?.let { offlinePhotosSummary(it) },
+        subtitleModifier = Modifier.testTag("offline-photos-progress"),
         onClick = { choosing = BUDGET },
         enabled = enabled,
+        trailing = { AlbaListValue(state.thumbnailBudget.label()) },
         modifier = Modifier.testTag("offline-photos-setting"),
     )
-    state.offlinePhotos?.takeIf { it.progress.libraryCount > 0 }?.let { status ->
-        OfflinePhotosDetails(status, enabled, chooseBudget)
-    }
+    offline?.let { status -> status.suggestedBudget?.let { OfflinePhotosSuggestion(status, it, enabled, chooseBudget) } }
     AlbaListRow(
         title = stringResource(R.string.media_cache),
-        subtitle = state.cacheLimit.label(),
+        subtitle = state.usage?.let { stringResource(R.string.media_cache_usage, Formatter.formatShortFileSize(LocalContext.current, it.cacheBytes)) },
+        subtitleModifier = Modifier.testTag("media-cache-usage"),
         onClick = { choosing = CACHE },
         enabled = enabled,
+        trailing = { AlbaListValue(state.cacheLimit.label()) },
         modifier = Modifier.testTag("media-cache-setting"),
     )
-    state.usage?.let { usage ->
-        AlbaListItem {
-            Text(stringResource(R.string.media_cache_usage, Formatter.formatShortFileSize(LocalContext.current, usage.cacheBytes)),
-                Modifier.testTag("media-cache-usage"), style = MaterialTheme.typography.bodyMedium)
-        }
-    }
     when (choosing) {
         BUDGET -> LimitDialog(R.string.offline_photos, R.string.offline_photos_explanation, "offline-photos",
             ThumbnailBudget.entries, state.thumbnailBudget, { it.label() }, { choosing = null }, chooseBudget)
@@ -73,28 +74,30 @@ internal fun StorageLimitSettings(
     }
 }
 
-/** "8,400 of 12,606 photos available offline", why it waits, and a larger budget when this one is too small. */
+/** "8,400 of 12,606 available offline", and why it waits, if it does: "… · Waiting for Wi‑Fi and charging". */
 @Composable
-private fun OfflinePhotosDetails(status: OfflinePhotosStatus, enabled: Boolean, chooseBudget: (ThumbnailBudget) -> Unit) {
-    val context = LocalContext.current
+internal fun offlinePhotosSummary(status: OfflinePhotosStatus): String {
+    val progress = stringResource(R.string.offline_photos_progress, countLabel(status.progress.savedCount),
+        countLabel(status.progress.libraryCount))
+    val wait = status.wait?.let { wait ->
+        stringResource(when (wait) {
+            OfflinePhotosWait.WIFI_AND_CHARGING -> R.string.offline_photos_waiting
+            OfflinePhotosWait.STORAGE_LOW -> R.string.offline_photos_storage_low
+        })
+    }
+    return if (wait == null) progress else stringResource(R.string.label_with_detail, progress, wait)
+}
+
+/** When the budget is too small for the library: how much it needs, and a larger budget in one tap. */
+@Composable
+private fun OfflinePhotosSuggestion(status: OfflinePhotosStatus, suggested: ThumbnailBudget, enabled: Boolean,
+    chooseBudget: (ThumbnailBudget) -> Unit) {
     AlbaListItem {
-        Text(stringResource(R.string.offline_photos_progress, countLabel(status.progress.savedCount),
-            countLabel(status.progress.libraryCount)),
-            Modifier.testTag("offline-photos-progress"), style = MaterialTheme.typography.bodyMedium)
-        status.wait?.let { wait ->
-            Text(stringResource(when (wait) {
-                OfflinePhotosWait.WIFI_AND_CHARGING -> R.string.offline_photos_waiting
-                OfflinePhotosWait.STORAGE_LOW -> R.string.offline_photos_storage_low
-            }), Modifier.testTag("offline-photos-status"), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        status.suggestedBudget?.let { suggested ->
-            Text(stringResource(R.string.offline_photos_needs, Formatter.formatShortFileSize(context, status.libraryBytes)),
-                Modifier.testTag("offline-photos-suggestion"), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { chooseBudget(suggested) }, enabled = enabled, modifier = Modifier.testTag("offline-photos-raise")) {
-                Text(if (suggested == ThumbnailBudget.NO_LIMIT) stringResource(R.string.offline_photos_remove_limit)
-                else stringResource(R.string.offline_photos_raise, suggested.label()))
-            }
+        Text(stringResource(R.string.offline_photos_needs, Formatter.formatShortFileSize(LocalContext.current, status.libraryBytes)),
+            Modifier.testTag("offline-photos-suggestion"), style = MaterialTheme.typography.bodyMedium)
+        TextButton(onClick = { chooseBudget(suggested) }, enabled = enabled, modifier = Modifier.testTag("offline-photos-raise")) {
+            Text(if (suggested == ThumbnailBudget.NO_LIMIT) stringResource(R.string.offline_photos_remove_limit)
+            else stringResource(R.string.offline_photos_raise, suggested.label()))
         }
     }
 }
@@ -113,8 +116,9 @@ private fun <T : Enum<T>> LimitDialog(
     AlertDialog(
         onDismissRequest = dismiss,
         title = { Text(stringResource(title)) },
+        // Material's spacing: the body, then the options 16dp below it, and the dialog's own padding after them.
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(stringResource(explanation))
                 Column(Modifier.selectableGroup().testTag("$tag-options")) {
                     options.forEach { option ->

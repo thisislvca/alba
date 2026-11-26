@@ -88,8 +88,9 @@ class LibraryEditsTest {
         compose.onNodeWithTag("recently-deleted-note").assertTextEquals(app.string(R.string.recently_deleted_note))
         compose.onAllNodesWithTag("month-header").assertCountEquals(0)
         compose.scrollToGalleryMedia(id)
+        // iCloud counts whole days left, rounded down, so an item deleted just now reads 29 days.
         compose.onNodeWithTag("deleted-days-left-$id", useUnmergedTree = true)
-            .assertTextEquals(app.activity.resources.getQuantityString(R.plurals.trash_tile_days, 30, 30))
+            .assertTextEquals(app.activity.resources.getQuantityString(R.plurals.trash_tile_days, 29, 29))
         compose.onNodeWithTag("media-$id").performClick()
         compose.openViewerDetails()
         compose.onNodeWithTag("detail-cloud-trash").assertTextEquals(app.string(R.string.restore_from_icloud)).performScrollTo().performClick()

@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.LocaleList
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -17,6 +18,7 @@ import me.lvca.alba.app.testing.pressBack
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
+import me.lvca.alba.app.ui.designsystem.theme.AlbaLightColorScheme
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.CloudAccountProfile
@@ -75,6 +77,20 @@ class ProfileScreenTest {
         assertEquals(1, checks)
     }
 
+    @Test fun profileCardIsACalmCardWithTheHeadersAvatar() {
+        // Without a photo the card shows the account's initial, as the header's account button does.
+        render({ false }, photo = null)
+        compose.onNodeWithTag("profile-avatar").assert(hasAnyDescendant(hasText("A"))).assertIsDisplayed()
+        compose.onAllNodesWithTag("account-photo").assertCountEquals(0)
+        compose.onNodeWithTag("profile-identity").assert(hasAnyDescendant(hasText("Alex Example")))
+            .assert(hasAnyDescendant(hasText("alex@example.com")))
+        compose.onNodeWithTag("profile-plan-name").assertTextEquals("iCloud+")
+        compose.onNodeWithTag("profile-plan-size").assertTextEquals("200 GB")
+        // A calm card on surfaceContainer, the grouped lists' colour, not the dawn artwork.
+        val card = compose.onNodeWithTag("profile-identity").captureToImage().toPixelMap()
+        assertEquals(AlbaLightColorScheme.surfaceContainer, card[card.width - 4, card.height / 2])
+    }
+
     @Test fun twoTerabytePlanReadsTwoTerabytesAsApplesDoes() {
         // Apple's 2 TB plan is exactly 2 TiB; decimal units would call it "2.2 TB".
         render({ false }, storage = CloudStorageUsage(1_948_000_000_000, 2L shl 40, listOf(StorageCategory("Photos", 380_000_000_000)),
@@ -102,7 +118,7 @@ class ProfileScreenTest {
 
     private fun render(dark: () -> Boolean, locale: String = "en", scale: Float = 1f,
         state: ICloudAccountState = account, demoStorage: Boolean = false, uriHandler: UriHandler? = null,
-        storage: CloudStorageUsage = usage) {
+        storage: CloudStorageUsage = usage, photo: ByteArray? = avatar) {
         val base = InstrumentationRegistry.getInstrumentation().targetContext
         val config = Configuration(base.resources.configuration).apply { setLocales(LocaleList.forLanguageTags(locale)); fontScale = scale }
         val context = base.createConfigurationContext(config)
@@ -125,7 +141,7 @@ class ProfileScreenTest {
                         session = SessionState(accountState = state, network = NetworkStatus(true, false),
                             lastRefreshedAt = java.time.Instant.ofEpochMilli(1_790_000_000_000),
                             accountInfo = AccountInfo(storage = storage.copy(isDemo = demoStorage), photosAvailable = true,
-                                profile = if (demoStorage) null else CloudAccountProfile("Alex Example", avatar,
+                                profile = if (demoStorage) null else CloudAccountProfile("Alex Example", photo,
                                     CloudStoragePlan(setOf(CloudPlanSource.ICLOUD_PLUS), 200L shl 30)))),
                         transfers = TransferState(backup = BackupView(false)),
                         phoneStorage = PhoneStorageState(usage = me.lvca.alba.engine.model.LocalMediaStorage(120_000_000, 480_000_000, 2_400_000_000, 42_000_000_000)),

@@ -837,6 +837,7 @@ private class AlbaRootActions(
     override fun requestPreview(mediaId: String) = viewModel.previews.request(mediaId)
     override fun prefetchPreviews(mediaIds: List<String>) = viewModel.previews.prefetch(mediaIds)
     override fun refresh() = viewModel.sync.refresh()
+    override fun pullToRefresh() = viewModel.sync.refresh(fromPull = true)
     override fun requestDevicePhotos() = platform.requestDevicePhotos()
     override fun openAccount() = account.openAccount()
     override fun openBackup() = account.openAccount(ProfilePage.BACKUP)

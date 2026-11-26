@@ -2,11 +2,13 @@ package me.lvca.alba.app.gallery
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.lvca.alba.app.R
@@ -33,6 +35,9 @@ import java.time.Instant
 /** Whether the library is refreshing, when it last did, and whether the saved account could not be opened. */
 data class SyncState(
     val isRefreshing: Boolean = true,
+    /** The running refresh is one the user started by pulling down: only then does the pull indicator show. */
+    val pullRefreshing: Boolean = false,
+    /** When the signed-in library last finished a refresh, in this session or an earlier one, here or in the background. */
     val lastRefreshedAt: Instant? = null,
     /** Restoring the saved account failed; the UI offers a retry instead of a spinner. */
     val restoreFailed: Boolean = false,
@@ -68,6 +73,13 @@ internal class LibrarySync(
         scope.launch {
             repository.observeCatalogScan().collect { progress -> mutableState.update { it.copy(catalogScan = progress) } }
         }
+        // A refresh that finished in background work, or before Alba last stopped, counts too.
+        scope.launch {
+            repository.observeLastRefresh().filterNotNull().collect { millis ->
+                val stored = Instant.ofEpochMilli(millis)
+                mutableState.update { state -> if (state.lastRefreshedAt?.isBefore(stored) != false) state.copy(lastRefreshedAt = stored) else state }
+            }
+        }
         scope.launch {
             try { restoreAccount() } catch (error: Exception) {
                 if (error is CancellationException) throw error
@@ -75,9 +87,11 @@ internal class LibrarySync(
                 messages.show(error.toUserMessage(R.string.message_could_not_restore_the_saved_account_refresh_to_retry))
                 return@launch
             }
+            // The library refresh does not wait for photo work. Waking it waits for any backup pass in progress, an
+            // upload included, and the refresh used to wait behind it with the library showing as refreshing.
+            launchRefresh(replaceActive = true)
             wakeMaintenance(WakeReason.PROCESS_STARTED, "process_started")
                 .onFailure { error -> messages.show(error.toUserMessage(R.string.message_could_not_resume_pending_photo_work)) }
-            launchRefresh(replaceActive = true)
             transfers.resumePendingWork()
         }
     }
@@ -93,66 +107,94 @@ internal class LibrarySync(
         }
     }
 
-    fun refresh() {
+    /**
+     * Refreshes the library, or joins the refresh already running. Joining one still reads the phone's photos again at
+     * once: the running refresh read them when it started, and a photo deleted since must not wait for it to finish.
+     * [fromPull] shows the pull indicator, only while a refresh this pull started runs.
+     */
+    fun refresh(fromPull: Boolean = false) {
         previews.storageBlocked = false
+        val pulled = fromPull && refreshJob?.isActive != true
+        if (pulled) mutableState.update { it.copy(pullRefreshing = true) }
         scope.launch {
-            if (accountManager.state.value == ICloudAccountState.Restoring && state.value.isRefreshing) return@launch
+            var started = false
             try {
+                if (accountManager.state.value == ICloudAccountState.Restoring && state.value.isRefreshing) return@launch
                 val account = accountManager.state.value as? ICloudAccountState.SignedIn
                 if (accountManager.state.value == ICloudAccountState.Restoring ||
                     (account != null && account.status != SessionStatus.VERIFIED)) restoreAccount()
                 if ((accountManager.state.value as? ICloudAccountState.SignedIn)?.status == SessionStatus.PHOTOS_NOT_ENABLED) return@launch
-                launchRefresh(replaceActive = false)
+                started = launchRefresh(replaceActive = false, fromPull = pulled)
+                if (!started) deviceLibraryChanged()
                 transfers.schedulePendingInBackground()
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 messages.show(error.toUserMessage(R.string.message_could_not_reconnect_to_icloud))
+            } finally {
+                if (pulled && !started) mutableState.update { it.copy(pullRefreshing = false) }
             }
         }
     }
 
-    fun launchRefresh(replaceActive: Boolean) {
+    /**
+     * Starts a refresh, replacing a running one when [replaceActive]; returns whether it started one. Whichever way a
+     * refresh ends (finished, failed or cancelled), the library stops showing as refreshing unless another replaced it.
+     */
+    fun launchRefresh(replaceActive: Boolean, fromPull: Boolean = false): Boolean {
         if (refreshJob?.isActive == true) {
-            if (!replaceActive) return
+            if (!replaceActive) return false
             refreshJob?.cancel()
         }
         // A refresh withdraws only its own earlier message: clearing every message erased the Undo that a trash shows
         // right before the refresh it starts.
-        refreshJob = scope.launch(messages.ownedBy(RefreshMessages)) {
-            mutableState.update { it.copy(isRefreshing = true) }
-            messages.clear(RefreshMessages)
-            val span = diagnostics.start(DiagnosticOperation.GALLERY_REFRESH)
-            try {
-                val summary = repository.refresh(includeDeviceMedia = hasDeviceAccess())
-                span.finish(
-                    DiagnosticOutcome.SUCCESS,
-                    mapOf(
-                        DiagnosticAttribute.CLOUD_COUNT to summary.cloudItemCount,
-                        DiagnosticAttribute.DEVICE_COUNT to summary.deviceItemCount,
-                        DiagnosticAttribute.SHARED_UNAVAILABLE to summary.sharedAlbumsUnavailable,
-                    ),
-                )
-                mutableState.update {
-                    it.copy(isRefreshing = false, lastRefreshedAt = Instant.ofEpochMilli(summary.refreshedAtEpochMillis),
-                        webAccessOff = false, libraryPreparing = null)
+        val job = scope.launch(messages.ownedBy(RefreshMessages), start = CoroutineStart.LAZY) {
+            val self = coroutineContext[Job]
+            try { runRefresh(fromPull) } finally {
+                if (refreshJob === self || refreshJob?.isActive != true) {
+                    mutableState.update { it.copy(isRefreshing = false, pullRefreshing = false) }
                 }
-                when {
-                    summary.sharedAlbumsUnavailable -> messages.show(R.string.shared_refresh_unavailable)
-                    summary.hiddenUnavailable -> messages.show(R.string.hidden_refresh_unavailable)
-                    else -> messages.clear(RefreshMessages)
-                }
-                previews.retry()
-            } catch (cancelled: CancellationException) {
-                span.finish(DiagnosticOutcome.CANCELLED)
-                throw cancelled
-            } catch (error: Throwable) {
-                span.finish(DiagnosticOutcome.FAILED, error = error)
-                val webAccessOff = error.appleProtocolError() == AppleProtocolError.WEB_ACCESS_DISABLED
-                val preparing = error.libraryPreparing()
-                mutableState.update { it.copy(isRefreshing = false, webAccessOff = webAccessOff, libraryPreparing = preparing) }
-                // Indexing is a state the library screen shows for as long as it lasts, not an error to repeat on every check.
-                if (preparing == null) messages.show(error.toUserMessage(R.string.message_could_not_refresh_the_library))
             }
+        }
+        refreshJob = job
+        job.start()
+        return true
+    }
+
+    private suspend fun runRefresh(fromPull: Boolean) {
+        mutableState.update { it.copy(isRefreshing = true, pullRefreshing = fromPull) }
+        messages.clear(RefreshMessages)
+        val span = diagnostics.start(DiagnosticOperation.GALLERY_REFRESH)
+        try {
+            val summary = repository.refresh(includeDeviceMedia = hasDeviceAccess())
+            span.finish(
+                DiagnosticOutcome.SUCCESS,
+                mapOf(
+                    DiagnosticAttribute.CLOUD_COUNT to summary.cloudItemCount,
+                    DiagnosticAttribute.DEVICE_COUNT to summary.deviceItemCount,
+                    DiagnosticAttribute.SHARED_UNAVAILABLE to summary.sharedAlbumsUnavailable,
+                ),
+            )
+            mutableState.update {
+                it.copy(isRefreshing = false, pullRefreshing = false,
+                    lastRefreshedAt = maxOf(Instant.ofEpochMilli(summary.refreshedAtEpochMillis), it.lastRefreshedAt ?: Instant.EPOCH),
+                    webAccessOff = false, libraryPreparing = null)
+            }
+            when {
+                summary.sharedAlbumsUnavailable -> messages.show(R.string.shared_refresh_unavailable)
+                summary.hiddenUnavailable -> messages.show(R.string.hidden_refresh_unavailable)
+                else -> messages.clear(RefreshMessages)
+            }
+            previews.retry()
+        } catch (cancelled: CancellationException) {
+            span.finish(DiagnosticOutcome.CANCELLED)
+            throw cancelled
+        } catch (error: Throwable) {
+            span.finish(DiagnosticOutcome.FAILED, error = error)
+            val webAccessOff = error.appleProtocolError() == AppleProtocolError.WEB_ACCESS_DISABLED
+            val preparing = error.libraryPreparing()
+            mutableState.update { it.copy(isRefreshing = false, pullRefreshing = false, webAccessOff = webAccessOff, libraryPreparing = preparing) }
+            // Indexing is a state the library screen shows for as long as it lasts, not an error to repeat on every check.
+            if (preparing == null) messages.show(error.toUserMessage(R.string.message_could_not_refresh_the_library))
         }
     }
 
@@ -189,7 +231,7 @@ internal class LibrarySync(
     /** Cancels a running refresh and returns its job, so the caller can wait for it. */
     fun cancel(): Job? = refreshJob.also { it?.cancel(); refreshJob = null }
 
-    fun markIdle() = mutableState.update { it.copy(isRefreshing = false) }
+    fun markIdle() = mutableState.update { it.copy(isRefreshing = false, pullRefreshing = false) }
 
     private suspend fun wakeMaintenance(reason: WakeReason, label: String): Result<Unit> = runCatching {
         diagnostics.measure(DiagnosticOperation.MAINTENANCE_WAKE, mapOf(DiagnosticAttribute.REASON to label)) {

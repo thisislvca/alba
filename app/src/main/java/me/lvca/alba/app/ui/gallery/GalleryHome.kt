@@ -16,11 +16,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
@@ -88,7 +85,6 @@ import me.lvca.alba.app.ui.designsystem.AlbaMenuDivider
 import me.lvca.alba.app.ui.designsystem.AlbaMenuItem
 import me.lvca.alba.app.ui.designsystem.AlbaSheetBody
 import me.lvca.alba.app.ui.designsystem.DemoBadge
-import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.galleryOverlay
 import me.lvca.alba.app.ui.designsystem.theme.tile
@@ -379,6 +375,9 @@ internal fun GalleryHome(
                 else sections.getOrNull(monthOffsets.indexOfLast { it <= first.index })?.month
             }
         }
+        // Like Google Photos, the floating date shows while the grid moves and hides a second after it stops.
+        val scrubber = remember { ScrubberHost() }
+        val dateScrolled by rememberRecentlyScrolled(libraryGrid) { scrubber.dragging }
         LaunchedEffect(collapseHeader) {
             if (!collapseHeader) { headerState.heightOffset = 0f; headerState.contentOffset = 0f }
         }
@@ -448,9 +447,10 @@ internal fun GalleryHome(
                     }
                     IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
                 }
-                // Recently Deleted is in deletion order, with no dates to browse by.
+                // Recently Deleted is in deletion order, with no dates to browse by. Where there are none,
+                // the button is left out rather than dimmed, so the actions here keep one colour.
                 val datesBrowsable = sections.isNotEmpty() && !query.trashOnly
-                IconButton(enabled = datesBrowsable, onClick = { sheet = GallerySheet.JumpToDate }) {
+                if (datesBrowsable) IconButton(onClick = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.testTag("browse-dates-button")) {
                     Icon(AlbaIcons.DateRange, stringResource(R.string.browse_by_date))
                 }
                 IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
@@ -535,13 +535,19 @@ internal fun GalleryHome(
                 }) { padding ->
                 val statusOverlap = (WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding() -
                     padding.calculateTopPadding()).coerceAtLeast(0.dp)
+                // The header scrolls away over the grid's top: the scrubber's track stays below where it was, so its
+                // thumb never rides under the status bar.
+                scrubber.topInset = { (headerHeight - padding.calculateTopPadding()).coerceAtLeast(0.dp) }
+                CompositionLocalProvider(LocalScrubberHost provides scrubber) {
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     GalleryScreenHost(screen, parentOf, backEnabled, onBack = {
                         if (tab == GalleryTab.COLLECTIONS) backInCollections() else switchTab(GalleryTab.LIBRARY)
                     }, libraryFrame = libraryFrame, faded = { tabFade.switched },
                         modifier = Modifier.fillMaxSize().graphicsLayer { alpha = tabFade.alpha }) { shown ->
                     val collectionsList: @Composable () -> Unit = {
-                        PullToRefreshBox(isRefreshing = session.isRefreshing, onRefresh = actions::refresh) {
+                        // Only this pull's own refresh shows the indicator: one already running, at start-up or in the background, stays quiet.
+                        CollectionsPullToRefresh(enabled = shown.page == null && shown.folder == null, refreshing = session.pullRefreshing,
+                            onRefresh = actions::pullToRefresh) {
                             CollectionsScreen(gallery, canEdit, previewRetryVersion, shown.folder, shown.page, summaries,
                                 if (shown.page == null && shown.folder == null) collectionScroll else rememberLazyGridState(), actions::requestPreview,
                                 openPage = { collectionsPage = it },
@@ -627,7 +633,8 @@ internal fun GalleryHome(
                     } else photoGrid()
                     }
                     if (collapseHeader) FloatingGridDate(visibleMonth.takeUnless { selecting },
-                        dates = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f))
+                        dates = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusOverlap).zIndex(1f),
+                        recentlyScrolled = { dateScrolled }, switching = { tabFade.pending != null || tabFade.switched })
                     // Selection swaps the navigation for the floating toolbar, each riding a fast spatial spring along
                     // the bottom edge, so a quick select-and-cancel reverses mid-flight.
                     if (!wide) androidx.compose.animation.AnimatedVisibility(selecting, Modifier.align(Alignment.BottomCenter),
@@ -643,6 +650,7 @@ internal fun GalleryHome(
                             Modifier.navigationBarsPadding().padding(bottom = AlbaFloatingDefaults.BottomMargin)
                                 .onSizeChanged { if (it.height > 0) floatingBarHeight = with(uiDensity) { it.height.toDp() } })
                     }
+                }
                 }
             }
         }
@@ -922,7 +930,7 @@ private fun PhotoGrid(
         groupsFor(shown).forEach { (section, groups) ->
             val month = section.month
             if (!flat) item(key = "month-$month", span = { GridItemSpan(maxLineSpan) }) {
-                Row(posed("month-$month"), verticalAlignment = Alignment.CenterVertically) {
+                Row(posed("month-$month").fadeUnderStatusBar(), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { MonthHeader(month, section.items.size) }
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), monthLabel(month))
                     AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
@@ -933,7 +941,7 @@ private fun PhotoGrid(
             }
             groups.forEach { (day, photos) ->
             if (day != null) item(key = "day-$day", span = { GridItemSpan(maxLineSpan) }) {
-                Row(posed("day-$day").fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(posed("day-$day").fadeUnderStatusBar().fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(dateLabel(day), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     val selectionLabel = stringResource(R.string.label_with_detail, stringResource(R.string.select_all_shown), dateLabel(day))
                     AnimatedVisibility(selecting, Modifier.withoutHeight(), enter = checkboxEnter, exit = checkboxExit) {
@@ -975,7 +983,8 @@ private fun PhotoGrid(
             Column(posed("summary").fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
                 // While Apple is indexing, "0 iCloud photos" would read as an empty library: count only the phone's.
-                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true) Text(if (counts.libraryPreparing != null) stringResource(R.string.phone_photo_count, counts.device)
+                // A trash counts only itself: the library's totals beneath its own count read as what it holds.
+                if (query.collectionId?.startsWith(SharedMediaIdentity.PREFIX) != true && !query.trashOnly) Text(if (counts.libraryPreparing != null) stringResource(R.string.phone_photo_count, counts.device)
                     else stringResource(R.string.cloud_phone_counts, pluralStringResource(R.plurals.cloud_photo_count, counts.cloud, counts.cloud), stringResource(R.string.phone_photo_count, counts.device)),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -1064,28 +1073,6 @@ private fun CollectionDetailBar(title: String, hero: Boolean, close: () -> Unit,
             modifier = Modifier.testTag("collection-detail-title")) }, navigationIcon = closeButton, colors = colors,
             windowInsets = WindowInsets(0, 0, 0, 0))
         filters?.invoke()
-    }
-}
-
-@Composable
-private fun SearchLanding(summaries: Map<String, me.lvca.alba.app.ui.collections.CollectionPreview>, bottomSpace: Dp,
-    onDates: () -> Unit, choose: (String) -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 20.dp).padding(bottom = bottomSpace)) {
-        Column(Modifier.padding(horizontal = 20.dp)) {
-            Text(stringResource(R.string.find_a_moment), style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.search_landing_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.height(20.dp))
-        Text(stringResource(R.string.media_types), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp))
-        Spacer(Modifier.height(8.dp))
-        SmartCollectionChips(summaries, choose)
-        Spacer(Modifier.height(16.dp))
-        Column(Modifier.padding(horizontal = 20.dp)) {
-            CollectionRow(stringResource(R.string.capture_date), stringResource(R.string.choose_a_date_range),
-                icon = { Icon(AlbaIcons.DateRange, null) }, onClick = onDates)
-            CollectionRow(stringResource(R.string.favorites), stringResource(R.string.photos_you_ve_marked_with_a_heart), icon = { ICloudIcon(R.drawable.icloud_favorites) }, onClick = { choose(GalleryQuery.FAVORITES) })
-        }
     }
 }
 
