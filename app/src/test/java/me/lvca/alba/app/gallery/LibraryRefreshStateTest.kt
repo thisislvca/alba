@@ -163,24 +163,13 @@ class LibraryRefreshStateTest {
      */
     @Test fun aStoredLibraryShowsBeforeAppleConfirmsTheSavedSession() {
         val network = CompletableDeferred<Unit>()
-        val transport = object : AppleHttpTransport {
-            override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse { network.await(); throw java.io.IOException("offline") }
-            override suspend fun stream(url: String, output: OutputStream) { network.await() }
-            override fun snapshotCookies(): List<PersistedCookie> = emptyList()
-            override fun restore(snapshot: AppleSessionSnapshot) = Unit
-            override fun clear() = Unit
-        }
-        val store = object : AppleSessionStore {
-            override suspend fun load() = SAVED
-            override suspend fun save(snapshot: AppleSessionSnapshot) = Unit
-            override suspend fun clear() = Unit
-        }
         val stored = ScreenshotFixtures.library(3).mapIndexed { index, media -> media.copy(id = "icloud:owner:$index") }
         val repository = object : GalleryRepository by app.graph.galleryRepository {
             override fun observeGallery(): Flow<List<GalleryMedia>> = flowOf(stored)
+            override suspend fun newestMedia(limit: Int): List<GalleryMedia> = emptyList()
             override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary = awaitCancellation()
         }
-        val accounts = ICloudAccountManager(AppleAuthenticationService(transport), store)
+        val accounts = savedAccountAppleNeverConfirms(network)
         val started = System.nanoTime()
         withViewModel(testDependencies(app.graph).copy(repository = repository, accountManager = accounts)) { vm ->
             try {
@@ -194,6 +183,55 @@ class LibraryRefreshStateTest {
                 assertEquals(LibraryLoad.REFRESHING, vm.account.state.value.libraryLoad(storedLibrary = gallery.cloudCount > 0))
             } finally { network.complete(Unit) }
         }
+    }
+
+    /**
+     * Reading a large stored library takes a moment. Its newest photos show first from a small query, without totals,
+     * and the start-up refresh meanwhile is a quiet one: "Updating library…" showed until the whole library was read.
+     */
+    @Test fun theNewestPhotosShowWhileTheStoredLibraryLoads() {
+        val stored = ScreenshotFixtures.library(6).mapIndexed { index, media -> media.copy(id = "icloud:owner:$index") }
+        val whole = CompletableDeferred<Unit>()
+        val network = CompletableDeferred<Unit>()
+        val repository = object : GalleryRepository by app.graph.galleryRepository {
+            override fun observeGallery(): Flow<List<GalleryMedia>> = kotlinx.coroutines.flow.flow { whole.await(); emit(stored) }
+            override suspend fun newestMedia(limit: Int): List<GalleryMedia> = stored.take(2)
+            override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary = awaitCancellation()
+        }
+        val accounts = savedAccountAppleNeverConfirms(network)
+        withViewModel(testDependencies(app.graph).copy(repository = repository, accountManager = accounts)) { vm ->
+            try {
+                val refreshing = withTimeout(SHORT_WAIT) { vm.account.state.first { it.isRefreshing } }
+                assertEquals("Nothing is read yet", LibraryLoad.REFRESHING, refreshing.libraryLoad(GalleryState(libraryLoaded = false)))
+
+                val first = withTimeout(SHORT_WAIT) { vm.gallery.state.first { it.items.isNotEmpty() } }
+                assertFalse(first.libraryLoaded)
+                assertEquals(stored.take(2).map { it.id }, first.items.map { it.id })
+                assertEquals(LibraryLoad.REFRESHING, vm.account.state.value.libraryLoad(first))
+
+                whole.complete(Unit)
+                val loaded = withTimeout(SHORT_WAIT) { vm.gallery.state.first { it.libraryLoaded } }
+                assertEquals(stored.map { it.id }, loaded.items.map { it.id })
+                assertEquals(6, loaded.cloudCount)
+            } finally { network.complete(Unit) }
+        }
+    }
+
+    /** The saved account, restoring: Apple answers only once [network] completes, and then with a network error. */
+    private fun savedAccountAppleNeverConfirms(network: CompletableDeferred<Unit>): ICloudAccountManager {
+        val transport = object : AppleHttpTransport {
+            override suspend fun execute(request: AppleHttpRequest): AppleHttpResponse { network.await(); throw java.io.IOException("offline") }
+            override suspend fun stream(url: String, output: OutputStream) { network.await() }
+            override fun snapshotCookies(): List<PersistedCookie> = emptyList()
+            override fun restore(snapshot: AppleSessionSnapshot) = Unit
+            override fun clear() = Unit
+        }
+        val store = object : AppleSessionStore {
+            override suspend fun load() = SAVED
+            override suspend fun save(snapshot: AppleSessionSnapshot) = Unit
+            override suspend fun clear() = Unit
+        }
+        return ICloudAccountManager(AppleAuthenticationService(transport), store)
     }
 
     private companion object {

@@ -277,7 +277,7 @@ internal fun GalleryHome(
         gallery.collections.firstOrNull { it.id == folder }?.name ?: stringResource(R.string.albums) else stringResource(if (tab == GalleryTab.COLLECTIONS) collectionsPage?.title ?: tab.title else tab.title)
     val contextAccountLabel = stringResource(R.string.open_icloud_account)
     val signedIn = session.accountState as? ICloudAccountState.SignedIn
-    val libraryLoad = session.libraryLoad(storedLibrary = gallery.cloudCount > 0)
+    val libraryLoad = session.libraryLoad(gallery)
     // The first load's line under the large title; Apple's indexing has its own card instead. A refresh shows nothing.
     val headerBar = libraryLoad == LibraryLoad.INITIAL_LOAD && session.libraryPreparing == null
     // The first read of a large library takes a while: the line says how far it is rather than only that it is updating.
@@ -608,7 +608,8 @@ internal fun GalleryHome(
                             connectPrompt = connectPrompt,
                             isRefreshing = session.isRefreshing,
                             counts = PhotoCounts(gallery.cloudCount, gallery.deviceCount, limitedAccess = limitedNote,
-                                catalogScan = session.catalogScan?.takeIf { it.initialLoad }, libraryPreparing = session.libraryPreparing),
+                                catalogScan = session.catalogScan?.takeIf { it.initialLoad }, libraryPreparing = session.libraryPreparing,
+                                loaded = gallery.libraryLoaded),
                             previewRetryVersion = previewRetryVersion,
                             grid = when (shown.tab) {
                                 GalleryTab.LIBRARY -> libraryGrid; GalleryTab.COLLECTIONS -> collectionGrid; GalleryTab.SEARCH -> searchGrid
@@ -815,6 +816,8 @@ internal data class PhotoCounts(
     val catalogScan: CatalogScanProgress? = null,
     /** Apple is still indexing the iCloud library. */
     val libraryPreparing: LibraryPreparing? = null,
+    /** The stored library is read whole; until then the grid holds at most its newest photos and no totals. */
+    val loaded: Boolean = true,
 )
 
 /**
@@ -945,7 +948,8 @@ private fun PhotoGrid(
                 modifier = posed("library-preparing").padding(horizontal = 16.dp, vertical = 12.dp))
         }
         if (leading != null) item(key = "gallery-leading", span = { GridItemSpan(maxLineSpan) }) { Column(posed("gallery-leading")) { leading() } }
-        if (items.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+        // Nothing is known to be missing before the stored library is read: no empty state or loading line for that moment.
+        if (items.isEmpty() && counts.loaded) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 // Only the main library loads page by page; Trash, Hidden and albums keep the plain loading line.
                 val scan = counts.catalogScan?.takeIf { query.collectionId == null && !query.trashOnly && !query.offlineOnly }
@@ -1016,7 +1020,7 @@ private fun PhotoGrid(
                 }
             }
         }
-        if (items.isNotEmpty()) item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
+        if (items.isNotEmpty() && counts.loaded) item(key = "summary", span = { GridItemSpan(maxLineSpan) }) {
             Column(posed("summary").fillMaxWidth().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(itemCount(items.size), style = MaterialTheme.typography.bodyMedium)
                 // While Apple is indexing, "0 iCloud photos" would read as an empty library: count only the phone's.

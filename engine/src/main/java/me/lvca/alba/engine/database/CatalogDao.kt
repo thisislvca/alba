@@ -53,11 +53,19 @@ FROM catalog_items c
 LEFT JOIN media_cache cache ON cache.mediaId = c.mediaId AND cache.resourceFingerprint = c.resourceFingerprint
 """
 
+/*
+ * Reads that can return thousands of rows are @Transaction. Such a read fills several 2 MB cursor windows, and outside a
+ * transaction each window is filled by running the query again: a write that commits between two fills (a refresh page,
+ * a thumbnail's path, a phone scan) shifts the rows under the cursor, so rows repeat or go missing, and a window past
+ * the new end fails with "Couldn't read row N, col 0 from CursorWindow". In one read transaction the whole read sees
+ * one snapshot; with write-ahead logging it does not hold up writers.
+ */
 @Dao
 interface CatalogDao {
     @Query("SELECT * FROM catalog_items WHERE origin = 'DEVICE' AND localFavorite = 1")
     suspend fun localFavorites(): List<CatalogItemEntity>
 
+    @Transaction
     @Query("""
         SELECT DISTINCT c.mediaId AS cloudId, d.mediaId AS deviceId, p.accountId AS accountId
         FROM verification_proofs p JOIN asset_links l ON l.linkId = p.linkId
@@ -84,7 +92,6 @@ interface CatalogDao {
         motionCachePath = CASE WHEN motionCachePath IN (:paths) THEN NULL ELSE motionCachePath END""")
     suspend fun clearOriginalPaths(paths: List<String>)
 
-    @Query(CATALOG_WITH_CACHE + " WHERE c.origin = 'ICLOUD'") suspend fun cloudItems(): List<CatalogItemEntity>
     @Query("SELECT * FROM catalog_checkpoints WHERE scope = :scope") suspend fun checkpoint(scope: String): CatalogCheckpointEntity?
 
     /**
@@ -101,6 +108,7 @@ interface CatalogDao {
         """,
     )
     suspend fun librarySameSize(prefix: String, byteCount: Long, limit: Int): List<CatalogItemEntity>
+    @Transaction
     @Query(
         """
         SELECT * FROM catalog_items
@@ -109,12 +117,17 @@ interface CatalogDao {
     )
     fun observeAll(): Flow<List<CatalogItemEntity>>
 
+    /** The first [limit] rows of [observeAll], for the first screen of the library. */
+    @Query("SELECT * FROM catalog_items ORDER BY capturedAtEpochMillis DESC, mediaId DESC LIMIT :limit")
+    suspend fun newest(limit: Int): List<CatalogItemEntity>
+
     @Query(CATALOG_WITH_CACHE + " WHERE c.mediaId IN (:ids)")
     suspend fun findByIds(ids: List<String>): List<CatalogItemEntity>
 
     @Query(CATALOG_WITH_CACHE + " WHERE c.mediaId = :mediaId")
     suspend fun findById(mediaId: String): CatalogItemEntity?
 
+    @Transaction
     @Query("SELECT * FROM media_cache")
     fun observeCache(): Flow<List<MediaCacheEntity>>
 
@@ -169,6 +182,7 @@ interface CatalogSyncDao {
     suspend fun cloudItemsAfter(after: String, limit: Int): List<CatalogItemEntity>
 
     /** iCloud rows whose media id starts with [prefix], such as one account's shared-album items. */
+    @Transaction
     @Query(CATALOG_WITH_CACHE + " WHERE c.origin = 'ICLOUD' AND substr(c.mediaId, 1, length(:prefix)) = :prefix")
     suspend fun cloudItemsWithPrefix(prefix: String): List<CatalogItemEntity>
 
@@ -195,9 +209,9 @@ interface CatalogSyncDao {
     @Query("DELETE FROM catalog_checkpoints WHERE scope = :scope")
     suspend fun deleteCheckpoint(scope: String)
 
-    /** When the read that saved [scope]'s checkpoint ran: the last refresh that finished. */
-    @Query("SELECT refreshedAtEpochMillis FROM catalog_checkpoints WHERE scope = :scope")
-    fun observeCheckpointTime(scope: String): Flow<Long?>
+    /** Every iCloud account's checkpoint, whose time is when its last finished refresh ran. */
+    @Query("SELECT * FROM catalog_checkpoints WHERE scope LIKE 'icloud:%'")
+    fun observeCloudCheckpoints(): Flow<List<CatalogCheckpointEntity>>
 
     @Query("SELECT COUNT(*) FROM catalog_items WHERE origin = 'ICLOUD'")
     suspend fun cloudCount(): Int
@@ -233,6 +247,7 @@ interface CatalogSyncDao {
     suspend fun deleteUnstamped()
 
     /** Every cached file an iCloud row still points at, for pruning the cache without loading the catalog. */
+    @Transaction
     @Query("""
         SELECT m.previewCachePath FROM media_cache m JOIN catalog_items c ON c.mediaId = m.mediaId
             AND c.resourceFingerprint = m.resourceFingerprint WHERE c.origin = 'ICLOUD' AND m.previewCachePath IS NOT NULL
