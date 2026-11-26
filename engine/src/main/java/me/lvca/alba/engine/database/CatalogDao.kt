@@ -195,6 +195,10 @@ interface CatalogSyncDao {
     @Query("DELETE FROM catalog_checkpoints WHERE scope = :scope")
     suspend fun deleteCheckpoint(scope: String)
 
+    /** When the read that saved [scope]'s checkpoint ran: the last refresh that finished. */
+    @Query("SELECT refreshedAtEpochMillis FROM catalog_checkpoints WHERE scope = :scope")
+    fun observeCheckpointTime(scope: String): Flow<Long?>
+
     @Query("SELECT COUNT(*) FROM catalog_items WHERE origin = 'ICLOUD'")
     suspend fun cloudCount(): Int
 

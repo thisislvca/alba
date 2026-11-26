@@ -67,6 +67,7 @@ class DefaultGalleryRepository(
     private val exclusiveEntry = Mutex()
     private val mediaLocks = Array(MEDIA_LOCK_STRIPES) { Mutex() }
     private val offlineSetLock = Mutex()
+    private val priority = SyncPriority()
 
     override suspend fun accountProfile() = cloudSource.accountProfile()
     override suspend fun storageUsage() = cloudSource.storageUsage()
@@ -464,13 +465,24 @@ class DefaultGalleryRepository(
         }
     }.distinctUntilChanged()
 
-    override suspend fun resumeCatalogScan(): RefreshSummary? = syncLock.withLock {
-        if (sync.scan(cloudSource.accountLabel) == null) null else refreshUnderSyncLock(includeDeviceMedia = false)
+    // Every library refresh saves its change token with the time it ran, whether on screen or in background work.
+    override fun observeLastRefresh(): Flow<Long?> =
+        sync.observeCheckpointTime("icloud:${cloudSource.accountLabel}").distinctUntilChanged()
+
+    /**
+     * A refresh already running, on screen or in the background, continues any unfinished read: this waits for it to
+     * end, then continues the read only if one is still unfinished. Null when there was none to continue, so a caller
+     * that needs a fresh library asks for a refresh of its own.
+     */
+    override suspend fun resumeCatalogScan(): RefreshSummary? {
+        priority.awaitRunning()
+        if (sync.scan(cloudSource.accountLabel) == null) return null
+        return priority.shared(includeDeviceMedia = false) { device -> syncLock.withLock { refreshUnderSyncLock(device) } }.summary
     }
 
-    override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary = syncLock.withLock {
-        refreshUnderSyncLock(includeDeviceMedia)
-    }
+    /** A refresh that starts after this call: asked for while another runs, it shares the one follow-up that comes next. */
+    override suspend fun refresh(includeDeviceMedia: Boolean): RefreshSummary =
+        priority.shared(includeDeviceMedia) { device -> syncLock.withLock { refreshUnderSyncLock(device) } }.summary
 
     /**
      * Reads the library into the catalog page by page, never holding it in memory, then replaces what Recently Deleted,
@@ -777,7 +789,7 @@ class DefaultGalleryRepository(
             HiddenRead(sync.hiddenCloudItems("icloud:$account:").map(::toRemote), false)
         }
 
-    override suspend fun ensureViewer(mediaId: String) {
+    override suspend fun ensureViewer(mediaId: String): Unit = priority.foreground {
         ensureOfflineSet()
         withMediaLock(mediaId) {
             val entity = requireCloudItem(mediaId)
@@ -795,7 +807,7 @@ class DefaultGalleryRepository(
         }
     }
 
-    override suspend fun ensurePreview(mediaId: String) {
+    override suspend fun ensurePreview(mediaId: String): Unit = priority.foreground {
         ensureOfflineSet()
         withMediaLock(mediaId) {
             savePreview(mediaId) { write ->
@@ -816,17 +828,20 @@ class DefaultGalleryRepository(
      * runs the given write. Returns the new file, or null when nothing was downloaded. Callers hold the media lock.
      */
     private suspend fun savePreview(mediaId: String, download: suspend (suspend () -> File) -> File): File? {
-        val entity = requireCloudItem(mediaId)
-        val retained = cache.retainPreview(mediaId, entity.previewCachePath)
-        if (retained != null) {
-            if (retained.absolutePath != entity.previewCachePath) dao.setPreviewPath(mediaId, retained.absolutePath)
-            return null
-        }
+        if (adoptPreview(mediaId)) return null
         // Only the same item's writes are serialized. A slow thumbnail or full-size
         // viewer must not hold a global lock over every visible tile's network request.
         val file = download { cache.writeAtomically(mediaId, "preview") { output -> cloudSource.writePreview(mediaId, output) } }
         dao.setPreviewPath(mediaId, file.absolutePath)
         return file
+    }
+
+    /** Whether [mediaId]'s thumbnail is on the phone already, adopting an older copy. Callers hold the media lock. */
+    private suspend fun adoptPreview(mediaId: String): Boolean {
+        val entity = requireCloudItem(mediaId)
+        val retained = cache.retainPreview(mediaId, entity.previewCachePath) ?: return false
+        if (retained.absolutePath != entity.previewCachePath) dao.setPreviewPath(mediaId, retained.absolutePath)
+        return true
     }
 
     override suspend fun notePreviewsShown(mediaIds: List<String>) = cache.notePreviewsShown(mediaIds)
@@ -867,12 +882,24 @@ class DefaultGalleryRepository(
 
     override suspend fun prepareDownloads(mediaIds: List<String>) = cloudSource.prepareDownloads(mediaIds)
 
+    /**
+     * Downloads with no catalog permit held: the permits are for writing, and a refresh's page writes and the tiles on
+     * screen used to queue behind the fill's two downloads. A thumbnail is small, so its bytes wait in memory until a
+     * permit writes them. Nothing is trimmed to make room: the fill stops before the low-storage reserve instead.
+     */
     override suspend fun saveOfflineThumbnail(mediaId: String) {
+        if (withMediaLock(mediaId) { adoptPreview(mediaId) }) return
+        val bytes = java.io.ByteArrayOutputStream().also { cloudSource.writePreview(mediaId, it) }.toByteArray()
         withMediaLock(mediaId) {
-            // Nothing is trimmed to make room: the fill stops before the low-storage reserve instead.
-            savePreview(mediaId) { write -> write() }?.let { cache.markUnseen(mediaId, it) }
+            // The grid may have saved it meanwhile.
+            if (adoptPreview(mediaId)) return@withMediaLock
+            val file = cache.writeAtomically(mediaId, "preview") { output -> output.write(bytes) }
+            dao.setPreviewPath(mediaId, file.absolutePath)
+            cache.markUnseen(mediaId, file)
         }
     }
+
+    override fun backgroundTurns(): Flow<Boolean> = priority.backgroundTurns
 
     override suspend fun offlineThumbnailRoom(): Long = cache.roomBeforeReserve()
 

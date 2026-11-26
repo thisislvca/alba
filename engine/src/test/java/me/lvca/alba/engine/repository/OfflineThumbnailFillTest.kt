@@ -5,9 +5,13 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import me.lvca.alba.engine.cache.InsufficientStorageException
 import me.lvca.alba.engine.cache.MediaFileCache
 import me.lvca.alba.engine.database.AlbaDatabase
@@ -231,7 +235,126 @@ class OfflineThumbnailFillTest {
         assertEquals(listOf(9, 8).map(source::id), source.downloads)
     }
 
+    /**
+     * The fill's two downloads used to hold both catalog permits, which every refresh page write needs, so on a large
+     * library a refresh crept along behind the fill's whole queue. Downloads hold no permit now.
+     */
+    @Test
+    fun aRefreshFinishesWhileTheFillsDownloadsAreStuck() = runBlocking {
+        val repository = repository().also { it.refresh(false) }
+        val bothInFlight = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        var inFlight = 0
+        source.onSuspendingDownload = {
+            inFlight++
+            if (inFlight == 2) bothInFlight.complete(Unit)
+            release.await()
+        }
+        val fill = OfflineThumbnailFill(repository, pause = { pauses += it }, batchSize = 3, concurrency = 2)
+        val run = async { fill.run() }
+        bothInFlight.await()
+
+        source.changes = CloudChanges(listOf(source.record(10)), emptySet(), "token-later", false)
+        withTimeout(SHORT_WAIT) { repository.refresh(false) }
+        assertTrue(repository.observeGallery().first().any { it.id == source.id(10) })
+
+        release.complete(Unit)
+        assertTrue(run.await() is FillOutcome.Finished)
+    }
+
+    /** While a refresh runs the fill starts no download; it carries on once the refresh is done. */
+    @Test
+    fun theFillWaitsForARunningRefresh() = runBlocking {
+        val repository = repository().also { it.refresh(false) }
+        val refreshing = CompletableDeferred<Unit>()
+        val finishRefresh = CompletableDeferred<Unit>()
+        source.onChanges = { refreshing.complete(Unit); finishRefresh.await() }
+        val refresh = async { repository.refresh(false) }
+        refreshing.await()
+
+        val prepared = CompletableDeferred<Unit>()
+        source.onPrepare = { prepared.complete(Unit) }
+        val run = async { fill(repository).run() }
+        // The batch is ready to download: only the refresh holds it back now.
+        prepared.await()
+        delay(NO_DOWNLOAD_WINDOW)
+        assertTrue("No download while the refresh runs", source.downloads.isEmpty())
+
+        finishRefresh.complete(Unit)
+        refresh.await()
+        assertEquals(FillOutcome.Finished(skipped = 0), run.await())
+        assertEquals(listOf(9, 8, 7, 6).map(source::id), source.downloads)
+    }
+
+    /** Stopping a fill that waits for a refresh ends it at once, without waiting for the refresh. */
+    @Test
+    fun aStopEndsAFillWaitingForARefresh() = runBlocking {
+        val repository = repository().also { it.refresh(false) }
+        val refreshing = CompletableDeferred<Unit>()
+        val finishRefresh = CompletableDeferred<Unit>()
+        source.onChanges = { refreshing.complete(Unit); finishRefresh.await() }
+        val refresh = async { repository.refresh(false) }
+        refreshing.await()
+        val prepared = CompletableDeferred<Unit>()
+        source.onPrepare = { prepared.complete(Unit) }
+        val fill = fill(repository)
+        val run = async { fill.run() }
+        prepared.await()
+
+        withTimeout(SHORT_WAIT) { fill.stopAndJoin() }
+        assertEquals(FillOutcome.Stopped, run.await())
+        assertTrue(source.downloads.isEmpty())
+        finishRefresh.complete(Unit)
+        refresh.await()
+        Unit
+    }
+
+    /**
+     * An edit made while a refresh runs, after it read what changed, reaches the library through a refresh asked for
+     * after the edit: that refresh waits for a follow-up instead of returning the running one's stale read.
+     */
+    @Test
+    fun aRefreshAskedForDuringAnotherReadsWhatChangedSince() = runBlocking {
+        val repository = repository().also { it.refresh(false) }
+        val refreshing = CompletableDeferred<Unit>()
+        val finishRefresh = CompletableDeferred<Unit>()
+        source.onChanges = { if (refreshing.complete(Unit)) finishRefresh.await() }
+        val running = async { repository.refresh(false) }
+        refreshing.await()
+
+        source.changes = CloudChanges(listOf(source.record(10)), emptySet(), "token-later", false)
+        val afterEdit = async(start = CoroutineStart.UNDISPATCHED) { repository.refresh(false) }
+        finishRefresh.complete(Unit)
+        running.await()
+        afterEdit.await()
+        assertTrue("The edit is in the library", repository.observeGallery().first().any { it.id == source.id(10) })
+    }
+
+    /** However many refreshes are asked for while one runs (background work's, the screen's), they share one follow-up. */
+    @Test
+    fun refreshesAskedForDuringAnotherShareOneFollowUp() = runBlocking {
+        val repository = repository().also { it.refresh(false) }
+        val reads = source.changeReads
+        val refreshing = CompletableDeferred<Unit>()
+        val finishRefresh = CompletableDeferred<Unit>()
+        source.onChanges = { if (refreshing.complete(Unit)) finishRefresh.await() }
+        val background = async { repository.resumeCatalogScan() ?: repository.refresh(false) }
+        refreshing.await()
+
+        val asked = List(3) { async(start = CoroutineStart.UNDISPATCHED) { repository.refresh(it == 0) } }
+        finishRefresh.complete(Unit)
+        background.await()
+        val followUps = asked.awaitAll().map { it.refreshedAtEpochMillis }.distinct()
+        assertEquals("One follow-up for every request", 1, followUps.size)
+        assertEquals("The running read and one follow-up", reads + 2, source.changeReads)
+    }
+
     private companion object {
+        const val SHORT_WAIT = 5_000L
+
+        /** How long a check that nothing downloads gives the fill to download anyway. */
+        const val NO_DOWNLOAD_WINDOW = 300L
+
         /** The newest-photos query that names the offline set. */
         const val OFFLINE_SET_QUERY = "SELECT c.mediaId FROM catalog_items c WHERE"
     }
@@ -246,6 +369,9 @@ class OfflineThumbnailFillTest {
         val prepared = mutableListOf<List<String>>()
         var onDownload: (String) -> Unit = {}
         var onSuspendingDownload: suspend (String) -> Unit = {}
+        var onChanges: suspend () -> Unit = {}
+        var onPrepare: suspend () -> Unit = {}
+        var changeReads = 0
 
         fun id(index: Int) = "icloud:$accountLabel:asset-$index"
 
@@ -258,8 +384,17 @@ class OfflineThumbnailFillTest {
         override suspend fun libraryRecords(assetRecordNames: List<String>) =
             LibraryLookup(items.filter { "asset-$it" in assetRecordNames }.map(::record), emptySet())
         override suspend fun fetchPage(cursor: String?, limit: Int) = CloudCatalogPage(items.map(::record), null, "rank:0")
-        override suspend fun changes(token: String, known: KnownCloudRecords) = changes
-        override suspend fun prepareDownloads(mediaIds: List<String>) { prepared += mediaIds }
+        override suspend fun changes(token: String, known: KnownCloudRecords): CloudChanges {
+            changeReads++
+            // What changed is read when the call starts; a change made while it waits is the next read's.
+            val read = changes
+            onChanges()
+            return read
+        }
+        override suspend fun prepareDownloads(mediaIds: List<String>) {
+            prepared += mediaIds
+            onPrepare()
+        }
         override suspend fun writePreview(mediaId: String, output: OutputStream) {
             downloads += mediaId
             onDownload(mediaId)

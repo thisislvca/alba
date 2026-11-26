@@ -37,6 +37,12 @@ interface GalleryReader {
     /** The signed-in account's unfinished first library read, or null when there is none. */
     fun observeCatalogScan(): Flow<CatalogScanProgress?> = kotlinx.coroutines.flow.flowOf(null)
 
+    /**
+     * When the signed-in account's library last finished a refresh, in epoch millis: in this process or an earlier one,
+     * on screen or in background work. Null before its first.
+     */
+    fun observeLastRefresh(): Flow<Long?> = kotlinx.coroutines.flow.flowOf(null)
+
     /** Continues an unfinished first library read, as background work does; null when there is none to continue. */
     suspend fun resumeCatalogScan(): RefreshSummary? = null
 }
