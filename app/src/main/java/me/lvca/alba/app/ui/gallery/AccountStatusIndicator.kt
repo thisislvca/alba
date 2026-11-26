@@ -24,8 +24,8 @@ import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.BackupStatus
 import me.lvca.alba.app.ui.account.backupStatus
 import me.lvca.alba.app.ui.account.headline
+import me.lvca.alba.app.ui.designsystem.AccountAvatar
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
-import me.lvca.alba.app.ui.designsystem.InitialAvatar
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
 import me.lvca.alba.protocol.account.ICloudAccountState
 import me.lvca.alba.protocol.account.SessionStatus
@@ -77,8 +77,8 @@ internal fun AccountButton(appleId: String?, status: AccountStatus?, label: Stri
     // A 48dp button, so the ring and badge fit inside its round clip.
     IconButton(onClick = onClick, modifier = modifier.size(48.dp).semantics { contentDescription = label }) {
         Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            InitialAvatar(appleId, 32.dp, color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer, textStyle = MaterialTheme.typography.titleSmall)
+            // The same avatar as the profile card's.
+            AccountAvatar(photo = null, name = appleId, avatarSize = 32.dp)
             if (status != null) AccountStatusMark(status)
         }
     }

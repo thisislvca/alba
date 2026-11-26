@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,8 @@ internal fun AlbaListRow(
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    /** Goes on the subtitle's text, so a test can find the supporting text alone. */
+    subtitleModifier: Modifier = Modifier,
     enabled: Boolean = true,
     selected: Boolean? = null,
     leading: (@Composable () -> Unit)? = null,
@@ -70,17 +73,26 @@ internal fun AlbaListRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AlbaSpacing.xxs)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             subtitle?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(it, subtitleModifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         trailing?.invoke()
     }
 }
 
+/** A setting's current value at the end of its row, such as "1 GB" or a count. */
+@Composable
+internal fun AlbaListValue(text: String, modifier: Modifier = Modifier) {
+    Text(text, modifier, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** Tags every [AlbaChevron], so tests can check a grouped list draws none. */
+internal const val ALBA_CHEVRON_TAG = "alba-chevron"
+
 /** The trailing "opens another page" affordance of a browsing row. Settings rows in an [AlbaListGroup] have none. */
 @Composable
 internal fun AlbaChevron(modifier: Modifier = Modifier) {
-    Icon(AlbaIcons.ChevronRight, null, modifier, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    Icon(AlbaIcons.ChevronRight, null, modifier.testTag(ALBA_CHEVRON_TAG), tint = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** An explanatory row with an accent icon: onboarding and About use these to describe features. */

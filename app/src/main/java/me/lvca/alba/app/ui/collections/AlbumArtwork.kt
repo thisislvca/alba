@@ -32,11 +32,13 @@ import kotlinx.coroutines.withContext
 import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.designsystem.AlbaCover
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
+import me.lvca.alba.app.ui.designsystem.AlbaListHeader
 import me.lvca.alba.app.ui.designsystem.ICloudIcon
 import me.lvca.alba.app.ui.designsystem.InitialAvatar
 import me.lvca.alba.app.ui.designsystem.MediaScrim
 import me.lvca.alba.app.ui.designsystem.MediaScrimStrength
 import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
+import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.app.ui.designsystem.theme.cover
 import me.lvca.alba.app.ui.designsystem.theme.heroTitle
@@ -90,7 +92,7 @@ internal fun CoverImage(media: GalleryMedia?, retry: Int, preview: (String) -> U
         media?.takeIf { it.origin == MediaOrigin.ICLOUD && it.previewReference == null }?.let { preview(it.id) }
     }
     Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
-        if (media == null) ICloudIcon(R.drawable.icloud_albums)
+        if (media == null) ICloudIcon(R.drawable.icloud_albums, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         else MediaThumbnail(media.coverReference(), null,
             Modifier.fillMaxSize(), sourceRevision = media.sourceRevision, retryVersion = retry)
     }
@@ -197,7 +199,8 @@ internal fun SharedAlbumsStrip(albums: List<GalleryCollection>, summaries: Map<S
     if (shown.isEmpty()) return
     Column(Modifier.padding(bottom = 18.dp).testTag("shared-albums-strip")) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.shared_albums), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            // The same section header as every grouped list, beside its See all.
+            AlbaListHeader(stringResource(R.string.shared_albums), Modifier.weight(1f).padding(top = AlbaSpacing.sm), inset = false)
             TextButton(onClick = seeAll) { Text(stringResource(R.string.see_all)) }
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

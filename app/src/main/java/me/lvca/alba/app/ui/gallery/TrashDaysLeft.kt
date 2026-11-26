@@ -12,16 +12,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.engine.model.MediaOrigin
 
 /**
- * Whole days left before a trashed item is deleted for good, rounded up like Google Photos ("1 day" until it goes),
- * or null when the item is not in a trash or its source gives no expiry. Android's trash gives one, and iCloud's
- * Recently Deleted gives each asset's `dateExpunged`, which iCloud.com counts down to the same way.
+ * Whole days left before a trashed item is deleted for good, or null when the item is not in a trash or its source
+ * gives no expiry. Each trash counts the way its own app does, and both read "1 day" on the last day until the item goes:
+ * - iCloud's Recently Deleted counts down to each asset's `dateExpunged` in whole days elapsed, as iCloud.com does, so
+ *   an item deleted a moment ago reads "29 days", not "30".
+ * - The phone trash rounds up, like Google Photos.
  */
 internal fun trashDaysLeft(media: GalleryMedia, nowEpochMillis: Long): Int? {
     val expires = media.expiresAtEpochMillis?.takeIf { media.isTrashed } ?: return null
     val left = expires - nowEpochMillis
-    return ((left + DAY_MILLIS - 1).floorDiv(DAY_MILLIS)).toInt().coerceAtLeast(1)
+    val days = if (media.origin == MediaOrigin.ICLOUD) left.floorDiv(DAY_MILLIS) else (left + DAY_MILLIS - 1).floorDiv(DAY_MILLIS)
+    return days.toInt().coerceAtLeast(1)
 }
 
 /** "N days left" for a trashed item in the viewer, or null when [trashDaysLeft] has nothing to say. */

@@ -6,7 +6,6 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -552,8 +551,11 @@ internal fun FavoriteIcon(favorite: Boolean, contentDescription: String?, modifi
     Icon(if (favorite) AlbaIcons.Favorite else AlbaIcons.FavoriteBorder, contentDescription, modifier, tint)
 }
 
-/** An iCloud collection or media-type glyph, in the primary colour (at least 3:1 on every surface). */
+/**
+ * An iCloud collection or media-type glyph in the surrounding content colour, so it matches the Material Symbols next
+ * to it: lists and actions provide onSurfaceVariant, the viewer its own ink. Primary is only for selected or active.
+ */
 @Composable
-internal fun ICloudIcon(@DrawableRes resource: Int) {
-    Icon(painterResource(resource), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(AlbaIconSize.standard))
+internal fun ICloudIcon(@DrawableRes resource: Int, tint: Color = LocalContentColor.current) {
+    Icon(painterResource(resource), contentDescription = null, tint = tint, modifier = Modifier.size(AlbaIconSize.standard))
 }

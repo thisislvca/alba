@@ -23,15 +23,18 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -81,6 +84,10 @@ internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLa
     val fraction = buckets.fractionAt(position)
     val currentFraction by rememberUpdatedState(fraction)
     var dragging by remember { mutableStateOf(false) }
+    // The screen showing the date while the thumb is held hears of it; a drag cut short by leaving ends it too.
+    val host = LocalScrubberHost.current
+    LaunchedEffect(host) { snapshotFlow { dragging }.collect { host?.dragging = it } }
+    DisposableEffect(host) { onDispose { host?.dragging = false } }
     var dragFraction by remember { mutableFloatStateOf(0f) }
     var gripTop by remember { mutableFloatStateOf(0f) }
     var visible by remember { mutableStateOf(false) }
@@ -132,7 +139,8 @@ internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLa
     val currentMonth = if (dragging) buckets.monthAt(dragFraction) else labels.indexOfLast { it.index <= grid.firstVisibleItemIndex }.coerceAtLeast(0)
     val label = labels.getOrElse(currentMonth) { labels.first() }
     val span = stringResource(R.string.month_span, labels.first().month, labels.last().month)
-    Box(modifier.width(180.dp).padding(bottom = bottomSpace, top = 12.dp).clipToBounds().onSizeChanged { height = it.height }
+    Box(modifier.insetTop { host?.topInset?.invoke(this) ?: 0.dp }.width(180.dp).padding(bottom = bottomSpace, top = 12.dp).clipToBounds()
+        .onSizeChanged { height = it.height }
         .semantics {
             contentDescription = span
             stateDescription = label.month
@@ -211,4 +219,24 @@ internal fun GalleryFastScroll(grid: LazyGridState, labels: List<GalleryScrollLa
             }
         }
     }
+}
+
+/**
+ * What the screen around a [GalleryFastScroll] shares with it: where its track must start, below chrome that scrolls
+ * away over the grid, and whether its thumb is held, so the floating date can stay while scrubbing.
+ */
+@Stable
+internal class ScrubberHost {
+    /** Read while laying out the scrubber, so an inset that follows scrolling never recomposes it. */
+    var topInset: Density.() -> Dp = { 0.dp }
+    var dragging by mutableStateOf(false)
+}
+
+internal val LocalScrubberHost = staticCompositionLocalOf<ScrubberHost?> { null }
+
+/** Pads the top by [inset], read while laying out, so an inset that follows scrolling never recomposes the scrubber. */
+private fun Modifier.insetTop(inset: Density.() -> Dp): Modifier = layout { measurable, constraints ->
+    val top = inset().roundToPx().coerceAtLeast(0).coerceAtMost(constraints.maxHeight)
+    val placeable = measurable.measure(constraints.offset(vertical = -top))
+    layout(placeable.width, placeable.height + top) { placeable.place(0, top) }
 }

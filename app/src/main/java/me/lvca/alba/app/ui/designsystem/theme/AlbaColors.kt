@@ -76,31 +76,15 @@ internal data class VideoControlColors(val ink: Color, val track: Color)
 private val VideoControlsOnDark = VideoControlColors(ink = Color(0xFFF4F4F4), track = Color(0xFF929292))
 private val VideoControlsOnLight = VideoControlColors(ink = Color(0xFF30323A), track = Color(0xFF838489))
 
-/** The profile hero card is a fixed illustration, so its colours do not change with the theme. */
+/** The profile's fixed colours: settings-style icon tiles and the iCloud storage categories, the same in both themes. */
 @Immutable
 internal data class ProfileColors(
-    val card: Color = Color(0xFF082958),
+    /** The white glyph on each icon tile. */
     val onCard: Color = Color.White,
-    val onCardMuted: Color = Color(0xFFE8ECFF),
-    /** Translucent chips on the card, such as the demo badge and the storage allowance. */
-    val badge: Color = Color(0xFF332878).copy(alpha = .40f),
-    /** Text on the white call-to-action button. */
-    val action: Color = Color(0xFF08386F),
     // Settings-style icon tiles carrying a white glyph.
     val backupTile: Color = SuccessTile,
     val phoneTile: Color = Color(0xFF777C88),
     val aboutTile: Color = Color(0xFF8A5CCD),
-    // Artwork: a cool sky gradient opening into lavender, a saturated plane and a faint facet.
-    val skyStart: Color = Color(0xFF9BCFFF),
-    val skyMiddle: Color = Color(0xFFA18FFF),
-    val skyEnd: Color = Color(0xFF2D43D2),
-    val planeStart: Color = Color(0xFF62C2FF),
-    val planeAzure: Color = Color(0xFF388BE9),
-    val planeIndigo: Color = Color(0xFF5364DE),
-    val planeEnd: Color = Color(0xFF8750D6),
-    val facetStart: Color = Color(0xFF5B53E9).copy(alpha = .16f),
-    val facetEnd: Color = Color(0xFF8270FF).copy(alpha = .02f),
-    val avatarCloudShadow: Color = Color(0x55202D70),
     val storage: StorageColors = StorageColors(),
 )
 

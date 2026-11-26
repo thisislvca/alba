@@ -3,6 +3,7 @@ package me.lvca.alba.app.albums
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -19,6 +20,9 @@ import me.lvca.alba.app.AlbaApplication
 import me.lvca.alba.app.R
 import me.lvca.alba.app.screenshots.ScreenshotFixtures
 import me.lvca.alba.app.testing.setAlbaContent
+import me.lvca.alba.app.ui.designsystem.ALBA_CHEVRON_TAG
+import me.lvca.alba.app.ui.designsystem.ALBA_DIVIDER_TAG
+import me.lvca.alba.app.ui.designsystem.ALBA_SECTION_HEADER_TAG
 import me.lvca.alba.engine.model.SmartCollection
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -95,5 +99,39 @@ class CollectionsHubTest {
         val navigation = compose.onNodeWithTag("gallery-destination-capsule").fetchSemanticsNode().boundsInRoot
         val gap = with(compose.density) { 16.dp.toPx() }
         assertTrue("last row $last overlaps navigation $navigation", last.bottom + gap <= navigation.top)
+    }
+
+    /** No dividers or chevrons in this tree, only grouped segments, as design.md asks of every list. */
+    private fun assertGroupedWithoutDividersOrChevrons() {
+        compose.onAllNodesWithTag(ALBA_DIVIDER_TAG, useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithTag(ALBA_CHEVRON_TAG, useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    private fun sectionHeader(text: Int) = hasTestTag(ALBA_SECTION_HEADER_TAG) and hasText(app.getString(text))
+
+    @Test fun mediaTypesHiddenAndThisPhoneAreGroupedListsLikeSettings() {
+        openCollections(screenshots = 2, portrait = 1)
+        val grid = compose.onNodeWithTag("collections-grid")
+        grid.performScrollToNode(hasTestTag("collection-media-types"))
+        // Media types opens with the grouped list's own header, as settings and Search do.
+        compose.onNode(sectionHeader(R.string.media_types), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("collection-screenshots").assert(hasText("2"))
+        assertGroupedWithoutDividersOrChevrons()
+        grid.performScrollToNode(hasTestTag("collection-hidden"))
+        compose.onNodeWithTag("collection-hidden").assert(hasAnyDescendant(hasText(app.getString(R.string.hidden))))
+        assertGroupedWithoutDividersOrChevrons()
+        grid.performScrollToNode(hasTestTag("collection-this-phone"))
+        compose.onNodeWithTag("collection-this-phone").assert(hasAnyDescendant(hasText(app.getString(R.string.this_phone))))
+        assertGroupedWithoutDividersOrChevrons()
+    }
+
+    @Test fun searchLandingUsesTheSameSectionHeaderAndGroupedRows() {
+        openCollections(screenshots = 2)
+        compose.onNodeWithTag("tab-SEARCH").performClick()
+        compose.onNodeWithTag("search-landing").assertIsDisplayed()
+        compose.onNode(sectionHeader(R.string.media_types), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("search-capture-date").assert(hasText(app.getString(R.string.capture_date))).assertIsDisplayed()
+        compose.onNodeWithTag("search-favorites").assert(hasText(app.getString(R.string.favorites))).assertIsDisplayed()
+        assertGroupedWithoutDividersOrChevrons()
     }
 }

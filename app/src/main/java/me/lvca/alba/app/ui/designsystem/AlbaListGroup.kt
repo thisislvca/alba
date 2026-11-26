@@ -19,6 +19,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -49,12 +50,22 @@ internal fun AlbaListGroup(modifier: Modifier = Modifier, title: String? = null,
     }
 }
 
-/** A grouped list's section header, for a group or for a note that sits between the header and its group. */
+/**
+ * A grouped list's section header, for a group or for a note that sits between the header and its group. It is also
+ * the one heading for every other in-page section (Collections' and Search's media types, matching albums, the library's
+ * shared albums), so sections read alike everywhere. [inset] aligns it with the rows' text; a header whose caller
+ * already pads it to the content's edge passes false.
+ */
 @Composable
-internal fun AlbaListHeader(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier.fillMaxWidth().padding(start = AlbaListDefaults.Padding, end = AlbaListDefaults.Padding, bottom = AlbaSpacing.sm)
-        .semantics { heading() }, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+internal fun AlbaListHeader(text: String, modifier: Modifier = Modifier, inset: Boolean = true) {
+    val padding = if (inset) AlbaListDefaults.Padding else 0.dp
+    Text(text, modifier.fillMaxWidth().padding(start = padding, end = padding, bottom = AlbaSpacing.sm)
+        .semantics { heading() }.testTag(ALBA_SECTION_HEADER_TAG), style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary)
 }
+
+/** Tags every [AlbaListHeader], so tests can check a section uses the shared heading. */
+internal const val ALBA_SECTION_HEADER_TAG = "alba-section-header"
 
 /** A segment of an [AlbaListGroup] holding content that is not a row: a status, a note, a button. */
 @Composable
