@@ -265,6 +265,12 @@ data class VerificationProofEntity(
 
         /** The iCloud original was downloaded and every byte compared with the phone's. */
         const val METHOD_BYTES = "BYTES"
+
+        /**
+         * Set as [invalidationReason] when the byte check before a deletion found the iCloud original differs from the
+         * phone's: the proof no longer counts, so the phone copy is kept and never offered for deletion again.
+         */
+        const val BYTE_CHECK_FAILED = "BYTE_CHECK_FAILED"
     }
 }
 

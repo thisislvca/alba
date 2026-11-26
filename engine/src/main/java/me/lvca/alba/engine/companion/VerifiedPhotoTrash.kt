@@ -7,6 +7,7 @@ import me.lvca.alba.engine.database.ReclaimProposalEntity
 import me.lvca.alba.engine.database.ReclaimProposalItemEntity
 import me.lvca.alba.engine.database.TrashAttemptEntity
 import me.lvca.alba.engine.database.TrashObligationEntity
+import me.lvca.alba.engine.database.VerificationProofEntity
 import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.FreeUpSpaceCandidates
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
@@ -20,7 +21,13 @@ import me.lvca.alba.engine.model.WakeupScheduler
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
 
-/** Exact-proof checks and Android consent obligations share the companion's account gate. */
+/**
+ * Free up space: the byte check right before a phone copy is deleted, and Android's consent obligations, which share the
+ * companion's account gate. A photo is backed up once Apple's receipt matches; before its phone copy may go, Alba
+ * downloads the iCloud original again and compares every byte. Only items that pass are offered to Android's trash
+ * request, and their proof becomes a byte proof. An item whose iCloud original differs is kept, and its proof is
+ * invalidated so it is never offered again.
+ */
 internal class VerifiedPhotoTrash(
     private val database: AlbaDatabase,
     private val originals: ExactOriginalSource,
@@ -30,6 +37,7 @@ internal class VerifiedPhotoTrash(
     private val accounts: AccountBindingSync,
     /** A clock that never moves back, for the check budget and the consent window. */
     private val elapsedRealtime: () -> Long,
+    private val byteCheck: ByteCheck = ByteCheck(protocol),
 ) {
     /**
      * When each proposal's consent window closes, on [elapsedRealtime]. Kept in memory: a proposal from before a
@@ -114,8 +122,9 @@ internal class VerifiedPhotoTrash(
         StoredMessage.decode(error.message)?.code ?: StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code
 
     /**
-     * Re-reads [mediaId]'s phone and iCloud originals and compares both with its proof. Hands the checked item to
-     * [accept] and returns null when they match exactly; otherwise returns why not.
+     * The byte check before deletion: re-reads [mediaId]'s phone original and downloads its iCloud original, and compares
+     * both with its proof byte for byte. When they match, the proof becomes a byte proof, the checked item goes to
+     * [accept], and it returns null; otherwise it returns why not. An iCloud original that differs invalidates the proof.
      */
     private suspend fun checkExact(
         binding: AccountBinding,
@@ -134,16 +143,16 @@ internal class VerifiedPhotoTrash(
         // A phone read and an iCloud read fail for different reasons; the user is told which.
         val local = runSuspendCatching { originals.hashMediaStoreItem(source.contentUri, source.sourceRevision) }
             .getOrElse { return StoredMessage.decode(it.message)?.code ?: StoredMessage.COULD_NOT_READ_THIS_FILE_ON_THE_PHONE.code }
-        val remoteHash = HashingOutputStream()
-        val remote = runSuspendCatching { protocol.streamFreshOriginal(binding, pairEntity.toCandidate(), remoteHash) }
+        val remote = runSuspendCatching { byteCheck.compare(binding, pairEntity.toCandidate(), proof.byteCount, proof.sha256Hex) }
             .getOrElse { return StoredMessage.decode(it.message)?.code ?: StoredMessage.COULD_NOT_REACH_ICLOUD_TO_CHECK.code }
-        val exact = local.sha256Hex == proof.sha256Hex &&
-            local.byteCount == proof.byteCount &&
-            remoteHash.sha256Hex() == proof.sha256Hex &&
-            remoteHash.byteCount == proof.byteCount &&
-            remote.byteCount == proof.byteCount &&
-            remote.resourceIdentity == pairEntity.originalResourceIdentity
-        if (!exact) return StoredMessage.THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH.code
+        val localUnchanged = local.sha256Hex == proof.sha256Hex && local.byteCount == proof.byteCount
+        if (!remote.matches || !localUnchanged) {
+            // An iCloud copy that is not the phone's flags the proof, so the phone copy is kept and never offered again.
+            // A phone file edited since its upload is a different photo now: it stays, and the proof is left as it was.
+            if (!remote.matches) verificationDao.invalidateProof(proof.proofId, now(), VerificationProofEntity.BYTE_CHECK_FAILED)
+            return StoredMessage.THE_CURRENT_LOCAL_AND_ICLOUD_ORIGINALS_NO_LONGER_MATCH.code
+        }
+        verificationDao.markByteChecked(proof.proofId, now())
         accept(
             ReclaimProposalItemEntity(
                 proposalId = proposalId,
@@ -151,7 +160,7 @@ internal class VerifiedPhotoTrash(
                 contentUri = source.contentUri,
                 proofId = proof.proofId,
                 localSha256Hex = local.sha256Hex,
-                remoteSha256Hex = remoteHash.sha256Hex(),
+                remoteSha256Hex = remote.sha256Hex,
                 verifiedAtEpochMillis = now(),
             ),
         )
