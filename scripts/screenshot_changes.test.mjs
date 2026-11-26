@@ -140,3 +140,10 @@ test('the comment groups screens by variant and sends the reviewer to Files chan
   assert.match(body, /\[abcdef1\]\(https:\/\/github.com\/o\/r\/commit\/abcdef1234\)/);
   assert.match(body, /\[Files changed\]\(https:\/\/x\/files\) before merging/);
 });
+
+test('the comment says how many re-encoded goldens were left out of the commit', () => {
+  const options = { commitUrl: undefined, filesUrl: 'https://x/files' };
+  assert.doesNotMatch(comment(parseNameStatus(diff), options), /re-encoded/);
+  assert.match(comment(parseNameStatus(diff), { ...options, skipped: 3 }),
+    /3 re-encoded image\(s\) had the same pixels as their goldens and were not committed\./);
+});
