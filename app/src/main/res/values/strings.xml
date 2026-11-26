@@ -1245,4 +1245,33 @@
     <string name="message_no_copy_appeared_in_icloud_uploading_again">No copy appeared in iCloud, so Alba is uploading it again.</string>
     <string name="message_icloud_rejected_this_file">iCloud didn\'t accept this file. The original stays on this phone.</string>
     <string name="message_this_file_is_no_longer_on_the_phone">This file is no longer on the phone.</string>
+    <string name="backup_failure_waiting_to_retry">Waiting to retry</string>
+    <string name="backup_failure_needs_unmetered">Needs Wi-Fi (large video)</string>
+    <string name="backup_failure_storage_full">iCloud storage full</string>
+    <string name="backup_failure_photo_access">Photo access needed</string>
+    <string name="backup_failure_format_not_supported">Format not supported</string>
+    <string name="backup_failure_file_gone">File no longer on phone</string>
+    <string name="backup_failure_checking_icloud">Checking iCloud</string>
+    <string name="backup_failure_stopped">Stopped</string>
+    <string name="backup_failure_waiting_to_retry_detail">The upload stopped before iCloud received it. Alba tries again on its own.</string>
+    <string name="backup_failure_needs_unmetered_detail">Items over 100 MB back up on Wi-Fi, while Alba can keep running.</string>
+    <string name="backup_failure_storage_full_detail">Backup continues when iCloud has space.</string>
+    <string name="backup_failure_photo_access_detail">Allow access to all photos and videos so backup can read them.</string>
+    <string name="backup_failure_format_not_supported_detail">iCloud doesn\'t accept these files from the web. The originals stay on this phone.</string>
+    <string name="backup_failure_file_gone_detail">These were deleted from the phone before they were backed up.</string>
+    <string name="backup_failure_checking_icloud_detail">Alba looks for these in iCloud after each library refresh and never uploads them twice.</string>
+    <string name="backup_failure_stopped_detail">These stopped before reaching iCloud.</string>
+    <string name="backup_fix_retry_now">Retry now</string>
+    <string name="backup_fix_wifi_settings">Wi-Fi settings</string>
+    <string name="backup_fix_open_storage">Open storage</string>
+    <string name="backup_fix_grant_access">Grant access</string>
+    <string name="backup_fix_try_again">Try again</string>
+    <string name="backup_fix_remove">Remove from list</string>
+    <string name="backup_fix_check_now">Check now</string>
+    <string name="backup_next_try">Next try: %1$s</string>
+    <string name="backup_next_try_soon">Trying again soon</string>
+    <plurals name="backup_failure_count">
+        <item quantity="one">%,d item</item>
+        <item quantity="other">%,d items</item>
+    </plurals>
 </resources>

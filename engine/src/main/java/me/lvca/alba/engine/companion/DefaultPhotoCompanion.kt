@@ -245,6 +245,19 @@ class DefaultPhotoCompanion(
             return trash.freeUpSpaceCandidates()
         }
 
+        override suspend fun dismissFailed(transfers: List<TransferId>): Int = transfers.count { id ->
+            val row = transferDao.findTransfer(id.value)
+                ?.takeIf { it.activeAttemptId == null && (it.state == TransferState.NEEDS_ATTENTION || it.state == TransferState.UNSUPPORTED) }
+                ?: return@count false
+            val source = transferDao.findStagedSource(row.stagedSourceId)
+            val removed = transferDao.deleteRetried(row.transferId) == 1
+            if (removed && source != null) {
+                stages.release(source)
+                transferDao.deleteUnattemptedSource(source.stagedSourceId)
+            }
+            removed
+        }
+
         override suspend fun retryWaitingNow(): Int {
             val binding = accounts.requireActive()
             return transferDao.clearRetryBackoff(binding.accountId, now()).also { if (it > 0) runSuspendCatching { scheduler.scheduleSoon() } }

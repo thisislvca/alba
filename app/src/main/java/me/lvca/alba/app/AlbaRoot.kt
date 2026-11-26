@@ -887,6 +887,10 @@ private class AlbaRootActions(
     override fun continuePastUnresolved(transferId: TransferId) = transfers.continuePastUnresolved(transferId)
     override fun retryTransfer(transferId: TransferId) = platform.beforeTransfer(PendingTransfer.Retry(transferId.value))
     override fun retryAllTransfers() = platform.beforeTransfer(PendingTransfer.RetryAll)
+    override fun retryWaitingNow() = transfers.backup.retryWaitingNow()
+    override fun dismissFailedTransfers(transferIds: List<TransferId>) = transfers.backup.dismissFailed(transferIds)
+    override fun checkICloudNow() = viewModel.sync.refresh()
+    override fun checkUncertain(transferId: TransferId) = transfers.backup.checkUncertain(transferId)
     override fun cancelUploads() = transfers.backup.cancelUploads()
     override fun freeUpSpace(mediaIds: List<String>) = if (mediaIds.isNotEmpty()) platform.beforeTransfer(PendingTransfer.FreeUp(mediaIds)) else Unit
     override fun share(items: List<GalleryMedia>) = viewModel.exports.share(items)

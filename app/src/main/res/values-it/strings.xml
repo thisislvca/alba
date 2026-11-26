@@ -1283,4 +1283,34 @@
     <string name="message_no_copy_appeared_in_icloud_uploading_again">Nessuna copia è comparsa in iCloud, quindi Alba lo sta caricando di nuovo.</string>
     <string name="message_icloud_rejected_this_file">iCloud non ha accettato questo file. L\'originale resta su questo telefono.</string>
     <string name="message_this_file_is_no_longer_on_the_phone">Questo file non è più sul telefono.</string>
+    <string name="backup_failure_waiting_to_retry">In attesa di riprovare</string>
+    <string name="backup_failure_needs_unmetered">Serve il Wi-Fi (video grande)</string>
+    <string name="backup_failure_storage_full">Spazio iCloud esaurito</string>
+    <string name="backup_failure_photo_access">Serve l\'accesso alle foto</string>
+    <string name="backup_failure_format_not_supported">Formato non supportato</string>
+    <string name="backup_failure_file_gone">File non più sul telefono</string>
+    <string name="backup_failure_checking_icloud">Controllo in iCloud</string>
+    <string name="backup_failure_stopped">Interrotti</string>
+    <string name="backup_failure_waiting_to_retry_detail">Il caricamento si è interrotto prima che iCloud lo ricevesse. Alba riprova da sola.</string>
+    <string name="backup_failure_needs_unmetered_detail">Gli elementi oltre 100 MB vengono salvati con il Wi-Fi, quando Alba può restare attiva più a lungo.</string>
+    <string name="backup_failure_storage_full_detail">Il backup riprende quando iCloud ha spazio.</string>
+    <string name="backup_failure_photo_access_detail">Consenti l\'accesso a tutte le foto e i video perché il backup possa leggerli.</string>
+    <string name="backup_failure_format_not_supported_detail">iCloud non accetta questi file dal web. Gli originali restano su questo telefono.</string>
+    <string name="backup_failure_file_gone_detail">Sono stati eliminati dal telefono prima del backup.</string>
+    <string name="backup_failure_checking_icloud_detail">Alba li cerca in iCloud dopo ogni aggiornamento della libreria e non li carica mai due volte.</string>
+    <string name="backup_failure_stopped_detail">Si sono interrotti prima di arrivare in iCloud.</string>
+    <string name="backup_fix_retry_now">Riprova ora</string>
+    <string name="backup_fix_wifi_settings">Impostazioni Wi-Fi</string>
+    <string name="backup_fix_open_storage">Apri spazio di archiviazione</string>
+    <string name="backup_fix_grant_access">Concedi accesso</string>
+    <string name="backup_fix_try_again">Riprova</string>
+    <string name="backup_fix_remove">Rimuovi dall\'elenco</string>
+    <string name="backup_fix_check_now">Controlla ora</string>
+    <string name="backup_next_try">Prossimo tentativo: %1$s</string>
+    <string name="backup_next_try_soon">Nuovo tentativo a breve</string>
+    <plurals name="backup_failure_count">
+        <item quantity="one">%,d elemento</item>
+        <item quantity="many">%,d elementi</item>
+        <item quantity="other">%,d elementi</item>
+    </plurals>
 </resources>

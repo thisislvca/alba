@@ -44,11 +44,13 @@ import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.GalleryMedia
+import me.lvca.alba.engine.model.LARGE_ITEM_BYTES
 import me.lvca.alba.engine.model.MediaAvailability
 import me.lvca.alba.engine.model.MediaOrigin
 import me.lvca.alba.engine.model.ProtocolArea
 import me.lvca.alba.engine.model.ProtocolPause
 import me.lvca.alba.engine.model.StoredMessage
+import me.lvca.alba.engine.model.TransferFailureReason
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
@@ -116,6 +118,64 @@ class BackupPageTest {
         compose.onNodeWithTag("retry-transfer-uncertain").assertDoesNotExist()
         compose.onNodeWithTag("backup-retry-all").performScrollTo().performClick()
         assertEquals(1, retriedAll)
+    }
+
+    @Test
+    fun failuresAreGroupedByReasonEachWithTheActionThatFixesIt() {
+        val now = System.currentTimeMillis()
+        val queue = listOf(
+            TransferView(TransferId("retry"), "device:1", "beach.jpg", TransferViewState.WAITING, 1, 1, automatic = true,
+                message = StoredMessage.UPLOAD_INTERRUPTED_TRYING_AGAIN.code, failureReason = TransferFailureReason.WAITING_TO_RETRY,
+                nextTryAtEpochMillis = now + 15 * 60_000L),
+            TransferView(TransferId("video"), "device:2", "concert.mp4", TransferViewState.WAITING, LARGE_ITEM_BYTES + 1, 1, automatic = true),
+            TransferView(TransferId("gone"), "device:3", "deleted.jpg", TransferViewState.NEEDS_ATTENTION, 1, 1, automatic = true,
+                retryable = true, message = StoredMessage.THIS_FILE_IS_NO_LONGER_ON_THE_PHONE.code, failureReason = TransferFailureReason.FILE_GONE),
+            TransferView(TransferId("access"), "device:4", "a.jpg", TransferViewState.NEEDS_ATTENTION, 1, 1, automatic = true,
+                retryable = true, message = StoredMessage.AUTOMATIC_BACKUP_PERMISSION_OR_CONSENT_CHANGED.code,
+                failureReason = TransferFailureReason.PHOTO_ACCESS),
+            TransferView(TransferId("checking"), "device:5", "b.jpg", TransferViewState.UNRESOLVED, 1, 1, automatic = true,
+                failureReason = TransferFailureReason.CHECKING_ICLOUD),
+        )
+        var retriedNow = 0
+        var granted = 0
+        var checked = 0
+        val dismissed = mutableListOf<List<TransferId>>()
+        render(
+            TransferState(backup = on, queue = queue), network = NetworkStatus(true, metered = true),
+            retryWaitingNow = { retriedNow++ }, dismissFailed = { dismissed += it }, enableAutomaticBackup = { granted++ },
+            checkICloudNow = { checked++ },
+        )
+
+        listOf("waiting-to-retry", "needs-unmetered", "photo-access", "file-gone", "checking-icloud").forEach { reason ->
+            compose.onNodeWithTag("backup-failure-group-$reason").performScrollTo().assertIsDisplayed()
+        }
+        compose.onNodeWithTag("backup-failure-group-format-not-supported").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.backup_failure_needs_unmetered)).performScrollTo().assertIsDisplayed()
+        val at = android.text.format.DateUtils.formatDateTime(context, now + 15 * 60_000L, android.text.format.DateUtils.FORMAT_SHOW_TIME)
+        compose.onNodeWithTag("backup-failure-detail-retry").performScrollTo()
+            .assertTextEquals(context.getString(R.string.backup_next_try, at))
+
+        compose.onNodeWithTag("backup-failure-action-waiting-to-retry").performScrollTo()
+            .assertTextEquals(context.getString(R.string.backup_fix_retry_now)).performClick()
+        compose.onNodeWithTag("backup-failure-action-photo-access").performScrollTo()
+            .assertTextEquals(context.getString(R.string.backup_fix_grant_access)).performClick()
+        compose.onNodeWithTag("backup-failure-action-file-gone").performScrollTo()
+            .assertTextEquals(context.getString(R.string.backup_fix_remove)).performClick()
+        compose.onNodeWithTag("backup-failure-action-checking-icloud").performScrollTo()
+            .assertTextEquals(context.getString(R.string.backup_fix_check_now)).performClick()
+        compose.onNodeWithTag("backup-failure-action-needs-unmetered").performScrollTo()
+            .assertTextEquals(context.getString(R.string.backup_fix_wifi_settings))
+        assertEquals(1, retriedNow)
+        assertEquals(1, granted)
+        assertEquals(listOf(listOf(TransferId("gone"))), dismissed)
+        assertEquals(1, checked)
+    }
+
+    @Test
+    fun aLargeVideoOnWifiIsNotAFailure() {
+        val video = TransferView(TransferId("video"), "device:2", "concert.mp4", TransferViewState.WAITING, LARGE_ITEM_BYTES + 1, 1, automatic = true)
+        render(TransferState(backup = on, queue = listOf(video)))
+        compose.onNodeWithTag("backup-failure-group-needs-unmetered").assertDoesNotExist()
     }
 
     @Test
@@ -322,6 +382,10 @@ class BackupPageTest {
         setBackupSettings: (BackupSettings) -> Unit = {},
         retryAfterStorageFull: () -> Unit = {},
         includeExistingInBackup: () -> Unit = {},
+        retryWaitingNow: () -> Unit = {},
+        dismissFailed: (List<TransferId>) -> Unit = {},
+        enableAutomaticBackup: () -> Unit = {},
+        checkICloudNow: () -> Unit = {},
     ) {
         compose.setContent {
             AlbaTheme(darkTheme = false) {
@@ -333,7 +397,9 @@ class BackupPageTest {
                     diagnostics = DiagnosticsConsent(),
                     actions = testAlbaActions(retryTransfer = retryTransfer, retryAllTransfers = retryAll,
                         setBackupSettings = setBackupSettings, retryAfterStorageFull = retryAfterStorageFull,
-                        includeExistingInBackup = includeExistingInBackup),
+                        includeExistingInBackup = includeExistingInBackup, retryWaitingNow = retryWaitingNow,
+                        dismissFailedTransfers = dismissFailed, enableAutomaticBackup = enableAutomaticBackup,
+                        checkICloudNow = checkICloudNow),
                 )
             }
         }
