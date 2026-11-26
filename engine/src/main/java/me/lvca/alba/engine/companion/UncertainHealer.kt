@@ -8,6 +8,11 @@ import me.lvca.alba.engine.database.TransferState
 import me.lvca.alba.engine.database.UploadAttemptEntity
 import me.lvca.alba.engine.database.VerificationProofEntity
 import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.BackupAttribute
+import me.lvca.alba.engine.model.BackupBreadcrumb
+import me.lvca.alba.engine.model.BackupDiagnostics
+import me.lvca.alba.engine.model.BackupPhase
+import me.lvca.alba.engine.model.BackupTelemetry.traced
 import me.lvca.alba.engine.model.CloudLibraryIndex
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.LibraryCandidate
@@ -62,6 +67,7 @@ internal class UncertainHealer(
     private val stages: UploadStages,
     private val now: () -> Long,
     private val byteCheck: ByteCheck = ByteCheck(protocol),
+    private val diagnostics: BackupDiagnostics = BackupDiagnostics.None,
 ) {
     private val transferDao = database.transferDao()
     private val verificationDao = database.verificationDao()
@@ -75,7 +81,9 @@ internal class UncertainHealer(
         val due = transferDao.findUnresolved(binding.accountId).filter { row ->
             mayLook(row) && HealSchedule.isDue(row.unresolvedSinceEpochMillis ?: row.updatedAtEpochMillis, row.healCheckedAtEpochMillis, refreshedAt, now())
         }
-        return due.take(MAX_LOOKS_PER_PASS).count { heal(binding, it) }
+        return due.take(MAX_LOOKS_PER_PASS).count { row ->
+            diagnostics.traced(BackupPhase.HEAL_CHECK, mapOf(BackupAttribute.OUTCOME to row.state.name)) { heal(binding, row) }
+        }
     }
 
     /** Looks for [row]'s upload in the refreshed library; true when that settled it. */
@@ -83,8 +91,12 @@ internal class UncertainHealer(
         val found = look(binding, row) ?: return false
         val since = row.unresolvedSinceEpochMillis ?: row.updatedAtEpochMillis
         return when {
-            found.receiptMatches.size == 1 -> verify(binding, found, found.receiptMatches.single(), VerificationProofEntity.METHOD_RECEIPT)
+            found.receiptMatches.size == 1 -> {
+                diagnostics.breadcrumb(BackupBreadcrumb.HEAL_VERIFIED)
+                verify(binding, found, found.receiptMatches.single(), VerificationProofEntity.METHOD_RECEIPT)
+            }
             found.receiptMatches.size > 1 -> {
+                diagnostics.breadcrumb(BackupBreadcrumb.HEAL_AMBIGUOUS, mapOf(BackupAttribute.COUNT to found.receiptMatches.size))
                 stillUncertain(found, ambiguous = true)
                 false
             }
@@ -141,7 +153,10 @@ internal class UncertainHealer(
         val source = found.source
         val phone = PhoneOriginal(source.displayName, source.byteCount, source.sha256Hex, source.capturedAtEpochMillis)
         val candidates = when (val selection = ExistingCopyMatcher.select(phone, found.library)) {
-            CandidateSelection.None -> return reupload(found)
+            CandidateSelection.None -> {
+                diagnostics.breadcrumb(BackupBreadcrumb.HEAL_SEND_AGAIN)
+                return reupload(found)
+            }
             is CandidateSelection.TooMany -> emptyList()
             is CandidateSelection.Check -> selection.candidates
         }

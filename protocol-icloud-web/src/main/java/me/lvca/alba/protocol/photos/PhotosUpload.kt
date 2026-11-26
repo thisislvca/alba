@@ -1,6 +1,9 @@
 package me.lvca.alba.protocol.photos
 
 import kotlinx.serialization.json.*
+import me.lvca.alba.engine.model.BackupDiagnostics
+import me.lvca.alba.engine.model.BackupPhase
+import me.lvca.alba.engine.model.BackupTelemetry.traced
 import me.lvca.alba.engine.model.ICloudRejectedUploadException
 import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
@@ -41,6 +44,7 @@ internal class PhotosUpload(
     private val zoneName: String = PrimarySyncZone.NAME,
     private val assetBatchId: String? = null,
     private val onSessionRejected: suspend (AppleSessionSnapshot) -> Unit = {},
+    private val diagnostics: BackupDiagnostics = BackupDiagnostics.None,
 ) : PreparedICloudUpload {
     private val started = AtomicBoolean(false)
     private val cancelled = AtomicBoolean(false)
@@ -130,7 +134,7 @@ internal class PhotosUpload(
         val receipt = saved["receipt"]!!.jsonObject
         checkAuthorized()
         save("REGISTERING")
-        val registration = post("putAsset", buildJsonObject {
+        val registration = diagnostics.traced(BackupPhase.PUT_ASSET) { post("putAsset", buildJsonObject {
             put("zoneName", zoneName)
             if (assetBatchId == null) put("importGroup", clientId) else put("assetBatchId", assetBatchId)
             put("localTimeZoneId", saved.getValue("localTimeZoneId"))
@@ -142,7 +146,7 @@ internal class PhotosUpload(
                     put("singleFileUploadRequest", receipt)
                 })
             }
-        })
+        }) }
         val results = registration.elementBody() as? JsonArray
             ?: malformed("Apple returned an invalid registration response")
         val result = results.singleOrNull() as? JsonObject
