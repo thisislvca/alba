@@ -559,9 +559,9 @@ class DefaultGalleryRepository(
                 writeRecords(snapshots, libraryRead.stamp)
                 sync.deleteUnstamped()
                 val scope = "icloud:$account"
-                // A read without a change token must not leave an older token behind for the next refresh; its time
-                // still counts as the last refresh.
-                dao.upsertCheckpoint(CatalogCheckpointEntity(scope, libraryRead.changeToken, refreshedAt))
+                // A read without a change token must not leave an older token behind for the next refresh.
+                if (libraryRead.changeToken.isBlank()) sync.deleteCheckpoint(scope)
+                else dao.upsertCheckpoint(CatalogCheckpointEntity(scope, libraryRead.changeToken, refreshedAt))
                 sync.deleteScan(account)
                 // A read under any other account is over: this one replaced its rows.
                 sync.deleteOtherScans(account)
@@ -618,7 +618,7 @@ class DefaultGalleryRepository(
      */
     private suspend fun syncLibrary(account: String): LibraryRead {
         if (sync.scan(account) == null) {
-            val checkpoint = dao.checkpoint("icloud:$account")?.changeToken?.takeUnless { it.isBlank() || it.startsWith("rank:") }
+            val checkpoint = dao.checkpoint("icloud:$account")?.changeToken?.takeUnless { it.startsWith("rank:") }
             if (checkpoint != null) {
                 val stamp = UUID.randomUUID().toString()
                 try { return LibraryRead(stamp, null, applyChanges(checkpoint, stamp, account)) }

@@ -206,6 +206,9 @@ interface CatalogSyncDao {
         AND mediaId > :after ORDER BY mediaId LIMIT :limit""")
     suspend fun unseenLibraryRows(prefix: String, scanId: String, after: String, limit: Int): List<UnseenRow>
 
+    @Query("DELETE FROM catalog_checkpoints WHERE scope = :scope")
+    suspend fun deleteCheckpoint(scope: String)
+
     /** Every iCloud account's checkpoint, whose time is when its last finished refresh ran. */
     @Query("SELECT * FROM catalog_checkpoints WHERE scope LIKE 'icloud:%'")
     fun observeCloudCheckpoints(): Flow<List<CatalogCheckpointEntity>>

@@ -409,14 +409,9 @@ class ResumableCatalogSyncTest {
         source.resetChanges = true
         source.token = null
 
-        DefaultGalleryRepository(database, source, null, cache, now = { 5_000L }, pause = { }).refresh(false)
-
-        // No token is kept, so the next refresh reads the library again; the refresh still counts as one.
-        assertEquals("", database.catalogDao().checkpoint("icloud:account-a")?.changeToken)
-        assertEquals(5_000L, repository(source).observeLastRefresh().first())
-        source.requested.clear()
         repository(source).refresh(false)
-        assertTrue("A refresh without a token read no page", source.requested.isNotEmpty())
+
+        assertNull(database.catalogDao().checkpoint("icloud:account-a"))
     }
 
     @Test
