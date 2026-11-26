@@ -68,6 +68,14 @@ class BackupPageTest {
     private val on = BackupView(enabled = true, destinationLabel = "alex@example.com", scope = BackupScope.CAMERA_MEDIA)
 
     @Test
+    fun theBackupPageSaysWhatBackedUpMeansAndThatEveryByteIsCheckedBeforeAPhoneCopyIsRemoved() {
+        render(TransferState(backup = on))
+        compose.onNodeWithTag("backup-how-it-works").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.backup_how_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.backup_how_body)).assertIsDisplayed()
+    }
+
+    @Test
     fun storageFullSaysSoAndLetsTheUserTryAgain() {
         var retried = 0
         render(TransferState(backup = on.copy(storageFullSinceEpochMillis = 1)), retryAfterStorageFull = { retried++ })

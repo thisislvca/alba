@@ -971,6 +971,8 @@
     <string name="backup_progress">Backup: %1$,d di %2$,d</string>
     <string name="backup_last_backed_up">Ultimo backup: %1$s</string>
     <string name="backup_queue_title">In corso</string>
+    <string name="backup_how_title">Come funziona il backup</string>
+    <string name="backup_how_body">“Backup eseguito” significa che iCloud ha confermato di aver ricevuto esattamente questo file. Il backup non rimuove mai nulla dal telefono. Prima di rimuovere una copia dal telefono, Alba scarica di nuovo la foto da iCloud e confronta ogni byte.</string>
     <string name="cancel_uploads">Annulla caricamenti</string>
     <string name="free_up_space_title">Libera spazio</string>
     <string name="free_up_space_row">Rimuovi da questo telefono foto e video con backup eseguito</string>

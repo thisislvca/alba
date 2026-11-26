@@ -955,6 +955,8 @@
     <string name="backup_progress">%1$,d of %2$,d backed up</string>
     <string name="backup_last_backed_up">Last backed up %1$s</string>
     <string name="backup_queue_title">In progress</string>
+    <string name="backup_how_title">How backup works</string>
+    <string name="backup_how_body">“Backed up” means iCloud confirmed it received this exact file. Backing up never removes anything from your phone. Before Alba removes a phone copy, it downloads the photo from iCloud again and compares every byte.</string>
     <string name="cancel_uploads">Cancel uploads</string>
     <string name="free_up_space_title">Free up space</string>
     <string name="free_up_space_row">Remove backed-up photos and videos from this phone</string>
