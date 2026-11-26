@@ -5,7 +5,7 @@ Notes for coding agents and contributors. Product direction is in [VISION.md](VI
 ## Layout
 
 - `app`: the Compose UI (`ui/`), feature controllers and state holders, and the demo mode.
-- `engine`: the library, sync, uploads and backup, on Room and WorkManager.
+- `engine`: the library, sync, uploads and backup, on Room and WorkManager. The backup pipeline and what "Backed up" promises are in [docs/backup.md](docs/backup.md); read it before changing uploads or verification.
 - `protocol-icloud-web`: the iCloud web protocol (auth, CloudKit, Shared Albums).
 - `benchmark`: macrobenchmarks and the Baseline Profile.
 - `build-logic`: the Gradle conventions every module shares, including test JVM settings and managed devices.

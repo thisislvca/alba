@@ -274,8 +274,25 @@ interface TransferDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun acquireWriteSlot(slot: AccountWriteSlotEntity)
 
-    @Query("SELECT * FROM account_write_slots WHERE accountId = :accountId")
+    /** Any one of the account's write slots; null when none is held. */
+    @Query("SELECT * FROM account_write_slots WHERE accountId = :accountId ORDER BY acquiredAtEpochMillis LIMIT 1")
     suspend fun findWriteSlot(accountId: String): AccountWriteSlotEntity?
+
+    @Query("SELECT * FROM account_write_slots WHERE accountId = :accountId ORDER BY acquiredAtEpochMillis")
+    suspend fun findWriteSlots(accountId: String): List<AccountWriteSlotEntity>
+
+    @Query("SELECT COUNT(*) FROM account_write_slots WHERE accountId = :accountId")
+    suspend fun countWriteSlots(accountId: String): Int
+
+    /** Automatic items READY and not leased by an upload: what discovery has queued ahead of the uploads. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM transfers
+        WHERE accountId = :accountId AND state = 'READY' AND authorityType = 'AUTOMATIC'
+          AND (leaseExpiresAtEpochMillis IS NULL OR leaseExpiresAtEpochMillis < :now)
+        """,
+    )
+    suspend fun countQueuedAutomatic(accountId: String, now: Long): Int
 
     @Query("DELETE FROM account_write_slots WHERE accountId = :accountId AND attemptId = :attemptId")
     suspend fun releaseWriteSlot(accountId: String, attemptId: String): Int

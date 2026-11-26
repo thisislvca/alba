@@ -18,11 +18,15 @@ import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.StoredMessage
 import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
+import me.lvca.alba.engine.model.UploadReceipt
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
 
 /**
- * Looks for an uncertain upload in iCloud by exact bytes. One exact match verifies it; several, or none by the
+ * Looks for an upload in iCloud's change feed. With Apple's receipt for the sent bytes (the normal case), a pair matches
+ * when its CPLMaster's original has the receipt's size and checksum and its fingerprint is that checksum: nothing is
+ * downloaded, and the proof records the method RECEIPT. An attempt with no receipt (one from before receipts were kept)
+ * falls back to the [ByteCheck], downloading each candidate. One match verifies the upload; several, or none by the
  * deadline, end it unresolved and suppress the bytes so Alba never uploads them again.
  *
  * One case is not uncertain: an attempt Apple never accepted, whose write journal proves it never sent the request
@@ -38,6 +42,7 @@ internal class Reconciler(
     private val authority: AutomaticBackupAuthority,
     private val stages: UploadStages,
     private val now: () -> Long,
+    private val byteCheck: ByteCheck = ByteCheck(protocol),
 ) {
     private val transferDao = database.transferDao()
     private val verificationDao = database.verificationDao()
@@ -83,12 +88,22 @@ internal class Reconciler(
             return 0
         }
 
+        // Apple's receipt for the sent bytes: from the acceptance, or from the protocol's journal when the registration
+        // that followed it was lost.
+        val receipt = acceptance?.receipt ?: try {
+            protocol.uploadReceipt(binding, attemptId)
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+        val current = page.candidates.distinctBy { "${it.master.name}:${it.asset.name}" }
+            .filter { it.relationIsCurrent && !it.masterDeleted && !it.assetDeleted }
         val exactMatches = mutableListOf<RemotePairCandidate>()
-        for (pair in page.candidates.distinctBy { "${it.master.name}:${it.asset.name}" }) {
-            if (!pair.relationIsCurrent || pair.masterDeleted || pair.assetDeleted) continue
-            val sink = HashingOutputStream()
-            val observation = try {
-                protocol.streamFreshOriginal(binding, pair, sink)
+        if (receipt != null) exactMatches += current.filter { it.matchesReceipt(receipt, source.byteCount) }
+        // Without a receipt, each candidate is downloaded and compared byte for byte.
+        for (pair in current.takeIf { receipt == null }.orEmpty()) {
+            val checked = try {
+                byteCheck.compare(binding, pair, source.byteCount, source.sha256Hex)
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
                 transferDao.markReadFailure(
@@ -100,13 +115,7 @@ internal class Reconciler(
                 )
                 return 0
             }
-            if (sink.byteCount == source.byteCount &&
-                observation.byteCount == source.byteCount &&
-                sink.sha256Hex() == source.sha256Hex &&
-                observation.resourceIdentity == pair.originalResourceIdentity
-            ) {
-                exactMatches += pair
-            }
+            if (checked.matches) exactMatches += pair
         }
         persistReconciliationMatches(binding, attemptId, exactMatches)
         val allMatches = verificationDao.findReconciliationMatches(attemptId)
@@ -132,6 +141,7 @@ internal class Reconciler(
                 attempt,
                 source,
                 allMatches.single().toCandidate(),
+                if (receipt != null) VerificationProofEntity.METHOD_RECEIPT else VerificationProofEntity.METHOD_BYTES,
             )
             allMatches.isEmpty() && acceptance == null && protocol.registrationNeverSent(binding, attemptId) ->
                 retryProvenNotReceived(binding, transfer, attempt)
@@ -184,6 +194,7 @@ internal class Reconciler(
         attempt: UploadAttemptEntity,
         source: StagedSourceEntity,
         pair: RemotePairCandidate,
+        method: String,
     ) {
         val verifiedAt = now()
         val pairId = remotePairId(binding, pair)
@@ -218,6 +229,8 @@ internal class Reconciler(
                     verifiedAtEpochMillis = verifiedAt,
                     invalidatedAtEpochMillis = null,
                     invalidationReason = null,
+                    method = method,
+                    byteCheckedAtEpochMillis = verifiedAt.takeIf { method == VerificationProofEntity.METHOD_BYTES },
                 ),
             )
             check(transferDao.markVerified(transfer.transferId, attempt.attemptId, verifiedAt) == 1)
@@ -288,6 +301,7 @@ internal class Reconciler(
 
     private fun UploadAcceptanceEntity.toModel() = UploadAcceptance(
         requestUuid, masterRecordName, assetRecordName, duplicateHint, uploadJobId,
+        receipt = receiptByteCount?.let { size -> receiptFileChecksum?.let { UploadReceipt(size, it) } },
     )
 
     companion object {

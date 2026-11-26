@@ -13,3 +13,9 @@ internal const val RECONCILIATION_DEADLINE_MILLIS = 15 * 60 * 1_000L
 
 /** An attempt in these states holds the write slot while iCloud is checked; it is never uploaded again. */
 internal val RECONCILABLE_STATES = setOf(TransferState.OUTCOME_UNKNOWN, TransferState.RECONCILING, TransferState.READ_FAILURE)
+
+/**
+ * Uploads one account may have in flight at once. Each holds a write slot from arming until it is verified or resolved,
+ * and its own journal row, so a crash with several in flight recovers each on its own.
+ */
+internal const val MAX_UPLOADS_IN_FLIGHT = 3

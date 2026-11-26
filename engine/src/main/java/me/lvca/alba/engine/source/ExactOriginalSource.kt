@@ -24,6 +24,39 @@ data class ExactOriginalEvidence(
     val dateTakenEpochMillis: Long? = null,
 )
 
+/** What MediaStore says about an original opened in place, as staging records it for a copy. */
+data class InPlaceDescription(
+    val contentUri: String,
+    val displayName: String,
+    val lineageKey: String,
+    val sourceRevision: String,
+    val acquisitionMethod: String,
+    val originalFormatRequested: Boolean,
+    val unredacted: Boolean,
+    val lastModifiedAtEpochMillis: Long?,
+    val dateTakenEpochMillis: Long?,
+)
+
+/**
+ * A MediaStore original opened where it is, read in place rather than copied. [descriptor] is the open, seekable file
+ * itself, read by position for format checks and the capture time and never closed by readers; [openStream] reads it
+ * from the start; [isUnchanged] tells whether it still has the size and modification time it had when it was opened.
+ */
+class InPlaceOriginal(
+    val description: InPlaceDescription,
+    val byteCount: Long,
+    val descriptor: java.io.FileDescriptor,
+    private val stream: () -> java.io.InputStream,
+    private val unchanged: () -> Boolean,
+    private val release: () -> Unit,
+) : java.io.Closeable {
+    fun openStream(): java.io.InputStream = stream()
+
+    fun isUnchanged(): Boolean = unchanged()
+
+    override fun close() = release()
+}
+
 data class LocalDiscoveryCheckpoint(
     val volumeName: String,
     val volumeVersion: String,
@@ -80,6 +113,14 @@ interface ExactOriginalSource {
         contentUri: String,
         expectedRevision: String,
     ): ExactOriginalEvidence
+
+    /**
+     * Opens a MediaStore item's exact original where it is, so it can be checked and uploaded without a private copy.
+     * Refuses when its revision is no longer [expectedRevision] (any revision when blank). Null when this source cannot
+     * open it reliably as a regular file for random access; the caller then stages a private copy instead. The caller
+     * closes it.
+     */
+    suspend fun openInPlace(contentUri: String, expectedRevision: String): InPlaceOriginal? = null
 
     fun permissionFingerprint(): String
 

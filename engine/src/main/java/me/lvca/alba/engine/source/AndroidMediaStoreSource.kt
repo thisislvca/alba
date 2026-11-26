@@ -9,8 +9,11 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.provider.Settings
+import android.system.Os
+import android.system.OsConstants
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
@@ -80,6 +83,80 @@ class AndroidMediaStoreSource(
         expectedRevision = expectedRevision,
         output = DISCARDING_OUTPUT,
     )
+
+    /**
+     * Opens the exact original's descriptor, as [copyMediaStoreItem] reads it, and keeps it open; every read goes through
+     * that descriptor, by position or from the start. Only a regular file is offered: a pipe or socket (a transcoded or
+     * provider-served stream) cannot be read twice, so it is staged instead. A change is seen by the descriptor's size
+     * and modification time, and by MediaStore's revision (generation and size) and DATE_MODIFIED.
+     */
+    override suspend fun openInPlace(contentUri: String, expectedRevision: String): InPlaceOriginal? = withContext(Dispatchers.IO) {
+        val uri = contentUri.toUri()
+        if (uri.authority != MediaStore.AUTHORITY) return@withContext null
+        val before = readSourceMetadata(uri, displayNameHint = null)
+        if (expectedRevision.isNotBlank()) {
+            require(before.revision == expectedRevision) { StoredMessage.THIS_PHOTO_CHANGED_BEFORE_IT_COULD_BE_STAGED.code }
+        }
+        val originalFormatRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        val descriptor = try {
+            openExactDescriptor(MediaStore.setRequireOriginal(uri), originalFormatRequested)
+        } catch (error: SecurityException) {
+            throw IllegalStateException(StoredMessage.ANDROID_DID_NOT_GRANT_ACCESS_TO_THE_EXACT_ORIGINAL.code, error)
+        } ?: return@withContext null
+        val opened = runCatching { Os.fstat(descriptor.fileDescriptor) }.getOrNull()
+            ?.takeIf { OsConstants.S_ISREG(it.st_mode) && it.st_size > 0L }
+        if (opened == null) {
+            descriptor.close()
+            return@withContext null
+        }
+        InPlaceOriginal(
+            description = InPlaceDescription(
+                contentUri = uri.toString(),
+                displayName = before.displayName,
+                lineageKey = before.lineageKey,
+                sourceRevision = before.revision,
+                acquisitionMethod = "MEDIA_STORE_IN_PLACE",
+                originalFormatRequested = originalFormatRequested,
+                unredacted = has(Manifest.permission.ACCESS_MEDIA_LOCATION),
+                lastModifiedAtEpochMillis = before.lastModifiedAtEpochMillis,
+                dateTakenEpochMillis = before.dateTakenEpochMillis,
+            ),
+            byteCount = opened.st_size,
+            descriptor = descriptor.fileDescriptor,
+            stream = {
+                Os.lseek(descriptor.fileDescriptor, 0L, OsConstants.SEEK_SET)
+                // Closing the stream must not close the descriptor, which the original still uses.
+                object : java.io.FilterInputStream(java.io.FileInputStream(descriptor.fileDescriptor)) {
+                    override fun close() = Unit
+                }
+            },
+            unchanged = {
+                val now = runCatching { Os.fstat(descriptor.fileDescriptor) }.getOrNull()
+                val listed = readSourceMetadata(uri, displayNameHint = null)
+                now != null && now.st_size == opened.st_size && now.st_mtime == opened.st_mtime &&
+                    listed.revision == before.revision && listed.lastModifiedAtEpochMillis == before.lastModifiedAtEpochMillis
+            },
+            release = { descriptor.close() },
+        )
+    }
+
+    private fun openExactDescriptor(uri: Uri, originalFormatRequested: Boolean): ParcelFileDescriptor? {
+        if (!originalFormatRequested || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return resolver.openFileDescriptor(uri, "r")
+        val asset = resolver.openTypedAssetFileDescriptor(
+            uri,
+            "*/*",
+            Bundle().apply { putBoolean(MediaStore.EXTRA_ACCEPT_ORIGINAL_MEDIA_FORMAT, true) },
+        ) ?: return null
+        // Only the whole file: a slice of a larger one is not an original that can be read in place.
+        val length = asset.declaredLength
+        if (asset.startOffset != 0L ||
+            (length != android.content.res.AssetFileDescriptor.UNKNOWN_LENGTH && length != asset.parcelFileDescriptor.statSize)
+        ) {
+            asset.close()
+            return null
+        }
+        return asset.parcelFileDescriptor
+    }
 
     override fun permissionFingerprint(): String {
         val imageAccess = when {

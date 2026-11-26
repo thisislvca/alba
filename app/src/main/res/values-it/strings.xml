@@ -229,6 +229,7 @@
     <string name="message_this_backup_setup_was_already_completed">Il backup è già configurato</string>
     <string name="message_this_photo_changed_before_it_could_be_staged">Questa foto è cambiata prima di poter essere preparata per il caricamento.</string>
     <string name="message_this_photo_changed_while_it_was_being_staged">Questa foto è cambiata mentre veniva preparata per il caricamento.</string>
+    <string name="message_this_photo_changed_while_it_was_being_uploaded">Questa foto è cambiata durante il caricamento. Riprova per caricare la nuova versione.</string>
     <string name="message_this_photo_does_not_have_a_current_exact_icloud_proof">Non è confermato che il backup di questa foto su iCloud sia stato eseguito.</string>
     <string name="message_this_photo_has_no_motion_clip">Questa foto non ha il video di una Live Photo.</string>
     <string name="message_this_photo_is_no_longer_available_on_the_phone">Questa foto non è più sul telefono</string>
@@ -970,6 +971,8 @@
     <string name="backup_progress">Backup: %1$,d di %2$,d</string>
     <string name="backup_last_backed_up">Ultimo backup: %1$s</string>
     <string name="backup_queue_title">In corso</string>
+    <string name="backup_how_title">Come funziona il backup</string>
+    <string name="backup_how_body">“Backup eseguito” significa che iCloud ha confermato di aver ricevuto esattamente questo file. Il backup non rimuove mai nulla dal telefono. Prima di rimuovere una copia dal telefono, Alba scarica di nuovo la foto da iCloud e confronta ogni byte.</string>
     <string name="cancel_uploads">Annulla caricamenti</string>
     <string name="free_up_space_title">Libera spazio</string>
     <string name="free_up_space_row">Rimuovi da questo telefono foto e video con backup eseguito</string>

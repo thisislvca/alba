@@ -5,6 +5,7 @@ import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.PreparedICloudUpload
 import me.lvca.alba.engine.model.UploadAcceptance
+import me.lvca.alba.engine.model.UploadReceipt
 import me.lvca.alba.protocol.account.AppleSessionSnapshot
 import me.lvca.alba.protocol.auth.AppleProtocolError
 import me.lvca.alba.protocol.auth.AppleProtocolException
@@ -158,6 +159,7 @@ internal class PhotosUpload(
                 ?: malformed("Apple returned no asset record name"),
             duplicateHint = status == 409,
             uploadJobId = result.text("uploadJobId")?.takeIf(String::isNotBlank),
+            receipt = receiptOf(saved["receipt"] as? JsonObject),
         )
         save("ACCEPTED", mapOf("result" to result))
         return acceptance
@@ -230,6 +232,13 @@ internal class PhotosUpload(
 
         /** The whole-hour offsets the Etc/GMT zones name, UTC-12 to UTC+14. */
         private val FIXED_ZONE_HOURS = -12..14
+
+        /** The size and checksum Apple's content store reported in a saved `singleFile` receipt; null when incomplete. */
+        internal fun receiptOf(receipt: JsonObject?): UploadReceipt? {
+            val size = (receipt?.get("size") as? JsonPrimitive)?.longOrNull ?: return null
+            val checksum = receipt.text("fileChecksum")?.takeIf(String::isNotBlank) ?: return null
+            return UploadReceipt(size, checksum)
+        }
 
         val RESUMABLE = setOf("RESERVING", "RESERVED", "RECEIPT_SAVED", "ACCEPTED")
 

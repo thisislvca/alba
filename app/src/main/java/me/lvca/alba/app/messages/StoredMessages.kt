@@ -107,6 +107,7 @@ private fun secondMessageResources(message: StoredMessage): Int? = when (message
     StoredMessage.UPLOAD_STAGE_FAILED -> R.string.upload_stage_failed
     StoredMessage.ALBA_CURRENTLY_UPLOADS_JPEG_ORIGINALS_ONLY -> R.string.message_alba_currently_uploads_jpeg_originals_only
     StoredMessage.THIS_PHOTO_CHANGED_WHILE_IT_WAS_BEING_STAGED -> R.string.message_this_photo_changed_while_it_was_being_staged
+    StoredMessage.THIS_PHOTO_CHANGED_WHILE_IT_WAS_BEING_UPLOADED -> R.string.message_this_photo_changed_while_it_was_being_uploaded
     StoredMessage.THE_SELECTED_PHOTO_WAS_EMPTY -> R.string.message_the_selected_photo_was_empty
     StoredMessage.ANDROID_COULD_NOT_OPEN_THIS_PHOTO -> R.string.message_android_could_not_open_this_photo
     StoredMessage.ACCOUNT_CHANGED_DURING_EDIT_REFRESH_TO_CHECK_THE_RESULT -> R.string.message_account_changed_during_edit_refresh_to_check_the_result

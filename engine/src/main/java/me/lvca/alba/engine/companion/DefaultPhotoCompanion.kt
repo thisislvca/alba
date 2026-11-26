@@ -74,8 +74,8 @@ class DefaultPhotoCompanion(
     private val accounts = AccountBindingSync(database, protocol, scheduler, stages, now)
     private val authority = AutomaticBackupAuthority(database, originals, automaticBackupPolicy)
     private val intake = TransferIntake(database, originals, staging, scheduler, accounts, authority, now)
-    private val invoker = UploadInvoker(database, staging, protocol, scheduler, accounts, authority, now, stages,
-        ExistingCopyCheck(protocol, cloudLibrary, now), protocolStatus)
+    private val invoker = UploadInvoker(database, UploadOriginals(staging, InPlaceOriginals(originals), intake::restage), protocol,
+        scheduler, accounts, authority, now, stages, ExistingCopyCheck(protocol, cloudLibrary, now), protocolStatus)
     private val reconciler = Reconciler(database, originals, protocol, authority, stages, now)
     private val enrollment = BackupEnrollment(database, originals, scheduler, now, automaticBackupPolicy, accounts, stages, protocolStatus)
     private val trash = VerifiedPhotoTrash(database, originals, protocol, scheduler, now, accounts, elapsedRealtime)
@@ -113,15 +113,18 @@ class DefaultPhotoCompanion(
             if (invoker.isStoragePaused(account.accountId)) return
             // Uploads are paused remotely: the queue stays as it is and continues on the next run after the pause.
             if (invoker.isProtocolPaused()) return
-            val slot = transferDao.findWriteSlot(account.accountId)
-            if (slot != null) {
-                val attempt = transferDao.findAttempt(slot.attemptId) ?: return
-                val transfer = transferDao.findTransfer(attempt.transferId) ?: return
-                if (transfer.state == TransferState.SENDING) throw java.io.IOException("Upload interrupted; waiting for the transfer runner to retry")
-                if (transfer.state !in RECONCILABLE_STATES) return
-                // Verification may temporarily hold the write slot. Keep the platform
-                // job alive for the queued manual files without replaying that upload.
-                kotlinx.coroutines.delay(((transfer.reconciliationDueAtEpochMillis ?: now()) - now()).coerceIn(1_000L, 15_000L))
+            val held = transferDao.findWriteSlots(account.accountId).mapNotNull { slot ->
+                transferDao.findAttempt(slot.attemptId)?.let { transferDao.findTransfer(it.transferId) }
+            }
+            if (held.any { it.state == TransferState.SENDING }) throw java.io.IOException("Upload interrupted; waiting for the transfer runner to retry")
+            val checking = held.filter { it.state in RECONCILABLE_STATES }
+            if (checking.isNotEmpty() && (held.size >= MAX_UPLOADS_IN_FLIGHT || summary.invokedTransfers == 0)) {
+                // Verification may temporarily hold write slots. Keep the platform
+                // job alive for the queued manual files without replaying those uploads.
+                val due = checking.minOf { it.reconciliationDueAtEpochMillis ?: now() }
+                kotlinx.coroutines.delay((due - now()).coerceIn(1_000L, 15_000L))
+            } else if (held.isNotEmpty() && checking.isEmpty() && summary.invokedTransfers == 0) {
+                return
             } else if (summary.invokedTransfers == 0) {
                 // An upload proven not received waits out its backoff; keep the job alive rather than failing it.
                 val retryAt = transferDao.earliestRetryDue(account.accountId, now(), allowAutomatic = false)
@@ -177,17 +180,21 @@ class DefaultPhotoCompanion(
         // Verification only reads, so it continues while uploads are paused remotely; nothing new is sent or staged.
         val uploadsPaused = invoker.isProtocolPaused()
 
-        // Whether another upload could start now: the write slot is free, iCloud has space and uploads are not paused.
-        suspend fun mayStartUpload() =
-            !uploadsPaused && transferDao.findWriteSlot(binding.accountId) == null && !invoker.isStoragePaused(binding.accountId)
-        // Nothing new is staged while no upload could start: it could not upload anyway.
-        val stagedAutomatic = if (allowAutomatic && mayStartUpload()) {
-            intake.discoverAndStageAutomatic(binding)
+        // Whether another upload could start now: a write slot is free, iCloud has space and uploads are not paused.
+        suspend fun mayStartUpload() = !uploadsPaused && invoker.freeSlots(binding) > 0
+        // Up to three uploads at once; discovery stages the next items while they upload. Nothing new is staged while
+        // no upload could start: it could not upload anyway.
+        val round = if (uploadsPaused) {
+            UploadInvoker.Round(0, 0)
         } else {
-            0
+            invoker.runRound(binding, allowManual, allowAutomatic) {
+                if (allowAutomatic) intake.discoverAndStageAutomatic(binding) else 0
+            }
         }
-        val invoked = invoker.invokeOne(binding, allowManual, allowAutomatic)
-        if (invoked > 0) reconciled += reconciler.reconcileOne(binding)
+        val stagedAutomatic = round.staged
+        val invoked = round.invoked
+        // Each upload just sent is matched by its receipt now, rather than on the next pass.
+        repeat(invoked) { reconciled += reconciler.reconcileOne(binding) }
         val dueAt = listOfNotNull(
             transferDao.earliestReconciliationDue(binding.accountId, now(), authority.mayUseNetwork()),
             transferDao.earliestRetryDue(binding.accountId, now(), allowAutomatic = authority.mayBackUp(), allowManual = false),

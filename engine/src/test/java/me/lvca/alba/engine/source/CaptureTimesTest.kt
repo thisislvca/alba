@@ -75,6 +75,19 @@ class CaptureTimesTest {
     }
 
     @Test
+    fun aVideoOpenedInPlaceIsDatedThroughItsDescriptorAlone() {
+        val created = OffsetDateTime.parse("2024-03-10T18:00:00Z").toInstant().epochSecond
+        val file = mp4(folder.newFile("in-place.mp4"), created, version = 1, mdatFirst = true)
+        // As MediaStore hands it over: an open descriptor, and no path the app could open again.
+        java.io.RandomAccessFile(file, "r").use { open ->
+            check(file.delete())
+            open.seek(3)
+            assertEquals(CaptureTime(created * 1_000), CaptureTimes.read(open.fd, "video/mp4", 5, 9))
+            assertEquals("Read by position: the descriptor's own position is left alone", 3L, open.filePointer)
+        }
+    }
+
+    @Test
     fun aVideoWithAnUnsetCreationTimeFallsBackToMediaStore() {
         val unset = mp4(folder.newFile("unset.mp4"), createdEpochSeconds = null, version = 0, mdatFirst = false)
         assertEquals(CaptureTime(5), CaptureTimes.read(unset, "video/mp4", dateTakenEpochMillis = 5, dateModifiedEpochMillis = 9))

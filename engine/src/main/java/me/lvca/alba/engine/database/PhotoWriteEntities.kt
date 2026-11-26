@@ -134,6 +134,14 @@ data class UploadAcceptanceEntity(
     val duplicateHint: Boolean?,
     val receivedAtEpochMillis: Long,
     val uploadJobId: String? = null,
+    /** The size Apple's content store reported receiving, from the upload receipt; null for acceptances before schema 24. */
+    val receiptByteCount: Long? = null,
+    /** Apple's checksum of the received bytes, from the upload receipt; the new CPLMaster must carry the same one. */
+    val receiptFileChecksum: String? = null,
+    /** How many bytes Alba sent, counted as they were read for the request; null when they went before a restart. */
+    val sentByteCount: Long? = null,
+    /** SHA-256 of exactly the bytes sent, hashed as they were read for the request; null as for [sentByteCount]. */
+    val sentSha256Hex: String? = null,
 )
 
 @Entity(tableName = "upload_uncertainties")
@@ -143,10 +151,11 @@ data class UploadUncertaintyEntity(
     val observedAtEpochMillis: Long,
 )
 
-@Entity(tableName = "account_write_slots")
+/** A write slot an attempt holds from arming until it is verified or resolved; an account has a few at most. */
+@Entity(tableName = "account_write_slots", indices = [Index(value = ["accountId"])])
 data class AccountWriteSlotEntity(
-    @PrimaryKey val accountId: String,
-    val attemptId: String,
+    val accountId: String,
+    @PrimaryKey val attemptId: String,
     val authEpoch: Long,
     val acquiredAtEpochMillis: Long,
 )
@@ -242,7 +251,29 @@ data class VerificationProofEntity(
     val verifiedAtEpochMillis: Long,
     val invalidatedAtEpochMillis: Long?,
     val invalidationReason: String?,
-)
+    /**
+     * How the iCloud copy was proven: [METHOD_RECEIPT] when Apple's receipt for the sent bytes matched the new record,
+     * [METHOD_BYTES] when Alba downloaded the iCloud original and compared every byte. Proofs before schema 24 were all
+     * byte comparisons.
+     */
+    @androidx.room.ColumnInfo(defaultValue = "'BYTES'") val method: String = METHOD_BYTES,
+    /** When the last byte check of this proof passed; null for a receipt proof not yet byte-checked. */
+    val byteCheckedAtEpochMillis: Long? = null,
+) {
+    companion object {
+        /** Apple's receipt for the exact bytes sent matched the CPLMaster's original size, checksum and fingerprint. */
+        const val METHOD_RECEIPT = "RECEIPT"
+
+        /** The iCloud original was downloaded and every byte compared with the phone's. */
+        const val METHOD_BYTES = "BYTES"
+
+        /**
+         * Set as [invalidationReason] when the byte check before a deletion found the iCloud original differs from the
+         * phone's: the proof no longer counts, so the phone copy is kept and never offered for deletion again.
+         */
+        const val BYTE_CHECK_FAILED = "BYTE_CHECK_FAILED"
+    }
+}
 
 @Entity(
     tableName = "upload_suppressions",

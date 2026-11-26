@@ -40,6 +40,24 @@ interface VerificationDao {
     )
     suspend fun findCurrentProof(mediaId: String, accountId: String): VerificationProofEntity?
 
+    /** The byte check passed: the proof is now a byte comparison, checked at [checkedAt]. */
+    @Query(
+        """
+        UPDATE verification_proofs SET method = 'BYTES', byteCheckedAtEpochMillis = :checkedAt
+        WHERE proofId = :proofId AND invalidatedAtEpochMillis IS NULL
+        """,
+    )
+    suspend fun markByteChecked(proofId: String, checkedAt: Long): Int
+
+    /** The byte check found the iCloud original differs: the proof stops counting, with the reason kept. */
+    @Query(
+        """
+        UPDATE verification_proofs SET invalidatedAtEpochMillis = :failedAt, invalidationReason = :reason
+        WHERE proofId = :proofId AND invalidatedAtEpochMillis IS NULL
+        """,
+    )
+    suspend fun invalidateProof(proofId: String, failedAt: Long, reason: String): Int
+
     @Query("SELECT * FROM verification_proofs WHERE proofId = :proofId")
     suspend fun findProof(proofId: String): VerificationProofEntity?
 

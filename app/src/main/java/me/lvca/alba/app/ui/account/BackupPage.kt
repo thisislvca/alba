@@ -124,6 +124,11 @@ internal fun BackupPage(
         BackupSettingsCard(transfers, backup.enabled && backup.scope == BackupScope.CAMERA_MEDIA, actions, onNavigate)
     }
 
+    if (!demo) {
+        Spacer(Modifier.height(AlbaSpacing.xl))
+        HowBackupWorks()
+    }
+
     if (backup.enabled) {
         Spacer(Modifier.height(AlbaSpacing.lg))
         OutlinedButton(onClick = actions::disableAutomaticBackup, modifier = Modifier.fillMaxWidth().testTag("backup-turn-off")) {
@@ -131,6 +136,17 @@ internal fun BackupPage(
         }
     }
     if (demo) DemoControls(session, transfers, actions)
+}
+
+/** What "Backed up" means, and the byte check before a phone copy is removed; docs/backup.md has the details. */
+@Composable
+private fun HowBackupWorks() {
+    AlbaListGroup(Modifier.testTag("backup-how-it-works"), title = stringResource(R.string.backup_how_title)) {
+        AlbaListItem {
+            Text(stringResource(R.string.backup_how_body), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 /** On or off, the status and why backup waits, progress, the last backup, and the one action that helps. */
