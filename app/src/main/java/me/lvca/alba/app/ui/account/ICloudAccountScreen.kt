@@ -216,6 +216,7 @@ private fun AccountPage(
             page == ProfilePage.BACKUP_FOLDERS -> DeviceFoldersPage(transfers, actions)
             page == ProfilePage.FREE_UP_SPACE -> FreeUpSpacePage(transfers, actions)
             page == ProfilePage.PHONE -> PhoneStorageDetails(phoneStorage, busy = mediaBusy || busy, actions)
+            page == ProfilePage.PERMISSIONS -> PermissionsPage(actions::requestDevicePhotos)
             page == ProfilePage.ACTIVATION && signedIn != null -> PhotosNotEnabledAccount(
                 signedIn.appleId, session.accountInfo.checking || busy, actions::checkConnection, actions::signOut,
             )

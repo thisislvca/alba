@@ -300,6 +300,11 @@ class DefaultPhotoCompanion(
             }
         }
 
+        override suspend fun accessChanged() {
+            enrollment.recheckAccess()
+            backupSettingsChanged()
+        }
+
         override suspend fun retryAfterStorageFull() {
             val binding = accounts.requireActive()
             transferDao.clearUploadPause(binding.accountId)
