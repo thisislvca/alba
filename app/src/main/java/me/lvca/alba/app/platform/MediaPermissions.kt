@@ -27,6 +27,10 @@ internal fun requestedDevicePhotoPermissions(sdkInt: Int): List<String> = buildL
 internal fun hasDevicePhotoAccess(sdkInt: Int, granted: (String) -> Boolean): Boolean =
     devicePhotoReadPermissions(sdkInt).any(granted)
 
+/** Every photo on the phone is readable, as automatic backup needs: the engine's "full" access. */
+internal fun hasFullPhotoAccess(sdkInt: Int, granted: (String) -> Boolean): Boolean =
+    granted(if (sdkInt >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE)
+
 /** Android 14's partial access: only photos the user picked are readable. */
 internal fun hasLimitedPhotoAccess(sdkInt: Int, granted: (String) -> Boolean): Boolean =
     sdkInt >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !granted(Manifest.permission.READ_MEDIA_IMAGES) &&
@@ -39,19 +43,23 @@ internal fun hasLimitedPhotoAccess(sdkInt: Int, granted: (String) -> Boolean): B
 internal fun photoPromptBlocked(anyGranted: Boolean, showRationale: Boolean): Boolean = !anyGranted && !showRationale
 
 /**
- * Remembers that Android no longer shows the photo prompt, so asking again opens Alba's settings page instead of a
- * request that does nothing. Cleared once access is granted.
+ * Remembers which of Android's prompts it no longer shows, so asking again opens Alba's settings page instead of a
+ * request that does nothing. Each is cleared once its prompt is answered with a grant.
  */
-internal class PhotoPromptPreferences(context: Context) {
+internal class PermissionPromptPreferences(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
-    var blocked: Boolean
-        get() = preferences.getBoolean(BLOCKED, false)
-        set(value) { preferences.edit { putBoolean(BLOCKED, value) } }
+    fun blocked(prompt: String): Boolean = preferences.getBoolean(key(prompt), false)
 
-    private companion object {
-        const val FILE = "alba-permissions"
-        const val BLOCKED = "photo-prompt-blocked"
+    fun setBlocked(prompt: String, blocked: Boolean) = preferences.edit { putBoolean(key(prompt), blocked) }
+
+    companion object {
+        /** The photo prompt, which asks for the photo and video permissions together. */
+        const val PHOTOS = "photo"
+        private const val FILE = "alba-permissions"
+
+        /** "photo-prompt-blocked" for the photo prompt, as before other prompts were remembered. */
+        private fun key(prompt: String) = "$prompt-prompt-blocked"
     }
 }
 

@@ -4,7 +4,9 @@ import android.Manifest
 import android.os.Build
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.withLock
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.BackupEnrollmentDraftEntity
@@ -38,11 +40,18 @@ internal class BackupEnrollment(
     private val backupDao = database.backupDao()
     private val transferDao = database.transferDao()
 
+    /** Bumped when Android's access may have changed, so [observeBackup] reads it again. */
+    private val accessChecks = MutableStateFlow(0)
+
+    /** Android's photo or location access may have changed: the backup status reads it again. */
+    fun recheckAccess() = accessChecks.update { it + 1 }
+
     fun observeBackup(): Flow<BackupView> = combine(
         backupDao.observeBackup(),
         transferDao.observeActiveUploadPause(),
         protocolStatus.pauses,
-    ) { row, pause, remote ->
+        accessChecks,
+    ) { row, pause, remote, _ ->
         val storageFullSince = pause?.takeIf { it.reason == StoredMessage.ICLOUD_STORAGE_FULL.code && it.retryAtEpochMillis > now() }
             ?.pausedAtEpochMillis
         val protocolPause = remote.firstOrNull { ProtocolArea.UPLOADS in it.areas }

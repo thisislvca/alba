@@ -72,6 +72,18 @@ internal class BackupController(
         if (left.isNotEmpty() && savedState.get<String>(FREE_UP_ATTEMPT) == null) freeUp.update { it.copy(leftover = left.size) }
     }
 
+    /** Android's photo or location access changed while Alba ran: backup's status reads it again, and backup resumes. */
+    fun backupAccessChanged() {
+        if (isDemo()) return
+        scope.launch {
+            try { withContext(Dispatchers.IO) { photos.backup.accessChanged() } } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (expected: Exception) {
+                // The next status change reads access again.
+            }
+        }
+    }
+
     /** Counts how much of what backup covers is verified. Cheap enough to run when the Backup page shows. */
     fun refreshBackupStatus() {
         if (isDemo()) return
