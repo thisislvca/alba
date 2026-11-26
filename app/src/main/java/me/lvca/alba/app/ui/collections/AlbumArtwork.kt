@@ -206,12 +206,18 @@ private fun UnreadDot(albumId: String, modifier: Modifier) {
         .semantics { contentDescription = label }.testTag("unread-$albumId"))
 }
 
+/**
+ * The albums [SharedAlbumsStrip] shows: an empty album would only be a grey card above the photos, so it stays in
+ * Collections > Shared albums. Newest activity first, as Photos lists shared albums. Until [summaries] are counted
+ * there are none, and the strip takes no space.
+ */
+internal fun sharedStripAlbums(albums: List<GalleryCollection>, summaries: Map<String, CollectionPreview>): List<GalleryCollection> =
+    byRecentActivity(albums.filter { (summaries[it.id]?.count ?: 0) > 0 }, summaries)
+
 @Composable
 internal fun SharedAlbumsStrip(albums: List<GalleryCollection>, summaries: Map<String, CollectionPreview>, retry: Int,
     preview: (String) -> Unit, open: (String) -> Unit, seeAll: () -> Unit) {
-    // An empty album would only be a grey card above the photos; it stays in Collections > Shared albums.
-    // Newest activity first, as Photos lists shared albums.
-    val shown = byRecentActivity(albums.filter { (summaries[it.id]?.count ?: 0) > 0 }, summaries)
+    val shown = sharedStripAlbums(albums, summaries)
     if (shown.isEmpty()) return
     Column(Modifier.padding(bottom = 18.dp).testTag("shared-albums-strip")) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

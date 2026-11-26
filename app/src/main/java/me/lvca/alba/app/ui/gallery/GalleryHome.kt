@@ -75,6 +75,7 @@ import me.lvca.alba.app.ui.collections.SharedAlbumsStrip
 import me.lvca.alba.app.ui.collections.icon
 import me.lvca.alba.app.ui.collections.isPersonal
 import me.lvca.alba.app.ui.collections.rememberCollectionPreviews
+import me.lvca.alba.app.ui.collections.sharedStripAlbums
 import me.lvca.alba.app.ui.currentLocale
 import me.lvca.alba.app.ui.dateLabel
 import me.lvca.alba.app.ui.designsystem.AlbaBottomSheet
@@ -220,6 +221,7 @@ internal fun GalleryHome(
     val unhidden = remember(gallery.catalogItems) { gallery.catalogItems.filterNot { it.isHidden } }
     val summaries = key(identity) { rememberCollectionPreviews(unhidden, gallery.collections) }
     val sharedAlbums = remember(gallery.collections) { gallery.collections.filter { it.shared != null } }
+    val sharedStripShows = remember(sharedAlbums, summaries) { sharedStripAlbums(sharedAlbums, summaries).isNotEmpty() }
     fun switchTab(next: GalleryTab) {
         if (next == tab) return
         when (tab) {
@@ -652,6 +654,9 @@ internal fun GalleryHome(
                                 SharedAlbumsStrip(sharedAlbums, summaries, previewRetryVersion, actions::requestPreview, ::openShared,
                                     seeAll = { libraryQuery = gallery.query; tab = GalleryTab.COLLECTIONS; collectionsPage = CollectionsPage.SHARED; actions.clearSelection(); actions.changeQuery(GalleryQuery()) })
                             }) else if (cloudTrash) ({ RecentlyDeletedNote() }) else null,
+                            // The strip takes space only once the album previews are counted, which can be well after
+                            // the first photos show; its arrival reflows the grid, which must not slide photos over it.
+                            leadingShape = sharedStripShows.takeIf { !hero && searchAlbums.isEmpty() && showSharedStrip },
                         )
                     }
                     if (shown.tab == GalleryTab.COLLECTIONS && splitCollections) {
@@ -845,6 +850,20 @@ internal data class PhotoCounts(
 )
 
 /**
+ * Whether the grid's tiles animate their placement: only photos arriving or leaving slide. Headers and the items above
+ * the photos move at once, so when anything else reflows the grid, sliding tiles would lag behind them and draw over
+ * the rows that pushed them. A change of any of [layout] (the level, the whole library replacing the first screen's
+ * newest photos, the leading item changing size as the Shared Albums strip does once its previews are counted, a note
+ * above the photos coming or going) lays the grid out at once, and placement animates again from two frames later.
+ */
+@Composable
+private fun rememberPlacementAnimates(vararg layout: Any?): State<Boolean> {
+    val animates = remember(*layout) { mutableStateOf(false) }
+    LaunchedEffect(*layout) { withFrameNanos {}; withFrameNanos {}; animates.value = true }
+    return animates
+}
+
+/**
  * A grid of photos grouped by month, and by day from the [GridLevel.DAY] level up. Takes the lists it shows rather
  * than the whole gallery state, and remembers everything derived from them, so a message or progress change does not
  * redo that work. Pinching morphs live into the neighbouring level (see [GridPinch]).
@@ -869,6 +888,7 @@ private fun PhotoGrid(
     onDismissPermissionPrompt: () -> Unit,
     actions: BrowseActions,
     leading: (@Composable () -> Unit)? = null,
+    leadingShape: Any? = null,
     flat: Boolean = false,
     onAddMedia: (() -> Unit)? = null,
 ) {
@@ -932,9 +952,8 @@ private fun PhotoGrid(
         pinch.level = level; pinch.grid = grid; pinch.reducedMotion = reducedMotion
         pinch.mediaKeys = positions.keys; pinch.indexIn = gridIndexOf; pinch.commit = onLevelChange
     }
-    // A level change lays the grid out afresh at its anchor; animating every tile's placement would fight that.
-    var placementAnimates by remember(level) { mutableStateOf(false) }
-    LaunchedEffect(level) { withFrameNanos {}; withFrameNanos {}; placementAnimates = true }
+    val placementAnimates by rememberPlacementAnimates(level, counts.loaded, leading != null, leadingShape,
+        showPermissionPrompt, counts.libraryPreparing != null)
     val checkboxEnter = if (reducedMotion) EnterTransition.None else
         scaleIn(tween(GalleryFeel.SELECTION_MODE_MILLIS, easing = FastOutSlowInEasing)) +
             fadeIn(tween(GalleryFeel.CHECK_FADE_IN_MILLIS, delayMillis = GalleryFeel.CHECK_FADE_IN_DELAY_MILLIS))
