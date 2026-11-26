@@ -42,6 +42,42 @@ class AlbaDatabaseMigrationTest {
     }
 
     @Test
+    fun schemaTwentyFourStartsHealingUncertainUploadsAndGivesBackTheirWriteSlots() = runBlocking {
+        helper.createDatabase(DATABASE_NAME, 24).use { db ->
+            db.insertTransfer("ambiguous", "AMBIGUOUS", "attempt-a", "more_than_one_exact_icloud_copy_matched_alba_will_not_upload_again")
+            db.insertTransfer("rejected", "NOT_OBSERVED", "attempt-r", "upload_processing_failed")
+            db.insertTransfer("checking", "RECONCILING", "attempt-c", null)
+            db.execSQL("INSERT INTO account_write_slots VALUES ('account', 'attempt-a', 1, 40)")
+            db.execSQL("INSERT INTO account_write_slots VALUES ('account', 'attempt-c', 1, 40)")
+        }
+        helper.runMigrationsAndValidate(DATABASE_NAME, 25, true, AlbaDatabase.MIGRATION_24_25).use { db ->
+            db.query("SELECT transferId, unresolvedSinceEpochMillis, failureReason FROM transfers ORDER BY transferId").use { cursor ->
+                val rows = buildList { while (cursor.moveToNext()) add(Triple(cursor.getString(0), cursor.getLongOrNull(1), cursor.getString(2))) }
+                assertEquals(
+                    listOf(Triple("ambiguous", 77L, null), Triple("checking", null, null), Triple("rejected", 77L, "ICLOUD_REJECTED")),
+                    rows,
+                )
+            }
+            db.query("SELECT attemptId FROM account_write_slots").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Only the upload still being checked keeps its slot", "attempt-c", cursor.getString(0))
+                assertFalse(cursor.moveToNext())
+            }
+        }
+    }
+
+    private fun androidx.sqlite.db.SupportSQLiteDatabase.insertTransfer(id: String, state: String, attemptId: String, message: String?) {
+        execSQL(
+            "INSERT INTO transfers (transferId, stagedSourceId, accountId, authEpoch, operationFence, authorityType, authorityId, " +
+                "displayName, state, stateVersion, activeAttemptId, createdAtEpochMillis, updatedAtEpochMillis, message) " +
+                "VALUES (?, ?, 'account', 1, 1, 'AUTOMATIC', 'enrollment', 'IMG.jpg', ?, 1, ?, 70, 77, ?)",
+            arrayOf<Any?>(id, "source-$id", state, attemptId, message),
+        )
+    }
+
+    private fun android.database.Cursor.getLongOrNull(index: Int): Long? = if (isNull(index)) null else getLong(index)
+
+    @Test
     fun schemaTwentyThreeKeepsProofsAsByteChecksAndLetsAnAccountHoldSeveralWriteSlots() = runBlocking {
         helper.createDatabase(DATABASE_NAME, 23).use { db ->
             db.execSQL(

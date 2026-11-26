@@ -30,6 +30,7 @@ import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.DeviceFolder
 import me.lvca.alba.engine.model.PhotoCompanion
 import me.lvca.alba.engine.model.StoredMessage
+import me.lvca.alba.engine.model.TransferId
 
 /** Saved so Android's answer to a verified trash request reaches its attempt after recreation. */
 internal const val TRASH_ATTEMPT_KEY = "verifiedTrashAttempt"
@@ -136,6 +137,40 @@ internal class BackupController(
                 throw cancelled
             } catch (expected: Exception) {
                 messages.show(expected.toUserMessage(R.string.message_could_not_finish_pending_photo_work))
+            }
+        }
+    }
+
+    /** Items waiting out a retry backoff start now. */
+    fun retryWaitingNow() = backupWork(R.string.message_could_not_finish_pending_photo_work) { photos.backup.retryWaitingNow() }
+
+    /** Removes stopped items that sent nothing from the list. */
+    fun dismissFailed(transferIds: List<TransferId>) =
+        backupWork(R.string.message_could_not_finish_pending_photo_work) { photos.backup.dismissFailed(transferIds) }
+
+    /** Settles an uncertain upload the user opened by its bytes; it stays as it is when that cannot be done now. */
+    fun checkUncertain(transferId: TransferId) {
+        if (isDemo()) return
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { photos.backup.checkUncertain(transferId) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Checked again when it is opened next, or after the next library refresh.
+            }
+        }
+    }
+
+    private fun backupWork(failure: Int, work: suspend () -> Unit) {
+        if (isDemo()) return
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { work() }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (expected: Exception) {
+                messages.show(expected.toUserMessage(failure))
             }
         }
     }

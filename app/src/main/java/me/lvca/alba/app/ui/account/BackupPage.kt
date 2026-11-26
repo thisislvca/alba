@@ -51,7 +51,9 @@ import me.lvca.alba.app.ui.designsystem.theme.AlbaIconSize
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.localized
 import me.lvca.alba.app.ui.timestampLabel
+import me.lvca.alba.app.ui.transfers.FailureGroups
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
+import me.lvca.alba.app.ui.transfers.failureGroups
 import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.DeviceFolder
@@ -99,7 +101,7 @@ internal fun BackupPage(
     ProfileStorage(session, demo = demo, hasAccount = connected, check = actions::checkConnection, labelRes = R.string.cloud_storage)
     if (backup.enabled) {
         Spacer(Modifier.height(AlbaSpacing.xl))
-        FailedItems(transfers, demo, actions)
+        FailedItems(transfers, session, demo, actions)
         val inFlight = transfers.queue.filter { it.state in PendingTransferStates }
         if (inFlight.isNotEmpty() || (demo && transfers.queue.isNotEmpty())) {
             TransferQueueCard(if (demo) transfers.queue else inFlight, actions::demoBackupAction, demo = demo,
@@ -286,14 +288,17 @@ private fun IncludeExistingCard(destination: String, include: () -> Unit) {
     )
 }
 
-/** Failed and skipped backup items with their reasons, Retry where nothing was sent, and Retry all. */
+/**
+ * Items that have not gone through, grouped by why, each group with the one action that fixes it; each item with its
+ * reason, its next try time while it waits to retry, and Retry where nothing was sent. Retry all covers the rest.
+ */
 @Composable
-private fun FailedItems(transfers: TransferState, demo: Boolean, actions: AccountScreenActions) {
-    if (demo) return
-    val failed = transfers.queue.filter { it.state in FailedTransferStates }
-    if (failed.isEmpty()) return
-    TransferQueueCard(failed.take(FAILED_ROWS), actions::continuePastUnresolved, onRetry = actions::retryTransfer,
-        title = pluralStringResource(R.plurals.backup_failed_title, failed.size, failed.size))
+private fun FailedItems(transfers: TransferState, session: SessionState, demo: Boolean, actions: AccountScreenActions) {
+    val groups = failureGroups(transfers, session.network, demo)
+    if (groups.isEmpty()) return
+    val failed = groups.flatMap { it.items }
+    FailureGroups(groups, actions, actions::enableAutomaticBackup, showItems = true, itemLimit = FAILED_ROWS)
+    Spacer(Modifier.height(AlbaSpacing.lg))
     if (failed.any { it.retryable }) {
         Button(onClick = actions::retryAllTransfers, modifier = Modifier.fillMaxWidth().testTag("backup-retry-all")) {
             Text(stringResource(R.string.retry_all))

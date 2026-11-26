@@ -109,6 +109,7 @@ import me.lvca.alba.app.ui.transfers.BackupHero
 import me.lvca.alba.app.ui.transfers.BackupHeroAction
 import me.lvca.alba.app.ui.transfers.BatchProgress
 import me.lvca.alba.app.ui.transfers.TransferQueueCard
+import me.lvca.alba.app.ui.transfers.failureGroups
 import me.lvca.alba.app.ui.viewer.LocalPhotoTransition
 import me.lvca.alba.app.ui.viewer.galleryColorEase
 import me.lvca.alba.app.ui.viewer.reduceGalleryMotion
@@ -724,6 +725,8 @@ internal fun GalleryHome(
             // Backup first, as in Google Photos: its status and the one action that helps, then what moved recently.
             val demo = session.accountState == ICloudAccountState.Demo
             BackupHero(backupStatus(transfers, session.accountState, session.network, session.charging), transfers, demo, canTurnOn = canUpload,
+                failures = failureGroups(transfers, session.network, demo).takeIf { transfers.backup.enabled }.orEmpty(),
+                queueActions = actions,
                 onAction = { action ->
                     if (action != BackupHeroAction.RETRY_STORAGE) sheet = null
                     when (action) {

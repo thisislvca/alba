@@ -140,7 +140,21 @@ enum class StoredMessage(val code: String, val legacyText: String) {
     THIS_ITEM_IS_NO_LONGER_IN_THE_QUEUE("this_item_is_no_longer_in_the_queue", "This item is no longer in the queue."),
     COULD_NOT_REACH_ICLOUD_TO_CHECK("could_not_reach_icloud_to_check", "Couldn't reach iCloud to check. Nothing was removed."),
     THE_PHONE_FILE_CHANGED_AFTER_ITS_CHECK("the_phone_file_changed_after_its_check", "The phone file changed after its check, so it stays."),
-    COULD_NOT_READ_THIS_FILE_ON_THE_PHONE("could_not_read_this_file_on_the_phone", "Alba could not read this file on the phone, so it stays.");
+    COULD_NOT_READ_THIS_FILE_ON_THE_PHONE("could_not_read_this_file_on_the_phone", "Alba could not read this file on the phone, so it stays."),
+    NOT_FOUND_IN_ICLOUD_YET_CHECKING_AGAIN(
+        "not_found_in_icloud_yet_checking_again",
+        "Not found in iCloud yet. Alba looks again after each library refresh, and uploads it again only if no copy appears.",
+    ),
+    SEVERAL_ICLOUD_COPIES_MATCH_CHECKING_AGAIN(
+        "several_icloud_copies_match_checking_again",
+        "More than one copy in iCloud matches. Alba looks again after each library refresh and never uploads it twice.",
+    ),
+    NO_COPY_APPEARED_IN_ICLOUD_UPLOADING_AGAIN(
+        "no_copy_appeared_in_icloud_uploading_again",
+        "No copy appeared in iCloud, so Alba is uploading it again.",
+    ),
+    ICLOUD_REJECTED_THIS_FILE("icloud_rejected_this_file", "iCloud didn't accept this file. The original stays on this phone."),
+    THIS_FILE_IS_NO_LONGER_ON_THE_PHONE("this_file_is_no_longer_on_the_phone", "This file is no longer on the phone.");
 
     companion object {
         private val byCode = entries.associateBy { it.code }

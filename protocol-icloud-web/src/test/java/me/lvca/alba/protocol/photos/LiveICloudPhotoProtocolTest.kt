@@ -3,6 +3,7 @@ package me.lvca.alba.protocol.photos
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import me.lvca.alba.engine.model.AccountBinding
+import me.lvca.alba.engine.model.ICloudRejectedUploadException
 import me.lvca.alba.engine.model.ICloudStorageFullException
 import me.lvca.alba.engine.model.OneShotUploadSource
 import me.lvca.alba.engine.model.UploadAcceptance
@@ -94,6 +95,69 @@ class LiveICloudPhotoProtocolTest {
         assertTrue(error is ICloudStorageFullException)
         assertTrue(CloudKitErrors.quotaExceeded(200, Json.parseToJsonElement("""{"errors":[{"serverErrorCode":"QUOTA_EXCEEDED"}]}""").jsonObject))
         assertTrue(!CloudKitErrors.quotaExceeded(200, Json.parseToJsonElement("""{"serverErrorCode":"THROTTLED"}""").jsonObject))
+    }
+
+    @Test
+    fun `a reservation older than its upload URL is made again before any byte is sent`() = runBlocking {
+        val transport = ScriptedTransport()
+        val journal = CrashJournal("RESERVED")
+        val protocol = LiveICloudPhotoProtocol(transport, { SESSION }, uploadJournal = journal)
+        val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
+        val source = CountingSource(JPEG)
+        assertTrue(runCatching { protocol.prepareOriginal(binding, "photo.jpg", source).startOnce("stale") }.isFailure)
+        assertEquals(1, transport.requests.count { it.url.contains("createUploadUrl") })
+
+        // The process comes back after the URL expired: the saved reservation is older than its lifetime.
+        val saved = Json.parseToJsonElement(journal.checkpoint!!.payload).jsonObject
+        val reservedAt = saved.getValue("reservedAt").jsonPrimitive.long
+        journal.checkpoint = UploadCheckpoint(
+            "RESERVED",
+            JsonObject(saved + ("reservedAt" to JsonPrimitive(reservedAt - PhotosUpload.UPLOAD_URL_LIFETIME_MILLIS))).toString(),
+        )
+        val acceptance = protocol.prepareOriginal(binding, "photo.jpg", source).startOnce("stale")
+
+        assertEquals("asset-1", acceptance.assetRecordName)
+        assertEquals("A fresh URL is asked for", 2, transport.requests.count { it.url.contains("createUploadUrl") })
+        assertEquals("The bytes are sent once, to the fresh URL", 1, transport.rawUploadCalls)
+        assertEquals(1, source.opens.get())
+    }
+
+    @Test
+    fun `a reservation without its time is treated as expired`() = runBlocking {
+        val transport = ScriptedTransport()
+        val journal = CrashJournal("RESERVED")
+        val protocol = LiveICloudPhotoProtocol(transport, { SESSION }, uploadJournal = journal)
+        val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
+        val source = CountingSource(JPEG)
+        assertTrue(runCatching { protocol.prepareOriginal(binding, "photo.jpg", source).startOnce("legacy") }.isFailure)
+        // Saved by a version that did not record when it reserved.
+        val saved = Json.parseToJsonElement(journal.checkpoint!!.payload).jsonObject
+        journal.checkpoint = UploadCheckpoint("RESERVED", JsonObject(saved - "reservedAt").toString())
+
+        protocol.prepareOriginal(binding, "photo.jpg", source).startOnce("legacy")
+
+        assertEquals(2, transport.requests.count { it.url.contains("createUploadUrl") })
+        assertEquals(1, transport.rawUploadCalls)
+    }
+
+    @Test
+    fun `a registration that refuses the file itself is reported as rejected`() = runBlocking {
+        for (status in listOf(400, 415, 422)) {
+            val transport = ScriptedTransport(registrationStatus = status)
+            val protocol = LiveICloudPhotoProtocol(transport, { SESSION })
+            val binding = AccountBinding(protocol.currentDestination()!!.accountId, 1, 1)
+
+            val error = runCatching { protocol.prepareOriginal(binding, "photo.jpg", CountingSource(JPEG)).startOnce("refused") }.exceptionOrNull()
+
+            assertTrue("$status: $error", error is ICloudRejectedUploadException)
+            assertEquals(status, (error as ICloudRejectedUploadException).status)
+        }
+        val throttled = runCatching {
+            val protocol = LiveICloudPhotoProtocol(ScriptedTransport(registrationStatus = 429), { SESSION })
+            protocol.prepareOriginal(AccountBinding(protocol.currentDestination()!!.accountId, 1, 1), "photo.jpg", CountingSource(JPEG))
+                .startOnce("throttled")
+        }.exceptionOrNull()
+        assertTrue("Throttling is not a refusal of the file", throttled is AppleProtocolException)
     }
 
     @Test

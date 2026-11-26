@@ -22,6 +22,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import me.lvca.alba.app.R
 import me.lvca.alba.app.transfers.TransferState
+import me.lvca.alba.app.ui.QueueActions
 import me.lvca.alba.app.ui.account.BackupStatus
 import me.lvca.alba.app.ui.account.PendingTransferStates
 import me.lvca.alba.app.ui.account.backupItems
@@ -49,7 +50,8 @@ internal fun backupFraction(transfers: TransferState, demo: Boolean): Float? {
 /**
  * The Activity sheet's first word on backup, Google Photos style: backed up and when, backing up with what is left and
  * a progress bar, what it waits for, or off or stuck with the one button that fixes it. [now] is the clock "Last backup"
- * is measured against.
+ * is measured against. Below it, items that have not gone through are grouped by why ([failures]), each group with the
+ * one action that fixes it, taken through [queueActions].
  */
 @Composable
 internal fun BackupHero(
@@ -60,8 +62,27 @@ internal fun BackupHero(
     onAction: (BackupHeroAction) -> Unit,
     modifier: Modifier = Modifier,
     now: Long = System.currentTimeMillis(),
+    failures: List<FailureGroup> = emptyList(),
+    queueActions: QueueActions? = null,
 ) {
-    AlbaListGroup(modifier.testTag("backup-hero")) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(AlbaSpacing.lg)) {
+        HeroCard(status, transfers, demo, canTurnOn, onAction, now)
+        if (queueActions != null && failures.isNotEmpty()) {
+            FailureGroups(failures, queueActions, { onAction(BackupHeroAction.ALLOW_ACCESS) }, showItems = false, now = now)
+        }
+    }
+}
+
+@Composable
+private fun HeroCard(
+    status: BackupStatus,
+    transfers: TransferState,
+    demo: Boolean,
+    canTurnOn: Boolean,
+    onAction: (BackupHeroAction) -> Unit,
+    now: Long,
+) {
+    AlbaListGroup(Modifier.testTag("backup-hero")) {
         AlbaListItem(verticalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AlbaSpacing.md)) {
                 val problem = status.heroAction(canTurnOn) != null && status != BackupStatus.Off

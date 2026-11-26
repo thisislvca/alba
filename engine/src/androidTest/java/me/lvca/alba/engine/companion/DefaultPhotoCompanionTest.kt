@@ -264,7 +264,8 @@ class DefaultPhotoCompanionTest {
         assertEquals(me.lvca.alba.engine.model.StoredMessage.UPLOAD_PROCESSING_FAILED.code, transfer.message)
         assertEquals(0, protocol.candidateReads)
         assertEquals(1, protocol.uploadStarts.get())
-        assertNotNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
+        // Uncertain uploads give their write slot back; the suppression of their bytes keeps them from being sent twice.
+        assertNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
         photos.continuePastUnresolved(ticket.id)
         assertTrue(runCatching { photos.uploadSelected(UserSelectedPhoto("content://picker/failed-again", "failed.jpg")) }.isFailure)
         assertEquals(1, protocol.uploadStarts.get())
@@ -421,7 +422,8 @@ class DefaultPhotoCompanionTest {
         photos.syncNow()
 
         assertEquals(TransferViewState.UNRESOLVED, photos.observeTransfers().first().single().state)
-        assertNotNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
+        // Uncertain uploads give their write slot back; the suppression of their bytes keeps them from being sent twice.
+        assertNull(database.transferDao().findWriteSlot(ACCOUNT_ID))
         photos.continuePastUnresolved(ticket.id)
         assertEquals(TransferViewState.SKIPPED, photos.observeTransfers().first().single().state)
         assertNull(database.transferDao().findWriteSlot(ACCOUNT_ID))

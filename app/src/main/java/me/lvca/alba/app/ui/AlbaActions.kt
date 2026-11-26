@@ -119,6 +119,18 @@ interface LibraryEditActions {
 
 /** The upload queue and "Free up space", shared by the gallery, the viewer and the Backup page. */
 interface QueueActions {
+    /** Items waiting out a retry backoff start now. */
+    fun retryWaitingNow() {}
+
+    /** Removes stopped items that sent nothing from the list, such as files no longer on the phone. */
+    fun dismissFailedTransfers(transferIds: List<TransferId>) {}
+
+    /** Refreshes the library, so uploads that could not be confirmed are looked for again. */
+    fun checkICloudNow() {}
+
+    /** The user opened an item whose upload is uncertain: settle it by its bytes if an exact copy is in iCloud. */
+    fun checkUncertain(transferId: TransferId) {}
+
     fun continuePastUnresolved(transferId: TransferId)
 
     /** Stages again an item that sent nothing to Apple. */

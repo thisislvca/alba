@@ -51,7 +51,41 @@ data class TransferView(
     val retryable: Boolean = false,
     /** Backed up without an upload: the exact same original was already in the iCloud library. */
     val alreadyInICloud: Boolean = false,
+    /** Why it has not gone through yet, for grouping by what fixes it; null while nothing is wrong. */
+    val failureReason: TransferFailureReason? = null,
+    /** When Alba tries it again on its own, for an item waiting out a retry backoff. */
+    val nextTryAtEpochMillis: Long? = null,
 )
+
+/** Why a backup item has not gone through, grouped by what fixes it. */
+enum class TransferFailureReason {
+    /** An upload stopped before iCloud received it; Alba tries again on its own after a backoff. */
+    WAITING_TO_RETRY,
+
+    /** Larger than [LARGE_ITEM_BYTES]: it uploads only on an unmetered network, in a long foreground run. */
+    NEEDS_UNMETERED,
+
+    /** iCloud has no space for it. */
+    STORAGE_FULL,
+
+    /** Alba lost the photo access automatic backup needs. */
+    PHOTO_ACCESS,
+
+    /** iCloud.com does not take the format, or iCloud would not keep the file. Nothing retries it. */
+    FORMAT_NOT_SUPPORTED,
+
+    /** The file is no longer on the phone. */
+    FILE_GONE,
+
+    /** Its upload could not be confirmed yet; Alba looks for it again after library refreshes and never sends it twice. */
+    CHECKING_ICLOUD,
+
+    /** It stopped for another reason and waits for the user's Retry. */
+    STOPPED,
+}
+
+/** Automatic items larger than this upload only on an unmetered network, in a foreground run with a long time budget. */
+const val LARGE_ITEM_BYTES = 100L * 1_000_000
 
 /** What automatic backup reads. Names are persisted with each enrollment; keep them stable. */
 enum class BackupScope {
@@ -232,6 +266,21 @@ interface BackupControls {
     /** Retries every item [retryTransfer] accepts. Returns how many it queued. */
     suspend fun retryAllTransfers(): Int
 
+    /**
+     * The user opened an item whose upload is ambiguous (several iCloud copies matched): downloads each candidate and
+     * compares its bytes, and verifies the upload when an exact copy is there. Returns true when it did.
+     */
+    suspend fun checkUncertain(transfer: TransferId): Boolean = false
+
+    /** The user asked to try now: items waiting out a retry backoff start on the next pass. Returns how many. */
+    suspend fun retryWaitingNow(): Int = 0
+
+    /**
+     * Removes stopped items from the list, as for files no longer on the phone. Only items that sent nothing are removed;
+     * anything that may be in iCloud stays. Returns how many it removed.
+     */
+    suspend fun dismissFailed(transfers: List<TransferId>): Int = 0
+
     /** How much of what backup covers is verified, counted from the phone and the journal. */
     suspend fun backupProgress(): BackupProgress
 
@@ -269,6 +318,12 @@ enum class WakeReason {
     PROCESS_STARTED,
     FOREGROUND,
     BACKGROUND,
+
+    /**
+     * A background run in the foreground, with a long time budget: the only run that starts automatic items larger than
+     * [LARGE_ITEM_BYTES], and only on an unmetered network. An ordinary background run would always cut them off.
+     */
+    LONG_RUNNING,
     USER_REQUESTED,
     USER_TRANSFER,
 }
@@ -383,6 +438,12 @@ interface OneShotUploadSource {
  * sent, so the attempt stays safely resumable; backup pauses instead of failing each item.
  */
 class ICloudStorageFullException(message: String = "iCloud storage is full") : RuntimeException(message)
+
+/**
+ * iCloud answered the registration of an upload by refusing that file (a client error for it, not for the session or the
+ * account). Nothing was added to the library, and the same bytes would be refused again, so the upload stops for good.
+ */
+class ICloudRejectedUploadException(val status: Int) : RuntimeException("iCloud refused this file (status $status)")
 
 interface PreparedICloudUpload {
     suspend fun startOnce(attemptId: String): UploadAcceptance

@@ -140,5 +140,10 @@ private fun secondMessageResources(message: StoredMessage): Int? = when (message
     StoredMessage.COULD_NOT_READ_THIS_FILE_ON_THE_PHONE -> R.string.could_not_read_this_file_on_the_phone
     StoredMessage.ALREADY_IN_ICLOUD -> R.string.already_in_icloud
     StoredMessage.CHECKING_ICLOUD_LIBRARY_FIRST -> R.string.checking_icloud_library_first
+    StoredMessage.NOT_FOUND_IN_ICLOUD_YET_CHECKING_AGAIN -> R.string.message_not_found_in_icloud_yet_checking_again
+    StoredMessage.SEVERAL_ICLOUD_COPIES_MATCH_CHECKING_AGAIN -> R.string.message_several_icloud_copies_match_checking_again
+    StoredMessage.NO_COPY_APPEARED_IN_ICLOUD_UPLOADING_AGAIN -> R.string.message_no_copy_appeared_in_icloud_uploading_again
+    StoredMessage.ICLOUD_REJECTED_THIS_FILE -> R.string.message_icloud_rejected_this_file
+    StoredMessage.THIS_FILE_IS_NO_LONGER_ON_THE_PHONE -> R.string.message_this_file_is_no_longer_on_the_phone
     else -> null
 }

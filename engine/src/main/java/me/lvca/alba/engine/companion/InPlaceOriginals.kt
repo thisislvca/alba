@@ -34,6 +34,10 @@ internal val StagedSourceEntity.readsInPlace: Boolean get() = ownedFileToken.sta
  * private copy instead, as before.
  */
 internal class InPlaceOriginals(private val originals: ExactOriginalSource) {
+    /** Whether MediaStore no longer has [contentUri]; false when it cannot tell. */
+    suspend fun isGone(contentUri: String): Boolean =
+        contentUri.startsWith("content://media/") && runSuspendCatching { originals.currentRevision(contentUri) == null }.getOrDefault(false)
+
     /**
      * Inspects [contentUri] in place, as staging inspects a copy. Null when it cannot be read in place, so the caller
      * stages it; throws as staging does when it changed, is empty, or is a format the uploader refuses.

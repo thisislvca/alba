@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
@@ -38,6 +39,7 @@ import me.lvca.alba.engine.model.BackupScope
 import me.lvca.alba.engine.model.BackupSettings
 import me.lvca.alba.engine.model.BackupView
 import me.lvca.alba.engine.model.StoredMessage
+import me.lvca.alba.engine.model.TransferFailureReason
 import me.lvca.alba.engine.model.TransferId
 import me.lvca.alba.engine.model.TransferView
 import me.lvca.alba.engine.model.TransferViewState
@@ -167,6 +169,25 @@ class BackupHeroTest {
         compose.onNodeWithTag("activity-open-backup").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("backup-hero-action").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, enabled) }
+    }
+
+    @Test
+    fun theActivityHeroGroupsFailuresWithTheirFix() {
+        var retriedAll = 0
+        val failed = listOf(
+            item("a", TransferViewState.UNSUPPORTED, 1).copy(retryable = true, failureReason = TransferFailureReason.FORMAT_NOT_SUPPORTED),
+            item("b", TransferViewState.UNSUPPORTED, 1).copy(retryable = true, failureReason = TransferFailureReason.FORMAT_NOT_SUPPORTED),
+        )
+        showApp(TransferState(backup = on, queue = failed), testAlbaActions(retryAllTransfers = { retriedAll++ }))
+        compose.onNodeWithTag("activity-button").performClick()
+
+        compose.onNodeWithTag("backup-failure-group-format-not-supported").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.backup_failure_count, 2, 2)).assertIsDisplayed()
+        // The hero names the groups; their items are listed on the Backup page.
+        compose.onNodeWithTag("backup-failure-detail-a").assertDoesNotExist()
+        compose.onNodeWithTag("backup-failure-action-format-not-supported").performScrollTo()
+            .assertTextEquals(context.getString(R.string.backup_fix_try_again)).performClick()
+        compose.runOnIdle { assertEquals(1, retriedAll) }
     }
 
     @Test

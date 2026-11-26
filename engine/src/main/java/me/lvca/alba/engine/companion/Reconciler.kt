@@ -3,12 +3,10 @@ package me.lvca.alba.engine.companion
 import androidx.room.withTransaction
 import kotlinx.coroutines.CancellationException
 import me.lvca.alba.engine.database.AlbaDatabase
-import me.lvca.alba.engine.database.AssetLinkEntity
 import me.lvca.alba.engine.database.ReconciliationMatchEntity
 import me.lvca.alba.engine.database.StagedSourceEntity
 import me.lvca.alba.engine.database.TransferEntity
 import me.lvca.alba.engine.database.TransferState
-import me.lvca.alba.engine.database.UploadAcceptanceEntity
 import me.lvca.alba.engine.database.UploadAttemptEntity
 import me.lvca.alba.engine.database.UploadSuppressionEntity
 import me.lvca.alba.engine.database.VerificationProofEntity
@@ -16,9 +14,7 @@ import me.lvca.alba.engine.model.AccountBinding
 import me.lvca.alba.engine.model.ICloudPhotoProtocol
 import me.lvca.alba.engine.model.RemotePairCandidate
 import me.lvca.alba.engine.model.StoredMessage
-import me.lvca.alba.engine.model.UploadAcceptance
 import me.lvca.alba.engine.model.UploadProcessingStatus
-import me.lvca.alba.engine.model.UploadReceipt
 import me.lvca.alba.engine.source.ExactOriginalSource
 import java.util.UUID
 
@@ -27,13 +23,14 @@ import java.util.UUID
  * when its CPLMaster's original has the receipt's size and checksum and its fingerprint is that checksum: nothing is
  * downloaded, and the proof records the method RECEIPT. An attempt with no receipt (one from before receipts were kept)
  * falls back to the [ByteCheck], downloading each candidate. One match verifies the upload; several, or none by the
- * deadline, end it unresolved and suppress the bytes so Alba never uploads them again.
+ * deadline, end it uncertain: the bytes are suppressed so it is never sent twice, and [UncertainHealer] looks for it
+ * again after later library refreshes.
  *
  * One case is not uncertain: an attempt Apple never accepted, whose write journal proves it never sent the request
  * that registers a photo, and for which a complete read of the library's changes since it started shows no exact copy.
- * iCloud did not receive it, so the transfer goes back to READY for a fresh attempt after a backoff, up to
- * [MAX_AUTOMATIC_RETRIES] times; after that it waits for the user's Retry. Nothing is suppressed, since nothing of it is
- * in iCloud.
+ * iCloud did not receive it, so the transfer goes back to READY for a fresh attempt, with a fresh upload URL, after a
+ * backoff ([retryBackoffMillis]) that grows to a daily cap; it keeps trying until it goes through or fails for good.
+ * Nothing is suppressed, since nothing of it is in iCloud.
  */
 internal class Reconciler(
     private val database: AlbaDatabase,
@@ -64,8 +61,9 @@ internal class Reconciler(
         }
         val page = try {
             if (processing is UploadProcessingStatus.Failed) {
+                // iCloud took the bytes but would not keep the file: nothing retries it, and it is never sent again.
                 markUnresolved(transfer, attempt, source, TransferState.NOT_OBSERVED,
-                    StoredMessage.UPLOAD_PROCESSING_FAILED.code)
+                    StoredMessage.UPLOAD_PROCESSING_FAILED.code, FailureReasons.ICLOUD_REJECTED)
                 return 1
             }
             if (processing is UploadProcessingStatus.Processing &&
@@ -150,14 +148,14 @@ internal class Reconciler(
                 attempt,
                 source,
                 TransferState.AMBIGUOUS,
-                StoredMessage.MORE_THAN_ONE_EXACT_ICLOUD_COPY_MATCHED_ALBA_WILL_NOT_UPLOAD_AGAIN.code,
+                StoredMessage.SEVERAL_ICLOUD_COPIES_MATCH_CHECKING_AGAIN.code,
             )
             now() >= (transfer.reconciliationDeadlineEpochMillis ?: Long.MAX_VALUE) -> markUnresolved(
                 transfer,
                 attempt,
                 source,
                 TransferState.NOT_OBSERVED,
-                StoredMessage.NO_EXACT_ICLOUD_COPY_WAS_OBSERVED_BEFORE_THE_CHECK_DEADLINE_ALBA_WILL_NOT_UPLOAD_AGAIN.code,
+                StoredMessage.NOT_FOUND_IN_ICLOUD_YET_CHECKING_AGAIN.code,
             )
             else -> transferDao.markReadFailure(
                 transfer.transferId,
@@ -197,41 +195,11 @@ internal class Reconciler(
         method: String,
     ) {
         val verifiedAt = now()
-        val pairId = remotePairId(binding, pair)
-        val linkId = UUID.randomUUID().toString()
-        val proofId = UUID.randomUUID().toString()
         database.withTransaction {
             val fresh = requireNotNull(transferDao.findTransfer(transfer.transferId))
             require(fresh.state in RECONCILABLE_STATES && fresh.activeAttemptId == attempt.attemptId)
-            verificationDao.insertRemotePair(pair.toPairEntity(binding, verifiedAt))
-            verificationDao.insertAssetLink(
-                AssetLinkEntity(
-                    linkId, binding.accountId, transfer.mediaId, source.stagedSourceId,
-                    pairId, attempt.attemptId, verifiedAt, "CURRENT",
-                ),
-            )
-            verificationDao.insertVerificationProof(
-                VerificationProofEntity(
-                    proofId = proofId,
-                    accountId = binding.accountId,
-                    verificationAuthEpoch = binding.authEpoch,
-                    invocationAuthEpoch = attempt.authEpoch,
-                    linkId = linkId,
-                    mediaId = transfer.mediaId,
-                    stagedSourceId = source.stagedSourceId,
-                    sourceRevision = source.sourceRevision,
-                    remotePairId = pairId,
-                    masterChangeTag = pair.master.changeTag,
-                    assetChangeTag = pair.asset.changeTag,
-                    originalResourceIdentity = pair.originalResourceIdentity,
-                    byteCount = source.byteCount,
-                    sha256Hex = source.sha256Hex,
-                    verifiedAtEpochMillis = verifiedAt,
-                    invalidatedAtEpochMillis = null,
-                    invalidationReason = null,
-                    method = method,
-                    byteCheckedAtEpochMillis = verifiedAt.takeIf { method == VerificationProofEntity.METHOD_BYTES },
-                ),
+            verificationDao.recordVerifiedLink(
+                binding, transfer.mediaId, source, attempt, pair, method, verifiedAt,
             )
             check(transferDao.markVerified(transfer.transferId, attempt.attemptId, verifiedAt) == 1)
             check(transferDao.releaseWriteSlot(binding.accountId, attempt.attemptId) == 1)
@@ -261,29 +229,33 @@ internal class Reconciler(
         }
     }
 
-    /** iCloud did not receive [attempt]: start afresh after a backoff, or, with retries used up, leave it to the user. */
+    /** iCloud did not receive [attempt]: start afresh after a backoff that grows with each try, up to a day. */
     private suspend fun retryProvenNotReceived(binding: AccountBinding, transfer: TransferEntity, attempt: UploadAttemptEntity) {
         val retries = transfer.automaticRetries
         database.withTransaction {
-            val changed = if (retries < MAX_AUTOMATIC_RETRIES) {
-                transferDao.retryAfterProvenNotReceived(transfer.transferId, attempt.attemptId, now() + retryBackoffMillis(retries), now())
-            } else {
-                transferDao.stopRetryingProvenNotReceived(transfer.transferId, attempt.attemptId, now())
-            }
+            val changed = transferDao.retryAfterProvenNotReceived(
+                transfer.transferId, attempt.attemptId, now() + retryBackoffMillis(retries), now(),
+            )
             check(changed == 1)
             check(transferDao.releaseWriteSlot(binding.accountId, attempt.attemptId) == 1)
         }
     }
 
+    /**
+     * Ends [attempt] uncertain. Its bytes are suppressed, so it is never sent again while uncertain, and its write slot is
+     * given back so other uploads go on; [UncertainHealer] looks for it again after later library refreshes.
+     */
     private suspend fun markUnresolved(
         transfer: TransferEntity,
         attempt: UploadAttemptEntity,
         source: StagedSourceEntity,
         state: TransferState,
         message: String,
+        failureReason: String? = null,
     ) {
         database.withTransaction {
-            check(transferDao.markUnresolvedTerminal(transfer.transferId, attempt.attemptId, state, now(), message) == 1)
+            check(transferDao.markUnresolvedTerminal(transfer.transferId, attempt.attemptId, state, now(), message, failureReason) == 1)
+            transferDao.releaseWriteSlot(transfer.accountId, attempt.attemptId)
             transferDao.insertSuppression(
                 UploadSuppressionEntity(
                     suppressionId = UUID.randomUUID().toString(),
@@ -299,21 +271,17 @@ internal class Reconciler(
         }
     }
 
-    private fun UploadAcceptanceEntity.toModel() = UploadAcceptance(
-        requestUuid, masterRecordName, assetRecordName, duplicateHint, uploadJobId,
-        receipt = receiptByteCount?.let { size -> receiptFileChecksum?.let { UploadReceipt(size, it) } },
-    )
-
     companion object {
         private const val RECONCILIATION_READ_RETRY_MILLIS = 15 * 1_000L
         private const val RECONCILIATION_PAGE_LIMIT = 200
 
-        /** Fresh attempts after ones proven not received, before the user is asked. */
-        internal const val MAX_AUTOMATIC_RETRIES = 3
+        /** 1, 5, 15 and 60 minutes, then [RETRY_BACKOFF_CAP_MILLIS]. */
+        private val RETRY_BACKOFF_MILLIS = longArrayOf(60_000L, 5 * 60_000L, 15 * 60_000L, 60 * 60_000L)
 
-        private val RETRY_BACKOFF_MILLIS = longArrayOf(60_000L, 5 * 60_000L, 15 * 60_000L)
+        /** The longest wait between fresh attempts: once a day, for as long as it takes. */
+        internal const val RETRY_BACKOFF_CAP_MILLIS = 24 * 60 * 60_000L
 
         /** How long to wait before the fresh attempt that follows [retries] earlier ones. */
-        internal fun retryBackoffMillis(retries: Int): Long = RETRY_BACKOFF_MILLIS[retries.coerceIn(0, RETRY_BACKOFF_MILLIS.lastIndex)]
+        internal fun retryBackoffMillis(retries: Int): Long = RETRY_BACKOFF_MILLIS.getOrElse(retries.coerceAtLeast(0)) { RETRY_BACKOFF_CAP_MILLIS }
     }
 }
