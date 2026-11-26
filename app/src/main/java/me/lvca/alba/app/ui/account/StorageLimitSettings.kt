@@ -16,7 +16,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -25,12 +24,12 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.account.OfflinePhotosStatus
 import me.lvca.alba.app.account.OfflinePhotosWait
 import me.lvca.alba.app.account.PhoneStorageState
+import me.lvca.alba.app.ui.countLabel
 import me.lvca.alba.app.ui.designsystem.AlbaListItem
 import me.lvca.alba.app.ui.designsystem.AlbaListRow
 import me.lvca.alba.app.ui.designsystem.AlbaListValue
 import me.lvca.alba.engine.model.CacheLimit
 import me.lvca.alba.engine.model.ThumbnailBudget
-import java.text.NumberFormat
 
 /**
  * The two stores of media on the phone: "Offline photos", the thumbnail budget that keeps photos browsable without a
@@ -78,9 +77,8 @@ internal fun StorageLimitSettings(
 /** "8,400 of 12,606 available offline", and why it waits, if it does: "… · Waiting for Wi‑Fi and charging". */
 @Composable
 internal fun offlinePhotosSummary(status: OfflinePhotosStatus): String {
-    val numbers = NumberFormat.getIntegerInstance(LocalConfiguration.current.locales[0])
-    val progress = stringResource(R.string.offline_photos_progress, numbers.format(status.progress.savedCount),
-        numbers.format(status.progress.libraryCount))
+    val progress = stringResource(R.string.offline_photos_progress, countLabel(status.progress.savedCount),
+        countLabel(status.progress.libraryCount))
     val wait = status.wait?.let { wait ->
         stringResource(when (wait) {
             OfflinePhotosWait.WIFI_AND_CHARGING -> R.string.offline_photos_waiting

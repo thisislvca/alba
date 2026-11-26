@@ -7,18 +7,16 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.countLabel
 import me.lvca.alba.engine.model.CatalogScanProgress
-import java.text.NumberFormat
 
 /**
  * "12,400 of 52,000 photos loaded", or without the total when iCloud did not say how many there are. Once every page is
@@ -27,11 +25,9 @@ import java.text.NumberFormat
 @Composable
 internal fun catalogScanLabel(progress: CatalogScanProgress): String {
     if (progress.pagesComplete) return stringResource(R.string.catalog_scan_loading_albums)
-    val locale = LocalConfiguration.current.locales[0]
-    val format = remember(locale) { NumberFormat.getIntegerInstance(locale) }
-    val loaded = format.format(progress.loadedCount)
+    val loaded = countLabel(progress.loadedCount)
     val total = progress.shownTotal()
-    return if (total != null) pluralStringResource(R.plurals.catalog_scan_progress_of_total, total, loaded, format.format(total))
+    return if (total != null) pluralStringResource(R.plurals.catalog_scan_progress_of_total, total, loaded, countLabel(total))
     else pluralStringResource(R.plurals.catalog_scan_progress, progress.loadedCount, loaded)
 }
 

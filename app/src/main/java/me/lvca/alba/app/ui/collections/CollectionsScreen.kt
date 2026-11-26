@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
 import me.lvca.alba.app.gallery.GalleryState
+import me.lvca.alba.app.ui.countLabel
 import me.lvca.alba.app.ui.designsystem.AlbaCard
 import me.lvca.alba.app.ui.designsystem.AlbaCover
 import me.lvca.alba.app.ui.designsystem.AlbaIcons
@@ -277,5 +278,5 @@ internal fun CollectionRow(title: String, subtitle: String?, count: Int? = null,
     modifier: Modifier = Modifier, onClick: () -> Unit) {
     AlbaListRow(title, onClick, modifier, subtitle = subtitle,
         leading = { CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant, content = icon) },
-        trailing = count?.let { { AlbaListValue(it.toString()) } })
+        trailing = count?.let { { AlbaListValue(countLabel(it)) } })
 }
