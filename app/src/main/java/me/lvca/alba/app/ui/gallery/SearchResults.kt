@@ -21,6 +21,7 @@ import me.lvca.alba.app.R
 import me.lvca.alba.app.ui.collections.AlbumCard
 import me.lvca.alba.app.ui.collections.CollectionPreview
 import me.lvca.alba.app.ui.collections.icon
+import me.lvca.alba.app.ui.countLabel
 import me.lvca.alba.app.ui.localizedTitle
 import me.lvca.alba.engine.model.GalleryCollection
 import me.lvca.alba.engine.model.GalleryQuery
@@ -44,7 +45,7 @@ internal fun SmartCollectionChips(summaries: Map<String, CollectionPreview>, cho
             val title = smart?.localizedTitle() ?: stringResource(R.string.favorites)
             val count = summaries[id]?.count
             FilterChip(selected = false, onClick = { choose(id) },
-                label = { Text(if (count != null && count > 0) "$title · $count" else title) },
+                label = { Text(if (count != null && count > 0) "$title · ${countLabel(count)}" else title) },
                 leadingIcon = { androidx.compose.material3.Icon(painterResource(smart?.icon() ?: R.drawable.icloud_favorites), null,
                     Modifier.size(18.dp)) },
                 modifier = Modifier.testTag("smart-chip-$id"))

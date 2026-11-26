@@ -88,7 +88,6 @@ import me.lvca.alba.app.ui.gallery.ViewerPhotoPage
 import me.lvca.alba.app.ui.gallery.trashDaysLeftLabel
 import me.lvca.alba.app.ui.shared.SharedPhotoControls
 import me.lvca.alba.app.ui.timeLabel
-import me.lvca.alba.app.ui.timestampLabel
 import me.lvca.alba.app.ui.transfers.DeviceUploadControls
 import me.lvca.alba.engine.model.*
 import me.lvca.alba.protocol.account.ICloudAccountState
@@ -379,95 +378,93 @@ internal fun MediaDetailScreen(
                 }
             }
         }
+        // Everything under Info's pinned title: facts, then the actions.
+        val infoBody: @Composable ColumnScope.() -> Unit = {
+                        Spacer(Modifier.height(8.dp))
+                        PhotoInfoContent(media, accountState, uploadTransfer)
+                        if (media.origin == MediaOrigin.DEVICE || media.linkedDeviceReference != null) {
+                            Spacer(Modifier.height(16.dp))
+                            DetailAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.trash_phone_copy), !isWorking,
+                                { actions.trashOnPhone(listOf(media), media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) },
+                                Modifier.testTag("detail-phone-trash"))
+                            Text(stringResource(if (media.isTrashed) R.string.trash_restore_explanation else R.string.trash_phone_explanation), style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(Modifier.height(24.dp))
+                        if (media.origin == MediaOrigin.ICLOUD) {
+                            AlbaCard(color = colors.card, contentColor = colors.foreground) {
+                                Column {
+                                    // iCloud refuses favorites, albums and the trash for a hidden photo; it can only be unhidden.
+                                    val inHidden = media.isHidden && !media.isTrashed
+                                    if (!media.isShared && !inHidden) {
+                                    DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,
+                                        { actions.setFavorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = if (media.isFavorite) AlbaTheme.colors.favorite else MaterialTheme.colorScheme.primary) },
+                                        Modifier.testTag("detail-favorite"))
+                                    DetailAction(stringResource(R.string.add_to_album), canEdit && !media.isTrashed, { choosingAlbum = true }, { ICloudIcon(R.drawable.icloud_albums) },
+                                        Modifier.testTag("detail-add-to-album"))
+                                    collections.firstOrNull { it.id == currentAlbumId && it.isUserAlbum }?.let { album ->
+                                        if (!media.isTrashed) DetailAction(stringResource(R.string.remove_from_album), canEdit,
+                                            { actions.confirmRemoveFromAlbum(album.id, listOf(media.id)) }, { ICloudIcon(R.drawable.icloud_albums) })
+                                    }
+                                    DetailAction(stringResource(if (media.isTrashed) R.string.restore_from_icloud else R.string.trash_in_icloud), canEdit,
+                                        { actions.confirmCloudTrash(listOf(media.id), !media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) },
+                                        Modifier.testTag("detail-cloud-trash"))
+                                    }
+                                    if (!media.isShared && !media.isTrashed) HideAction(media, canEdit, actions)
+                                    BurstAction(media, actions) { showDetails(false) }
+                                    if (media.isShared) {
+                                        DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true },
+                                            { Icon(AlbaIcons.Info, null) })
+                                        Text(stringResource(R.string.shared_copy_notice), Modifier.padding(18.dp))
+                                    }
+                                    DetailAction(stringResource(if (media.kind == MediaKind.LIVE_PHOTO) R.string.save_photo_and_video_to_gallery else R.string.save_to_phone_gallery),
+                                        !isWorking, { actions.saveToGallery(media) }, { Icon(AlbaIcons.PhoneAndroid, null) })
+                                    DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) },
+                                        { Icon(AlbaIcons.Share, null) })
+                                    if (media.kind == MediaKind.LIVE_PHOTO) {
+                                        LiveVideoActions(media, !isWorking, actions)
+                                        DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,
+                                            { actions.exportLivePhoto(media) }, { ICloudIcon(R.drawable.icloud_live_photos) })
+                                    }
+                                    HorizontalDivider(color = colors.canvas, thickness = 2.dp)
+                                    if (media.availability == MediaAvailability.ORIGINAL_CACHED) {
+                                        DetailAction(stringResource(R.string.remove_offline_copy), !isWorking, { actions.removeCachedOriginal(media.id) }, { Icon(AlbaIcons.DeleteOutline, null) })
+                                    } else {
+                                        DetailAction(stringResource(if (isWorking) R.string.downloading_original else R.string.keep_original_offline), !isWorking,
+                                            { actions.keepOriginalOffline(media.id) }, {
+                                                if (isWorking) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                                                else Icon(AlbaIcons.DownloadForOffline, null)
+                                            })
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            if (isDownloadingOriginal) TextButton(onClick = actions::cancelOfflineDownload) { Text(stringResource(R.string.cancel_download)) }
+                            Text(stringResource(R.string.offline_copies_live_only_in_alba_s_private_storage_this_action_never_removes_a_photo_),
+                                style = MaterialTheme.typography.bodySmall, color = colors.secondary)
+                            if (media.kind == MediaKind.LIVE_PHOTO) {
+                                Spacer(Modifier.height(12.dp))
+                                Text(stringResource(R.string.the_zip_preserves_the_original_still_image_and_motion_clip_your_gallery_may_show_them),
+                                    style = MaterialTheme.typography.bodySmall, color = colors.secondary)
+                            }
+                        } else if (!media.isTrashed && media.kind == MediaKind.PHOTO) {
+                            DeviceUploadControls(
+                                uploadTransfer = uploadTransfer,
+                                demo = accountState == ICloudAccountState.Demo,
+                                isSignedIn = (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED,
+                                isWorking = isWorking,
+                                onRequestUpload = { actions.requestUpload(media.id) },
+                                onContinuePastUnresolved = { uploadTransfer?.let { actions.continuePastUnresolved(it.id) } },
+                                onMoveVerifiedPhotoToTrash = { actions.moveVerifiedPhotoToTrash(media.id) },
+                                onOpenAccount = actions::openAccount,
+                                onRetry = { uploadTransfer?.let { actions.retryTransfer(it.id) } },
+                            )
+                        }
+                        Spacer(Modifier.height(24.dp))
+        }
+        // The side pane has no drag handle to pin the title above, so it scrolls with the rest.
         val infoContent: @Composable ColumnScope.() -> Unit = {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(timestampLabel(media.capturedAtEpochMillis), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                IconButton(onClick = { showDetails(false) }) { Icon(AlbaIcons.Close, stringResource(R.string.close_details)) }
-            }
-            Spacer(Modifier.height(20.dp))
-            Text(detailsLabel, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(16.dp))
-            PhotoCaption(media)
-            PhotoMetadataCards(media, accountState, uploadTransfer)
-            PhotoExtraMetadata(media)
-            if (media.origin == MediaOrigin.DEVICE || media.linkedDeviceReference != null) {
-                Spacer(Modifier.height(16.dp))
-                DetailAction(stringResource(if (media.isTrashed) R.string.restore_photo else R.string.trash_phone_copy), !isWorking,
-                    { actions.trashOnPhone(listOf(media), media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) },
-                    Modifier.testTag("detail-phone-trash"))
-                Text(stringResource(if (media.isTrashed) R.string.trash_restore_explanation else R.string.trash_phone_explanation), style = MaterialTheme.typography.bodySmall)
-            }
-            Spacer(Modifier.height(24.dp))
-            if (media.origin == MediaOrigin.ICLOUD) {
-                AlbaCard(color = colors.card, contentColor = colors.foreground) {
-                    Column {
-                        // iCloud refuses favorites, albums and the trash for a hidden photo; it can only be unhidden.
-                        val inHidden = media.isHidden && !media.isTrashed
-                        if (!media.isShared && !inHidden) {
-                        DetailAction(stringResource(if (media.isFavorite) R.string.unfavorite else R.string.favorite), canEdit && !media.isTrashed,
-                            { actions.setFavorite(media.id, !media.isFavorite) }, { FavoriteIcon(media.isFavorite, null, tint = if (media.isFavorite) AlbaTheme.colors.favorite else MaterialTheme.colorScheme.primary) },
-                            Modifier.testTag("detail-favorite"))
-                        DetailAction(stringResource(R.string.add_to_album), canEdit && !media.isTrashed, { choosingAlbum = true }, { ICloudIcon(R.drawable.icloud_albums) },
-                            Modifier.testTag("detail-add-to-album"))
-                        collections.firstOrNull { it.id == currentAlbumId && it.isUserAlbum }?.let { album ->
-                            if (!media.isTrashed) DetailAction(stringResource(R.string.remove_from_album), canEdit,
-                                { actions.confirmRemoveFromAlbum(album.id, listOf(media.id)) }, { ICloudIcon(R.drawable.icloud_albums) })
-                        }
-                        DetailAction(stringResource(if (media.isTrashed) R.string.restore_from_icloud else R.string.trash_in_icloud), canEdit,
-                            { actions.confirmCloudTrash(listOf(media.id), !media.isTrashed) }, { Icon(AlbaIcons.DeleteOutline, null) },
-                            Modifier.testTag("detail-cloud-trash"))
-                        }
-                        if (!media.isShared && !media.isTrashed) HideAction(media, canEdit, actions)
-                        BurstAction(media, actions) { showDetails(false) }
-                        if (media.isShared) {
-                            DetailAction(stringResource(R.string.shared_discussion), canEdit, { sharedControls = true },
-                                { Icon(AlbaIcons.Info, null) })
-                            Text(stringResource(R.string.shared_copy_notice), Modifier.padding(18.dp))
-                        }
-                        DetailAction(stringResource(if (media.kind == MediaKind.LIVE_PHOTO) R.string.save_photo_and_video_to_gallery else R.string.save_to_phone_gallery),
-                            !isWorking, { actions.saveToGallery(media) }, { Icon(AlbaIcons.PhoneAndroid, null) })
-                        DetailAction(stringResource(R.string.export_original), !isWorking, { actions.exportOriginal(media) },
-                            { Icon(AlbaIcons.Share, null) })
-                        if (media.kind == MediaKind.LIVE_PHOTO) {
-                            LiveVideoActions(media, !isWorking, actions)
-                            DetailAction(stringResource(R.string.export_live_photo_originals_zip), !isWorking,
-                                { actions.exportLivePhoto(media) }, { ICloudIcon(R.drawable.icloud_live_photos) })
-                        }
-                        HorizontalDivider(color = colors.canvas, thickness = 2.dp)
-                        if (media.availability == MediaAvailability.ORIGINAL_CACHED) {
-                            DetailAction(stringResource(R.string.remove_offline_copy), !isWorking, { actions.removeCachedOriginal(media.id) }, { Icon(AlbaIcons.DeleteOutline, null) })
-                        } else {
-                            DetailAction(stringResource(if (isWorking) R.string.downloading_original else R.string.keep_original_offline), !isWorking,
-                                { actions.keepOriginalOffline(media.id) }, {
-                                    if (isWorking) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                                    else Icon(AlbaIcons.DownloadForOffline, null)
-                                })
-                        }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                if (isDownloadingOriginal) TextButton(onClick = actions::cancelOfflineDownload) { Text(stringResource(R.string.cancel_download)) }
-                Text(stringResource(R.string.offline_copies_live_only_in_alba_s_private_storage_this_action_never_removes_a_photo_),
-                    style = MaterialTheme.typography.bodySmall, color = colors.secondary)
-                if (media.kind == MediaKind.LIVE_PHOTO) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(stringResource(R.string.the_zip_preserves_the_original_still_image_and_motion_clip_your_gallery_may_show_them),
-                        style = MaterialTheme.typography.bodySmall, color = colors.secondary)
-                }
-            } else if (!media.isTrashed && media.kind == MediaKind.PHOTO) {
-                DeviceUploadControls(
-                    uploadTransfer = uploadTransfer,
-                    demo = accountState == ICloudAccountState.Demo,
-                    isSignedIn = (accountState as? ICloudAccountState.SignedIn)?.status == SessionStatus.VERIFIED,
-                    isWorking = isWorking,
-                    onRequestUpload = { actions.requestUpload(media.id) },
-                    onContinuePastUnresolved = { uploadTransfer?.let { actions.continuePastUnresolved(it.id) } },
-                    onMoveVerifiedPhotoToTrash = { actions.moveVerifiedPhotoToTrash(media.id) },
-                    onOpenAccount = actions::openAccount,
-                    onRetry = { uploadTransfer?.let { actions.retryTransfer(it.id) } },
-                )
-            }
-            Spacer(Modifier.height(24.dp))
+            PhotoInfoHeader(media, onClose = { showDetails(false) })
+            infoBody()
         }
         if (sidePane) Row(Modifier.fillMaxSize()) {
             // The open pane meets the window's end edge, so the photo's controls need not clear what is there.
@@ -482,8 +479,12 @@ internal fun MediaDetailScreen(
                     Box(Modifier.fillMaxWidth().height(32.dp).then(handleDrag).testTag("details-drag-handle"), contentAlignment = Alignment.Center) {
                         Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = AlbaTheme.colors.sheetHandle) {}
                     }
-                    Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)
-                        .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility), content = infoContent)
+                    // The date is Info's title. Pinned above the scrolling facts, it can never scroll or clip out of reach.
+                    PhotoInfoHeader(media, onClose = { showDetails(false) },
+                        modifier = Modifier.then(handleDrag).padding(horizontal = 20.dp))
+                    Column(Modifier.fillMaxWidth().weight(1f).nestedScroll(detailsScroll).verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp).windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility).testTag("photo-info-scroll"),
+                        content = infoBody)
                 }
             }
         }

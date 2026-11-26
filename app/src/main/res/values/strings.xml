@@ -23,9 +23,9 @@
     <string name="backup_disclosure">Alba will back up photos and videos from your camera and any folders you choose, uploading the originals straight to %1$s. Backup uses Wi-Fi unless you allow mobile data in its settings, and it pauses if photo access, your consent or the account changes.</string>
     <string name="backup_on_for">On for %1$s. Each photo and video is uploaded once, then checked in iCloud.</string>
     <string name="backups">Backups</string>
-    <string name="batch_done">%1$s · %2$d of %3$d done</string>
+    <string name="batch_done">%1$s · %2$,d of %3$,d done</string>
     <string name="batch_item_progress">%1$s · %2$s</string>
-    <string name="batch_queued">%1$s · %2$d of %3$d waiting</string>
+    <string name="batch_queued">%1$s · %2$,d of %3$,d waiting</string>
     <string name="browse_by_date">Browse by date</string>
     <string name="bursts">Bursts</string>
     <string name="cancel">Cancel</string>
@@ -370,7 +370,7 @@
     <string name="checking_icloud_library_first">Checking whether it is already in iCloud</string>
     <string name="verify_and_continue">Verify and continue</string>
     <string name="videos">Videos</string>
-    <string name="viewer_position">%1$d / %2$d</string>
+    <string name="viewer_position">%1$,d / %2$,d</string>
     <string name="viewer_edit">Edit</string>
     <string name="viewer_trash">Delete</string>
     <string name="viewer_add_to_album">Add to</string>
@@ -390,30 +390,30 @@
     <string name="your_personal_albums_will_appear_here">Your personal albums will appear here.</string>
     <string name="your_saved_library_is_available_sign_in_again_to_reconnect">Your saved library is available. Sign in again to reconnect.</string>
     <plurals name="added_to_album_count">
-        <item quantity="one">Added %1$d to album</item>
-        <item quantity="other">Added %1$d to album</item>
+        <item quantity="one">Added %1$,d to album</item>
+        <item quantity="other">Added %1$,d to album</item>
     </plurals>
     <plurals name="attention_count">
-        <item quantity="one">%1$d needs attention</item>
-        <item quantity="other">%1$d need attention</item>
+        <item quantity="one">%1$,d needs attention</item>
+        <item quantity="other">%1$,d need attention</item>
     </plurals>
     <plurals name="folder_album_count">
-        <item quantity="one">Folder · %1$d album</item>
-        <item quantity="other">Folder · %1$d albums</item>
+        <item quantity="one">Folder · %1$,d album</item>
+        <item quantity="other">Folder · %1$,d albums</item>
     </plurals>
     <plurals name="item_count">
-        <item quantity="one">%1$d item</item>
-        <item quantity="other">%1$d items</item>
+        <item quantity="one">%1$,d item</item>
+        <item quantity="other">%1$,d items</item>
     </plurals>
     <plurals name="selected_count">
-        <item quantity="one">%1$d selected</item>
-        <item quantity="other">%1$d selected</item>
+        <item quantity="one">%1$,d selected</item>
+        <item quantity="other">%1$,d selected</item>
     </plurals>
     <plurals name="cloud_photo_count">
-        <item quantity="one">%1$d iCloud photo</item>
-        <item quantity="other">%1$d iCloud photos</item>
+        <item quantity="one">%1$,d iCloud photo</item>
+        <item quantity="other">%1$,d iCloud photos</item>
     </plurals>
-    <string name="phone_photo_count">%1$d on this phone</string>
+    <string name="phone_photo_count">%1$,d on this phone</string>
     <string name="close_details">Close details</string>
     <string name="megapixels">%1$s MP</string>
     <string name="photo_zoomed">Zoomed</string>
@@ -440,10 +440,8 @@
     <string name="trash_restore_explanation">Android deletes items in the phone trash after 30 days. Restore keeps the photo on this phone.</string>
     <string name="trash_phone_explanation">This removes only the copy on this phone; copies in iCloud stay. Photos that aren’t backed up are lost when Android empties the trash.</string>
     <string name="on_phone_and_icloud">On this phone and in iCloud</string>
-    <string name="photo_camera">Camera</string>
     <string name="photo_location">Location</string>
     <string name="photo_folder">Folder</string>
-    <string name="photo_exposure">Exposure</string>
     <string name="select_photo">Select photo</string>
     <string name="trash_empty">Phone trash is empty</string>
     <string name="save_smaller_copy">Save a smaller copy?</string>
@@ -453,18 +451,23 @@
     <string name="photo_access_lost">Photo access is no longer available. Select it again or reopen it from the original app.</string>
     <string name="photo_file_missing">This photo may have been moved or deleted. Refresh the library to check.</string>
     <string name="photo_decode_failed">Couldn’t show this file. It may be damaged or in an unsupported format.</string>
+    <string name="photo_format_unsupported">This format isn’t supported on this device.</string>
+    <string name="lens_main_camera">Main Camera</string>
+    <string name="lens_ultra_wide_camera">Ultra Wide Camera</string>
+    <string name="lens_telephoto_camera">Telephoto Camera</string>
+    <string name="lens_front_camera">Front Camera</string>
     <string name="photo_preview_unavailable">Preview unavailable. Connect and refresh to try again.</string>
     <string name="photo_preview_storage_low">Not enough space on this phone. Free up space to load previews.</string>
     <string name="incoming_unsupported">Alba can open up to 50 shared photos or videos. Reopen them from the original app if access has expired.</string>
     <string name="incoming_file_missing">This file is no longer available. Go back to the original app and check whether it was moved or deleted.</string>
     <string name="incoming_access_lost">Access to this file has expired. Go back to the original app and open or share it with Alba again.</string>
-    <string name="incoming_position">%1$d of %2$d</string>
+    <string name="incoming_position">%1$,d of %2$,d</string>
     <string name="incoming_upload_explanation">Viewing doesn’t upload anything. You can upload JPEG, PNG, HEIC and still WebP photos, and MP4 or MOV videos in H.264 or HEVC with AAC audio. Files are checked before they upload.</string>
     <string name="incoming_upload_queued">Upload requested</string>
     <string name="incoming_connect">Connect iCloud to upload</string>
     <string name="incoming_view_library">View library and transfers</string>
     <string name="favorites_failed">Couldn’t finish changing favorites. Refresh before trying again.</string>
-    <string name="favorites_partial">%1$d of %2$d favorite changes confirmed. The rest are still selected. Refresh before trying again.</string>
+    <string name="favorites_partial">%1$,d of %2$,d favorite changes confirmed. The rest are still selected. Refresh before trying again.</string>
     <string name="album_removal_failed">Couldn’t confirm the removal from the album. Refresh before trying again.</string>
     <string name="album_photos_removed">Removed from album. The photos are still in your library.</string>
     <string name="remove_from_album">Remove from album</string>
@@ -476,36 +479,36 @@
     <string name="selection_action_limit">You can favorite, add to an album or delete up to 50 items at a time.</string>
     <plurals name="incoming_upload_confirm">
         <item quantity="one">Upload this original to your iCloud account? It’s checked first, and unsupported files stay on this phone.</item>
-        <item quantity="other">Upload %1$d originals to your iCloud account? They’re checked first, and unsupported files stay on this phone.</item>
+        <item quantity="other">Upload %1$,d originals to your iCloud account? They’re checked first, and unsupported files stay on this phone.</item>
     </plurals>
     <plurals name="favorites_updated">
         <item quantity="one">Favorite updated.</item>
-        <item quantity="other">Favorites updated for %1$d items.</item>
+        <item quantity="other">Favorites updated for %1$,d items.</item>
     </plurals>
     <plurals name="remove_album_confirmation">
         <item quantity="one">Remove this item from the album? It will remain in your library and other albums.</item>
-        <item quantity="other">Remove %1$d items from this album? They will remain in your library and other albums.</item>
+        <item quantity="other">Remove %1$,d items from this album? They will remain in your library and other albums.</item>
     </plurals>
     <plurals name="cloud_trash_moved">
         <item quantity="one">Moved to Recently Deleted</item>
-        <item quantity="other">%1$d moved to Recently Deleted</item>
+        <item quantity="other">%1$,d moved to Recently Deleted</item>
     </plurals>
     <plurals name="phone_trash_moved">
         <item quantity="one">Moved to phone trash</item>
-        <item quantity="other">%1$d moved to phone trash</item>
+        <item quantity="other">%1$,d moved to phone trash</item>
     </plurals>
     <plurals name="cloud_trash_confirmation">
         <item quantity="one">Move this item to Recently Deleted? It’s removed from your iCloud library on all your devices and can usually be recovered for 30 days. Copies saved separately on this phone stay.</item>
-        <item quantity="other">Move %1$d items to Recently Deleted? They’re removed from your iCloud library on all your devices and can usually be recovered for 30 days. Copies saved separately on this phone stay.</item>
+        <item quantity="other">Move %1$,d items to Recently Deleted? They’re removed from your iCloud library on all your devices and can usually be recovered for 30 days. Copies saved separately on this phone stay.</item>
     </plurals>
     <plurals name="cloud_restore_confirmation">
         <item quantity="one">Restore this item to your iCloud library on all your devices?</item>
-        <item quantity="other">Restore %1$d items to your iCloud library on all your devices?</item>
+        <item quantity="other">Restore %1$,d items to your iCloud library on all your devices?</item>
     </plurals>
     <string name="back_action">Back</string>
     <plurals name="album_created_with_photos">
-        <item quantity="one">Created %1$s with %2$d photo.</item>
-        <item quantity="other">Created %1$s with %2$d photos.</item>
+        <item quantity="one">Created %1$s with %2$,d photo.</item>
+        <item quantity="other">Created %1$s with %2$,d photos.</item>
     </plurals>
     <string name="album_created_membership_uncertain">Created %1$s, but couldn’t confirm its photos were added. Refresh the library before trying again.</string>
     <string name="video_playback_failed">Couldn’t play this video. Check your connection and try again.</string>
@@ -585,7 +588,7 @@
     <string name="shared_created_by">Created by %1$s</string>
     <string name="shared_from">From %1$s</string>
     <string name="shared_with_person">Shared with %1$s</string>
-    <plurals name="shared_with_people"><item quantity="one">Shared with %d person</item><item quantity="other">Shared with %d people</item></plurals>
+    <plurals name="shared_with_people"><item quantity="one">Shared with %,d person</item><item quantity="other">Shared with %,d people</item></plurals>
     <string name="shared_expires">Expires %1$s</string>
     <string name="shared_album_subtitle">%1$s · %2$s</string>
     <string name="shared_album_info">Shared album details</string>
@@ -596,11 +599,11 @@
     <string name="shared_create">New shared album</string>
     <string name="shared_create_failed">Couldn’t confirm the shared album. Refresh, then try again with the same name to check whether it was created.</string>
     <string name="shared_album_copy">Shared album copy</string>
-    <plurals name="shared_participants"><item quantity="one">%d participant</item><item quantity="other">%d participants</item></plurals>
+    <plurals name="shared_participants"><item quantity="one">%,d participant</item><item quantity="other">%,d participants</item></plurals>
 <string name="shared_add_photos">Add photos</string>
 <string name="shared_add_explanation">Choose up to 50 photos or videos from iCloud or this phone. Shared copies stay separate from your personal library.</string>
 <string name="shared_no_personal_photos">No supported photos are available to add.</string>
-<plurals name="shared_add_selected"><item quantity="one">Add %d item</item><item quantity="other">Add %d items</item></plurals>
+<plurals name="shared_add_selected"><item quantity="one">Add %,d item</item><item quantity="other">Add %,d items</item></plurals>
 <string name="shared_contributed">Photos added to the shared album.</string>
 <string name="shared_contribute_failed">Couldn’t confirm the photos were added. Check the album in iCloud. Trying again with the same selection checks first, so nothing is added twice.</string>
 <string name="shared_album_empty">No shared photos yet.</string>
@@ -720,7 +723,7 @@
     <string name="gallery_photos">Photos</string>
     <string name="album_options">Album options</string>
     <string name="shared_details">Album details</string>
-    <plurals name="album_count"><item quantity="one">%d album</item><item quantity="other">%d albums</item></plurals>
+    <plurals name="album_count"><item quantity="one">%,d album</item><item quantity="other">%,d albums</item></plurals>
     <string name="demo_badge">Demo</string>
     <string name="phone_photo_prompt_body">See photos and videos from this phone alongside your iCloud library. You choose what Alba can access.</string>
     <string name="phone_photo_prompt_action">Choose photos</string>
@@ -775,7 +778,7 @@
     <string name="about_hide_limitations">Hide compatibility details</string>
     <string name="backup_progress_channel">Backup progress</string>
     <string name="backup_progress_notification_title">Backing up to iCloud</string>
-    <string name="backup_progress_notification_count">%1$d of %2$d backed up</string>
+    <string name="backup_progress_notification_count">%1$,d of %2$,d backed up</string>
     <string name="transfer_channel">Photo transfers</string>
     <string name="transfer_notification_title">Transferring photos</string>
     <string name="transfer_notification_body">Open Alba to see progress.</string>
@@ -825,7 +828,7 @@
     <string name="shared_caption">Caption (optional)</string>
     <string name="shared_caption_legacy">Legacy shared albums don’t support captions.</string>
     <string name="shared_caption_note">Everyone in the album sees the caption with these items.</string>
-    <string name="shared_more_photos">+%1$d</string>
+    <string name="shared_more_photos">+%1$,d</string>
     <string name="shared_post_open">Open post</string>
     <string name="shared_section_link">Link</string>
     <string name="shared_section_settings">Settings</string>
@@ -849,11 +852,11 @@
     <string name="incoming_sent_library">Sent to your iCloud library. Follow progress in transfers.</string>
     <string name="incoming_sent_shared">Added to %1$s.</string>
     <string name="incoming_shared_failed">Couldn’t confirm adding to %1$s. Check the album before trying again.</string>
-    <plurals name="shared_notification_invitations"><item quantity="one">New shared album invitation</item><item quantity="other">%d new shared album invitations</item></plurals>
-    <plurals name="shared_notification_new_items"><item quantity="one">%d new photo or video</item><item quantity="other">%d new photos and videos</item></plurals>
-    <plurals name="shared_post_items_title"><item quantity="one">Post %d item</item><item quantity="other">Post %d items</item></plurals>
-    <plurals name="shared_live_photos_excluded"><item quantity="one">%d Live Photo is not shown: legacy albums can’t keep its motion.</item><item quantity="other">%d Live Photos are not shown: legacy albums can’t keep their motion.</item></plurals>
-    <plurals name="shared_reactions"><item quantity="one">%d reaction</item><item quantity="other">%d reactions</item></plurals>
+    <plurals name="shared_notification_invitations"><item quantity="one">New shared album invitation</item><item quantity="other">%,d new shared album invitations</item></plurals>
+    <plurals name="shared_notification_new_items"><item quantity="one">%,d new photo or video</item><item quantity="other">%,d new photos and videos</item></plurals>
+    <plurals name="shared_post_items_title"><item quantity="one">Post %,d item</item><item quantity="other">Post %,d items</item></plurals>
+    <plurals name="shared_live_photos_excluded"><item quantity="one">%,d Live Photo is not shown: legacy albums can’t keep its motion.</item><item quantity="other">%,d Live Photos are not shown: legacy albums can’t keep their motion.</item></plurals>
+    <plurals name="shared_reactions"><item quantity="one">%,d reaction</item><item quantity="other">%,d reactions</item></plurals>
     <string name="shared_posted_without_caption">Posted without a caption. Apple didn’t accept the caption for this album.</string>
     <string name="shared_notification_public">New Shared Album activity</string>
     <string name="shared_allow_notifications">Allow notifications</string>
@@ -871,11 +874,11 @@
     <string name="hidden_change_failed">Couldn’t confirm the change to Hidden. Refresh before trying again.</string>
     <plurals name="hidden_moved">
         <item quantity="one">Moved to Hidden</item>
-        <item quantity="other">%1$d moved to Hidden</item>
+        <item quantity="other">%1$,d moved to Hidden</item>
     </plurals>
     <plurals name="unhidden_moved">
         <item quantity="one">Moved back to your library</item>
-        <item quantity="other">%1$d moved back to your library</item>
+        <item quantity="other">%1$,d moved back to your library</item>
     </plurals>
     <!-- Search -->
     <string name="search_your_photos">Search your photos</string>
@@ -884,21 +887,18 @@
     <!-- Photo types and bursts -->
     <string name="raw_badge">RAW</string>
     <plurals name="burst_view_photos">
-        <item quantity="one">View %1$d photo in burst</item>
-        <item quantity="other">View %1$d photos in burst</item>
+        <item quantity="one">View %1$,d photo in burst</item>
+        <item quantity="other">View %1$,d photos in burst</item>
     </plurals>
     <string name="burst_stack">Show only the burst’s key photo</string>
     <plurals name="burst_photo_count">
-        <item quantity="one">Burst, %1$d photo</item>
-        <item quantity="other">Burst, %1$d photos</item>
+        <item quantity="one">Burst, %1$,d photo</item>
+        <item quantity="other">Burst, %1$,d photos</item>
     </plurals>
     <!-- Photo details -->
     <string name="photo_caption">Caption</string>
-    <string name="photo_taken">Taken</string>
     <string name="photo_added">Added to iCloud</string>
     <string name="photo_duration">Duration</string>
-    <string name="photo_format">Format</string>
-    <string name="photo_lens">Lens</string>
     <string name="photo_altitude">%1$s m above sea level</string>
     <string name="open_in_maps">Open in Maps</string>
     <string name="no_maps_app">No maps app can open this place.</string>
@@ -915,8 +915,8 @@
     <string name="backup_paused_storage_body">Backup is paused until there’s space in iCloud. Free up iCloud storage or change your plan, then try again.</string>
     <string name="backup_status_channel">Backup status</string>
     <string name="backup_status_channel_description">When backup pauses or items can’t be backed up</string>
-    <string name="transfer_notification_uploading">Uploading %1$d of %2$d</string>
-    <string name="transfer_notification_progress">Transferring %1$d of %2$d</string>
+    <string name="transfer_notification_uploading">Uploading %1$,d of %2$,d</string>
+    <string name="transfer_notification_progress">Transferring %1$,d of %2$,d</string>
     <string name="message_could_not_change_backup_settings">Couldn’t change backup settings</string>
     <string name="uploads_canceled">Uploads canceled. Anything already sent is being checked in iCloud.</string>
     <string name="notifications_rationale_title">Get notified about transfers?</string>
@@ -943,7 +943,7 @@
     <string name="backup_status_wifi">Waiting for Wi-Fi</string>
     <string name="backup_status_charging">Waiting to charge</string>
     <string name="backup_status_done">Backup complete</string>
-    <string name="backup_progress">%1$d of %2$d backed up</string>
+    <string name="backup_progress">%1$,d of %2$,d backed up</string>
     <string name="backup_last_backed_up">Last backed up %1$s</string>
     <string name="backup_queue_title">In progress</string>
     <string name="cancel_uploads">Cancel uploads</string>
@@ -982,7 +982,7 @@
     <string name="backup_camera_folder">%1$s (camera)</string>
     <string name="free_up_space_intro">These photos and videos have an exact copy in iCloud. Alba checks each one again before Android asks you to move them to the phone trash, where they stay for 30 days.</string>
     <string name="free_up_space_nothing">Nothing to free up yet. Backed-up photos and videos on this phone will appear here.</string>
-    <string name="free_up_space_checking">Checking %1$d of %2$d</string>
+    <string name="free_up_space_checking">Checking %1$,d of %2$,d</string>
     <string name="free_up_space_button">Free up %1$s</string>
     <string name="free_up_space_confirm">Alba checks each item against its iCloud copy once more, then Android asks you to confirm. Items that no longer match stay on this phone.</string>
     <string name="skip_unresolved_item">Skip this item</string>
@@ -1007,85 +1007,85 @@
     <string name="badge_backup_failed">Can’t be backed up</string>
     <string name="badge_backup_done">Backed up</string>
     <plurals name="backup_failed_notification_title">
-        <item quantity="one">%d item can’t be backed up</item>
-        <item quantity="other">%d items can’t be backed up</item>
+        <item quantity="one">%,d item can’t be backed up</item>
+        <item quantity="other">%,d items can’t be backed up</item>
     </plurals>
     <plurals name="retried_items">
-        <item quantity="one">Retrying %d item</item>
-        <item quantity="other">Retrying %d items</item>
+        <item quantity="one">Retrying %,d item</item>
+        <item quantity="other">Retrying %,d items</item>
     </plurals>
     <plurals name="free_up_space_left_out">
-        <item quantity="one">%d item no longer matches its iCloud copy and stays on this phone.</item>
-        <item quantity="other">%d items no longer match their iCloud copy and stay on this phone.</item>
+        <item quantity="one">%,d item no longer matches its iCloud copy and stays on this phone.</item>
+        <item quantity="other">%,d items no longer match their iCloud copy and stay on this phone.</item>
     </plurals>
     <plurals name="phone_trash_not_backed_up_title">
-        <item quantity="one">Move %d item to the phone trash?</item>
-        <item quantity="other">Move %d items to the phone trash?</item>
+        <item quantity="one">Move %,d item to the phone trash?</item>
+        <item quantity="other">Move %,d items to the phone trash?</item>
     </plurals>
     <plurals name="phone_trash_none_backed_up">
         <item quantity="one">This item isn’t backed up to iCloud. Android keeps it in the phone trash for 30 days, then deletes it for good.</item>
-        <item quantity="other">These %d items aren’t backed up to iCloud. Android keeps them in the phone trash for 30 days, then deletes them for good.</item>
+        <item quantity="other">These %,d items aren’t backed up to iCloud. Android keeps them in the phone trash for 30 days, then deletes them for good.</item>
     </plurals>
     <plurals name="phone_trash_some_not_backed_up">
-        <item quantity="one">%1$d of these %2$d items isn’t backed up to iCloud. Android keeps it in the phone trash for 30 days, then deletes it for good.</item>
-        <item quantity="other">%1$d of these %2$d items aren’t backed up to iCloud. Android keeps them in the phone trash for 30 days, then deletes them for good.</item>
+        <item quantity="one">%1$,d of these %2$,d items isn’t backed up to iCloud. Android keeps it in the phone trash for 30 days, then deletes it for good.</item>
+        <item quantity="other">%1$,d of these %2$,d items aren’t backed up to iCloud. Android keeps them in the phone trash for 30 days, then deletes them for good.</item>
     </plurals>
     <plurals name="backup_chip_backing_up">
-        <item quantity="one">Backing up %d item</item>
-        <item quantity="other">Backing up %d items</item>
+        <item quantity="one">Backing up %,d item</item>
+        <item quantity="other">Backing up %,d items</item>
     </plurals>
     <plurals name="backup_chip_failed">
-        <item quantity="one">%d item can’t be backed up</item>
-        <item quantity="other">%d items can’t be backed up</item>
+        <item quantity="one">%,d item can’t be backed up</item>
+        <item quantity="other">%,d items can’t be backed up</item>
     </plurals>
     <plurals name="backup_detail_wifi">
-        <item quantity="one">%d item waits for Wi-Fi. Allow mobile data in settings below to back up now.</item>
-        <item quantity="other">%d items wait for Wi-Fi. Allow mobile data in settings below to back up now.</item>
+        <item quantity="one">%,d item waits for Wi-Fi. Allow mobile data in settings below to back up now.</item>
+        <item quantity="other">%,d items wait for Wi-Fi. Allow mobile data in settings below to back up now.</item>
     </plurals>
     <plurals name="backup_detail_charging">
-        <item quantity="one">%d item waits for the phone to charge. Turn off “Only while charging” below to back up now.</item>
-        <item quantity="other">%d items wait for the phone to charge. Turn off “Only while charging” below to back up now.</item>
+        <item quantity="one">%,d item waits for the phone to charge. Turn off “Only while charging” below to back up now.</item>
+        <item quantity="other">%,d items wait for the phone to charge. Turn off “Only while charging” below to back up now.</item>
     </plurals>
     <plurals name="backup_failed_title">
-        <item quantity="one">%d item can’t be backed up</item>
-        <item quantity="other">%d items can’t be backed up</item>
+        <item quantity="one">%,d item can’t be backed up</item>
+        <item quantity="other">%,d items can’t be backed up</item>
     </plurals>
     <plurals name="backup_device_folders_detail">
-        <item quantity="one">%d folder besides the camera</item>
-        <item quantity="other">%d folders besides the camera</item>
+        <item quantity="one">%,d folder besides the camera</item>
+        <item quantity="other">%,d folders besides the camera</item>
     </plurals>
     <plurals name="backup_folder_items">
-        <item quantity="one">%d item</item>
-        <item quantity="other">%d items</item>
+        <item quantity="one">%,d item</item>
+        <item quantity="other">%,d items</item>
     </plurals>
     <plurals name="free_up_space_summary">
-        <item quantity="one">%1$d item · %2$s</item>
-        <item quantity="other">%1$d items · %2$s</item>
+        <item quantity="one">%1$,d item · %2$s</item>
+        <item quantity="other">%1$,d items · %2$s</item>
     </plurals>
     <string name="free_up_space_needs_wifi">You chose to wait for Wi-Fi. Free up space checks each original in iCloud, so connect to Wi-Fi first.</string>
     <string name="could_not_reach_icloud_to_check">Couldn’t reach iCloud to check. Nothing was removed.</string>
     <string name="the_phone_file_changed_after_its_check">The phone file changed after its check, so it stays on this phone.</string>
     <plurals name="free_up_space_changed">
-        <item quantity="one">%d item changed on the phone after its check and stays.</item>
-        <item quantity="other">%d items changed on the phone after their check and stay.</item>
+        <item quantity="one">%,d item changed on the phone after its check and stays.</item>
+        <item quantity="other">%,d items changed on the phone after their check and stay.</item>
     </plurals>
     <plurals name="free_up_space_more_remain">
-        <item quantity="one">%d more item can be freed next time.</item>
-        <item quantity="other">%d more items can be freed next time.</item>
+        <item quantity="one">%,d more item can be freed next time.</item>
+        <item quantity="other">%,d more items can be freed next time.</item>
     </plurals>
     <string name="free_up_space_continue_title">Continue freeing up space?</string>
     <string name="could_not_read_this_file_on_the_phone">Alba couldn’t read this file on the phone, so it stays.</string>
     <plurals name="free_up_space_continue_body">
-        <item quantity="one">%d item from your last run hasn’t been checked yet. Nothing was removed without your OK.</item>
-        <item quantity="other">%d items from your last run haven’t been checked yet. Nothing was removed without your OK.</item>
+        <item quantity="one">%,d item from your last run hasn’t been checked yet. Nothing was removed without your OK.</item>
+        <item quantity="other">%,d items from your last run haven’t been checked yet. Nothing was removed without your OK.</item>
     </plurals>
     <plurals name="free_up_space_stopped_unreachable">
-        <item quantity="one">Couldn’t reach iCloud, so Alba stopped. %d item wasn’t checked and stays on this phone.</item>
-        <item quantity="other">Couldn’t reach iCloud, so Alba stopped. %d items weren’t checked and stay on this phone.</item>
+        <item quantity="one">Couldn’t reach iCloud, so Alba stopped. %,d item wasn’t checked and stays on this phone.</item>
+        <item quantity="other">Couldn’t reach iCloud, so Alba stopped. %,d items weren’t checked and stay on this phone.</item>
     </plurals>
     <plurals name="free_up_space_unreadable">
-        <item quantity="one">Alba couldn’t read %d item on the phone. It stays.</item>
-        <item quantity="other">Alba couldn’t read %d items on the phone. They stay.</item>
+        <item quantity="one">Alba couldn’t read %,d item on the phone. It stays.</item>
+        <item quantity="other">Alba couldn’t read %,d items on the phone. They stay.</item>
     </plurals>
     <string name="editor_tab_suggestions">Suggestions</string>
     <string name="editor_tab_crop">Crop</string>
@@ -1154,15 +1154,15 @@
     <string name="mixed_trash_action">Move to trash</string>
     <plurals name="mixed_trash_cloud">
         <item quantity="one">1 iCloud item moves to Recently Deleted on all your devices. It can usually be recovered for 30 days.</item>
-        <item quantity="other">%1$d iCloud items move to Recently Deleted on all your devices. They can usually be recovered for 30 days.</item>
+        <item quantity="other">%1$,d iCloud items move to Recently Deleted on all your devices. They can usually be recovered for 30 days.</item>
     </plurals>
     <plurals name="mixed_trash_phone">
         <item quantity="one">1 item on this phone moves to the phone trash. Android asks you to confirm; if you decline, the iCloud items still move to Recently Deleted.</item>
-        <item quantity="other">%1$d items on this phone move to the phone trash. Android asks you to confirm; if you decline, the iCloud items still move to Recently Deleted.</item>
+        <item quantity="other">%1$,d items on this phone move to the phone trash. Android asks you to confirm; if you decline, the iCloud items still move to Recently Deleted.</item>
     </plurals>
     <plurals name="mixed_trash_moved">
         <item quantity="one">Moved to trash</item>
-        <item quantity="other">%1$d moved to trash</item>
+        <item quantity="other">%1$,d moved to trash</item>
     </plurals>
     <!-- About: links. -->
     <string name="about_privacy_policy">Privacy policy</string>
@@ -1172,7 +1172,7 @@
     <!-- Phone photo access. -->
     <plurals name="limited_access_note">
         <item quantity="one">Alba can see 1 selected photo</item>
-        <item quantity="other">Alba can see %1$d selected photos</item>
+        <item quantity="other">Alba can see %1$,d selected photos</item>
     </plurals>
     <string name="limited_access_change">Change</string>
     <string name="limited_access_dismiss">Dismiss selected photos note</string>
@@ -1192,11 +1192,11 @@
     <!-- Recently Deleted: time left before permanent deletion. -->
     <plurals name="trash_days_left">
         <item quantity="one">1 day left</item>
-        <item quantity="other">%1$d days left</item>
+        <item quantity="other">%1$,d days left</item>
     </plurals>
     <plurals name="trash_tile_days">
         <item quantity="one">1 day</item>
-        <item quantity="other">%1$d days</item>
+        <item quantity="other">%1$,d days</item>
     </plurals>
     <string name="recently_deleted_note">Photos and videos show the days remaining before deletion. After that time, items will be permanently deleted. This may take up to 40 days.</string>
     <string name="badge_not_backed_up">Not backed up</string>
