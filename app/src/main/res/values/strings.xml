@@ -1288,4 +1288,30 @@
         <item quantity="one">%,d item</item>
         <item quantity="other">%,d items</item>
     </plurals>
+    <string name="permissions_title">Permissions</string>
+    <string name="permissions_summary_allowed">Everything Alba needs is allowed</string>
+    <plurals name="permissions_summary_attention">
+        <item quantity="one">%1$,d needs your attention</item>
+        <item quantity="other">%1$,d need your attention</item>
+    </plurals>
+    <string name="permission_allow">Allow</string>
+    <string name="permission_change">Change</string>
+    <string name="permission_open_settings">Open settings</string>
+    <string name="permission_allowed_description">Allowed</string>
+    <string name="permission_photos">Photos and videos</string>
+    <string name="permission_photos_full">Full access</string>
+    <string name="permission_photos_selected">Selected photos only: automatic backup needs full access</string>
+    <string name="permission_photos_none">Not allowed: Alba can’t show or back up photos on this phone</string>
+    <string name="permission_location">Photo location</string>
+    <string name="permission_location_allowed">Allowed: backups keep where photos were taken</string>
+    <string name="permission_location_denied">Not allowed: backups lose where photos were taken</string>
+    <string name="permission_notifications">Notifications</string>
+    <string name="permission_notifications_allowed">Allowed: for backup problems and large backups in progress</string>
+    <string name="permission_notifications_denied">Not allowed: you won’t hear about backup problems or large backups</string>
+    <string name="permission_battery">Battery</string>
+    <string name="permission_battery_unrestricted">Unrestricted: backup keeps running in the background</string>
+    <string name="permission_battery_optimized">Optimized: Android may pause backup in the background</string>
+    <string name="permission_background_data">Background data</string>
+    <string name="permission_background_data_allowed">Allowed: backup can use mobile data in the background</string>
+    <string name="permission_background_data_restricted">Restricted: backup on mobile data can’t run in the background</string>
 </resources>

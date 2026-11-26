@@ -7,9 +7,13 @@ import android.content.IntentSender
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import me.lvca.alba.engine.cache.UploadStagingStore
 import me.lvca.alba.engine.database.AlbaDatabase
 import me.lvca.alba.engine.database.CatalogItemEntity
@@ -293,6 +297,22 @@ class BackupJournalTest {
         assertEquals(2, protocol.uploadStarts)
         assertEquals(TransferViewState.VERIFIED, photos.observeTransfers().first().single().state)
         assertNull(photos.observeBackup().first().storageFullSinceEpochMillis)
+    }
+
+    @Test
+    fun accessGrantedWhileAlbaRunsLiftsThePermissionPauseItWasShowing() = runBlocking {
+        val photos = enrolled()
+        val needsAccess = StoredMessage.BACKUP_PAUSED_ALLOW_FULL_PHOTO_AND_MEDIA_LOCATION_ACCESS.code
+        source.backupAccess = false
+        val messages = Channel<String?>(Channel.UNLIMITED)
+        val watching = launch(Dispatchers.Default) { photos.observeBackup().collect { messages.send(it.message) } }
+        assertEquals(needsAccess, withTimeout(5_000) { messages.receive() })
+
+        // Granting does not restart Alba as revoking does, so nothing else would make the status read access again.
+        source.backupAccess = true
+        photos.backup.accessChanged()
+        withTimeout(5_000) { while (messages.receive() == needsAccess) Unit }
+        watching.cancel()
     }
 
     @Test
@@ -853,7 +873,8 @@ class BackupJournalTest {
             .map { it.fileName }
 
         override fun permissionFingerprint() = "full:unredacted:test"
-        override fun hasAutomaticBackupAccess() = true
+        var backupAccess = true
+        override fun hasAutomaticBackupAccess() = backupAccess
         override suspend fun captureEnrollmentBaseline() = LocalDiscoveryCheckpoint("external", "v1", 0, Long.MAX_VALUE)
 
         override suspend fun discoverEligibleMedia(

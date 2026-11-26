@@ -1327,4 +1327,31 @@
         <item quantity="many">%,d elementi</item>
         <item quantity="other">%,d elementi</item>
     </plurals>
+    <string name="permissions_title">Autorizzazioni</string>
+    <string name="permissions_summary_allowed">Alba ha tutto ciò che le serve</string>
+    <plurals name="permissions_summary_attention">
+        <item quantity="one">%1$,d richiede la tua attenzione</item>
+        <item quantity="many">%1$,d richiedono la tua attenzione</item>
+        <item quantity="other">%1$,d richiedono la tua attenzione</item>
+    </plurals>
+    <string name="permission_allow">Consenti</string>
+    <string name="permission_change">Modifica</string>
+    <string name="permission_open_settings">Apri impostazioni</string>
+    <string name="permission_allowed_description">Consentito</string>
+    <string name="permission_photos">Foto e video</string>
+    <string name="permission_photos_full">Accesso completo</string>
+    <string name="permission_photos_selected">Solo foto selezionate: il backup automatico richiede l’accesso completo</string>
+    <string name="permission_photos_none">Non consentito: Alba non può mostrare né fare il backup delle foto di questo telefono</string>
+    <string name="permission_location">Posizione delle foto</string>
+    <string name="permission_location_allowed">Consentita: i backup mantengono dove sono state scattate le foto</string>
+    <string name="permission_location_denied">Non consentita: i backup perdono dove sono state scattate le foto</string>
+    <string name="permission_notifications">Notifiche</string>
+    <string name="permission_notifications_allowed">Consentite: per i problemi di backup e i backup grandi in corso</string>
+    <string name="permission_notifications_denied">Non consentite: non saprai dei problemi di backup né dei backup grandi</string>
+    <string name="permission_battery">Batteria</string>
+    <string name="permission_battery_unrestricted">Senza limitazioni: il backup continua in background</string>
+    <string name="permission_battery_optimized">Ottimizzata: Android potrebbe sospendere il backup in background</string>
+    <string name="permission_background_data">Dati in background</string>
+    <string name="permission_background_data_allowed">Consentiti: il backup può usare i dati mobili in background</string>
+    <string name="permission_background_data_restricted">Limitati: il backup con i dati mobili non può proseguire in background</string>
 </resources>

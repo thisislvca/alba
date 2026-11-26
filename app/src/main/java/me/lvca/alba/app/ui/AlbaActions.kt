@@ -87,6 +87,9 @@ interface BrowseActions {
     /** Opens the Backup page: status, the queue, failed items with Retry, and settings. */
     fun openBackup()
 
+    /** Opens the Permissions page: what Alba needs from Android, each with the one tap that allows it. */
+    fun openPermissions()
+
     /** Switches an unconnected library to the sample library. */
     fun startDemo()
 }
@@ -209,6 +212,9 @@ interface AccountActions : BackupStartActions {
     val signInDraft: SignInDraft
 
     fun closeAccount()
+
+    /** Asks for photo access through Android's prompt, or opens Alba's settings once Android no longer shows it. */
+    fun requestDevicePhotos()
     fun signIn(appleId: String, password: String)
     fun submitTwoFactor(code: String)
     fun resendTwoFactor()

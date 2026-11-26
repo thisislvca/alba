@@ -305,6 +305,12 @@ interface BackupControls {
      */
     suspend fun backupSettingsChanged()
 
+    /**
+     * Android's photo or location access changed while Alba ran, as granting it in a prompt or in Settings does (revoking
+     * restarts the process). The backup status reads access again, and backup is re-planned for what it now has.
+     */
+    suspend fun accessChanged() {}
+
     /** The user asked to try again after iCloud storage was full. */
     suspend fun retryAfterStorageFull()
 

@@ -100,6 +100,14 @@ internal fun BackupPage(
         Spacer(Modifier.height(AlbaSpacing.xl))
         IncludeExistingCard(backup.destinationLabel ?: signedIn?.appleId.orEmpty(), actions::includeExistingInBackup)
     }
+    if (!demo) {
+        // Under the status, so "Backup paused: allow access" leads straight to what to allow.
+        Spacer(Modifier.height(AlbaSpacing.xl))
+        AlbaListGroup {
+            BackupRow(stringResource(R.string.permissions_title), permissionsSummary(rememberAppPermissions().value),
+                AlbaIcons.Lock, "backup-permissions") { onNavigate(ProfilePage.PERMISSIONS) }
+        }
+    }
 
     Spacer(Modifier.height(AlbaSpacing.xl))
     ProfileStorage(session, demo = demo, hasAccount = connected, check = actions::checkConnection, labelRes = R.string.cloud_storage)

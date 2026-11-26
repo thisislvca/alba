@@ -70,6 +70,7 @@ internal fun testAlbaActions(
     freeUpSpace: (List<String>) -> Unit = {},
     setBackupSettings: (BackupSettings) -> Unit = {},
     openBackup: () -> Unit = {},
+    openPermissions: () -> Unit = {},
     retryAfterStorageFull: () -> Unit = {},
     retryWaitingNow: () -> Unit = {},
     dismissFailedTransfers: (List<TransferId>) -> Unit = {},
@@ -97,7 +98,7 @@ internal fun testAlbaActions(
     val onMoveVerifiedPhotoToTrash = moveVerifiedPhotoToTrash; val onOpenAccount = openAccount; val onStartDemo = startDemo
     val onOpenHidden = openHidden; val onSetHidden = setHidden; val onExpandBurst = expandBurst
     val onRetry = retryTransfer; val onRetryAll = retryAllTransfers; val onCancelUploads = cancelUploads; val onFreeUp = freeUpSpace
-    val onSettings = setBackupSettings; val onOpenBackup = openBackup; val onRetryStorage = retryAfterStorageFull
+    val onSettings = setBackupSettings; val onOpenBackup = openBackup; val onOpenPermissions = openPermissions; val onRetryStorage = retryAfterStorageFull
     val onEnableBackup = enableAutomaticBackup
     val onRetryWaitingNow = retryWaitingNow; val onDismissFailed = dismissFailedTransfers; val onCheckICloudNow = checkICloudNow
     val onSignOut = signOut; val onSendCodeBySms = sendCodeBySms; val onResend = resendTwoFactor
@@ -110,6 +111,7 @@ internal fun testAlbaActions(
         override fun freeUpSpace(mediaIds: List<String>) = onFreeUp(mediaIds)
         override fun setBackupSettings(settings: BackupSettings) = onSettings(settings)
         override fun openBackup() = onOpenBackup()
+        override fun openPermissions() = onOpenPermissions()
         override fun retryAfterStorageFull() = onRetryStorage()
         override fun retryWaitingNow() = onRetryWaitingNow()
         override fun dismissFailedTransfers(transferIds: List<TransferId>) = onDismissFailed(transferIds)
