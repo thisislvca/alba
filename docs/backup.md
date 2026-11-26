@@ -76,8 +76,60 @@ What Alba does resume is the attempt: the journal records `RESERVED`, `RECEIPT_S
 
 ## Motion photos
 
-iCloud.com cannot pair a still with a video into a Live Photo. The policy:
+An Android motion photo is a JPEG or HEIC with a short MP4 appended, described by its XMP. The "Motion photos" setting on the Backup page decides what backup does with one; it applies to items automatic backup queues after the change.
 
-- **Photo only** (today): a Motion Photo uploads as its still, byte for byte, with the video embedded in the file kept, never cut off.
-- **Photo and video separately**: the other allowed option, as two ordinary items.
-- **Live Photo**: hidden until it is proven on real accounts.
+- **Photo only** (default): the file uploads as its still, byte for byte, with the embedded video kept, never cut off. Nothing else happens.
+- **Photo and video separately**: the still as above, plus the embedded MP4 extracted and staged as its own video item, which backs up through the normal path.
+- **As Live Photo** (experimental): the still as above, then the embedded MP4 is attached to it so iCloud shows a Live Photo. Meant to become the default once it is verified on a device.
+
+Under either of the last two, each queued still gets a row in `motion_photo_parts`. Once the still is verified, `MotionPhotoParts` reads the phone file once more (its SHA-256 must still be the one backed up) and `MotionPhotoReader` finds the video; a file with none ends `NOT_MOTION`.
+
+### Formats
+
+| Format | Phones | Supported |
+| --- | --- | --- |
+| Google Motion Photo v1 (`Camera:MotionPhoto`, `Container:Directory`) | Pixel, newer Samsung, OnePlus, Oppo, Realme | Yes |
+| Google MicroVideo (`GCamera:MicroVideoOffset`) | Xiaomi, Redmi, POCO, older Pixel ("MVIMG") | Yes |
+| Samsung trailer (`MotionPhoto_Data` block, SEF footer, no XMP) | Older Galaxy | Yes |
+| Huawei and Honor "Moving Picture" | Huawei, Honor | Not yet, [#78](https://github.com/thisislvca/alba/issues/78) |
+| Vivo "Live Photo" | Vivo | Not yet, [#79](https://github.com/thisislvca/alba/issues/79) |
+
+Unsupported formats back up as stills. The parser is pure and tested on the JVM with synthetic files of each supported format (`MotionPhotosTest`). Offsets in the XMP count back from the end of the file; the MP4 must start with an `ftyp` box where they point (declared padding is tried too), and its length is the run of top-level boxes from there, so a trailer after it is left out. The still's time in the video is `MotionPhotoPresentationTimestampUs` (or `MicroVideoPresentationTimestampUs`), else the middle of the video.
+
+### The Live Photo recipe
+
+Proven on the owner's account: after it, iCloud.com and Photos on a Mac both showed the LIVE badge and played the motion. `LivePhotoAttach` (protocol) does exactly this:
+
+1. Upload the still with the normal upload (`createUploadUrl`, the PUT, `putAsset`), keeping the `cplMaster` and `cplAsset` record names. Alba attaches only once the still is verified by its receipt.
+2. Look up both records for their `recordChangeTag`s.
+3. `POST {ckdatabasews}/database/1/com.apple.photos.cloud/production/private/assets/upload` with `{zoneID: {zoneName: "PrimarySync"}, tokens: [{recordType: "CPLMaster", fieldName: F, recordName: <master>}]}` for F in `resOriginalVidComplRes`, `resVidMedRes`, `resVidSmallRes`. POST the video bytes raw to each returned `tokens[i].url`; each answers `singleFile {fileChecksum, size, wrappingKey, referenceChecksum, receipt}`.
+4. One atomic `records/modify` with two `update` operations at those change tags:
+   - CPLMaster, for each prefix P in `resOriginalVidCompl`, `resVidMed`, `resVidSmall`: `PRes` = the receipt as `ASSETID`, `PFileType` = `com.apple.quicktime-movie`, `PFingerprint` = that receipt's `fileChecksum`, `PFileSize`, `PWidth`, `PHeight`.
+   - CPLAsset: `vidComplDurValue` (duration in ns) with `vidComplDurScale` 1000000000, `vidComplDispValue` (the still's time in ns) with `vidComplDispScale` 1000000000, `vidComplVisibilityState` 0, `assetSubtypeV2` 2, and `mediaGroupId` (below).
+
+Pitfalls found while proving it:
+
+- Without the `resVidMed` and `resVidSmall` derivatives, iCloud.com shows a warning badge and does not play.
+- Real Live Photos use smaller derivatives (about 654×872 and 1 MB, 436×581 and 320 KB, for a 1308×1744 original). Sending the original video for all three worked, and that is what Alba does: no transcoding.
+- Changing the video of an existing item was not picked up by clients that had cached the old one. Alba only ever adds a video to a still its own upload created (Apple accepted it as new, `duplicateHint` false, and the verified pair is the one Apple named); a still iCloud already had is left alone and flagged.
+- Re-uploading an existing still is refused as a duplicate (409), and a master's record name is its file checksum.
+- The test files carried Apple's ContentIdentifier in both halves (the JPEG's Apple MakerNote tag 17 and the MOV's `com.apple.quicktime.content.identifier`), and the server derived the asset's `mediaGroupId` from the still's. Whether pairing needs it is not known.
+
+### Decisions, and what is unverified
+
+- **ContentIdentifier.** Alba does not rewrite the still: writing an Apple MakerNote into a JPEG on Android is not practical, and the still must stay the phone's exact bytes so its receipt and the byte check before Free up space hold. Instead a fresh upper-case UUID per item is written as the asset's `mediaGroupId` in the modify. If CloudKit refuses the record over a field (`BAD_REQUEST`, `INVALID_ARGUMENTS`, or HTTP 400), the modify is sent once more without it, and the part records `mediaGroupIdWritten` false. Nothing is written into the MP4 either: MediaMuxer cannot write QuickTime metadata keys. Unverified on a live account.
+- **Container and file type.** The video is the motion photo's own MP4, unchanged. MediaMuxer writes MP4, not QuickTime, so remuxing to .mov is not possible with it; the file type stays the proven `com.apple.quicktime-movie` (an MP4 is the same ISO base media format). Whether iCloud and Photos play MP4 bytes under that type, or would take `public.mpeg-4`, is unverified.
+- **Derivatives.** The original video for all three resources, as proven; no MediaCodec transcoding.
+- **Dimensions** are the video track's as displayed (a quarter-turn matrix swaps them); the duration is the movie header's.
+
+### Journal, verification and failure
+
+- The attach is journalled in the encrypted upload journal under `live:<transfer>:<round>`: `LIVE_UPLOADING`, `LIVE_RECEIPTS_SAVED` (the three receipts and when), `LIVE_MODIFYING`, `LIVE_MODIFIED`. Calling it again resumes: fresh receipts (under 15 minutes old) are reused rather than uploaded again; a master that already holds this video (an earlier modify went through before its response was saved) is recognised and not modified again; the modify only sets fields, so sending it again at fresh change tags is safe. A journal row the current sign-in cannot read counts as none, and the records read afresh decide. A master that already has a different video is refused.
+- **Backed up** for a Live Photo needs the still's receipt match (as for any photo) and, after the modify, a fresh read of the CPLMaster showing `resOriginalVidComplRes` with the attach receipt's `fileChecksum` and the video's size. Until then the item shows as uploading ("Adding the motion…") and is not counted as backed up.
+- Failures that may pass (network, throttling, a read that does not show the video yet) are tried again with the uploads' backoff, up to five times. One iCloud refuses (a CloudKit record error other than a conflict, a 400 or 404, a still that is not new or already has another video), or the fifth failure, leaves the part `FAILED`: the still stays backed up as a plain photo, the item says "Live Photo part not attached", and Retry (or Retry all) attaches afresh under a new journal round.
+- **Free up space** removes a motion photo backed up under either option only once its still and its video both pass the byte check: the iCloud Live Photo video (`resOriginalVidComplRes`) or the separate video item is downloaded and compared with the video bytes read from the phone file. An item whose video is pending, failed or differs stays on the phone.
+- Motion photos already backed up as stills are not upgraded.
+
+### Diagnostics
+
+Backup reports to the app's opt-in diagnostics (Sentry, only while the user allows it and a DSN is set) through `BackupDiagnostics`; the engine never calls Sentry. Spans: each backup round, staging or reading in place, the upload, `putAsset`, the receipt match, each heal check, the motion photo read, the Live attach and its `assets/upload`, three POSTs, `records/modify` and re-read, and the byte check. Breadcrumbs: retries, backoff and healing decisions. Events: unexpected exceptions, receipt mismatches, uploads ending `AMBIGUOUS` or `NOT_OBSERVED`, Live attach failures (with CloudKit's `serverErrorCode` or the HTTP status), a byte check failing before deletion (fatal), and motion photo parse failures (format id only). Attributes are limited to phase, outcome, error class or code, media kind, motion format id, size bucket, counts and durations, and `BackupTelemetry.sanitize` drops anything that is not a short identifier, so no file name, path, record name, checksum, receipt, URL, account id, place or EXIF leaves the phone.
