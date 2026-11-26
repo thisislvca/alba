@@ -898,7 +898,7 @@ class DefaultGalleryRepository(
         }
     }
 
-    override fun backgroundTurn(): Boolean = priority.backgroundTurn
+    override fun backgroundTurns(): Flow<Boolean> = priority.backgroundTurns
 
     override suspend fun offlineThumbnailRoom(): Long = cache.roomBeforeReserve()
 

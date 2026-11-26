@@ -270,14 +270,41 @@ class OfflineThumbnailFillTest {
         val refresh = async { repository.refresh(false) }
         refreshing.await()
 
+        val prepared = CompletableDeferred<Unit>()
+        source.onPrepare = { prepared.complete(Unit) }
         val run = async { fill(repository).run() }
-        delay(OfflineThumbnailFill.YIELD_POLL_MILLIS * 3)
+        // The batch is ready to download: only the refresh holds it back now.
+        prepared.await()
+        delay(NO_DOWNLOAD_WINDOW)
         assertTrue("No download while the refresh runs", source.downloads.isEmpty())
 
         finishRefresh.complete(Unit)
         refresh.await()
         assertEquals(FillOutcome.Finished(skipped = 0), run.await())
         assertEquals(listOf(9, 8, 7, 6).map(source::id), source.downloads)
+    }
+
+    /** Stopping a fill that waits for a refresh ends it at once, without waiting for the refresh. */
+    @Test
+    fun aStopEndsAFillWaitingForARefresh() = runBlocking {
+        val repository = repository().also { it.refresh(false) }
+        val refreshing = CompletableDeferred<Unit>()
+        val finishRefresh = CompletableDeferred<Unit>()
+        source.onChanges = { refreshing.complete(Unit); finishRefresh.await() }
+        val refresh = async { repository.refresh(false) }
+        refreshing.await()
+        val prepared = CompletableDeferred<Unit>()
+        source.onPrepare = { prepared.complete(Unit) }
+        val fill = fill(repository)
+        val run = async { fill.run() }
+        prepared.await()
+
+        withTimeout(SHORT_WAIT) { fill.stopAndJoin() }
+        assertEquals(FillOutcome.Stopped, run.await())
+        assertTrue(source.downloads.isEmpty())
+        finishRefresh.complete(Unit)
+        refresh.await()
+        Unit
     }
 
     /** A refresh asked for while another runs (background work's, or the screen's) joins it instead of queueing a second. */
@@ -300,6 +327,9 @@ class OfflineThumbnailFillTest {
     private companion object {
         const val SHORT_WAIT = 5_000L
 
+        /** How long a check that nothing downloads gives the fill to download anyway. */
+        const val NO_DOWNLOAD_WINDOW = 300L
+
         /** The newest-photos query that names the offline set. */
         const val OFFLINE_SET_QUERY = "SELECT c.mediaId FROM catalog_items c WHERE"
     }
@@ -315,6 +345,7 @@ class OfflineThumbnailFillTest {
         var onDownload: (String) -> Unit = {}
         var onSuspendingDownload: suspend (String) -> Unit = {}
         var onChanges: suspend () -> Unit = {}
+        var onPrepare: suspend () -> Unit = {}
         var changeReads = 0
 
         fun id(index: Int) = "icloud:$accountLabel:asset-$index"
@@ -333,7 +364,10 @@ class OfflineThumbnailFillTest {
             onChanges()
             return changes
         }
-        override suspend fun prepareDownloads(mediaIds: List<String>) { prepared += mediaIds }
+        override suspend fun prepareDownloads(mediaIds: List<String>) {
+            prepared += mediaIds
+            onPrepare()
+        }
         override suspend fun writePreview(mediaId: String, output: OutputStream) {
             downloads += mediaId
             onDownload(mediaId)
