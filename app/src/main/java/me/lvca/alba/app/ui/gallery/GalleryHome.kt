@@ -330,12 +330,19 @@ internal fun GalleryHome(
     val uiDensity = LocalDensity.current
     Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
         val wide = layout.navigationRail
+        // A short window (a phone in landscape) keeps one small bar: the title inline, with the filter actions beside
+        // the screen's own, and no rows under it.
+        val smallBar = !layout.largeTitles
+        // A wide window shows the selection's actions in the header, unless it is short: there they float at the bottom
+        // as on a phone, so starting a selection adds no row and never moves the grid.
+        val headerSelection = wide && !smallBar
         val phonePhotos = !wide && tab == GalleryTab.LIBRARY
         // Selecting keeps the header where it is: resetting it would shift the grid under a drag-selecting finger.
         val collapseHeader = phonePhotos
         val selecting = gallery.selection.isNotEmpty()
         // Kept while selecting: the selection bar covers it, and removing it would shift the grid.
         val filterRow = !heroInHeader && (wide || tab != GalleryTab.LIBRARY) && (tab != GalleryTab.COLLECTIONS || albumInHeader)
+        val filtersInBar = smallBar && filterRow
         val headerState = rememberTopAppBarState()
         // A short grid can fit after collapse; it must still allow a reverse drag to restore the header.
         val collapseAllowed by rememberUpdatedState(collapseHeader)
@@ -383,14 +390,17 @@ internal fun GalleryHome(
         }
         // Elsewhere the large title collapses into its bar as the content scrolls, and opens again on each new screen.
         // Photos on a phone keeps Google Photos' header instead, which scrolls away whole.
-        val collapseTitle = !phonePhotos && !heroInHeader
+        // A short window's small bar does not expand, so it has nothing to collapse.
+        val collapseTitle = !phonePhotos && !heroInHeader && !smallBar
         val titleState = rememberTopAppBarState()
         val titleScroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(titleState)
         LaunchedEffect(screen) { titleState.heightOffset = 0f; titleState.contentOffset = 0f }
         var floatingBarHeight by remember { mutableStateOf(80.dp) }
         var headerHeight by remember { mutableStateOf(0.dp) }
         // The floating bar sits up to 16dp above the navigation bar; keep the grid's last row a clear 24dp above it.
-        val bottomSpace = if (wide) 24.dp else floatingBarHeight + 40.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        // A short wide window's selection floats too, so the grid makes room for it while selecting.
+        val bottomSpace = if (wide && (headerSelection || !selecting)) 24.dp
+            else floatingBarHeight + 40.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         LaunchedEffect(bottomSpace) { onBottomSpaceChanged(bottomSpace) }
         // An album with a hero carries its title over the cover, so its bar holds only these.
         val heroActions: @Composable RowScope.() -> Unit = {
@@ -428,32 +438,37 @@ internal fun GalleryHome(
             }
         }
         // What the grid shows, with its album, date and filter actions.
+        val filterName = query.collectionId?.let { id -> when (id) {
+            GalleryQuery.FAVORITES -> stringResource(R.string.favorites)
+            GalleryQuery.HIDDEN -> stringResource(R.string.hidden)
+            else -> SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle()
+        } }
+        val allPhotos = stringResource(R.string.all_photos)
+        val originName = query.origin?.let { if (it == MediaOrigin.DEVICE) stringResource(R.string.this_phone) else stringResource(R.string.icloud) }
+        val filterSummary = listOfNotNull(originName ?: allPhotos, filterName,
+            if (query.fromDate != null || query.throughDate != null) stringResource(R.string.date_range) else null,
+            if (query.date == GalleryDate.ADDED) stringResource(R.string.date_added) else null).joinToString(" · ")
+        // In a short window's small bar they sit beside the screen's own actions, and a filter shows under the title.
+        val filterActions: @Composable RowScope.() -> Unit = {
+            if (inCollection && collection != null && collection.isPersonal) {
+                IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) {
+                    Icon(AlbaIcons.Edit, stringResource(R.string.rename_album))
+                }
+                IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
+            }
+            // Recently Deleted is in deletion order, with no dates to browse by. Where there are none,
+            // the button is left out rather than dimmed, so the actions here keep one colour.
+            val datesBrowsable = sections.isNotEmpty() && !query.trashOnly
+            if (datesBrowsable) IconButton(onClick = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.testTag("browse-dates-button")) {
+                Icon(AlbaIcons.DateRange, stringResource(R.string.browse_by_date))
+            }
+            IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+        }
         val filterControls: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                val filterName = query.collectionId?.let { id -> when (id) {
-                    GalleryQuery.FAVORITES -> stringResource(R.string.favorites)
-                    GalleryQuery.HIDDEN -> stringResource(R.string.hidden)
-                    else -> SmartCollection.entries.firstOrNull { it.id == id }?.localizedTitle()
-                } }
-                Text(listOfNotNull(query.origin?.let { if (it == MediaOrigin.DEVICE) stringResource(R.string.this_phone) else stringResource(R.string.icloud) } ?: stringResource(R.string.all_photos), filterName,
-                    if (query.fromDate != null || query.throughDate != null) stringResource(R.string.date_range) else null,
-                    if (query.date == GalleryDate.ADDED) stringResource(R.string.date_added) else null).joinToString(" · "),
-                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Text(filterSummary, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-
-                if (inCollection && collection != null && collection.isPersonal) {
-                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.RenameAlbum(collection.id) }) {
-                        Icon(AlbaIcons.Edit, stringResource(R.string.rename_album))
-                    }
-                    IconButton(enabled = canEdit, onClick = { sheet = GallerySheet.DeleteAlbum(collection.id) }) { Icon(AlbaIcons.DeleteOutline, stringResource(R.string.delete_album)) }
-                }
-                // Recently Deleted is in deletion order, with no dates to browse by. Where there are none,
-                // the button is left out rather than dimmed, so the actions here keep one colour.
-                val datesBrowsable = sections.isNotEmpty() && !query.trashOnly
-                if (datesBrowsable) IconButton(onClick = { sheet = GallerySheet.JumpToDate }, modifier = Modifier.testTag("browse-dates-button")) {
-                    Icon(AlbaIcons.DateRange, stringResource(R.string.browse_by_date))
-                }
-                IconButton(onClick = { sheet = GallerySheet.Filters }, modifier = Modifier.testTag("filter-button")) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort)) }
+                filterActions()
             }
         }
         // In landscape the navigation bar or a cutout can sit at either side; the rail takes the start side's itself.
@@ -480,41 +495,62 @@ internal fun GalleryHome(
                         val back: @Composable () -> Unit = {
                             IconButton(onClick = ::backInCollections) { Icon(AlbaIcons.ArrowBack, stringResource(R.string.back_action)) }
                         }
+                        val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
+                        val backupChip = libraryHeader && gallery.selection.isEmpty()
+                        val barTitle: @Composable () -> Unit = {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false).testTag("screen-title-${tab.name}"))
+                                if (!subScreen && session.accountState == ICloudAccountState.Demo) DemoBadge()
+                            }
+                        }
+                        val barActions: @Composable RowScope.() -> Unit = {
+                            if (smallBar && backupChip) BackupStatusChip(session, transfers, actions::openBackup)
+                            if (filtersInBar) filterActions()
+                            if (!subScreen) {
+                                if (phonePhotos && gallery.selection.isEmpty()) IconButton(onClick = { sheet = GallerySheet.Filters },
+                                    modifier = Modifier.testTag("gallery-menu-button")) {
+                                    Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort))
+                                }
+                                IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount, modifier = Modifier.testTag("gallery-upload")) {
+                                    Icon(AlbaIcons.Add, stringResource(R.string.upload_photos))
+                                }
+                                IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
+                                    BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
+                                        Icon(AlbaIcons.CloudSync, stringResource(R.string.uploads_and_activity))
+                                    }
+                                }
+                                AccountButton(signedIn?.appleId, accountStatus, contextAccountLabel, actions::openAccount,
+                                    Modifier.testTag("account-button"))
+                            }
+                        }
                         if (heroInHeader) TopAppBar(title = {}, navigationIcon = back, colors = barColors, windowInsets = WindowInsets(0, 0, 0, 0), actions = heroActions)
-                        // Every other screen opens with its name as a large title, Apple's large titles on Material's bar.
-                        else LargeTopAppBar(
+                        // A short window's one bar: the title inline, and a filter, when one is set, in a line under it.
+                        else if (smallBar) TopAppBar(
                             title = {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false).testTag("screen-title-${tab.name}"))
-                                    if (!subScreen && session.accountState == ICloudAccountState.Demo) DemoBadge()
+                                Column {
+                                    barTitle()
+                                    if (filtersInBar && filterSummary != allPhotos) Text(filterSummary, style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             },
                             navigationIcon = { if (subScreen) back() },
-                            actions = {
-                                if (!subScreen) {
-                                    if (phonePhotos && gallery.selection.isEmpty()) IconButton(onClick = { sheet = GallerySheet.Filters },
-                                        modifier = Modifier.testTag("gallery-menu-button")) {
-                                        Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.filter_and_sort))
-                                    }
-                                    IconButton(onClick = if (canUpload) actions::pickUpload else actions::openAccount, modifier = Modifier.testTag("gallery-upload")) {
-                                        Icon(AlbaIcons.Add, stringResource(R.string.upload_photos))
-                                    }
-                                    IconButton(onClick = { sheet = GallerySheet.Activity }, modifier = Modifier.testTag("activity-button")) {
-                                        BadgedBox(badge = { if (transfers.queue.any { it.state != TransferViewState.VERIFIED } || transfers.batches.any { it.status != BatchItemState.DONE }) Badge() }) {
-                                            Icon(AlbaIcons.CloudSync, stringResource(R.string.uploads_and_activity))
-                                        }
-                                    }
-                                    AccountButton(signedIn?.appleId, accountStatus, contextAccountLabel, actions::openAccount,
-                                        Modifier.testTag("account-button"))
-                                }
-                            },
+                            actions = barActions,
+                            colors = barColors,
+                            windowInsets = WindowInsets(0, 0, 0, 0),
+                            modifier = Modifier.testTag("title-bar-small"),
+                        )
+                        // Every other screen opens with its name as a large title, Apple's large titles on Material's bar.
+                        else LargeTopAppBar(
+                            title = barTitle,
+                            navigationIcon = { if (subScreen) back() },
+                            actions = barActions,
                             colors = barColors,
                             windowInsets = WindowInsets(0, 0, 0, 0),
                             scrollBehavior = if (collapseTitle) titleScroll else null,
+                            modifier = Modifier.testTag("title-bar-large"),
                         )
-                        val libraryHeader = !hero && !connectPrompt && tab == GalleryTab.LIBRARY
-                        if (libraryHeader && gallery.selection.isEmpty()) BackupStatusChip(session, transfers, actions::openBackup)
+                        if (!smallBar && backupChip) BackupStatusChip(session, transfers, actions::openBackup)
                         // The first load's progress, calmly under the title: how far it is, over a bar that fills as pages land.
                         if (loadLabel != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
                             Text(loadLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -525,11 +561,11 @@ internal fun GalleryHome(
                             if (scanFraction != null) LinearProgressIndicator(progress = { scanFraction }, modifier = barModifier.testTag("catalog-scan-bar"))
                             else LinearProgressIndicator(barModifier)
                         }
-                        if (wide && selecting) SelectionActions(gallery, session, mediaBusy, actions, Modifier.padding(vertical = 8.dp))
+                        if (headerSelection && selecting) SelectionActions(gallery, session, mediaBusy, actions, Modifier.padding(vertical = 8.dp))
                         else if (filterRow) {
                             if (tab == GalleryTab.SEARCH) GallerySearchBar(query.filename, { actions.changeQuery(query.copy(filename = it)) },
                                 Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                            filterControls()
+                            if (!filtersInBar) filterControls()
                         }
                     }
                 }) { padding ->
@@ -622,7 +658,8 @@ internal fun GalleryHome(
                                 if (shownDetail.album == null) CollectionDetailPlaceholder()
                                 else Column(Modifier.fillMaxSize()) {
                                     CollectionDetailBar(collectionTitle, hero = hero, close = ::closeCollection, heroActions = heroActions,
-                                        filters = filterControls.takeUnless { hero || (wide && selecting) })
+                                        filters = filterControls.takeUnless { hero || smallBar || (headerSelection && selecting) },
+                                        titleActions = filterActions.takeIf { smallBar && !hero })
                                     Box(Modifier.weight(1f)) { photoGrid() }
                                 }
                             }
@@ -638,7 +675,7 @@ internal fun GalleryHome(
                         recentlyScrolled = { dateScrolled }, switching = { tabFade.pending != null || tabFade.switched })
                     // Selection swaps the navigation for the floating toolbar, each riding a fast spatial spring along
                     // the bottom edge, so a quick select-and-cancel reverses mid-flight.
-                    if (!wide) androidx.compose.animation.AnimatedVisibility(selecting, Modifier.align(Alignment.BottomCenter),
+                    if (!headerSelection) androidx.compose.animation.AnimatedVisibility(selecting, Modifier.align(Alignment.BottomCenter),
                         enter = AlbaFloatingDefaults.enter(reducedMotion), exit = AlbaFloatingDefaults.exit(reducedMotion)) {
                         SelectionActions(gallery, session, mediaBusy, actions,
                             Modifier.navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = AlbaFloatingDefaults.BottomMargin)
@@ -1059,12 +1096,13 @@ private fun PhotoGrid(
 
 /**
  * The detail pane's own bar on an expanded window, where the header belongs to the list: the collection's name with
- * Close, or, over an album's hero, only its actions; then the collection's filter row.
+ * Close, or, over an album's hero, only its actions; then the collection's filter row. A short window has no room for
+ * that row: its filter actions sit in the bar, as [titleActions].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CollectionDetailBar(title: String, hero: Boolean, close: () -> Unit, heroActions: @Composable RowScope.() -> Unit,
-    filters: (@Composable () -> Unit)?) {
+    filters: (@Composable () -> Unit)?, titleActions: (@Composable RowScope.() -> Unit)? = null) {
     val colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent)
     val closeButton: @Composable () -> Unit = {
         IconButton(onClick = close, modifier = Modifier.testTag("collection-detail-close")) {
@@ -1075,7 +1113,7 @@ private fun CollectionDetailBar(title: String, hero: Boolean, close: () -> Unit,
         if (hero) TopAppBar(title = {}, navigationIcon = closeButton, actions = heroActions, colors = colors, windowInsets = WindowInsets(0, 0, 0, 0))
         else TopAppBar(title = { Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.testTag("collection-detail-title")) }, navigationIcon = closeButton, colors = colors,
-            windowInsets = WindowInsets(0, 0, 0, 0))
+            windowInsets = WindowInsets(0, 0, 0, 0), actions = titleActions ?: {})
         filters?.invoke()
     }
 }

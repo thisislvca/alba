@@ -18,37 +18,41 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.lvca.alba.app.R
+import me.lvca.alba.app.ui.adaptive.albaLayout
 import me.lvca.alba.app.ui.designsystem.theme.AlbaSpacing
 import me.lvca.alba.app.ui.designsystem.theme.sheet
 
 /**
  * A utility page: a large, start-aligned title over a scrolling column, as Android's settings pages have. The title
  * collapses into the bar as the page scrolls, and the bar takes the surface-container tint once content passes under it.
+ * A short window (a phone in landscape) keeps the small bar throughout, with the title inline.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AlbaPageScaffold(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val background = MaterialTheme.colorScheme.background
+    val largeTitle = albaLayout().largeTitles
     key(title) {
         val scroll = rememberScrollState()
         val barState = rememberTopAppBarState()
-        val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(barState)
+        val scrollBehavior = if (largeTitle) TopAppBarDefaults.exitUntilCollapsedScrollBehavior(barState)
+            else TopAppBarDefaults.pinnedScrollBehavior(barState)
         Surface(color = background, modifier = Modifier.fillMaxSize()) {
             // Inset controls, not the scrolling viewport: cards can pass behind the gesture bar.
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).imePadding()) {
-                LargeTopAppBar(
-                    // Bold, as the top-level tabs set their large titles, so every page reads as one family.
-                    title = { Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(AlbaIcons.ArrowBack, stringResource(R.string.back_action)) }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = background,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    ),
-                    windowInsets = WindowInsets.statusBars,
-                    scrollBehavior = scrollBehavior,
+                // Bold, as the top-level tabs set their large titles, so every page reads as one family.
+                val barTitle: @Composable () -> Unit = { Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                val back: @Composable () -> Unit = {
+                    IconButton(onClick = onBack) { Icon(AlbaIcons.ArrowBack, stringResource(R.string.back_action)) }
+                }
+                val colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 )
+                if (largeTitle) LargeTopAppBar(title = barTitle, navigationIcon = back, colors = colors, windowInsets = WindowInsets.statusBars,
+                    scrollBehavior = scrollBehavior, modifier = Modifier.testTag("title-bar-large"))
+                else TopAppBar(title = barTitle, navigationIcon = back, colors = colors, windowInsets = WindowInsets.statusBars,
+                    scrollBehavior = scrollBehavior, modifier = Modifier.testTag("title-bar-small"))
                 Column(Modifier.weight(1f).fillMaxWidth().nestedScroll(scrollBehavior.nestedScrollConnection)
                     .verticalScroll(scroll).testTag("alba-page-scroll"), horizontalAlignment = Alignment.CenterHorizontally) {
                     Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AlbaSpacing.lg)
