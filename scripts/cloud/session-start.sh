@@ -8,7 +8,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 sdk="${ANDROID_SDK_ROOT:-/opt/android-sdk}"
 
-if [ ! -d "$sdk/platforms/android-37.0" ]; then
+if [ ! -d "$sdk/platforms/android-37.2" ]; then
   # The environment's setup script normally did this already; this covers environments without it.
   ANDROID_SDK_ROOT="$sdk" bash "$root/scripts/cloud/setup.sh" >&2
 fi

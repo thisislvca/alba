@@ -12,6 +12,9 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 internal const val COMPILE_SDK = 37
+
+/** Android 17's minor SDK release (37.2), which current AndroidX libraries compile against. */
+internal const val COMPILE_SDK_MINOR = 2
 internal const val MIN_SDK = 30
 internal const val TARGET_SDK = 36
 
@@ -28,6 +31,7 @@ private val MANAGED_DEVICES = mapOf(
 /** SDK levels, Java 17 bytecode and the test runner shared by every Android module. */
 internal fun Project.configureAndroidCommon(android: CommonExtension) {
     android.compileSdk = COMPILE_SDK
+    android.compileSdkMinor = COMPILE_SDK_MINOR
     android.defaultConfig.minSdk = MIN_SDK
     android.defaultConfig.testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     android.compileOptions.sourceCompatibility = JavaVersion.VERSION_17
