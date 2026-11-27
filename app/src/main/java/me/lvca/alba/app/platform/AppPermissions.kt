@@ -21,15 +21,15 @@ internal enum class PhotoAccess { FULL, SELECTED, NONE }
  * Everything Alba needs from Android, as the Permissions page lists it. [id] names the row's test tags; [backup] marks
  * what automatic backup cannot work without.
  */
-internal enum class AppPermission(val id: String, val backup: Boolean = false) {
+internal enum class AppPermission(val id: String, val backup: Boolean = false, val optional: Boolean = false) {
     PHOTOS("photos", backup = true),
     LOCATION("location", backup = true),
     NOTIFICATIONS("notifications"),
     BATTERY("battery"),
     BACKGROUND_DATA("background-data"),
 
-    /** Android 12 and later: whether iCloud links open in Alba or in the browser. */
-    ICLOUD_LINKS("icloud-links"),
+    /** Android 12 and later: whether iCloud links open in Alba or in the browser. A convenience, so never counted as needing attention. */
+    ICLOUD_LINKS("icloud-links", optional = true),
 }
 
 /** What Android allows Alba right now. Read again whenever Alba returns to the screen, since Settings can change it. */
@@ -65,8 +65,8 @@ internal data class AppPermissions(
         AppPermission.ICLOUD_LINKS -> iCloudLinks != false
     }
 
-    /** The rows that need the user, for the page's summary. */
-    val needingAttention: List<AppPermission> get() = shown.filterNot(::allowed)
+    /** The rows that need the user, for the summary here and on the Profile and Backup pages; optional rows don't count. */
+    val needingAttention: List<AppPermission> get() = shown.filterNot { it.optional || allowed(it) }
 
     /** Automatic backup has the access it needs: every photo, with its location (the engine's "full:unredacted"). */
     val backupAccess: Boolean get() = AppPermission.entries.filter { it.backup }.all(::allowed)

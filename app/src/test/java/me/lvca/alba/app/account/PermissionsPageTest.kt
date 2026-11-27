@@ -217,7 +217,8 @@ class PermissionsPageTest {
         allowEverything()
         render(links = false)
         status(AppPermission.ICLOUD_LINKS, R.string.permission_icloud_links_off)
-        summary(app.resources.getQuantityString(R.plurals.permissions_summary_attention, 1, 1))
+        // Opening links in Alba is a convenience: the summary, also shown on Profile and Backup, doesn't count it.
+        summary(app.getString(R.string.permissions_summary_allowed))
         action(AppPermission.ICLOUD_LINKS, R.string.permission_open_settings).performClick()
         val opened = shadowOf(compose.activity).nextStartedActivity
         assertEquals(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, opened.action)
