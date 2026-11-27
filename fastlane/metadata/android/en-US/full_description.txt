@@ -23,9 +23,6 @@ ON YOUR PHONE
 PRIVATE BY DESIGN
 Your phone connects directly to Apple. Alba has no server for your photos or credentials, never saves your password and has no ads or behavioral analytics. Your sign-in is kept encrypted on your phone.
 
-TRY IT FIRST
-The demo works without an account, with sample photos and a simulated backup.
-
 GOOD TO KNOW
 • Requires Android 11 or later and an Apple Account with iCloud Photos turned on
 • Supports standard two-factor authentication. Accounts that use security keys or Advanced Data Protection aren’t supported yet, and neither is iCloud Shared Photo Library

@@ -36,6 +36,11 @@ platform :android do
     upload_to_play_store(**play_options, track: 'internal', track_promote_to: 'alpha', version_code: m.fetch('versionCode'), version_name: version_name, release_status: 'completed', skip_upload_apk: true, skip_upload_aab: true)
   end
 
+  desc 'Upload the store listing text in fastlane/metadata (title, short and full description per language); no graphics, binaries or release notes'
+  lane :listing do
+    upload_to_play_store(package_name: 'me.lvca.alba', json_key: ENV.fetch('GOOGLE_APPLICATION_CREDENTIALS'), metadata_path: File.expand_path('metadata/android', __dir__), skip_upload_apk: true, skip_upload_aab: true, skip_upload_changelogs: true, skip_upload_images: true, skip_upload_screenshots: true)
+  end
+
   desc 'Promote the selected internal build to production without rebuilding or uploading a binary'
   lane :production do
     m = release_manifest
