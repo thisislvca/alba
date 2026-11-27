@@ -7,7 +7,7 @@ set -euo pipefail
 
 sdk="${ANDROID_SDK_ROOT:-/opt/android-sdk}"
 # Same packages as CI (.github/workflows/ci.yml); no emulator, device tests run in CI.
-packages=(platform-tools "platforms;android-37.0" "build-tools;37.0.0")
+packages=(platform-tools "platforms;android-37.2" "build-tools;37.0.0")
 tools_zip=commandlinetools-linux-16111833_latest.zip # cmdline-tools 23.0
 tools_sha1=e025545c62a8e64c7559119566a569fb1dec5f60
 
