@@ -54,7 +54,7 @@ class MotionPhotoBackupTest {
     private val icloud = TestICloud()
     private val recorder = RecordingDiagnostics()
     private var clock = NOW
-    private var settings = BackupSettings(motionPhotos = MotionPhotoMode.LIVE_PHOTO)
+    private var settings = BackupSettings() // The default: As Live Photo.
     private val policy = object : AutomaticBackupPolicy {
         override fun isUnmetered() = true
         override fun settings() = settings
@@ -225,7 +225,7 @@ class MotionPhotoBackupTest {
 
     @Test
     fun photoOnlyKeepsBackingUpTheStillAlone() = runBlocking {
-        settings = BackupSettings()
+        settings = BackupSettings(motionPhotos = MotionPhotoMode.PHOTO_ONLY)
         phone.add(1, "PXL.MP.jpg", MotionPhotoFixtures.pixelMotionPhoto(video))
         enrolled().syncNow()
 

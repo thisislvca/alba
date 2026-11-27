@@ -981,7 +981,7 @@
     <string name="backup_motion_photos_photo_only_detail">The photo, with its video kept inside the file, as iCloud.com takes it.</string>
     <string name="backup_motion_photos_separately">Photo and video separately</string>
     <string name="backup_motion_photos_separately_detail">The photo, plus the video as its own item in iCloud.</string>
-    <string name="backup_motion_photos_live">As Live Photo (experimental)</string>
+    <string name="backup_motion_photos_live">As Live Photo</string>
     <string name="backup_motion_photos_live_detail">Plays like a Live Photo on iPhone, Mac and iCloud.com. Alba attaches the motion after the photo backs up.</string>
     <string name="backup_pause">Pause backup</string>
     <string name="backup_pause_detail">Stops automatic uploads until you turn this off.</string>

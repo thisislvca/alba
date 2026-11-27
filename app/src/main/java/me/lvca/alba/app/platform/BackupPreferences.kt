@@ -80,7 +80,7 @@ class BackupPreferences(context: Context) {
         paused = preferences.getBoolean(PAUSED, false),
         onlyWhileCharging = preferences.getBoolean(ONLY_WHILE_CHARGING, false),
         motionPhotos = preferences.getString(MOTION_PHOTOS, null)
-            ?.let { saved -> MotionPhotoMode.entries.firstOrNull { it.name == saved } } ?: MotionPhotoMode.PHOTO_ONLY,
+            ?.let { saved -> MotionPhotoMode.entries.firstOrNull { it.name == saved } } ?: MotionPhotoMode.LIVE_PHOTO,
     )
 
     private companion object {

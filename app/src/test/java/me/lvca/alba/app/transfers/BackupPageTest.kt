@@ -200,20 +200,20 @@ class BackupPageTest {
     }
 
     @Test
-    fun motionPhotosIsPhotoOnlyUntilTheUserPicksAnotherOptionInItsDialog() {
+    fun motionPhotosIsLivePhotoUntilTheUserPicksAnotherOptionInItsDialog() {
         val saved = mutableListOf<BackupSettings>()
         render(TransferState(backup = on), setBackupSettings = { saved += it })
         compose.onNodeWithTag("motion-photos-setting").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.backup_motion_photos_photo_only)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.backup_motion_photos_live)).assertIsDisplayed()
 
         compose.onNodeWithTag("motion-photos-setting").performClick()
-        compose.onNodeWithTag("motion-photos-option-photo-only").assertIsSelected()
-        compose.onNodeWithTag("motion-photos-option-photo-and-video").assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.backup_motion_photos_live)).assertIsDisplayed()
+        compose.onNodeWithTag("motion-photos-option-live-photo").assertIsSelected()
         compose.onNodeWithText(context.getString(R.string.backup_motion_photos_live_detail)).assertIsDisplayed()
-        compose.onNodeWithTag("motion-photos-option-live-photo").performClick()
+        compose.onNodeWithTag("motion-photos-option-photo-and-video").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.backup_motion_photos_photo_only)).assertIsDisplayed()
+        compose.onNodeWithTag("motion-photos-option-photo-only").performClick()
 
-        assertEquals(listOf(BackupSettings(motionPhotos = MotionPhotoMode.LIVE_PHOTO)), saved)
+        assertEquals(listOf(BackupSettings(motionPhotos = MotionPhotoMode.PHOTO_ONLY)), saved)
         compose.onNodeWithTag("motion-photos-options").assertDoesNotExist()
     }
 
