@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.verify.domain.DomainVerificationManager
+import android.content.pm.verify.domain.DomainVerificationUserState
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
@@ -25,6 +27,9 @@ internal enum class AppPermission(val id: String, val backup: Boolean = false) {
     NOTIFICATIONS("notifications"),
     BATTERY("battery"),
     BACKGROUND_DATA("background-data"),
+
+    /** Android 12 and later: whether iCloud links open in Alba or in the browser. */
+    ICLOUD_LINKS("icloud-links"),
 }
 
 /** What Android allows Alba right now. Read again whenever Alba returns to the screen, since Settings can change it. */
@@ -38,9 +43,18 @@ internal data class AppPermissions(
     val batteryUnrestricted: Boolean,
     /** Data Saver keeps Alba off mobile data in the background. */
     val backgroundDataRestricted: Boolean,
+    /** Every iCloud link host is set to open in Alba. Null before Android 12, where links already offer Alba. */
+    val iCloudLinks: Boolean? = null,
 ) {
     /** The rows the page shows, in order. */
-    val shown: List<AppPermission> get() = AppPermission.entries.filter { it != AppPermission.NOTIFICATIONS || notifications != null }
+    val shown: List<AppPermission>
+        get() = AppPermission.entries.filter {
+            when (it) {
+                AppPermission.NOTIFICATIONS -> notifications != null
+                AppPermission.ICLOUD_LINKS -> iCloudLinks != null
+                else -> true
+            }
+        }
 
     fun allowed(permission: AppPermission): Boolean = when (permission) {
         AppPermission.PHOTOS -> photos == PhotoAccess.FULL
@@ -48,6 +62,7 @@ internal data class AppPermissions(
         AppPermission.NOTIFICATIONS -> notifications != false
         AppPermission.BATTERY -> batteryUnrestricted
         AppPermission.BACKGROUND_DATA -> !backgroundDataRestricted
+        AppPermission.ICLOUD_LINKS -> iCloudLinks != false
     }
 
     /** The rows that need the user, for the page's summary. */
@@ -57,8 +72,41 @@ internal data class AppPermissions(
     val backupAccess: Boolean get() = AppPermission.entries.filter { it.backup }.all(::allowed)
 }
 
+/** The hosts of the manifest's iCloud link filters, which Alba can't verify, so the user selects them in Settings. */
+internal val ICLOUD_LINK_HOSTS = setOf(
+    "photos.icloud.com", "www.icloud.com", "icloud.com",
+    "photos.icloud.com.cn", "www.icloud.com.cn", "icloud.com.cn",
+)
+
+/** Whether the user has selected or Android has verified every iCloud host in [hostStates]; false when none is listed. */
+internal fun iCloudLinksOn(hostStates: Map<String, Int>): Boolean {
+    val hosts = hostStates.filterKeys { it in ICLOUD_LINK_HOSTS }
+    return hosts.isNotEmpty() && hosts.values.all {
+        it == DomainVerificationUserState.DOMAIN_STATE_SELECTED || it == DomainVerificationUserState.DOMAIN_STATE_VERIFIED
+    }
+}
+
+/** Where the page learns whether iCloud links open in Alba; tests give it a fixed answer. */
+internal fun interface ICloudLinksSource {
+    /** True when every iCloud link host is on for Alba, false when not, null when Android can't say. Android 12 and later. */
+    fun read(context: Context): Boolean?
+}
+
+/** Android's per-app link settings, the "Open by default" page. */
+internal val PlatformICloudLinks = ICloudLinksSource { context ->
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return@ICloudLinksSource null
+    runCatching {
+        val manager = context.getSystemService(DomainVerificationManager::class.java)
+        manager?.getDomainVerificationUserState(context.packageName)?.hostToStateMap?.let(::iCloudLinksOn)
+    }.getOrNull()
+}
+
 /** Reads what Android allows Alba now, with the same checks the rest of the app uses. */
-internal fun readAppPermissions(anyContext: Context, sdkInt: Int = Build.VERSION.SDK_INT): AppPermissions {
+internal fun readAppPermissions(
+    anyContext: Context,
+    sdkInt: Int = Build.VERSION.SDK_INT,
+    links: ICloudLinksSource = PlatformICloudLinks,
+): AppPermissions {
     val context = anyContext.applicationContext
     val granted = { permission: String -> ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED }
     val photos = when {
@@ -73,6 +121,7 @@ internal fun readAppPermissions(anyContext: Context, sdkInt: Int = Build.VERSION
         notifications = if (sdkInt >= Build.VERSION_CODES.TIRAMISU) canNotify(context) else null,
         batteryUnrestricted = context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true,
         backgroundDataRestricted = connectivity?.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED,
+        iCloudLinks = if (sdkInt >= Build.VERSION_CODES.S) links.read(context) else null,
     )
 }
 
@@ -90,6 +139,9 @@ internal enum class PermissionFix {
 
     /** Alba's mobile data settings, where "Background data" and "Unrestricted data" are. */
     DATA_SETTINGS,
+
+    /** Alba's "Open by default" page, where the user turns its web links on. */
+    OPEN_BY_DEFAULT_SETTINGS,
 }
 
 /**
@@ -100,6 +152,7 @@ internal fun AppPermissions.fix(permission: AppPermission, blocked: Boolean): Pe
     allowed(permission) -> null
     permission == AppPermission.BATTERY -> PermissionFix.BATTERY_SETTINGS
     permission == AppPermission.BACKGROUND_DATA -> PermissionFix.DATA_SETTINGS
+    permission == AppPermission.ICLOUD_LINKS -> PermissionFix.OPEN_BY_DEFAULT_SETTINGS
     // Android 14's partial access asks again, so the user can choose "Allow all".
     permission == AppPermission.PHOTOS && photos == PhotoAccess.SELECTED -> PermissionFix.REQUEST
     permission == AppPermission.NOTIFICATIONS -> if (blocked) PermissionFix.NOTIFICATION_SETTINGS else PermissionFix.REQUEST
@@ -115,6 +168,7 @@ internal fun settingsIntents(fix: PermissionFix, packageName: String): List<Inte
             .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
         PermissionFix.BATTERY_SETTINGS -> Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
         PermissionFix.DATA_SETTINGS -> Intent(Settings.ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS, appUri)
+        PermissionFix.OPEN_BY_DEFAULT_SETTINGS -> Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, appUri)
         PermissionFix.APP_SETTINGS, PermissionFix.REQUEST -> null
     }
     return listOfNotNull(specific?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), appSettingsIntent(packageName))

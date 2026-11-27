@@ -3,6 +3,7 @@ package me.lvca.alba.app.account
 import android.Manifest
 import android.app.Application
 import android.app.NotificationManager
+import android.content.pm.verify.domain.DomainVerificationUserState
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.PowerManager
@@ -11,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -29,14 +31,18 @@ import me.lvca.alba.app.DiagnosticsConsent
 import me.lvca.alba.app.R
 import me.lvca.alba.app.platform.AppPermission
 import me.lvca.alba.app.platform.AppPermissions
+import me.lvca.alba.app.platform.ICLOUD_LINK_HOSTS
+import me.lvca.alba.app.platform.ICloudLinksSource
 import me.lvca.alba.app.platform.NetworkStatus
 import me.lvca.alba.app.platform.PermissionFix
 import me.lvca.alba.app.platform.PermissionPromptPreferences
 import me.lvca.alba.app.platform.PhotoAccess
 import me.lvca.alba.app.platform.fix
+import me.lvca.alba.app.platform.iCloudLinksOn
 import me.lvca.alba.app.testing.testAlbaActions
 import me.lvca.alba.app.transfers.TransferState
 import me.lvca.alba.app.ui.account.ICloudAccountScreen
+import me.lvca.alba.app.ui.account.LocalICloudLinks
 import me.lvca.alba.app.ui.account.PermissionsPage
 import me.lvca.alba.app.ui.account.ProfilePage
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
@@ -207,6 +213,44 @@ class PermissionsPageTest {
         compose.onNodeWithTag("permission-action-location").assertDoesNotExist()
     }
 
+    @Test fun iCloudLinksOffExplainAndOpenAlbasOpenByDefaultSettings() {
+        allowEverything()
+        render(links = false)
+        status(AppPermission.ICLOUD_LINKS, R.string.permission_icloud_links_off)
+        summary(app.resources.getQuantityString(R.plurals.permissions_summary_attention, 1, 1))
+        action(AppPermission.ICLOUD_LINKS, R.string.permission_open_settings).performClick()
+        val opened = shadowOf(compose.activity).nextStartedActivity
+        assertEquals(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, opened.action)
+        assertEquals(Uri.parse("package:" + app.packageName), opened.data)
+    }
+
+    @Test fun iCloudLinksOnShowAsAllowed() {
+        allowEverything()
+        render(links = true)
+        status(AppPermission.ICLOUD_LINKS, R.string.permission_icloud_links_allowed)
+        compose.onNodeWithTag("permission-action-icloud-links").assertDoesNotExist()
+        summary(app.getString(R.string.permissions_summary_allowed))
+    }
+
+    @Test @Config(sdk = [30])
+    fun beforeAndroid12ThereIsNoICloudLinksRow() {
+        shadowOf(app).grantPermissions(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.ACCESS_MEDIA_LOCATION)
+        exemptFromBatteryOptimisation()
+        render(links = false)
+        compose.onNodeWithTag("permission-icloud-links").assertDoesNotExist()
+        summary(app.getString(R.string.permissions_summary_allowed))
+    }
+
+    @Test fun iCloudLinksAreOnOnlyWhenEveryHostIsSelectedOrVerified() {
+        val on = ICLOUD_LINK_HOSTS.associateWith { DomainVerificationUserState.DOMAIN_STATE_SELECTED }
+        assertTrue(iCloudLinksOn(on))
+        assertTrue(iCloudLinksOn(on + ("icloud.com" to DomainVerificationUserState.DOMAIN_STATE_VERIFIED)))
+        assertEquals(false, iCloudLinksOn(on + ("icloud.com" to DomainVerificationUserState.DOMAIN_STATE_NONE)))
+        // Other hosts the app declares don't count either way.
+        assertTrue(iCloudLinksOn(on + ("example.com" to DomainVerificationUserState.DOMAIN_STATE_NONE)))
+        assertEquals(false, iCloudLinksOn(emptyMap()))
+    }
+
     @Test fun theProfileLeadsHere() {
         allowEverything()
         render(ProfilePage.OVERVIEW)
@@ -256,9 +300,13 @@ class PermissionsPageTest {
     private fun exemptFromBatteryOptimisation() =
         shadowOf(app.getSystemService(PowerManager::class.java)).setIgnoringBatteryOptimizations(app.packageName, true)
 
-    private fun render() = compose.setContent {
+    /** The page, with iCloud links [links] on or off; null leaves Android's own answer, which a test can't set. */
+    private fun render(links: Boolean? = null) = compose.setContent {
         AlbaTheme(darkTheme = false) {
-            Column(Modifier.verticalScroll(rememberScrollState())) { PermissionsPage(requestPhotos = { photoRequests++ }) }
+            val source = links?.let { ICloudLinksSource { _ -> it } } ?: LocalICloudLinks.current
+            CompositionLocalProvider(LocalICloudLinks provides source) {
+                Column(Modifier.verticalScroll(rememberScrollState())) { PermissionsPage(requestPhotos = { photoRequests++ }) }
+            }
         }
     }
 
