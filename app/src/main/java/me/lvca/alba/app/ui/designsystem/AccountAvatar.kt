@@ -1,6 +1,7 @@
 package me.lvca.alba.app.ui.designsystem
 
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
@@ -152,9 +153,12 @@ internal fun AccountAvatar(
     border: BorderStroke? = null,
 ) {
     // Keyed by content, and the old image stays until the new one is decoded, so the same photo loaded again never
-    // falls back to the monogram for a frame.
-    val bitmap by produceState<ImageBitmap?>(null, photo?.contentHashCode(), photo?.size) {
-        value = if (photo == null) null else withContext(Dispatchers.Default) { decodeAvatar(photo) }
+    // falls back to the monogram for a frame. Decoded photos are kept, so an avatar created again (a card coming back
+    // into view, the grid returning from the viewer) starts with the photo instead of fading in from the monogram.
+    val key = remember(photo) { photo?.let { AvatarKey(it.contentHashCode(), it.size) } }
+    val bitmap by produceState(key?.let(decodedAvatars::get), key) {
+        if (photo == null || key == null) { value = null; return@produceState }
+        value = decodedAvatars.get(key) ?: withContext(Dispatchers.Default) { decodeAvatar(photo) }?.also { decodedAvatars.put(key, it) }
     }
     val fade = if (reduceGalleryMotion()) snap<Float>() else tween(AVATAR_FADE_MILLIS)
     Crossfade(bitmap, modifier.size(avatarSize), animationSpec = fade, label = "account-avatar") { image ->
@@ -163,6 +167,11 @@ internal fun AccountAvatar(
         } else MonogramAvatar(name, avatarSize, textStyle = textStyle, shadowElevation = shadowElevation, border = border)
     }
 }
+
+private data class AvatarKey(val contentHash: Int, val size: Int)
+
+/** Decoded account photos, at most a few: there is one account, and its photo rarely changes. */
+private val decodedAvatars = LruCache<AvatarKey, ImageBitmap>(DECODED_AVATARS)
 
 /** Bounds decoded dimensions as well as download size; a compressed image can be enormous. */
 private fun decodeAvatar(photo: ByteArray): ImageBitmap? {
@@ -177,6 +186,7 @@ private fun decodeAvatar(photo: ByteArray): ImageBitmap? {
 }
 
 private const val SILHOUETTE_SCALE = .62f
+private const val DECODED_AVATARS = 4
 private const val AVATAR_FADE_MILLIS = 220
 private const val MAX_SOURCE_SIDE = 16384
 private const val MAX_DECODED_SIDE = 256

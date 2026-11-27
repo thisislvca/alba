@@ -20,6 +20,8 @@ import me.lvca.alba.app.testing.runBlockingWithMainLooper
 import me.lvca.alba.app.testing.setAlbaContent
 import me.lvca.alba.app.testing.testDependencies
 import me.lvca.alba.app.ui.collections.AlbumChooser
+import me.lvca.alba.app.ui.collections.CollectionPreview
+import me.lvca.alba.app.ui.collections.rememberCollectionPreviews
 import me.lvca.alba.app.ui.designsystem.theme.AlbaTheme
 import me.lvca.alba.engine.model.*
 import org.junit.Assert.*
@@ -34,6 +36,33 @@ class AlbumComponentsTest {
     @get:Rule(order = 1) val compose = createComposeRule()
     private val app get() = ApplicationProvider.getApplicationContext<AlbaApplication>()
     private fun text(id: Int) = app.getString(id)
+
+    @Test fun previewsCreatedAgainOverTheSameLibraryAreThereFromTheFirstFrame() {
+        // The grid is created again when it comes back from the viewer; empty counts on its first frame hid the Shared
+        // Albums strip until they were recounted, pushing every photo up and back down.
+        val shared = SharedAlbumInfo(SharedAlbumGeneration.MODERN, SharedAlbumRole.OWNER)
+        val collections = listOf(GalleryCollection("shared:a", "Family", shared = shared))
+        fun media(id: String) = GalleryMedia(id, "$id.jpg", 5, 1, 1, MediaOrigin.ICLOUD, MediaAvailability.CLOUD_ONLY,
+            null, null, 0, 0, collectionIds = setOf("shared:a"))
+        var shown by mutableStateOf(true)
+        var counted = false
+        val firstFrames = mutableListOf<Map<String, CollectionPreview>>()
+        compose.setContent {
+            if (shown) {
+                // Fresh lists each time, as a screen created again builds them.
+                val previews = rememberCollectionPreviews(listOf(media("1"), media("2")), collections.toList())
+                remember { firstFrames.add(previews) }
+                SideEffect { if (previews.isNotEmpty()) counted = true }
+            }
+        }
+        compose.waitUntil(SHORT_WAIT) { counted }
+        shown = false
+        compose.waitForIdle()
+        shown = true
+        compose.waitForIdle()
+        assertEquals("the first creation counts in the background", emptyMap<String, CollectionPreview>(), firstFrames.first())
+        assertEquals(2, firstFrames.last()["shared:a"]?.count)
+    }
 
     @Test fun albumPickerOffersOnlyPersonalAlbumsAndCreatesOneWithoutLeavingSelection() {
         var created: String? = null

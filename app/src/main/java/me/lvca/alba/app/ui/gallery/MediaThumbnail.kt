@@ -112,10 +112,21 @@ private val transitionThumbnails = object : LruCache<TransitionThumbnailKey, Bit
 
 private data class ThumbnailCacheKey(val reference: String, val targetSidePx: Int, val fullImage: Boolean, val sourceRevision: String)
 
-private val thumbnailMemoryCache = object : LruCache<ThumbnailCacheKey, Bitmap>(thumbnailCacheKilobytes()) {
+// Grid tiles and the viewer's photos keep separate caches. Shared, one full-screen photo (about 10 MB) and its
+// neighbours pushed every tile out, so going back to the grid redrew each one from a grey placeholder.
+private val thumbnailMemoryCache = bitmapCache(thumbnailCacheKilobytes())
+private val viewerMemoryCache = bitmapCache(viewerCacheKilobytes())
+
+private fun bitmapCache(kilobytes: Int) = object : LruCache<ThumbnailCacheKey, Bitmap>(kilobytes) {
     override fun sizeOf(key: ThumbnailCacheKey, value: Bitmap): Int =
-        (value.allocationByteCount / 1_024).coerceAtLeast(1)
+        (value.allocationByteCount / BYTES_PER_KB).coerceAtLeast(1)
 }
+
+private const val BYTES_PER_KB = 1_024
+
+/** The viewer's fitted photos go to their own cache, so they never evict the grid's tiles. */
+private val ThumbnailCacheKey.cache: LruCache<ThumbnailCacheKey, Bitmap>
+    get() = if (fullImage) viewerMemoryCache else thumbnailMemoryCache
 
 @Composable
 fun MediaThumbnail(
@@ -160,7 +171,7 @@ fun MediaThumbnail(
         val key = cacheKey
         if (key == null) return@produceState
         decodeFailure = null; decoding = true
-        val decoded = try { thumbnailMemoryCache.get(key) ?: withContext(Dispatchers.IO) {
+        val decoded = try { key.cache.get(key) ?: withContext(Dispatchers.IO) {
             decodeWithFallback(context, key, fallbackReference)
         } } catch (e: CancellationException) { throw e }
         catch (_: SecurityException) { decodeFailure = ThumbnailFailure.ACCESS; null }
@@ -170,7 +181,7 @@ fun MediaThumbnail(
         finally { decoding = false }
         decoded?.also { loaded ->
             loaded.prepareToDraw()
-            thumbnailMemoryCache.put(key, loaded)
+            key.cache.put(key, loaded)
         }
         if (decoded != null) {
             if (key.fullImage && sharedMediaId != null) withContext(Dispatchers.IO) {
@@ -382,7 +393,7 @@ class TileReveal {
 }
 
 private fun cachedThumbnail(reference: String?, fallback: String?, revision: String): Bitmap? =
-    thumbnailMemoryCache.snapshot().entries
+    (thumbnailMemoryCache.snapshot().entries + viewerMemoryCache.snapshot().entries)
         .filter { (key, _) -> key.sourceRevision == revision && (key.reference == reference || key.reference == fallback) }
         .maxByOrNull { (_, bitmap) -> bitmap.width.toLong() * bitmap.height }?.value
 
@@ -478,8 +489,14 @@ private fun thumbnailCacheKilobytes(): Int = (Runtime.getRuntime().maxMemory() /
 /** Above this zoom the viewer decodes at twice the screen size. */
 private const val SHARPEN_ZOOM = 1.1f
 
+/** Room for the photo on screen and the one either side of it, at screen size. */
+private fun viewerCacheKilobytes(): Int = (Runtime.getRuntime().maxMemory() / 1_024L / 8L)
+    .coerceIn(MIN_CACHE_KB.toLong(), MAX_VIEWER_CACHE_KB.toLong())
+    .toInt()
+
 private const val MIN_CACHE_KB = 4 * 1_024
 private const val MAX_CACHE_KB = 16 * 1_024
+private const val MAX_VIEWER_CACHE_KB = 32 * 1_024
 
 /** Clamp to the fitted image, not the letterboxed viewport, so panning cannot lose the photo. */
 internal fun constrainPhotoPan(offset: Offset, viewport: IntSize,
