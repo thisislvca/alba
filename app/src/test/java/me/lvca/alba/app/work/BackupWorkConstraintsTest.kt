@@ -14,7 +14,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
-import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import me.lvca.alba.app.work.WorkManagerWakeupScheduler.Companion.IMMEDIATE_CHARGING_WORK_NAME
 import me.lvca.alba.app.work.WorkManagerWakeupScheduler.Companion.IMMEDIATE_WORK_NAME
@@ -124,6 +124,13 @@ class BackupWorkConstraintsTest {
 
     /** A pass that runs until it is stopped. */
     class BlockingWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-        override suspend fun doWork(): Result = awaitCancellation()
+        // Waits on a signal held for the whole test JVM. With nothing referencing its coroutine (awaitCancellation), a
+        // garbage collection mid-test collected WorkManager's future for the run, which then marked it FAILED; the
+        // next APPEND_OR_REPLACE deleted the failed chain, and the "running" batch was gone.
+        override suspend fun doWork(): Result = never.await()
+
+        private companion object {
+            val never = CompletableDeferred<Nothing>()
+        }
     }
 }
