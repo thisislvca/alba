@@ -62,7 +62,11 @@ internal data class CollectionPreview(val count: Int = 0, val media: List<Galler
 /** One bounded preview index; never decode originals to build collection mosaics. */
 @Composable
 internal fun rememberCollectionPreviews(media: List<GalleryMedia>, collections: List<GalleryCollection> = emptyList()): Map<String, CollectionPreview> {
-    val summaries by produceState<Map<String, CollectionPreview>>(emptyMap(), media, collections) {
+    // A screen created again over the same library (the grid coming back from the viewer) starts from the last counts,
+    // so the Shared Albums strip is there from its first frame instead of arriving and pushing the photos down.
+    val initial = remember(media, collections) { lastPreviews?.takeIf { it.matches(media, collections) }?.previews ?: emptyMap() }
+    val summaries by produceState(initial, media, collections) {
+        if (initial.isNotEmpty()) return@produceState
         value = withContext(Dispatchers.Default) {
             val result = mutableMapOf<String, CollectionPreview>()
             val covers = collections.associate { it.id to it.coverMediaId }
@@ -81,9 +85,18 @@ internal fun rememberCollectionPreviews(media: List<GalleryMedia>, collections: 
                 }
             }
             result
-        }
+        }.also { lastPreviews = PreviewsMemo(media, collections, it) }
     }
     return summaries
+}
+
+/** The last counts computed, with what they were computed from. Read and written on the main thread only. */
+private var lastPreviews: PreviewsMemo? = null
+
+private class PreviewsMemo(val media: List<GalleryMedia>, val collections: List<GalleryCollection>, val previews: Map<String, CollectionPreview>) {
+    fun matches(media: List<GalleryMedia>, collections: List<GalleryCollection>): Boolean =
+        (media === this.media || (media.size == this.media.size && media == this.media)) &&
+            (collections === this.collections || collections == this.collections)
 }
 
 internal fun GalleryMedia.coverReference(): String? = previewReference ?: viewerReference
