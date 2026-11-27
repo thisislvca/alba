@@ -216,11 +216,13 @@ jobs:
     # The store listing (fastlane/metadata) goes up with every alpha, under the same restricted identity. Its own job, so
     # a listing problem shows as a failure here without holding back the build or its prerelease.
     name: Update the Play store listing
-    needs: [internal]
+    needs: [build, internal]
     if: ${{ !inputs.dry_run && inputs.upload_to_play }}
     environment: play-internal
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      ALBA_VERSION_CODE: ${{ needs.build.outputs.version_code }}
     permissions:
       contents: read
       id-token: write
