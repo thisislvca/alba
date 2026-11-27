@@ -18,7 +18,7 @@ Play review, production eligibility and managed publishing still apply. The firs
 
 ## Store listing
 
-The Play listing text lives in `fastlane/metadata/android/<locale>/` (`title.txt`, `short_description.txt`, `full_description.txt`; Play allows 30, 80 and 4,000 characters). Releases don't upload it: the Fastfile keeps `skip_upload_metadata`, and neither release service account has store-listing permission. When the text changes, paste it into Play Console under Main store listing for English (United States) and Italian.
+The Play listing text lives in `fastlane/metadata/android/<locale>/` (`title.txt`, `short_description.txt`, `full_description.txt`; Play allows 30, 80 and 4,000 characters), in English (United States) and Italian. Every alpha release uploads it after the build, in the **Update the Play store listing** job: edit the files, merge, and the next release carries them. Graphics and screenshots are not uploaded; change those in Play Console. The listing is one page for every track, so a release publishes it to production users as well as testers.
 
 ## Credentials and permissions
 
@@ -35,7 +35,7 @@ The Play listing text lives in `fastlane/metadata/android/<locale>/` (`title.txt
 
 All three environments allow only the `main` branch. `release-signing` and `play-production` require the owner's approval and disable administrator bypass. Self-review is allowed so the sole maintainer can approve their own manually dispatched release. Account takeover remains a risk; protect Google and GitHub accounts with strong MFA.
 
-Google project `lvca-alba-releases` uses Workload Identity Federation. No service-account private JSON key is stored in GitHub. Trust is restricted to the numeric repository and owner IDs, `main`, manual workflow dispatch, and the intended workflow/environment. The internal service account can view and release Alba to testing tracks; the production service account can view and promote Alba to production. Neither gets account-wide administration, financial, user-management or store-listing permissions.
+Google project `lvca-alba-releases` uses Workload Identity Federation. No service-account private JSON key is stored in GitHub. Trust is restricted to the numeric repository and owner IDs, `main`, manual workflow dispatch, and the intended workflow/environment. The internal service account can view and release Alba to testing tracks and edit its store listing; the production service account can view and promote Alba to production. Neither gets account-wide administration, financial or user-management permissions.
 
 Do not add release credentials as repository secrets. Build and PR jobs must never receive them. The signing job has no Gradle/dependency build or cache restore. Google authentication happens after dependencies and artifact verification. Artifact uploads use an explicit file list and omit hidden files.
 

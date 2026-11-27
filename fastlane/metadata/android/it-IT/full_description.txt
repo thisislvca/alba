@@ -23,9 +23,6 @@ SUL TELEFONO
 PRIVACY PRIMA DI TUTTO
 Il telefono si collega direttamente ad Apple. Alba non ha un server per le tue foto o credenziali, non salva mai la password e non usa pubblicità o analisi del comportamento. L’accesso resta crittografato sul telefono.
 
-PROVALA PRIMA
-La demo funziona senza account, con foto di esempio e un backup simulato.
-
 DA SAPERE
 • Richiede Android 11 o versioni successive e un Account Apple con Foto di iCloud attivo
 • Supporta l’autenticazione a due fattori standard. Gli account con chiavi di sicurezza o Protezione avanzata dei dati non sono ancora supportati, e nemmeno la Libreria foto condivisa di iCloud
