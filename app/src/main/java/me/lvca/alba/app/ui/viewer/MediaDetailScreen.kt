@@ -27,7 +27,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
@@ -637,11 +636,12 @@ private fun ViewerActionBar(
     canvas: Color,
     onAddToAlbum: (() -> Unit)?,
 ) {
-    // Photos' actions sit on the canvas itself; a transparent-to-canvas scrim keeps them legible where the photo runs
-    // under them, and the ink follows the canvas, dark on the light one and light on black.
+    // Photos' actions sit on the canvas itself, solid and edged like the top bar: a photo that reaches the bottom edge (a
+    // phone screenshot, say) would otherwise show its own icons and text through the labels. The ink follows the canvas,
+    // dark on the light one and light on black.
     val viewer = viewerColors()
     val ink = if (canvas.luminance() > .5f) viewer.foreground else viewer.videoOnDark.ink
-    Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(canvas.copy(alpha = 0f), canvas.copy(alpha = ACTION_SCRIM_ALPHA))))
+    Row(Modifier.fillMaxWidth().background(canvas)
         .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
         .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)).offset(y = 5.dp).height(76.dp).testTag("viewer-actions"),
         horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
@@ -678,9 +678,6 @@ private fun ViewerActionBar(
 /** As the details panel offers it: iCloud photos outside shared albums, Hidden and the trash can join an album. */
 private val GalleryMedia.canJoinAlbum: Boolean
     get() = origin == MediaOrigin.ICLOUD && !isShared && !(isHidden || isTrashed)
-
-/** The scrim under the viewer's actions reaches this opacity of the canvas at the bottom edge. */
-private const val ACTION_SCRIM_ALPHA = .85f
 
 /** One viewer action, as Photos': a 24dp icon over a 14sp label, sharing the row's width evenly. */
 @Composable
