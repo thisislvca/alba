@@ -1353,4 +1353,7 @@
     <string name="permission_background_data">Dati in background</string>
     <string name="permission_background_data_allowed">Consentiti: il backup può usare i dati mobili in background</string>
     <string name="permission_background_data_restricted">Limitati: il backup con i dati mobili non può proseguire in background</string>
+    <string name="permission_icloud_links">Link iCloud</string>
+    <string name="permission_icloud_links_allowed">Attivi: i link iCloud si aprono in Alba</string>
+    <string name="permission_icloud_links_off">Non attivi: i link iCloud si aprono nel browser. Attivali per aprirli in Alba</string>
 </resources>

@@ -1313,4 +1313,7 @@
     <string name="permission_background_data">Background data</string>
     <string name="permission_background_data_allowed">Allowed: backup can use mobile data in the background</string>
     <string name="permission_background_data_restricted">Restricted: backup on mobile data can’t run in the background</string>
+    <string name="permission_icloud_links">iCloud links</string>
+    <string name="permission_icloud_links_allowed">On: iCloud links open in Alba</string>
+    <string name="permission_icloud_links_off">Off: iCloud links open in the browser. Turn them on to open them in Alba</string>
 </resources>

@@ -146,6 +146,7 @@ private fun AppPermission.title(): Int = when (this) {
     AppPermission.NOTIFICATIONS -> R.string.permission_notifications
     AppPermission.BATTERY -> R.string.permission_battery
     AppPermission.BACKGROUND_DATA -> R.string.permission_background_data
+    AppPermission.ICLOUD_LINKS -> R.string.permission_icloud_links
 }
 
 /** The row's status, with why it matters in the same short line. */
@@ -163,6 +164,8 @@ private fun permissionStatus(permission: AppPermission, permissions: AppPermissi
         else R.string.permission_battery_optimized
     AppPermission.BACKGROUND_DATA -> if (permissions.backgroundDataRestricted) R.string.permission_background_data_restricted
         else R.string.permission_background_data_allowed
+    AppPermission.ICLOUD_LINKS -> if (permissions.iCloudLinks != false) R.string.permission_icloud_links_allowed
+        else R.string.permission_icloud_links_off
 })
 
 private fun actionLabel(permission: AppPermission, permissions: AppPermissions, fix: PermissionFix): Int = when {
